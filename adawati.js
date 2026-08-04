@@ -355,11 +355,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const categoryData = gameDictionary[f.category][currentLetter] || [];
             const normalizedDict = categoryData.map(item => normalizeArabicText(item));
 
-            if (normalizedVal && (normalizedDict.includes(normalizedVal) || normalizedVal.startsWith(currentLetter))) {
+            if (normalizedVal && normalizedDict.includes(normalizedVal)) {
                 score += 10;
                 resultsHTML += `<li style="color: var(--accent-color);">✓ ${f.name}: ${val} (+10 نقاط)</li>`;
             } else if (val) {
-                resultsHTML += `<li style="color: var(--danger-color);">✗ ${f.name}: ${val} (إجابة غير صحيحة)</li>`;
+                resultsHTML += `<li style="color: var(--danger-color);">✗ ${f.name}: ${val} (غير موجودة في القاموس)</li>`;
             } else {
                 resultsHTML += `<li style="color: var(--text-muted);">- ${f.name}: لم تُجب</li>`;
             }
