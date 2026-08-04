@@ -1,2 +1,4 @@
 User-agent: *
-Sitemap: https://github.io
+Allow: /
+
+Sitemap: https://just-c.github.io/adawati/sitemap.xml
