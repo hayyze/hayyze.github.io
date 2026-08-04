@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="منصة أدواتي - مجموعة أدوات مجانية شاملة للطلاب لتنظيم الدراسة، مؤقت بومودورو، لعبة الحروف، وقائمة المهام.">
+    <meta name="keywords" content="أدوات طلابية, مؤقت مذاكرة, بومودورو, جماد حيوان نبات, أدوات دراسة مجانية, تنظيم الوقت">
+    <meta name="author" content="أدواتي">
+    <title>أدواتي | منصة الأدوات الطلابية المتكاملة</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="adawati.css">
+</head>
+<body>
+
+    <header class="navbar">
+        <div class="container nav-container">
+            <a href="#" class="logo">
+                <i class="fa-solid fa-graduation-cap"></i> أدواتي
+            </a>
+            <nav class="nav-links">
+                <button class="nav-btn active" data-tab="home"><i class="fa-solid fa-house"></i> الرئيسية</button>
+                <button class="nav-btn" data-tab="pomodoro"><i class="fa-solid fa-clock"></i> المؤقت</button>
+                <button class="nav-btn" data-tab="todo"><i class="fa-solid fa-list-check"></i> المهام</button>
+                <button class="nav-btn" data-tab="game"><i class="fa-solid fa-gamepad"></i> لعبة الحروف</button>
+            </nav>
+            <div class="nav-actions">
+                <button id="theme-toggle" class="theme-btn" aria-label="تبديل الوضع">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container main-content">
+        
+        <section id="tab-home" class="tab-content active">
+            <div class="hero">
+                <h1 class="hero-title">مرحبًا بك في منصة <span class="highlight">أدواتي</span></h1>
+                <p class="hero-desc">منصة أدوات مجانية تساعد الطلاب على تنظيم الدراسة، تحسين الإنتاجية، وجعل التجربة التعليمية أكثر فاعلية ومتعة.</p>
+            </div>
+
+            <div class="tools-grid">
+                <div class="card tool-card" onclick="switchTab('pomodoro')">
+                    <div class="card-icon"><i class="fa-solid fa-stopwatch"></i></div>
+                    <h3>مؤقت المذاكرة (Pomodoro)</h3>
+                    <p>نظّم وقت دراستك مع فترات راحة منتظمة لزيادة التركيز وتجنب الإرهاق.</p>
+                    <button class="btn btn-secondary">افتح الأداة</button>
+                </div>
+
+                <div class="card tool-card" onclick="switchTab('todo')">
+                    <div class="card-icon"><i class="fa-solid fa-tasks"></i></div>
+                    <h3>قائمة مهام الطلاب</h3>
+                    <p>تابع واجباتك ومشاريعك اليومية ونظم أولوياتك وتواريخ التسليم في مكان واحد.</p>
+                    <button class="btn btn-secondary">افتح الأداة</button>
+                </div>
+
+                <div class="card tool-card" onclick="switchTab('game')">
+                    <div class="card-icon"><i class="fa-solid fa-font"></i></div>
+                    <h3>لعبة جماد حيوان نبات</h3>
+                    <p>نشّط عقلك وتحدَّ سرعة بديهتك بالحروف العربية وقاموس الكلمات الموثق.</p>
+                    <button class="btn btn-secondary">العب الآن</button>
+                </div>
+            </div>
+
+            <section class="info-section card">
+                <h2><i class="fa-solid fa-circle-info"></i> عن المنصة</h2>
+                <p>تم تطوير مشروع "أدواتي" بهدف تقديم حلول رقمية خفيفة وسريعة تعين الطالب في مسيرته الأكاديمية. يعمل الموقع بالكامل على جهازك دون الحاجة لاتصال بسيرفر خارجي، مما يضمن أسرع أداء وحفاظًا كاملاً على خصوصية بياناتك.</p>
+            </section>
+        </section>
+
+        <section id="tab-pomodoro" class="tab-content">
+            <div class="card text-center">
+                <h2><i class="fa-solid fa-clock"></i> مؤقت المذاكرة (Pomodoro)</h2>
+                <div class="timer-mode-selector">
+                    <button class="mode-btn active" id="mode-work">دراسة (25 د)</button>
+                    <button class="mode-btn" id="mode-break">راحة (5 د)</button>
+                </div>
+
+                <div class="timer-display" id="timer-display">25:00</div>
+
+                <div class="controls-row justify-center">
+                    <button class="btn btn-primary" id="timer-start-btn"><i class="fa-solid fa-play"></i> تشغيل</button>
+                    <button class="btn btn-secondary" id="timer-pause-btn"><i class="fa-solid fa-pause"></i> إيقاف</button>
+                    <button class="btn btn-outline" id="timer-reset-btn"><i class="fa-solid fa-rotate-right"></i> إعادة ضبط</button>
+                </div>
+
+                <div class="margin-top" style="font-size: 0.95rem; color: var(--text-muted);">
+                    <i class="fa-solid fa-circle-check" style="color: var(--accent-color);"></i>
+                    الجلسات المكتملة: <strong id="completed-sessions-count">0</strong>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-todo" class="tab-content">
+            <div class="card">
+                <h2><i class="fa-solid fa-list-check"></i> قائمة المهام الدراسية</h2>
+                
+                <form id="todo-form" class="todo-form">
+                    <div class="input-group">
+                        <input type="text" id="todo-input" placeholder="أضف مهمة جديدة (مثال: تسليم بحث الفيزياء)..." required>
+                        <button type="submit" class="btn btn-primary" id="add-todo-btn"><i class="fa-solid fa-plus"></i> إضافة</button>
+                    </div>
+
+                    <div class="todo-options">
+                        <div class="option-field">
+                            <label for="todo-date"><i class="fa-regular fa-calendar-days"></i> تاريخ الاستحقاق (اختياري):</label>
+                            <input type="datetime-local" id="todo-date">
+                        </div>
+                        <div class="option-field">
+                            <label for="todo-minutes"><i class="fa-solid fa-hourglass-half"></i> مدة التنفيذ بالدقائق (اختياري):</label>
+                            <input type="number" id="todo-minutes" min="1" max="1440" placeholder="مثال: 23">
+                        </div>
+                    </div>
+                </form>
+
+                <ul id="todo-list" class="todo-list"></ul>
+            </div>
+        </section>
+
+        <section id="tab-game" class="tab-content">
+            <div class="card">
+                <div class="game-header">
+                    <h2><i class="fa-solid fa-gamepad"></i> لعبة الحروف والقاموس</h2>
+                    <div class="score-board">أعلى نتيجة: <span id="high-score">0</span></div>
+                </div>
+                
+                <div class="game-start-box text-center">
+                    <div class="random-letter" id="current-letter">؟</div>
+                    <button class="btn btn-primary btn-lg" id="start-game-btn">بدء جولة جديدة</button>
+                    <div class="game-timer" id="game-timer-display">الوقت: 60ث</div>
+                </div>
+
+                <form id="game-form" class="game-form hidden">
+                    <div class="form-grid">
+                        <div class="field"><label for="g-human">إنسان</label><input type="text" id="g-human" autocomplete="off"></div>
+                        <div class="field"><label for="g-animal">حيوان</label><input type="text" id="g-animal" autocomplete="off"></div>
+                        <div class="field"><label for="g-plant">نبات</label><input type="text" id="g-plant" autocomplete="off"></div>
+                        <div class="field"><label for="g-thing">جماد</label><input type="text" id="g-thing" autocomplete="off"></div>
+                        <div class="field"><label for="g-country">بلاد</label><input type="text" id="g-country" autocomplete="off"></div>
+                    </div>
+                    <button type="submit" class="btn btn-primary width-full margin-top"><i class="fa-solid fa-paper-plane"></i> إرسال الإجابات</button>
+                </form>
+
+                <div id="game-result-box" class="result-box hidden"></div>
+            </div>
+        </section>
+
+        <section class="card margin-top">
+            <h2><i class="fa-solid fa-envelope"></i> تواصل معنا</h2>
+            <p>هل لديك اقتراح لأداة جديدة؟ تواصل معنا عبر البريد الإلكتروني: <strong>adawati.support@gmail.com</strong></p>
+        </section>
+
+    </main>
+
+    <footer class="footer">
+        <div class="container footer-container">
+            <p>&copy; 2026 أدواتي - جميع الحقوق محفوظة.</p>
+            <a href="javascript:void(0)" id="privacy-link">سياسة الخصوصية</a>
+        </div>
+    </footer>
+
+    <div id="privacy-modal" class="modal hidden">
+        <div class="modal-content card">
+            <span class="close-modal">&times;</span>
+            <h2>سياسة الخصوصية</h2>
+            <p>نحن نحترم خصوصيتك بشكل كامل. لا يجمع هذا الموقع أي بيانات شخصية أو يتشاركها مع أي أطراف خارجية، ويتم تشغيله بنسبة 100% داخل متصفحك عبر تقنية LocalStorage التنسيقية المحلية.</p>
+        </div>
+    </div>
+
+    <script src="adawati.js"></script>
+</body>
+</html>
