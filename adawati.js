@@ -23,18 +23,36 @@ document.addEventListener('DOMContentLoaded', () => {
         return div.innerHTML;
     }
 
+    // ========== Navigation ==========
     const navBtns = document.querySelectorAll('.nav-btn');
     const tabContents = document.querySelectorAll('.tab-content');
+    const menuToggle = document.getElementById('menu-toggle');
+    const navLinks = document.getElementById('nav-links');
 
     window.switchTab = (tabId) => {
         navBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabId));
         tabContents.forEach(tab => tab.classList.toggle('active', tab.id === `tab-${tabId}`));
+        // إغلاق قائمة الجوال بعد الاختيار
+        if (navLinks) navLinks.classList.remove('open');
     };
 
     navBtns.forEach(btn => {
         btn.addEventListener('click', () => switchTab(btn.dataset.tab));
     });
 
+    if (menuToggle && navLinks) {
+        menuToggle.addEventListener('click', () => {
+            navLinks.classList.toggle('open');
+            const icon = menuToggle.querySelector('i');
+            if (icon) {
+                icon.className = navLinks.classList.contains('open')
+                    ? 'fa-solid fa-xmark'
+                    : 'fa-solid fa-bars';
+            }
+        });
+    }
+
+    // ========== Theme ==========
     const themeBtn = document.getElementById('theme-toggle');
     const savedTheme = storage.get('adawati_theme', 'light');
 
@@ -57,24 +75,35 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ========== Privacy Modal ==========
     const privacyLink = document.getElementById('privacy-link');
     const privacyModal = document.getElementById('privacy-modal');
     const closeModal = document.querySelector('.close-modal');
 
     if (privacyLink && privacyModal && closeModal) {
-        privacyLink.addEventListener('click', (e) => { e.preventDefault(); privacyModal.classList.remove('hidden'); });
+        privacyLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            privacyModal.classList.remove('hidden');
+        });
         closeModal.addEventListener('click', () => privacyModal.classList.add('hidden'));
+        privacyModal.addEventListener('click', (e) => {
+            if (e.target === privacyModal) privacyModal.classList.add('hidden');
+        });
     }
 
+    // ========== Todo List ==========
     const todoForm = document.getElementById('todo-form');
     const todoInput = document.getElementById('todo-input');
     const todoDateInput = document.getElementById('todo-date');
     const todoMinutesInput = document.getElementById('todo-minutes');
+    const todoPriorityInput = document.getElementById('todo-priority');
     const todoList = document.getElementById('todo-list');
 
     let todos = storage.get('adawati_todos', []);
 
-    function saveTodos() { storage.set('adawati_todos', todos); }
+    function saveTodos() {
+        storage.set('adawati_todos', todos);
+    }
 
     function getTimeRemainingText(dueDateStr) {
         if (!dueDateStr) return '';
@@ -92,16 +121,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (days > 0) text += `${days} يوم و `;
         if (hours > 0 || days > 0) text += `${hours} ساعة و `;
         text += `${mins} دقيقة`;
-        return sanitizeText(text);
+        return text;
     }
+
+    const priorityLabels = {
+        high: 'عالية',
+        medium: 'متوسطة',
+        low: 'منخفضة'
+    };
 
     function renderTodos() {
         if (!todoList) return;
         todoList.innerHTML = '';
 
-        todos.forEach(todo => {
+        // ترتيب حسب الأولوية ثم التاريخ
+        const sorted = [...todos].sort((a, b) => {
+            const order = { high: 0, medium: 1, low: 2 };
+            return (order[a.priority] || 1) - (order[b.priority] || 1);
+        });
+
+        sorted.forEach(todo => {
             const li = document.createElement('li');
-            li.className = `todo-item ${todo.completed ? 'completed' : ''}`;
+            li.className = `todo-item priority-${todo.priority || 'medium'} ${todo.completed ? 'completed' : ''}`;
 
             const mins = Math.floor((todo.remainingSeconds || 0) / 60);
             const secs = (todo.remainingSeconds || 0) % 60;
@@ -113,9 +154,12 @@ document.addEventListener('DOMContentLoaded', () => {
             li.innerHTML = `
                 <div class="todo-header-row">
                     <span class="todo-title">${safeText}</span>
-                    <button class="btn btn-sm btn-outline btn-delete" title="حذف المهمة">
-                        <i class="fa-solid fa-trash" style="color: var(--danger-color);"></i>
-                    </button>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span class="priority-badge">${priorityLabels[todo.priority] || 'متوسطة'}</span>
+                        <button class="btn btn-sm btn-outline btn-delete" title="حذف المهمة">
+                            <i class="fa-solid fa-trash" style="color: var(--danger-color);"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="todo-meta-row">
                     ${todo.dueDate ? `<span><i class="fa-regular fa-calendar"></i> ${safeDueDate} - ${getTimeRemainingText(todo.dueDate)}</span>` : ''}
@@ -127,11 +171,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             <i class="fa-solid ${todo.isRunning ? 'fa-pause' : 'fa-play'}"></i> ${todo.isRunning ? 'إيقاف' : 'بدء'}
                         </button>
                         <button class="btn btn-sm btn-outline btn-reset-timer">
-                            <i class="fa-solid fa-rotate-right"></i> إعادة ضبط
+                            <i class="fa-solid fa-rotate-right"></i>
                         </button>
                     ` : ''}
                     <button class="btn btn-sm ${todo.completed ? 'btn-outline' : 'btn-primary'} btn-toggle-complete" style="margin-right: auto;">
-                        <i class="fa-solid ${todo.completed ? 'fa-arrow-rotate-left' : 'fa-check'}"></i> ${todo.completed ? 'تراجع' : 'اكتملت المهمة'}
+                        <i class="fa-solid ${todo.completed ? 'fa-arrow-rotate-left' : 'fa-check'}"></i> ${todo.completed ? 'تراجع' : 'اكتملت'}
                     </button>
                 </div>
             `;
@@ -159,6 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
             todos.push({
                 id: Date.now(),
                 text: text,
+                priority: todoPriorityInput ? todoPriorityInput.value : 'medium',
                 dueDate: todoDateInput.value || null,
                 durationMinutes: duration,
                 remainingSeconds: duration ? duration * 60 : 0,
@@ -169,24 +214,32 @@ document.addEventListener('DOMContentLoaded', () => {
             saveTodos();
             renderTodos();
             todoForm.reset();
+            if (todoPriorityInput) todoPriorityInput.value = 'medium';
         });
     }
 
     function toggleComplete(id) {
         todos = todos.map(t => t.id === id ? { ...t, completed: !t.completed, isRunning: false } : t);
-        saveTodos(); renderTodos();
+        saveTodos();
+        renderTodos();
     }
+
     function deleteTodo(id) {
         todos = todos.filter(t => t.id !== id);
-        saveTodos(); renderTodos();
+        saveTodos();
+        renderTodos();
     }
+
     function toggleTaskTimer(id) {
         todos = todos.map(t => t.id === id ? { ...t, isRunning: !t.isRunning } : t);
-        saveTodos(); renderTodos();
+        saveTodos();
+        renderTodos();
     }
+
     function resetTaskTimer(id) {
         todos = todos.map(t => t.id === id ? { ...t, remainingSeconds: (t.durationMinutes || 0) * 60, isRunning: false } : t);
-        saveTodos(); renderTodos();
+        saveTodos();
+        renderTodos();
     }
 
     setInterval(() => {
@@ -199,13 +252,27 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return t;
         });
-
-        if (updated) { saveTodos(); renderTodos(); }
+        if (updated) {
+            saveTodos();
+            renderTodos();
+        }
     }, 1000);
 
     renderTodos();
 
-    const pomodoroState = storage.get('adawati_pomodoro', { mode: 'work', timeLeft: 25 * 60, isRunning: false, completedSessions: 0 });
+    // ========== Pomodoro ==========
+    const workMinutesInput = document.getElementById('work-minutes');
+    const breakMinutesInput = document.getElementById('break-minutes');
+
+    const pomodoroState = storage.get('adawati_pomodoro', {
+        mode: 'work',
+        timeLeft: 25 * 60,
+        isRunning: false,
+        completedSessions: 0,
+        workMinutes: 25,
+        breakMinutes: 5
+    });
+
     let pomodoroTimer = null;
     const timerDisplay = document.getElementById('timer-display');
     const startBtn = document.getElementById('timer-start-btn');
@@ -215,7 +282,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const workModeBtn = document.getElementById('mode-work');
     const breakModeBtn = document.getElementById('mode-break');
 
-    function savePomodoroState() { storage.set('adawati_pomodoro', pomodoroState); }
+    // تعبئة القيم المحفوظة
+    if (workMinutesInput) workMinutesInput.value = pomodoroState.workMinutes || 25;
+    if (breakMinutesInput) breakMinutesInput.value = pomodoroState.breakMinutes || 5;
+
+    function savePomodoroState() {
+        storage.set('adawati_pomodoro', pomodoroState);
+    }
 
     function updatePomodoroUI() {
         const m = Math.floor(pomodoroState.timeLeft / 60);
@@ -227,6 +300,23 @@ document.addEventListener('DOMContentLoaded', () => {
             workModeBtn.classList.toggle('active', pomodoroState.mode === 'work');
             breakModeBtn.classList.toggle('active', pomodoroState.mode === 'break');
         }
+    }
+
+    function playBeep() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = 800;
+            gain.gain.value = 0.3;
+            osc.start();
+            setTimeout(() => {
+                osc.stop();
+                ctx.close();
+            }, 400);
+        } catch (e) {}
     }
 
     function startPomodoro() {
@@ -243,6 +333,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearInterval(pomodoroTimer);
                 pomodoroTimer = null;
                 pomodoroState.isRunning = false;
+                playBeep();
+
                 if (pomodoroState.mode === 'work') {
                     pomodoroState.completedSessions++;
                     alert('أحسنت! انتهت فترة الدراسة. حان وقت الراحة.');
@@ -265,9 +357,39 @@ document.addEventListener('DOMContentLoaded', () => {
     function setPomodoroMode(mode) {
         pausePomodoro();
         pomodoroState.mode = mode;
-        pomodoroState.timeLeft = (mode === 'work' ? 25 : 5) * 60;
+        const mins = mode === 'work'
+            ? (parseInt(workMinutesInput?.value) || pomodoroState.workMinutes || 25)
+            : (parseInt(breakMinutesInput?.value) || pomodoroState.breakMinutes || 5);
+        pomodoroState.timeLeft = mins * 60;
         updatePomodoroUI();
         savePomodoroState();
+    }
+
+    // تحديث الأوقات عند تغيير المدخلات
+    if (workMinutesInput) {
+        workMinutesInput.addEventListener('change', () => {
+            const val = Math.max(1, Math.min(120, parseInt(workMinutesInput.value) || 25));
+            workMinutesInput.value = val;
+            pomodoroState.workMinutes = val;
+            if (pomodoroState.mode === 'work' && !pomodoroState.isRunning) {
+                pomodoroState.timeLeft = val * 60;
+                updatePomodoroUI();
+            }
+            savePomodoroState();
+        });
+    }
+
+    if (breakMinutesInput) {
+        breakMinutesInput.addEventListener('change', () => {
+            const val = Math.max(1, Math.min(60, parseInt(breakMinutesInput.value) || 5));
+            breakMinutesInput.value = val;
+            pomodoroState.breakMinutes = val;
+            if (pomodoroState.mode === 'break' && !pomodoroState.isRunning) {
+                pomodoroState.timeLeft = val * 60;
+                updatePomodoroUI();
+            }
+            savePomodoroState();
+        });
     }
 
     if (startBtn) startBtn.addEventListener('click', startPomodoro);
@@ -279,111 +401,149 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePomodoroUI();
     if (pomodoroState.isRunning) startPomodoro();
 
-    const gameDictionary = {
-        "human": { "أ": ["أحمد", "أمل", "أميرة", "أسامة", "أنس", "إبراهيم", "أروى", "أسمهان"], "ب": ["باسم", "بدر", "بسمة", "بشرى", "بلال", "براء", "بثينة"], "ت": ["تامر", "تيم", "تقى", "تميم", "تركي", "تسنيم"], "ث": ["ثامر", "ثريا", "ثابت", "ثناء"], "ج": ["جمال", "جاسر", "جنى", "جواهر", "جميلة", "جابر"], "ح": ["حسن", "حسين", "حنان", "حسام", "حمزة", "حصة"], "خ": ["خالد", "خديجة", "خليل", "خولان", "خولة"], "د": ["داليا", "داوود", "ديمة", "دانة", "دانيال"], "ذ": ["ذيب", "ذكية", "ذاكر"], "ر": ["ريم", "راكان", "رائد", "رانيا", "رضا", "رحمة"], "ز": ["زياد", "زينب", "زكريا", "زهراء", "زين"], "س": ["سارة", "سعود", "سعيد", "سالم", "سلمى", "سليمان"], "ش": ["شهد", "شريف", "شادي", "شوق", "شروق"], "ص": ["صالح", "صفاء", "صلاح", "صديق", "صبرينة"], "ض": ["ضياء", "ضحى", "ضامني"], "ط": ["طاهر", "طلال", "طيبة", "طارق"], "ظ": ["ظافر", "ظبية"], "ع": ["عمر", "علي", "عائشة", "عبدالله", "عبير", "عثمان"], "غ": ["غادة", "غسان", "غيث", "غزل"], "ف": ["فهد", "فاطمة", "فارس", "فيصل", "فراس", "فريدة"], "ق": ["قاسم", "قصي", "قمر"], "ك": ["كريم", "كارم", "كوثر", "كليثم"], "ل": ["ليلى", "لطيفة", "لجين", "لقمان", "لمى"], "م": ["محمد", "مريم", "مشاري", "منى", "ماجد", "محمود"], "ن": ["نورة", "ناصر", "نجلاء", "نايف", "ندى", "نبيل"], "هـ": ["هشام", "هند", "هيا", "هاني", "هدى"], "و": ["وليد", "وفاء", "وسيم", "وجدان", "وداد"], "ي": ["يوسف", "ياسر", "ياسمين", "يعقوب", "يمني"] },
-        "animal": { "أ": ["أسد", "أرنب", "أفعى", "أنكليس"], "ب": ["بقرة", "بطة", "بومة", "ببر", "بجع"], "ت": ["تمساح", "تنين", "تيس"], "ث": ["ثعلب", "ثور", "ثعبان"], "ج": ["جمل", "جاموس", "جرو"], "ح": ["حصان", "حمار", "حمامة", "حوت", "حسون"], "خ": ["خروف", "خفاش", "خنزير"], "د": ["دب", "دجاجة", "دلفين", "دبور", "ديك"], "ذ": ["ذئب", "ذباب"], "ر": ["رنة", "راكون"], "ز": ["زرافة", "زنبور"], "س": ["سنجاب", "سمكة", "سلحفاة", "سلطعون"], "ش": ["شاهين", "شادي", "شيمبانزي"], "ص": ["صقر", "صرصور"], "ض": ["ضبع", "ضفدع"], "ط": ["طاووس", "طائر"], "ظ": ["ظبي"], "ع": ["عصفور", "عنكبوت", "عقرب"], "غ": ["غزال", "غراب", "غوريلا"], "ف": ["فيل", "فهد", "فأر", "فراشة"], "ق": ["قرد", "قط", "قنديل البحر", "قنفذ"], "ك": ["كلب", "كغر", "كوالا"], "ل": ["لقلق", "ليث"], "م": ["ماعز", "مهى"], "ن": ["نمر", "نحلة", "نسر", "نملة"], "هـ": ["هدهد", "هرة"], "و": ["واوي", "وحش القرن", "ورل"], "ي": ["يعسوب", "يمامة"] },
-        "plant": { "أ": ["أرز", "أناناس", "أفوكادو", "أقحوان"], "ب": ["برتقال", "بطيخ", "باذنجان", "بصل", "باميا", "بقدونس"], "ت": ["تفاح", "تين", "توت", "تمر"], "ث": ["ثوم", "ثوم المعمر"], "ج": ["جزر", "جوز", "جرجير", "جوافة"], "ح": ["حمص", "حلبة", "حبق"], "خ": ["خيار", "خوخ", "خس", "خرشوف"], "د": ["ذرة", "دوار الشمس", "دوم"], "ذ": ["ذرة"], "ر": ["رمان", "ريحان", "رطب"], "ز": ["زيتون", "زنجبيل", "زعتر", "زهرة"], "س": ["سبانخ", "سمسم", "سدر"], "ش": ["شمام", "شاي", "شعير", "شوفان"], "ص": ["صبار", "صنوبر"], "ض": ["ضرم"], "ط": ["طماطم", "طلح"], "ظ": ["ظيان"], "ع": ["عنب", "عدس", "عرعر"], "غ": ["غار"], "ف": ["فراولة", "فلفل", "فول", "فستق"], "ق": ["قرنبيط", "قمح", "قرع", "قرفة"], "ك": ["كوسة", "كرز", "كيوي", "كمثرى", "كزبرة"], "ل": ["ليمون", "لوز", "لفت"], "م": ["موز", "مانجو", "مشمش", "مرمية"], "ن": ["نعناع", "نخلة", "نارجيل"], "هـ": ["هيل", "هندباء"], "و": ["ورد", "وسمة"], "ي": ["يقطين", "يوسفي", "ياسمين"] },
-        "thing": { "أ": ["إبرة", "أريكة", "أنبوب"], "ب": ["باب", "بيت", "بندقية", "برميل"], "ت": ["تلفاز", "تلفون", "تاج", "تمثال"], "ث": ["ثلاجة", "ثوب"], "ج": ["جدار", "جرس", "جوال", "جسر"], "ح": ["حبل", "حقيبة", "حاسوب", "حجر"], "خ": ["خزانة", "خاتم", "خيمة", "خيط"], "د": ["دفتر", "دبوس", "دراجة", "دوار"], "ذ": ["ذخيرة"], "ر": ["رف", "رسالة", "راديو", "ريشة"], "ز": ["زجاج", "زر", "زورق"], "س": ["ساعة", "سيارة", "سرير", "سلسلة", "سكين"], "ش": ["شباك", "شاحنة", "شاشة", "شوكة"], "ص": ["صندوق", "صحن", "صواريخ", "صورة"], "ض": ["ضمادة", "ضوء"], "ط": ["طاولة", "طائرة", "طبق", "طربوش"], "ظ": ["ظرف"], "ع": ["عربة", "علم", "عقاد", "عكاز"], "غ": ["غسالة", "غلاف", "غرفة"], "ف": ["فانوس", "فرن", "فستان", "فأس"], "ق": ["قلم", "قفل", "قارب", "قميص", "قبعة"], "ك": ["كرسي", "كتاب", "كرة", "كأس"], "ل": ["لوحة", "لمبة", "لباس"], "م": ["مكتب", "مفتاح", "مرآة", "ملعقة", "مظلة"], "ن": ["نافذة", "نظارة", "نفق"], "هـ": ["هاتف", "هدية"], "و": ["ورقة", "وسادة"], "ي": ["ياخت", "ياقة"] },
-        "country": { "أ": ["ألمانيا", "أستراليا", "أمريكا", "أرجنتين", "أردن", "أذربيجان"], "ب": ["البحرين", "برازيل", "بلجيكا", "بلغاريا", "باكستان"], "ت": ["تونس", "تركيا", "تشاد", "تايلاند"], "ث": ["ثيساليا"], "ج": ["الجزائر", "جيبوتي", "جورجيا"], "ح": ["حائل"], "خ": ["خرطوم"], "د": ["الدنمارك", "دبي", "دوحة"], "ذ": ["فقار"], "ر": ["روسيا", "رومانيا", "رياض"], "ز": ["زامبيا", "زيمبابوي"], "س": ["السعودية", "سوريا", "السودان", "سويد", "سويسرا", "سنغافورة"], "ش": ["شيلي", "شارقة"], "ص": ["الصين", "صومال", "صربيا"], "ض": ["ضفة"], "ط": ["طاجيكستان", "طرابلس"], "ظ": ["ظبي"], "ع": ["عمان", "العراق", "أبوظبي"], "غ": ["غانا", "غينيا", "غواتيمالا"], "ف": ["فرنسا", "فلسطين", "فنلندا", "فلبين"], "ق": ["قطر", "قبرص"], "ك": ["الكويت", "كندا", "كولومبيا", "كرواتيا"], "ل": ["لبنان", "ليبيا", "لندن"], "م": ["مصر", "المغرب", "ماليزيا", "مكسيك"], "ن": ["النرويج", "نيجيريا", "نيوزيلندا", "نمسا"], "هـ": ["الهند", "هولندا", "هنغاريا"], "و": ["واشنطن"], "ي": ["اليمن", "اليابان", "يونان"] }
-    };
-
-    const letters = ["أ", "ب", "ت", "ث", "ج", "ح", "خ", "د", "ذ", "ر", "ز", "س", "ش", "ص", "ض", "ط", "ظ", "ع", "غ", "ف", "ق", "ك", "ل", "م", "ن", "هـ", "و", "ي"];
-    
-    let currentLetter = '';
+    // ========== Game ==========
+    let dictionary = null;
     let gameTimer = null;
-    let timeLeft = 60;
+    let gameTimeLeft = 60;
+    let currentLetter = '';
     let highScore = storage.get('adawati_highscore', 0);
 
+    const highScoreEl = document.getElementById('high-score');
+    const currentLetterEl = document.getElementById('current-letter');
     const startGameBtn = document.getElementById('start-game-btn');
-    const currentLetterDisplay = document.getElementById('current-letter');
-    const gameTimerDisplay = document.getElementById('game-timer-display');
     const gameForm = document.getElementById('game-form');
+    const gameTimerDisplay = document.getElementById('game-timer-display');
     const gameResultBox = document.getElementById('game-result-box');
-    const highScoreDisplay = document.getElementById('high-score');
 
-    if (highScoreDisplay) highScoreDisplay.textContent = highScore;
+    if (highScoreEl) highScoreEl.textContent = highScore;
 
-    function normalizeArabicText(text) {
-        if (!text) return '';
-        return text.trim()
-            .replace(/[\u064B-\u0652]/g, '')
-            .replace(/[أإآ]/g, 'أ')
+    // تحميل القاموس
+    fetch('words.json')
+        .then(res => res.json())
+        .then(data => { dictionary = data; })
+        .catch(() => {
+            // قاموس احتياطي بسيط إذا فشل التحميل
+            dictionary = {
+                human: { "أ": ["أحمد", "أمل"], "م": ["محمد", "مريم"] },
+                animal: { "أ": ["أسد", "أرنب"], "ق": ["قط", "قرد"] },
+                plant: { "ت": ["تفاح", "تمر"], "ن": ["نخيل", "نعناع"] },
+                thing: { "ق": ["قلم", "كتاب"], "س": ["ساعة", "سرير"] },
+                country: { "س": ["السعودية", "سوريا"], "م": ["مصر", "المغرب"] }
+            };
+        });
+
+    const arabicLetters = ['أ', 'ب', 'ت', 'ث', 'ج', 'ح', 'خ', 'د', 'ذ', 'ر', 'ز', 'س', 'ش', 'ص', 'ض', 'ط', 'ظ', 'ع', 'غ', 'ف', 'ق', 'ك', 'ل', 'م', 'ن', 'هـ', 'و', 'ي'];
+
+    function normalizeArabic(str) {
+        if (!str) return '';
+        return str.trim()
+            .replace(/[أإآ]/g, 'ا')
             .replace(/ة/g, 'ه')
-            .replace(/ى/g, 'ي');
+            .replace(/ى/g, 'ي')
+            .replace(/ؤ/g, 'و')
+            .replace(/ئ/g, 'ي')
+            .toLowerCase();
+    }
+
+    function checkWord(category, word, letter) {
+        if (!dictionary || !word) return false;
+        const list = dictionary[category]?.[letter] || [];
+        const normalized = normalizeArabic(word);
+        return list.some(w => normalizeArabic(w) === normalized);
     }
 
     function startGame() {
-        currentLetter = letters[Math.floor(Math.random() * letters.length)];
-        currentLetterDisplay.textContent = currentLetter;
+        if (!dictionary) {
+            alert('جاري تحميل القاموس، حاول مرة أخرى بعد ثوانٍ.');
+            return;
+        }
 
-        timeLeft = 60;
-        gameTimerDisplay.textContent = `الوقت: ${timeLeft}ث`;
+        currentLetter = arabicLetters[Math.floor(Math.random() * arabicLetters.length)];
+        if (currentLetterEl) currentLetterEl.textContent = currentLetter;
 
-        gameForm.reset();
-        gameForm.classList.remove('hidden');
-        gameResultBox.classList.add('hidden');
+        gameTimeLeft = 60;
+        if (gameTimerDisplay) gameTimerDisplay.textContent = `الوقت: ${gameTimeLeft}ث`;
+
+        if (gameForm) {
+            gameForm.classList.remove('hidden');
+            gameForm.reset();
+        }
+        if (gameResultBox) {
+            gameResultBox.classList.add('hidden');
+            gameResultBox.innerHTML = '';
+        }
+        if (startGameBtn) startGameBtn.classList.add('hidden');
 
         clearInterval(gameTimer);
         gameTimer = setInterval(() => {
-            timeLeft--;
-            gameTimerDisplay.textContent = `الوقت: ${timeLeft}ث`;
-            if (timeLeft <= 0) {
+            gameTimeLeft--;
+            if (gameTimerDisplay) gameTimerDisplay.textContent = `الوقت: ${gameTimeLeft}ث`;
+            if (gameTimeLeft <= 0) {
                 clearInterval(gameTimer);
-                endGame();
+                submitGame();
             }
         }, 1000);
     }
 
-    function endGame() {
+    function submitGame() {
         clearInterval(gameTimer);
-        let score = 0;
-        const fields = [
-            { id: 'g-human', category: 'human', name: 'إنسان' },
-            { id: 'g-animal', category: 'animal', name: 'حيوان' },
-            { id: 'g-plant', category: 'plant', name: 'نبات' },
-            { id: 'g-thing', category: 'thing', name: 'جماد' },
-            { id: 'g-country', category: 'country', name: 'بلاد' }
+
+        const answers = {
+            human: document.getElementById('g-human')?.value || '',
+            animal: document.getElementById('g-animal')?.value || '',
+            plant: document.getElementById('g-plant')?.value || '',
+            thing: document.getElementById('g-thing')?.value || '',
+            country: document.getElementById('g-country')?.value || ''
+        };
+
+        const categories = [
+            { key: 'human', label: 'إنسان' },
+            { key: 'animal', label: 'حيوان' },
+            { key: 'plant', label: 'نبات' },
+            { key: 'thing', label: 'جماد' },
+            { key: 'country', label: 'بلاد' }
         ];
 
-        let resultsHTML = '<h4>نتائج الجولة:</h4><ul>';
+        let score = 0;
+        let resultsHtml = '<h3 style="margin-bottom:12px;">نتيجة الجولة</h3><ul style="list-style:none;display:flex;flex-direction:column;gap:8px;">';
 
-        fields.forEach(f => {
-            const input = document.getElementById(f.id);
-            const val = input ? input.value.trim() : '';
-            const normalizedVal = normalizeArabicText(val);
-
-            const categoryData = gameDictionary[f.category][currentLetter] || [];
-            const normalizedDict = categoryData.map(item => normalizeArabicText(item));
-
-            if (normalizedVal && normalizedDict.includes(normalizedVal)) {
-                score += 10;
-                resultsHTML += `<li style="color: var(--accent-color);">✓ ${f.name}: ${val} (+10 نقاط)</li>`;
-            } else if (val) {
-                resultsHTML += `<li style="color: var(--danger-color);">✗ ${f.name}: ${val} (غير موجودة في القاموس)</li>`;
-            } else {
-                resultsHTML += `<li style="color: var(--text-muted);">- ${f.name}: لم تُجب</li>`;
-            }
+        categories.forEach(cat => {
+            const word = answers[cat.key];
+            const valid = checkWord(cat.key, word, currentLetter);
+            if (valid) score += 20;
+            resultsHtml += `
+                <li style="display:flex;justify-content:space-between;align-items:center;">
+                    <span><strong>${cat.label}:</strong> ${sanitizeText(word) || '—'}</span>
+                    <span style="color:${valid ? 'var(--accent-color)' : 'var(--danger-color)'};font-weight:700;">
+                        ${valid ? '✓ صحيح' : '✗ خطأ'}
+                    </span>
+                </li>`;
         });
 
-        resultsHTML += `</ul><p style="margin-top: 10px; font-weight: bold;">المجموع: ${score} نقطة</p>`;
+        resultsHtml += `</ul><p style="margin-top:14px;font-size:1.15rem;font-weight:700;">النتيجة: ${score} / 100</p>`;
 
         if (score > highScore) {
             highScore = score;
             storage.set('adawati_highscore', highScore);
-            if (highScoreDisplay) highScoreDisplay.textContent = highScore;
-            resultsHTML += '<p style="color: var(--accent-color); font-weight: bold;">🎉 رقم قياسي جديد!</p>';
+            if (highScoreEl) highScoreEl.textContent = highScore;
+            resultsHtml += `<p style="color:var(--accent-color);margin-top:8px;">🎉 رقم قياسي جديد!</p>`;
         }
 
-        gameResultBox.innerHTML = resultsHTML;
-        gameResultBox.classList.remove('hidden');
+        if (gameResultBox) {
+            gameResultBox.innerHTML = resultsHtml;
+            gameResultBox.classList.remove('hidden');
+        }
+        if (gameForm) gameForm.classList.add('hidden');
+        if (startGameBtn) startGameBtn.classList.remove('hidden');
+        if (currentLetterEl) currentLetterEl.textContent = '؟';
     }
 
     if (startGameBtn) startGameBtn.addEventListener('click', startGame);
-
     if (gameForm) {
         gameForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            endGame();
+            submitGame();
         });
     }
+
 });
