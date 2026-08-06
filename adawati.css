@@ -661,3 +661,78 @@ body {
         flex-direction: column;
     }
 }
+
+/* ========== New pages & intro ========== */
+.intro-text {
+    margin-bottom: 30px;
+    line-height: 1.85;
+}
+
+.intro-text p {
+    margin-bottom: 14px;
+    color: var(--text-color);
+}
+
+.section-title {
+    font-size: 1.35rem;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tool-title {
+    font-size: 1.4rem;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tool-desc {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin-bottom: 20px;
+    line-height: 1.7;
+}
+
+.about-page h3 {
+    margin-top: 22px;
+    margin-bottom: 8px;
+    font-size: 1.15rem;
+    color: var(--primary-color);
+}
+
+.about-page p {
+    margin-bottom: 12px;
+    line-height: 1.8;
+}
+
+.about-list {
+    margin: 10px 0 16px 0;
+    padding-right: 20px;
+    line-height: 1.9;
+}
+
+.about-list li {
+    margin-bottom: 6px;
+}
+
+.footer-links {
+    display: flex;
+    gap: 18px;
+}
+
+.footer-links a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.footer-links a:hover {
+    text-decoration: underline;
+}
+
+.sessions-info i {
+    color: var(--accent-color);
+}
