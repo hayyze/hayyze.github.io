@@ -207,6 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 dueDate: todoDateInput.value || null,
                 durationMinutes: duration,
                 remainingSeconds: duration ? duration * 60 : 0,
+                endTimestamp: null,          // وقت الانتهاء الحقيقي
                 isRunning: false,
                 completed: false
             });
@@ -219,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function toggleComplete(id) {
-        todos = todos.map(t => t.id === id ? { ...t, completed: !t.completed, isRunning: false } : t);
+        todos = todos.map(t => t.id === id ? { ...t, completed: !t.completed, isRunning: false, endTimestamp: null } : t);
         saveTodos();
         renderTodos();
     }
@@ -231,32 +232,78 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function toggleTaskTimer(id) {
-        todos = todos.map(t => t.id === id ? { ...t, isRunning: !t.isRunning } : t);
+        todos = todos.map(t => {
+            if (t.id !== id) return t;
+
+            if (!t.isRunning) {
+                // بدء المؤقت → نحسب وقت الانتهاء الحقيقي
+                const remaining = t.remainingSeconds > 0 ? t.remainingSeconds : (t.durationMinutes || 0) * 60;
+                return {
+                    ...t,
+                    isRunning: true,
+                    remainingSeconds: remaining,
+                    endTimestamp: Date.now() + remaining * 1000
+                };
+            } else {
+                // إيقاف مؤقت → نحسب المتبقي الحقيقي ونحفظه
+                const realRemaining = t.endTimestamp
+                    ? Math.max(0, Math.round((t.endTimestamp - Date.now()) / 1000))
+                    : t.remainingSeconds;
+                return {
+                    ...t,
+                    isRunning: false,
+                    remainingSeconds: realRemaining,
+                    endTimestamp: null
+                };
+            }
+        });
         saveTodos();
         renderTodos();
     }
 
     function resetTaskTimer(id) {
-        todos = todos.map(t => t.id === id ? { ...t, remainingSeconds: (t.durationMinutes || 0) * 60, isRunning: false } : t);
+        todos = todos.map(t => t.id === id ? {
+            ...t,
+            remainingSeconds: (t.durationMinutes || 0) * 60,
+            isRunning: false,
+            endTimestamp: null
+        } : t);
         saveTodos();
         renderTodos();
     }
 
-    setInterval(() => {
+    // تحديث المؤقتات اعتمادًا على الوقت الحقيقي (ما يتأثر بتبطيء التبويبة)
+    function updateRunningTimers() {
         let updated = false;
+        const now = Date.now();
+
         todos = todos.map(t => {
-            if (t.isRunning && t.remainingSeconds > 0) {
+            if (t.isRunning && t.endTimestamp) {
+                const realRemaining = Math.max(0, Math.round((t.endTimestamp - now) / 1000));
                 updated = true;
-                const nextSec = t.remainingSeconds - 1;
-                return { ...t, remainingSeconds: nextSec, isRunning: nextSec > 0 };
+
+                if (realRemaining <= 0) {
+                    return { ...t, remainingSeconds: 0, isRunning: false, endTimestamp: null };
+                }
+                return { ...t, remainingSeconds: realRemaining };
             }
             return t;
         });
+
         if (updated) {
             saveTodos();
             renderTodos();
         }
-    }, 1000);
+    }
+
+    setInterval(updateRunningTimers, 1000);
+
+    // لما ترجع للتبويبة، نحدث فورًا
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            updateRunningTimers();
+        }
+    });
 
     renderTodos();
 
@@ -270,7 +317,8 @@ document.addEventListener('DOMContentLoaded', () => {
         isRunning: false,
         completedSessions: 0,
         workMinutes: 25,
-        breakMinutes: 5
+        breakMinutes: 5,
+        endTimestamp: null
     });
 
     let pomodoroTimer = null;
@@ -291,6 +339,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updatePomodoroUI() {
+        // لو شغال، نحسب الوقت الحقيقي
+        if (pomodoroState.isRunning && pomodoroState.endTimestamp) {
+            pomodoroState.timeLeft = Math.max(0, Math.round((pomodoroState.endTimestamp - Date.now()) / 1000));
+        }
+
         const m = Math.floor(pomodoroState.timeLeft / 60);
         const s = pomodoroState.timeLeft % 60;
         if (timerDisplay) timerDisplay.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
@@ -320,19 +373,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startPomodoro() {
-        if (pomodoroTimer) return;
+        if (pomodoroState.isRunning) return;
+
         pomodoroState.isRunning = true;
+        pomodoroState.endTimestamp = Date.now() + pomodoroState.timeLeft * 1000;
         savePomodoroState();
+        updatePomodoroUI();
+
+        if (pomodoroTimer) clearInterval(pomodoroTimer);
 
         pomodoroTimer = setInterval(() => {
-            if (pomodoroState.timeLeft > 0) {
-                pomodoroState.timeLeft--;
-                updatePomodoroUI();
-                savePomodoroState();
-            } else {
+            updatePomodoroUI();
+            savePomodoroState();
+
+            if (pomodoroState.timeLeft <= 0) {
                 clearInterval(pomodoroTimer);
                 pomodoroTimer = null;
                 pomodoroState.isRunning = false;
+                pomodoroState.endTimestamp = null;
                 playBeep();
 
                 if (pomodoroState.mode === 'work') {
@@ -348,10 +406,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function pausePomodoro() {
+        if (!pomodoroState.isRunning) return;
+
+        // نحسب المتبقي الحقيقي قبل الإيقاف
+        if (pomodoroState.endTimestamp) {
+            pomodoroState.timeLeft = Math.max(0, Math.round((pomodoroState.endTimestamp - Date.now()) / 1000));
+        }
+        pomodoroState.isRunning = false;
+        pomodoroState.endTimestamp = null;
+
         clearInterval(pomodoroTimer);
         pomodoroTimer = null;
-        pomodoroState.isRunning = false;
         savePomodoroState();
+        updatePomodoroUI();
     }
 
     function setPomodoroMode(mode) {
@@ -361,6 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ? (parseInt(workMinutesInput?.value) || pomodoroState.workMinutes || 25)
             : (parseInt(breakMinutesInput?.value) || pomodoroState.breakMinutes || 5);
         pomodoroState.timeLeft = mins * 60;
+        pomodoroState.endTimestamp = null;
         updatePomodoroUI();
         savePomodoroState();
     }
@@ -398,8 +466,39 @@ document.addEventListener('DOMContentLoaded', () => {
     if (workModeBtn) workModeBtn.addEventListener('click', () => setPomodoroMode('work'));
     if (breakModeBtn) breakModeBtn.addEventListener('click', () => setPomodoroMode('break'));
 
+    // استعادة المؤقت لو كان شغال قبل ما تسكّر الصفحة
     updatePomodoroUI();
-    if (pomodoroState.isRunning) startPomodoro();
+    if (pomodoroState.isRunning && pomodoroState.endTimestamp) {
+        // لو الوقت انتهى وهو برا التبويبة
+        if (pomodoroState.endTimestamp <= Date.now()) {
+            pomodoroState.timeLeft = 0;
+            pomodoroState.isRunning = false;
+            pomodoroState.endTimestamp = null;
+            savePomodoroState();
+            updatePomodoroUI();
+        } else {
+            startPomodoro();
+        }
+    }
+
+    // تحديث فور الرجوع للتبويبة
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            updatePomodoroUI();
+            if (pomodoroState.isRunning && pomodoroState.timeLeft <= 0) {
+                pausePomodoro();
+                playBeep();
+                if (pomodoroState.mode === 'work') {
+                    pomodoroState.completedSessions++;
+                    alert('أحسنت! انتهت فترة الدراسة. حان وقت الراحة.');
+                    setPomodoroMode('break');
+                } else {
+                    alert('انتهت فترة الراحة! استعد للجولة القادمة.');
+                    setPomodoroMode('work');
+                }
+            }
+        }
+    });
 
     // ========== Game ==========
     let dictionary = null;
@@ -515,7 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <li style="display:flex;justify-content:space-between;align-items:center;">
                     <span><strong>${cat.label}:</strong> ${sanitizeText(word) || '—'}</span>
                     <span style="color:${valid ? 'var(--accent-color)' : 'var(--danger-color)'};font-weight:700;">
-                        ${valid ? '✓ صحيح' : '✗ خطأ'}
+                        ${valid ? '✓ صحيح' : '✗ غير موجود بالقاموس-خطأ'}
                     </span>
                 </li>`;
         });
@@ -546,4 +645,4 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-});
+      });
