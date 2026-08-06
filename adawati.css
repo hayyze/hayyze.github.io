@@ -502,6 +502,55 @@ body {
     border: 1px solid var(--border-color);
 }
 
+.result-title {
+    margin-bottom: 12px;
+}
+
+.result-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.result-score {
+    margin-top: 14px;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.result-new-record {
+    margin-top: 8px;
+}
+
+.text-danger {
+    color: var(--danger-color);
+}
+
+.text-success {
+    color: var(--accent-color);
+}
+
+.fw-bold {
+    font-weight: 700;
+}
+
+.todo-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ms-auto {
+    margin-right: auto;
+}
+
 /* ========== Helpers ========== */
 .text-center { text-align: center; }
 .justify-center { justify-content: center; }
