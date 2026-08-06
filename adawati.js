@@ -83,22 +83,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ========== Privacy Modal ==========
-    const privacyLink = document.getElementById('privacy-link');
-    const privacyModal = document.getElementById('privacy-modal');
-    const closeModal = document.querySelector('.close-modal');
-
-    if (privacyLink && privacyModal && closeModal) {
-        privacyLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            privacyModal.classList.remove('hidden');
-        });
-        closeModal.addEventListener('click', () => privacyModal.classList.add('hidden'));
-        privacyModal.addEventListener('click', (e) => {
-            if (e.target === privacyModal) privacyModal.classList.add('hidden');
-        });
-    }
-
     // ========== Todo List ==========
     const todoForm = document.getElementById('todo-form');
     const todoInput = document.getElementById('todo-input');
