@@ -27,13 +27,12 @@
     <meta name="google-site-verification" content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw" />
 </head>
 <body>
-    <header class="navbar">
+     <header class="navbar">
         <div class="container nav-container">
             <a href="#" class="logo" data-tab="home">
                 <i class="fa-solid fa-graduation-cap"></i> حيز
             </a>
 
-            <!-- زر القائمة للجوال -->
             <button class="menu-toggle" id="menu-toggle" aria-label="فتح القائمة">
                 <i class="fa-solid fa-bars"></i>
             </button>
@@ -43,6 +42,7 @@
                 <button class="nav-btn" data-tab="pomodoro"><i class="fa-solid fa-clock"></i> المؤقت</button>
                 <button class="nav-btn" data-tab="todo"><i class="fa-solid fa-list-check"></i> المهام</button>
                 <button class="nav-btn" data-tab="game"><i class="fa-solid fa-gamepad"></i> لعبة الحروف</button>
+                <button class="nav-btn" data-tab="about"><i class="fa-solid fa-circle-info"></i> عن حيز</button>
             </nav>
 
             <div class="nav-actions">
@@ -55,46 +55,59 @@
 
     <main class="container main-content">
         
-        <!-- الصفحة الرئيسية -->
+        <!-- ==================== الصفحة الرئيسية ==================== -->
         <section id="tab-home" class="tab-content active">
             <div class="hero">
                 <h1 class="hero-title">مرحبًا بك في <span class="highlight">حيز</span></h1>
-                <p class="hero-desc">مساحتك الخاصة لتنظيم الدراسة وزيادة التركيز. أدوات مجانية وخفيفة تعمل بالكامل على جهازك.</p>
+                <p class="hero-desc">مساحتك الخاصة لتنظيم الدراسة وزيادة التركيز</p>
             </div>
+
+            <div class="card intro-text">
+                <p>
+                    في عالم مليء بالمشتتات والإشعارات المستمرة، أصبح التركيز أثناء الدراسة تحديًا حقيقيًا لكثير من الطلاب. من هنا جاءت فكرة <strong>حيز</strong>؛ منصة بسيطة وخفيفة صُممت لتمنحك مساحة هادئة ومنظمة تساعدك على إدارة وقتك ومهامك الدراسية بفعالية.
+                </p>
+                <p>
+                    حيز ليست مجرد مجموعة أدوات عادية، بل مساحة عمل دراسية متكاملة تعمل بالكامل داخل متصفحك. لا تحتاج إلى تسجيل حساب، ولا نطلب منك أي بيانات شخصية، وكل ما تفعله يبقى محفوظًا على جهازك فقط. هذا يعني سرعة عالية وخصوصية كاملة دون القلق من التتبع أو تخزين معلوماتك على سيرفرات خارجية.
+                </p>
+                <p>
+                    داخل حيز ستجد مؤقت مذاكرة يعتمد على تقنية البومودورو الشهيرة، مع إمكانية تخصيص أوقات الدراسة والراحة حسب احتياجك. كما نوفر قائمة مهام دراسية تدعم الأولويات وتواريخ التسليم ومؤقتًا خاصًا بكل مهمة، بالإضافة إلى لعبة "جماد حيوان نبات" التي تساعد على تنشيط الذهن وتوسيع الحصيلة اللغوية بطريقة ممتعة.
+                </p>
+                <p>
+                    هدفنا أن تكون تجربتك الدراسية أكثر تنظيمًا وأقل توترًا. سواء كنت تستعد لاختبار، أو تنجز واجبًا، أو تحاول بناء عادة تركيز يومية، حيز موجود ليدعمك بأدوات عملية وبسيطة دون تعقيد.
+                </p>
+            </div>
+
+            <h2 class="section-title"><i class="fa-solid fa-toolbox"></i> الأدوات المتوفرة</h2>
 
             <div class="tools-grid">
                 <div class="card tool-card" data-tab="pomodoro">
                     <div class="card-icon"><i class="fa-solid fa-stopwatch"></i></div>
                     <h3>مؤقت المذاكرة (Pomodoro)</h3>
-                    <p>نظّم وقت دراستك مع فترات راحة منتظمة لزيادة التركيز وتجنب الإرهاق. الأوقات قابلة للتخصيص.</p>
+                    <p>قسّم وقت دراستك إلى فترات تركيز قصيرة مع راحات منتظمة لزيادة الإنتاجية وتجنب الإرهاق. الأوقات قابلة للتخصيص بالكامل.</p>
                     <button class="btn btn-secondary">افتح الأداة</button>
                 </div>
 
                 <div class="card tool-card" data-tab="todo">
                     <div class="card-icon"><i class="fa-solid fa-tasks"></i></div>
-                    <h3>قائمة مهام الطلاب</h3>
-                    <p>تابع واجباتك ومشاريعك اليومية مع أولويات وتواريخ تسليم في مكان واحد.</p>
+                    <h3>قائمة المهام الدراسية</h3>
+                    <p>نظّم واجباتك ومشاريعك مع تحديد الأولوية وتاريخ الاستحقاق ومدة التنفيذ. كل شيء محفوظ محليًا على جهازك.</p>
                     <button class="btn btn-secondary">افتح الأداة</button>
                 </div>
 
                 <div class="card tool-card" data-tab="game">
                     <div class="card-icon"><i class="fa-solid fa-font"></i></div>
                     <h3>لعبة جماد حيوان نبات</h3>
-                    <p>نشّط عقلك وتحدَّ سرعة بديهتك بالحروف العربية وقاموس الكلمات الموثق.</p>
+                    <p>لعبة حروف عربية كلاسيكية مع قاموس موثق. تحدَّ سرعة بديهتك ونشّط ذاكرتك بطريقة ممتعة ومفيدة.</p>
                     <button class="btn btn-secondary">العب الآن</button>
                 </div>
             </div>
-
-            <section class="info-section card">
-                <h2><i class="fa-solid fa-circle-info"></i> عن المنصة</h2>
-                <p>حيز هي منصة أدوات دراسية بسيطة وسريعة، صُممت لتعطي الطالب مساحة نظيفة يركز فيها على دراسته دون تشتيت. تعمل بالكامل على جهازك دون الحاجة لاتصال بسيرفر خارجي، مما يضمن أسرع أداء وحفاظًا كاملاً على خصوصية بياناتك.</p>
-            </section>
         </section>
 
-        <!-- مؤقت البومودورو -->
+        <!-- ==================== مؤقت البومودورو ==================== -->
         <section id="tab-pomodoro" class="tab-content">
             <div class="card text-center">
-                <h2><i class="fa-solid fa-clock"></i> مؤقت المذاكرة (Pomodoro)</h2>
+                <h2 class="tool-title"><i class="fa-solid fa-clock"></i> مؤقت المذاكرة (Pomodoro)</h2>
+                <p class="tool-desc">قسّم جلسة دراستك إلى فترات تركيز متبوعة براحة قصيرة. هذه الطريقة مثبتة علميًا في تحسين التركيز وتقليل الإرهاق الذهني.</p>
 
                 <div class="timer-settings">
                     <div class="setting-item">
@@ -121,16 +134,17 @@
                 </div>
 
                 <div class="margin-top sessions-info">
-                    <i class="fa-solid fa-circle-check" style="color: var(--accent-color);"></i>
+                    <i class="fa-solid fa-circle-check"></i>
                     الجلسات المكتملة: <strong id="completed-sessions-count">0</strong>
                 </div>
             </div>
         </section>
 
-        <!-- قائمة المهام -->
+        <!-- ==================== قائمة المهام ==================== -->
         <section id="tab-todo" class="tab-content">
             <div class="card">
-                <h2><i class="fa-solid fa-list-check"></i> قائمة المهام الدراسية</h2>
+                <h2 class="tool-title"><i class="fa-solid fa-list-check"></i> قائمة المهام الدراسية</h2>
+                <p class="tool-desc">أضف مهامك الدراسية، حدّد أولويتها وتاريخ تسليمها، وتتبع الوقت المستغرق في إنجاز كل واحدة منها.</p>
                 
                 <form id="todo-form" class="todo-form">
                     <div class="input-group">
@@ -162,11 +176,14 @@
             </div>
         </section>
 
-        <!-- لعبة الحروف -->
+        <!-- ==================== لعبة الحروف ==================== -->
         <section id="tab-game" class="tab-content">
             <div class="card">
                 <div class="game-header">
-                    <h2><i class="fa-solid fa-gamepad"></i> لعبة الحروف والقاموس</h2>
+                    <div>
+                        <h2 class="tool-title"><i class="fa-solid fa-gamepad"></i> لعبة جماد حيوان نبات</h2>
+                        <p class="tool-desc">اختر حرفًا عشوائيًا واملأ الكلمات في أقل من 60 ثانية. القاموس موثق ويتحقق من صحة إجاباتك.</p>
+                    </div>
                     <div class="score-board">أعلى نتيجة: <span id="high-score">0</span></div>
                 </div>
                 
@@ -191,10 +208,100 @@
             </div>
         </section>
 
-        <!-- تواصل معنا -->
-        <section class="card margin-top">
-            <h2><i class="fa-solid fa-envelope"></i> تواصل معنا</h2>
-            <p>هل لديك اقتراح لأداة جديدة؟ تواصل معنا عبر البريد الإلكتروني: <strong>adawati.support@gmail.com</strong></p>
+        <!-- ==================== عن حيز ==================== -->
+        <section id="tab-about" class="tab-content">
+            <div class="card about-page">
+                <h2 class="tool-title"><i class="fa-solid fa-circle-info"></i> عن حيز</h2>
+                
+                <p>
+                    <strong>حيز</strong> هي منصة أدوات دراسية عربية مجانية، صُممت لتكون مساحة بسيطة وهادئة تساعد الطلاب على تنظيم وقتهم وزيادة تركيزهم أثناء المذاكرة.
+                </p>
+
+                <h3>لماذا حيز؟</h3>
+                <p>
+                    كثير من التطبيقات والأدوات الدراسية تتطلب تسجيل حساب أو تجمع بيانات المستخدمين. حيز يأخذ نهجًا مختلفًا تمامًا: كل شيء يعمل محليًا على جهازك عبر المتصفح، بدون أي سيرفر خارجي وبدون أي تتبع.
+                </p>
+
+                <h3>ما الذي نقدمه؟</h3>
+                <ul class="about-list">
+                    <li><strong>مؤقت المذاكرة (Pomodoro):</strong> تقنية مثبتة لزيادة التركيز من خلال تقسيم الوقت إلى فترات عمل وراحة.</li>
+                    <li><strong>قائمة المهام الدراسية:</strong> إدارة الواجبات والمشاريع مع أولويات وتواريخ تسليم ومؤقت خاص بكل مهمة.</li>
+                    <li><strong>لعبة جماد حيوان نبات:</strong> لعبة حروف عربية ممتعة تنشط الذهن وتثري المفردات.</li>
+                </ul>
+
+                <h3>مبادئنا</h3>
+                <ul class="about-list">
+                    <li>الخصوصية أولاً — لا نجمع أي بيانات شخصية.</li>
+                    <li>البساطة — واجهة نظيفة بدون تعقيدات غير ضرورية.</li>
+                    <li>السرعة — الموقع خفيف ويعمل فورًا بدون انتظار.</li>
+                    <li>المجانية الكاملة — كل الأدوات متاحة بدون اشتراكات أو إعلانات مزعجة.</li>
+                </ul>
+
+                <h3>تواصل معنا</h3>
+                <p>
+                    هل لديك اقتراح لأداة جديدة أو ملاحظة؟ راسلنا عبر البريد الإلكتروني:<br>
+                    <strong>adawati.support@gmail.com</strong>
+                </p>
+            </div>
+        </section>
+
+        <!-- ==================== سياسة الخصوصية ==================== -->
+        <section id="tab-privacy" class="tab-content">
+            <div class="card about-page">
+                <h2 class="tool-title"><i class="fa-solid fa-shield-halved"></i> سياسة الخصوصية</h2>
+                
+                <p><strong>آخر تحديث:</strong> أغسطس 2026</p>
+
+                <h3>1. مقدمة</h3>
+                <p>
+                    نحن في منصة <strong>حيز</strong> نلتزم بحماية خصوصيتك. هذه السياسة توضح كيف نتعامل مع بياناتك عند استخدامك للموقع.
+                </p>
+
+                <h3>2. البيانات التي نجمعها</h3>
+                <p>
+                    <strong>لا نجمع أي بيانات شخصية.</strong> حيز يعمل بالكامل داخل متصفحك (Client-side). لا نطلب تسجيل حساب، ولا نستخدم ملفات تعريف ارتباط للتتبع، ولا نرسل أي معلومات إلى خوادم خارجية.
+                </p>
+
+                <h3>3. التخزين المحلي (LocalStorage)</h3>
+                <p>
+                    نستخدم تقنية LocalStorage المدمجة في المتصفح لحفظ:
+                </p>
+                <ul class="about-list">
+                    <li>قائمة مهامك الدراسية</li>
+                    <li>إعدادات مؤقت البومودورو</li>
+                    <li>أعلى نتيجة في اللعبة</li>
+                    <li>تفضيل الوضع الليلي/النهاري</li>
+                </ul>
+                <p>
+                    هذه البيانات تبقى على جهازك فقط، ولا يمكن لأي طرف آخر الوصول إليها. يمكنك مسحها في أي وقت من إعدادات المتصفح.
+                </p>
+
+                <h3>4. خدمات الطرف الثالث</h3>
+                <p>
+                    نستخدم مكتبات خارجية مفتوحة المصدر لتحسين تجربة الاستخدام فقط (مثل خطوط Google Fonts وأيقونات Font Awesome). هذه الخدمات لا تشارك في جمع بياناتك الشخصية المتعلقة باستخدام أدوات حيز.
+                </p>
+
+                <h3>5. الأمان</h3>
+                <p>
+                    بما أن جميع العمليات تتم محليًا على جهازك، فإن مخاطر تسريب البيانات عبر الشبكة منعدمة تقريبًا في سياق استخدام المنصة.
+                </p>
+
+                <h3>6. حقوقك</h3>
+                <p>
+                    بما أننا لا نجمع بيانات شخصية، فلا توجد بيانات محفوظة لدينا يمكنك طلب حذفها. كل ما يخصك موجود فقط على جهازك وتحت سيطرتك الكاملة.
+                </p>
+
+                <h3>7. التغييرات على هذه السياسة</h3>
+                <p>
+                    قد نحدّث سياسة الخصوصية من وقت لآخر. سيتم نشر أي تعديل على هذه الصفحة مع تحديث تاريخ "آخر تحديث".
+                </p>
+
+                <h3>8. التواصل</h3>
+                <p>
+                    إذا كان لديك أي استفسار حول سياسة الخصوصية، يمكنك التواصل معنا عبر:<br>
+                    <strong>adawati.support@gmail.com</strong>
+                </p>
+            </div>
         </section>
 
     </main>
@@ -202,17 +309,12 @@
     <footer class="footer">
         <div class="container footer-container">
             <p>&copy; 2026 حيز - جميع الحقوق محفوظة.</p>
-            <a href="javascript:void(0)" id="privacy-link">سياسة الخصوصية</a>
+            <div class="footer-links">
+                <a href="#" data-tab="about">عن حيز</a>
+                <a href="#" data-tab="privacy">سياسة الخصوصية</a>
+            </div>
         </div>
     </footer>
-
-    <div id="privacy-modal" class="modal hidden">
-        <div class="modal-content card">
-            <span class="close-modal">&times;</span>
-            <h2>سياسة الخصوصية</h2>
-            <p>نحن نحترم خصوصيتك بشكل كامل. لا يجمع هذا الموقع أي بيانات شخصية أو يتشاركها مع أي أطراف خارجية، ويتم تشغيله بنسبة 100% داخل المتصفح عبر تقنية LocalStorage التنسيقية المحلية.</p>
-        </div>
-    </div>
 
     <script src="adawati.js"></script>
 </body>
