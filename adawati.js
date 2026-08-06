@@ -40,6 +40,14 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', () => switchTab(btn.dataset.tab));
     });
 
+    // ربط بطاقات الصفحة الرئيسية + اللوجو (بدون inline onclick عشان CSP)
+    document.querySelectorAll('[data-tab]').forEach(el => {
+        el.addEventListener('click', () => {
+            const tabId = el.getAttribute('data-tab');
+            if (tabId) switchTab(tabId);
+        });
+    });
+
     if (menuToggle && navLinks) {
         menuToggle.addEventListener('click', () => {
             navLinks.classList.toggle('open');
@@ -614,7 +622,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <li style="display:flex;justify-content:space-between;align-items:center;">
                     <span><strong>${cat.label}:</strong> ${sanitizeText(word) || '—'}</span>
                     <span style="color:${valid ? 'var(--accent-color)' : 'var(--danger-color)'};font-weight:700;">
-                        ${valid ? '✓ صحيح' : '✗ غير موجود بالقاموس-خطأ'}
+                        ${valid ? '✓ صحيح' : '✗ خطأ'}
                     </span>
                 </li>`;
         });
@@ -645,4 +653,4 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-      });
+});
