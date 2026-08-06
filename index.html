@@ -17,7 +17,7 @@
     <meta name="author" content="أدواتي">
     <meta name="robots" content="index, follow">
     
-    <title>أدواتي | منصة الأدوات الطلابية المتكاملة</title>
+    <title>حيز | منصة الأدوات الطلابية المتكاملة</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -27,12 +27,10 @@
     <meta name="google-site-verification" content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw" />
 </head>
 <body>
-
-   
     <header class="navbar">
         <div class="container nav-container">
-            <a href="#" class="logo" onclick="switchTab('home')">
-                <i class="fa-solid fa-graduation-cap"></i> أدواتي
+            <a href="#" class="logo" data-tab="home">
+                <i class="fa-solid fa-graduation-cap"></i> حيز
             </a>
 
             <!-- زر القائمة للجوال -->
@@ -60,26 +58,26 @@
         <!-- الصفحة الرئيسية -->
         <section id="tab-home" class="tab-content active">
             <div class="hero">
-                <h1 class="hero-title">مرحبًا بك في منصة <span class="highlight">أدواتي</span></h1>
-                <p class="hero-desc">منصة أدوات مجانية تساعد الطلاب على تنظيم الدراسة، تحسين الإنتاجية، وجعل التجربة التعليمية أكثر فاعلية ومتعة.</p>
+                <h1 class="hero-title">مرحبًا بك في <span class="highlight">حيز</span></h1>
+                <p class="hero-desc">مساحتك الخاصة لتنظيم الدراسة وزيادة التركيز. أدوات مجانية وخفيفة تعمل بالكامل على جهازك.</p>
             </div>
 
             <div class="tools-grid">
-                <div class="card tool-card" onclick="switchTab('pomodoro')">
+                <div class="card tool-card" data-tab="pomodoro">
                     <div class="card-icon"><i class="fa-solid fa-stopwatch"></i></div>
                     <h3>مؤقت المذاكرة (Pomodoro)</h3>
                     <p>نظّم وقت دراستك مع فترات راحة منتظمة لزيادة التركيز وتجنب الإرهاق. الأوقات قابلة للتخصيص.</p>
                     <button class="btn btn-secondary">افتح الأداة</button>
                 </div>
 
-                <div class="card tool-card" onclick="switchTab('todo')">
+                <div class="card tool-card" data-tab="todo">
                     <div class="card-icon"><i class="fa-solid fa-tasks"></i></div>
                     <h3>قائمة مهام الطلاب</h3>
                     <p>تابع واجباتك ومشاريعك اليومية مع أولويات وتواريخ تسليم في مكان واحد.</p>
                     <button class="btn btn-secondary">افتح الأداة</button>
                 </div>
 
-                <div class="card tool-card" onclick="switchTab('game')">
+                <div class="card tool-card" data-tab="game">
                     <div class="card-icon"><i class="fa-solid fa-font"></i></div>
                     <h3>لعبة جماد حيوان نبات</h3>
                     <p>نشّط عقلك وتحدَّ سرعة بديهتك بالحروف العربية وقاموس الكلمات الموثق.</p>
@@ -89,7 +87,7 @@
 
             <section class="info-section card">
                 <h2><i class="fa-solid fa-circle-info"></i> عن المنصة</h2>
-                <p>تم تطوير مشروع "أدواتي" بهدف تقديم حلول رقمية خفيفة وسريعة تعين الطالب في مسيرته الأكاديمية. يعمل الموقع بالكامل على جهازك دون الحاجة لاتصال بسيرفر خارجي، مما يضمن أسرع أداء وحفاظًا كاملاً على خصوصية بياناتك.</p>
+                <p>حيز هي منصة أدوات دراسية بسيطة وسريعة، صُممت لتعطي الطالب مساحة نظيفة يركز فيها على دراسته دون تشتيت. تعمل بالكامل على جهازك دون الحاجة لاتصال بسيرفر خارجي، مما يضمن أسرع أداء وحفاظًا كاملاً على خصوصية بياناتك.</p>
             </section>
         </section>
 
@@ -203,7 +201,7 @@
 
     <footer class="footer">
         <div class="container footer-container">
-            <p>&copy; 2026 أدواتي - جميع الحقوق محفوظة.</p>
+            <p>&copy; 2026 حيز - جميع الحقوق محفوظة.</p>
             <a href="javascript:void(0)" id="privacy-link">سياسة الخصوصية</a>
         </div>
     </footer>
