@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const now = Date.now();
         const diff = due - now;
 
-        if (diff <= 0) return '<span style="color: var(--danger-color); font-weight: bold;">(انتهى الموعد!)</span>';
+        if (diff <= 0) return '<span class="text-danger fw-bold">(انتهى الموعد!)</span>';
 
         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
         const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -162,10 +162,10 @@ document.addEventListener('DOMContentLoaded', () => {
             li.innerHTML = `
                 <div class="todo-header-row">
                     <span class="todo-title">${safeText}</span>
-                    <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="todo-header-actions">
                         <span class="priority-badge">${priorityLabels[todo.priority] || 'متوسطة'}</span>
                         <button class="btn btn-sm btn-outline btn-delete" title="حذف المهمة">
-                            <i class="fa-solid fa-trash" style="color: var(--danger-color);"></i>
+                            <i class="fa-solid fa-trash text-danger"></i>
                         </button>
                     </div>
                 </div>
@@ -182,7 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <i class="fa-solid fa-rotate-right"></i>
                         </button>
                     ` : ''}
-                    <button class="btn btn-sm ${todo.completed ? 'btn-outline' : 'btn-primary'} btn-toggle-complete" style="margin-right: auto;">
+                    <button class="btn btn-sm ${todo.completed ? 'btn-outline' : 'btn-primary'} btn-toggle-complete ms-auto">
                         <i class="fa-solid ${todo.completed ? 'fa-arrow-rotate-left' : 'fa-check'}"></i> ${todo.completed ? 'تراجع' : 'اكتملت'}
                     </button>
                 </div>
@@ -612,28 +612,28 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
 
         let score = 0;
-        let resultsHtml = '<h3 style="margin-bottom:12px;">نتيجة الجولة</h3><ul style="list-style:none;display:flex;flex-direction:column;gap:8px;">';
+        let resultsHtml = '<h3 class="result-title">نتيجة الجولة</h3><ul class="result-list">';
 
         categories.forEach(cat => {
             const word = answers[cat.key];
             const valid = checkWord(cat.key, word, currentLetter);
             if (valid) score += 20;
             resultsHtml += `
-                <li style="display:flex;justify-content:space-between;align-items:center;">
+                <li class="result-item">
                     <span><strong>${cat.label}:</strong> ${sanitizeText(word) || '—'}</span>
-                    <span style="color:${valid ? 'var(--accent-color)' : 'var(--danger-color)'};font-weight:700;">
+                    <span class="${valid ? 'text-success' : 'text-danger'} fw-bold">
                         ${valid ? '✓ صحيح' : '✗ خطأ'}
                     </span>
                 </li>`;
         });
 
-        resultsHtml += `</ul><p style="margin-top:14px;font-size:1.15rem;font-weight:700;">النتيجة: ${score} / 100</p>`;
+        resultsHtml += `</ul><p class="result-score">النتيجة: ${score} / 100</p>`;
 
         if (score > highScore) {
             highScore = score;
             storage.set('adawati_highscore', highScore);
             if (highScoreEl) highScoreEl.textContent = highScore;
-            resultsHtml += `<p style="color:var(--accent-color);margin-top:8px;">🎉 رقم قياسي جديد!</p>`;
+            resultsHtml += `<p class="text-success result-new-record">🎉 رقم قياسي جديد!</p>`;
         }
 
         if (gameResultBox) {
