@@ -606,7 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <li class="result-item">
                     <span><strong>${cat.label}:</strong> ${sanitizeText(word) || '—'}</span>
                     <span class="${valid ? 'text-success' : 'text-danger'} fw-bold">
-                        ${valid ? '✓ صحيح' : '✗ خطأ'}
+                        ${valid ? '✓ صحيح' : '✗ غير موجود بالقاموس'}
                     </span>
                 </li>`;
         });
