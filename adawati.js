@@ -1,591 +1,711 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
 
-    const storage = {
-        get(key, defaultValue) {
-            try {
-                const item = localStorage.getItem(key);
-                return item ? JSON.parse(item) : defaultValue;
-            } catch (error) {
-                return defaultValue;
-            }
-        },
-        set(key, value) {
-            try {
-                localStorage.setItem(key, JSON.stringify(value));
-            } catch (error) {}
-        }
-    };
-
-    function sanitizeText(str) {
-        if (!str) return '';
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
+    // ===================== تحميل القاموس =====================
+    let dictionary = null;
+    try {
+        const response = await fetch('words.json');
+        if (!response.ok) throw new Error('فشل تحميل القاموس');
+        dictionary = await response.json();
+        console.log('تم تحميل القاموس بنجاح');
+    } catch (error) {
+        console.error('خطأ في تحميل words.json:', error);
+        alert('تعذر تحميل قاموس الكلمات. تأكد أن ملف words.json موجود في نفس المجلد.');
     }
 
-    // ========== Navigation ==========
-    const navBtns = document.querySelectorAll('.nav-btn');
-    const tabContents = document.querySelectorAll('.tab-content');
+    // ===================== نظام الصوت =====================
+    function playNotificationSound() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            oscillator.connect(gain);
+            gain.connect(ctx.destination);
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3);
+
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
+
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.8);
+
+            setTimeout(() => {
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.type = 'sine';
+                osc2.frequency.value = 660;
+                gain2.gain.setValueAtTime(0.25, ctx.currentTime);
+                gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+                osc2.start();
+                osc2.stop(ctx.currentTime + 0.5);
+            }, 300);
+        } catch (e) {
+            console.log('تعذر تشغيل الصوت');
+        }
+    }
+
+    // ===================== العناصر العامة =====================
+    const body = document.body;
+    const themeToggle = document.getElementById('theme-toggle');
     const menuToggle = document.getElementById('menu-toggle');
     const navLinks = document.getElementById('nav-links');
+    const navBtns = document.querySelectorAll('.nav-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+    const logoBtn = document.getElementById('logo-btn');
+    const toolCards = document.querySelectorAll('.tool-card');
 
-    window.switchTab = (tabId) => {
-        navBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabId));
-        tabContents.forEach(tab => tab.classList.toggle('active', tab.id === `tab-${tabId}`));
-        // إغلاق قائمة الجوال بعد الاختيار
-        if (navLinks) navLinks.classList.remove('open');
-    };
+    // ===================== دالة التبديل بين الصفحات =====================
+    function switchTab(tabId) {
+        navBtns.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tabId);
+        });
+        tabContents.forEach(tab => {
+            tab.classList.toggle('active', tab.id === `tab-${tabId}`);
+        });
+        navLinks.classList.remove('open');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        updateHomeStats();
+    }
 
     navBtns.forEach(btn => {
         btn.addEventListener('click', () => switchTab(btn.dataset.tab));
     });
 
-    // ربط بطاقات الصفحة الرئيسية + اللوجو (بدون inline onclick عشان CSP)
-    document.querySelectorAll('[data-tab]').forEach(el => {
-        el.addEventListener('click', () => {
-            const tabId = el.getAttribute('data-tab');
-            if (tabId) switchTab(tabId);
+    if (logoBtn) {
+        logoBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchTab('home');
+        });
+    }
+
+    toolCards.forEach(card => {
+        card.addEventListener('click', () => {
+            const tab = card.dataset.tab;
+            if (tab) switchTab(tab);
         });
     });
 
-    if (menuToggle && navLinks) {
-        menuToggle.addEventListener('click', () => {
-            navLinks.classList.toggle('open');
-            const icon = menuToggle.querySelector('i');
-            if (icon) {
-                icon.className = navLinks.classList.contains('open')
-                    ? 'fa-solid fa-xmark'
-                    : 'fa-solid fa-bars';
-            }
-        });
+    // ===================== الثيم =====================
+    const savedTheme = localStorage.getItem('hayyiz-theme') || 'light';
+    body.classList.toggle('theme-dark', savedTheme === 'dark');
+    updateThemeIcon();
+
+    themeToggle.addEventListener('click', () => {
+        body.classList.toggle('theme-dark');
+        const isDark = body.classList.contains('theme-dark');
+        localStorage.setItem('hayyiz-theme', isDark ? 'dark' : 'light');
+        updateThemeIcon();
+    });
+
+    function updateThemeIcon() {
+        const icon = themeToggle.querySelector('i');
+        icon.className = body.classList.contains('theme-dark') ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
     }
 
-    // ========== Theme ==========
-    const themeBtn = document.getElementById('theme-toggle');
-    const savedTheme = storage.get('adawati_theme', 'light');
+    // ===================== القائمة للجوال =====================
+    menuToggle.addEventListener('click', () => {
+        navLinks.classList.toggle('open');
+    });
 
-    function applyTheme(theme) {
-        document.documentElement.setAttribute('data-theme', theme);
-        const icon = themeBtn ? themeBtn.querySelector('i') : null;
-        if (icon) {
-            icon.className = theme === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+    // ===================== المودال =====================
+    const privacyLink = document.getElementById('privacy-link');
+    const privacyModal = document.getElementById('privacy-modal');
+    const closeModal = document.querySelector('.close-modal');
+
+    privacyLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        privacyModal.classList.remove('hidden');
+    });
+    closeModal.addEventListener('click', () => privacyModal.classList.add('hidden'));
+    privacyModal.addEventListener('click', (e) => {
+        if (e.target === privacyModal) privacyModal.classList.add('hidden');
+    });
+
+    // ===================== البومودورو (توقيت حقيقي + صوت) =====================
+    let timerInterval = null;
+    let endTime = null;
+    let totalDuration = 25 * 60;
+    let isRunning = false;
+    let isWorkMode = true;
+    let completedSessions = parseInt(localStorage.getItem('hayyiz-sessions') || '0');
+
+    const timerDisplay = document.getElementById('timer-display');
+    const progressBar = document.getElementById('timer-progress-bar');
+    const startBtn = document.getElementById('timer-start-btn');
+    const pauseBtn = document.getElementById('timer-pause-btn');
+    const resetBtn = document.getElementById('timer-reset-btn');
+    const workInput = document.getElementById('work-minutes');
+    const breakInput = document.getElementById('break-minutes');
+    const modeWork = document.getElementById('mode-work');
+    const modeBreak = document.getElementById('mode-break');
+    const sessionsCount = document.getElementById('completed-sessions-count');
+
+    sessionsCount.textContent = completedSessions;
+
+    function updateTimerDisplay() {
+        let remaining = 0;
+        if (isRunning && endTime) {
+            remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
+        } else {
+            remaining = totalDuration;
+        }
+
+        const min = Math.floor(remaining / 60);
+        const sec = remaining % 60;
+        timerDisplay.textContent = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+
+        const progress = totalDuration > 0 ? (remaining / totalDuration) * 100 : 0;
+        progressBar.style.width = `${progress}%`;
+
+        if (isRunning && remaining <= 0) {
+            clearInterval(timerInterval);
+            isRunning = false;
+            startBtn.innerHTML = '<i class="fa-solid fa-play"></i> تشغيل';
+
+            playNotificationSound();
+
+            if (isWorkMode) {
+                completedSessions++;
+                localStorage.setItem('hayyiz-sessions', completedSessions);
+                sessionsCount.textContent = completedSessions;
+                alert('انتهت جلسة الدراسة! حان وقت الراحة.');
+                switchToBreak();
+            } else {
+                alert('انتهت الراحة! ابدأ جلسة جديدة.');
+                switchToWork();
+            }
+            updateHomeStats();
         }
     }
 
-    applyTheme(savedTheme);
+    function startTimer() {
+        if (isRunning) return;
 
-    if (themeBtn) {
-        themeBtn.addEventListener('click', () => {
-            const currentTheme = document.documentElement.getAttribute('data-theme');
-            const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            applyTheme(nextTheme);
-            storage.set('adawati_theme', nextTheme);
-        });
+        let remaining = totalDuration;
+        if (endTime) {
+            remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
+        }
+
+        endTime = Date.now() + (remaining * 1000);
+        isRunning = true;
+        startBtn.innerHTML = '<i class="fa-solid fa-play"></i> يعمل...';
+
+        clearInterval(timerInterval);
+        timerInterval = setInterval(updateTimerDisplay, 200);
+        updateTimerDisplay();
     }
 
-    // ========== Todo List ==========
+    function pauseTimer() {
+        if (!isRunning) return;
+        clearInterval(timerInterval);
+        isRunning = false;
+
+        if (endTime) {
+            const remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
+            totalDuration = remaining;
+            endTime = null;
+        }
+        startBtn.innerHTML = '<i class="fa-solid fa-play"></i> تشغيل';
+        updateTimerDisplay();
+    }
+
+    function resetTimer() {
+        clearInterval(timerInterval);
+        isRunning = false;
+        endTime = null;
+        totalDuration = (isWorkMode ? parseInt(workInput.value) : parseInt(breakInput.value)) * 60;
+        startBtn.innerHTML = '<i class="fa-solid fa-play"></i> تشغيل';
+        updateTimerDisplay();
+    }
+
+    function switchToWork() {
+        isWorkMode = true;
+        modeWork.classList.add('active');
+        modeBreak.classList.remove('active');
+        resetTimer();
+    }
+
+    function switchToBreak() {
+        isWorkMode = false;
+        modeBreak.classList.add('active');
+        modeWork.classList.remove('active');
+        resetTimer();
+    }
+
+    startBtn.addEventListener('click', startTimer);
+    pauseBtn.addEventListener('click', pauseTimer);
+    resetBtn.addEventListener('click', resetTimer);
+    modeWork.addEventListener('click', () => { pauseTimer(); switchToWork(); });
+    modeBreak.addEventListener('click', () => { pauseTimer(); switchToBreak(); });
+    workInput.addEventListener('change', () => { if (isWorkMode) resetTimer(); });
+    breakInput.addEventListener('change', () => { if (!isWorkMode) resetTimer(); });
+
+    updateTimerDisplay();
+
+    // ===================== قائمة المهام + عداد المهام =====================
+    let todos = JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
+    let currentFilter = 'all';
+    let currentTaskTimer = null; // { index, endTime, total }
+
     const todoForm = document.getElementById('todo-form');
     const todoInput = document.getElementById('todo-input');
-    const todoDateInput = document.getElementById('todo-date');
-    const todoMinutesInput = document.getElementById('todo-minutes');
-    const todoPriorityInput = document.getElementById('todo-priority');
+    const todoPriority = document.getElementById('todo-priority');
+    const todoDate = document.getElementById('todo-date');
+    const todoMinutes = document.getElementById('todo-minutes');
     const todoList = document.getElementById('todo-list');
-
-    let todos = storage.get('adawati_todos', []);
+    const todoEmpty = document.getElementById('todo-empty');
+    const filterBtns = document.querySelectorAll('.filter-btn');
 
     function saveTodos() {
-        storage.set('adawati_todos', todos);
+        localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
+        updateHomeStats();
     }
 
-    function getTimeRemainingText(dueDateStr) {
-        if (!dueDateStr) return '';
-        const due = new Date(dueDateStr).getTime();
-        const now = Date.now();
-        const diff = due - now;
-
-        if (diff <= 0) return '<span class="text-danger fw-bold">(انتهى الموعد!)</span>';
-
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-        let text = 'متبقي: ';
-        if (days > 0) text += `${days} يوم و `;
-        if (hours > 0 || days > 0) text += `${hours} ساعة و `;
-        text += `${mins} دقيقة`;
-        return text;
+    function formatTime(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     }
 
-    const priorityLabels = {
-        high: 'عالية',
-        medium: 'متوسطة',
-        low: 'منخفضة'
-    };
+    function startTaskTimer(index) {
+        // إيقاف أي مؤقت مهمة سابق فقط
+        if (window.taskTimerInterval) {
+            clearInterval(window.taskTimerInterval);
+        }
+
+        const todo = todos[index];
+        if (!todo.minutes) return;
+
+        const totalSeconds = parseInt(todo.minutes) * 60;
+        currentTaskTimer = {
+            index: index,
+            endTime: Date.now() + totalSeconds * 1000,
+            total: totalSeconds
+        };
+
+        window.taskTimerInterval = setInterval(() => {
+            const remaining = Math.max(0, Math.round((currentTaskTimer.endTime - Date.now()) / 1000));
+
+            const timerEl = document.getElementById(`task-timer-${index}`);
+            if (timerEl) {
+                timerEl.textContent = formatTime(remaining);
+            }
+
+            if (remaining <= 0) {
+                clearInterval(window.taskTimerInterval);
+                window.taskTimerInterval = null;
+                currentTaskTimer = null;
+
+                playNotificationSound();
+                alert(`انتهى وقت المهمة: ${todo.text}`);
+                renderTodos();
+            }
+        }, 200);
+
+        renderTodos();
+    }
+
+    function stopTaskTimer() {
+        if (window.taskTimerInterval) {
+            clearInterval(window.taskTimerInterval);
+            window.taskTimerInterval = null;
+        }
+        currentTaskTimer = null;
+        renderTodos();
+    }
 
     function renderTodos() {
-        if (!todoList) return;
+        let filtered = todos;
+        if (currentFilter === 'active') filtered = todos.filter(t => !t.completed);
+        if (currentFilter === 'completed') filtered = todos.filter(t => t.completed);
+        if (currentFilter === 'high') filtered = todos.filter(t => t.priority === 'high');
+
         todoList.innerHTML = '';
+        if (filtered.length === 0) {
+            todoEmpty.classList.remove('hidden');
+            return;
+        }
+        todoEmpty.classList.add('hidden');
 
-        // ترتيب حسب الأولوية ثم التاريخ
-        const sorted = [...todos].sort((a, b) => {
-            const order = { high: 0, medium: 1, low: 2 };
-            return (order[a.priority] || 1) - (order[b.priority] || 1);
-        });
+        filtered.forEach((todo) => {
+            const realIndex = todos.indexOf(todo);
+            const isThisTaskRunning = currentTaskTimer && currentTaskTimer.index === realIndex;
 
-        sorted.forEach(todo => {
+            let timerHTML = '';
+            if (todo.minutes && !todo.completed) {
+                if (isThisTaskRunning) {
+                    const remaining = Math.max(0, Math.round((currentTaskTimer.endTime - Date.now()) / 1000));
+                    timerHTML = `
+                        <div class="task-timer-box">
+                            <span class="task-timer" id="task-timer-${realIndex}">${formatTime(remaining)}</span>
+                            <button class="btn btn-outline btn-sm stop-task-timer" data-index="${realIndex}">
+                                <i class="fa-solid fa-stop"></i> إيقاف
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    timerHTML = `
+                        <div class="task-timer-box">
+                            <span class="task-duration">${todo.minutes} دقيقة</span>
+                            <button class="btn btn-primary btn-sm start-task-timer" data-index="${realIndex}">
+                                <i class="fa-solid fa-play"></i> بدء
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+
             const li = document.createElement('li');
-            li.className = `todo-item priority-${todo.priority || 'medium'} ${todo.completed ? 'completed' : ''}`;
-
-            const mins = Math.floor((todo.remainingSeconds || 0) / 60);
-            const secs = (todo.remainingSeconds || 0) % 60;
-            const timerFormatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-
-            const safeText = sanitizeText(todo.text);
-            const safeDueDate = todo.dueDate ? new Date(todo.dueDate).toLocaleString('ar-SA') : '';
-
+            li.className = `todo-item ${todo.completed ? 'completed' : ''}`;
             li.innerHTML = `
-                <div class="todo-header-row">
-                    <span class="todo-title">${safeText}</span>
-                    <div class="todo-header-actions">
-                        <span class="priority-badge">${priorityLabels[todo.priority] || 'متوسطة'}</span>
-                        <button class="btn btn-sm btn-outline btn-delete" title="حذف المهمة">
-                            <i class="fa-solid fa-trash text-danger"></i>
-                        </button>
+                <input type="checkbox" class="todo-check" ${todo.completed ? 'checked' : ''} data-index="${realIndex}">
+                <div class="todo-content">
+                    <div class="todo-text">${todo.text}</div>
+                    <div class="todo-meta">
+                        <span class="priority-${todo.priority}">
+                            ${todo.priority === 'high' ? 'عالية' : todo.priority === 'medium' ? 'متوسطة' : 'منخفضة'}
+                        </span>
+                        ${todo.date ? `<span><i class="fa-regular fa-calendar"></i> ${new Date(todo.date).toLocaleString('ar-EG')}</span>` : ''}
+                        ${todo.minutes ? `<span><i class="fa-solid fa-hourglass-half"></i> ${todo.minutes} د</span>` : ''}
                     </div>
+                    ${timerHTML}
                 </div>
-                <div class="todo-meta-row">
-                    ${todo.dueDate ? `<span><i class="fa-regular fa-calendar"></i> ${safeDueDate} - ${getTimeRemainingText(todo.dueDate)}</span>` : ''}
-                </div>
-                <div class="todo-actions">
-                    ${todo.durationMinutes ? `
-                        <span class="timer-badge">${timerFormatted}</span>
-                        <button class="btn btn-sm ${todo.isRunning ? 'btn-secondary' : 'btn-primary'} btn-toggle-timer">
-                            <i class="fa-solid ${todo.isRunning ? 'fa-pause' : 'fa-play'}"></i> ${todo.isRunning ? 'إيقاف' : 'بدء'}
-                        </button>
-                        <button class="btn btn-sm btn-outline btn-reset-timer">
-                            <i class="fa-solid fa-rotate-right"></i>
-                        </button>
-                    ` : ''}
-                    <button class="btn btn-sm ${todo.completed ? 'btn-outline' : 'btn-primary'} btn-toggle-complete ms-auto">
-                        <i class="fa-solid ${todo.completed ? 'fa-arrow-rotate-left' : 'fa-check'}"></i> ${todo.completed ? 'تراجع' : 'اكتملت'}
-                    </button>
-                </div>
+                <button class="todo-delete" data-index="${realIndex}"><i class="fa-solid fa-trash"></i></button>
             `;
-
-            li.querySelector('.btn-delete').addEventListener('click', () => deleteTodo(todo.id));
-            li.querySelector('.btn-toggle-complete').addEventListener('click', () => toggleComplete(todo.id));
-
-            const toggleTimerBtn = li.querySelector('.btn-toggle-timer');
-            if (toggleTimerBtn) toggleTimerBtn.addEventListener('click', () => toggleTaskTimer(todo.id));
-
-            const resetTimerBtn = li.querySelector('.btn-reset-timer');
-            if (resetTimerBtn) resetTimerBtn.addEventListener('click', () => resetTaskTimer(todo.id));
-
             todoList.appendChild(li);
         });
     }
 
-    if (todoForm) {
-        todoForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const text = todoInput.value.trim();
-            if (!text) return alert('عفوًا، يرجى كتابة نص المهمة أولاً.');
-            const duration = parseInt(todoMinutesInput.value) || null;
-
-            todos.push({
-                id: Date.now(),
-                text: text,
-                priority: todoPriorityInput ? todoPriorityInput.value : 'medium',
-                dueDate: todoDateInput.value || null,
-                durationMinutes: duration,
-                remainingSeconds: duration ? duration * 60 : 0,
-                endTimestamp: null,          // وقت الانتهاء الحقيقي
-                isRunning: false,
-                completed: false
-            });
-
-            saveTodos();
-            renderTodos();
-            todoForm.reset();
-            if (todoPriorityInput) todoPriorityInput.value = 'medium';
+    todoForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const text = todoInput.value.trim();
+        if (!text) return;
+        todos.unshift({
+            text,
+            priority: todoPriority.value,
+            date: todoDate.value || null,
+            minutes: todoMinutes.value || null,
+            completed: false,
+            created: Date.now()
         });
-    }
-
-    function toggleComplete(id) {
-        todos = todos.map(t => t.id === id ? { ...t, completed: !t.completed, isRunning: false, endTimestamp: null } : t);
         saveTodos();
+        todoInput.value = '';
+        todoDate.value = '';
+        todoMinutes.value = '';
         renderTodos();
-    }
+    });
 
-    function deleteTodo(id) {
-        todos = todos.filter(t => t.id !== id);
-        saveTodos();
-        renderTodos();
-    }
-
-    function toggleTaskTimer(id) {
-        todos = todos.map(t => {
-            if (t.id !== id) return t;
-
-            if (!t.isRunning) {
-                // بدء المؤقت → نحسب وقت الانتهاء الحقيقي
-                const remaining = t.remainingSeconds > 0 ? t.remainingSeconds : (t.durationMinutes || 0) * 60;
-                return {
-                    ...t,
-                    isRunning: true,
-                    remainingSeconds: remaining,
-                    endTimestamp: Date.now() + remaining * 1000
-                };
-            } else {
-                // إيقاف مؤقت → نحسب المتبقي الحقيقي ونحفظه
-                const realRemaining = t.endTimestamp
-                    ? Math.max(0, Math.round((t.endTimestamp - Date.now()) / 1000))
-                    : t.remainingSeconds;
-                return {
-                    ...t,
-                    isRunning: false,
-                    remainingSeconds: realRemaining,
-                    endTimestamp: null
-                };
+    todoList.addEventListener('click', (e) => {
+        if (e.target.classList.contains('todo-check')) {
+            const i = e.target.dataset.index;
+            todos[i].completed = e.target.checked;
+            if (currentTaskTimer && currentTaskTimer.index == i) {
+                stopTaskTimer();
             }
-        });
-        saveTodos();
-        renderTodos();
-    }
-
-    function resetTaskTimer(id) {
-        todos = todos.map(t => t.id === id ? {
-            ...t,
-            remainingSeconds: (t.durationMinutes || 0) * 60,
-            isRunning: false,
-            endTimestamp: null
-        } : t);
-        saveTodos();
-        renderTodos();
-    }
-
-    // تحديث المؤقتات اعتمادًا على الوقت الحقيقي (ما يتأثر بتبطيء التبويبة)
-    function updateRunningTimers() {
-        let updated = false;
-        const now = Date.now();
-
-        todos = todos.map(t => {
-            if (t.isRunning && t.endTimestamp) {
-                const realRemaining = Math.max(0, Math.round((t.endTimestamp - now) / 1000));
-                updated = true;
-
-                if (realRemaining <= 0) {
-                    return { ...t, remainingSeconds: 0, isRunning: false, endTimestamp: null };
-                }
-                return { ...t, remainingSeconds: realRemaining };
-            }
-            return t;
-        });
-
-        if (updated) {
             saveTodos();
             renderTodos();
         }
-    }
 
-    setInterval(updateRunningTimers, 1000);
-
-    // لما ترجع للتبويبة، نحدث فورًا
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            updateRunningTimers();
+        if (e.target.closest('.todo-delete')) {
+            const i = e.target.closest('.todo-delete').dataset.index;
+            if (currentTaskTimer && currentTaskTimer.index == i) {
+                stopTaskTimer();
+            }
+            todos.splice(i, 1);
+            saveTodos();
+            renderTodos();
         }
+
+        if (e.target.closest('.start-task-timer')) {
+            const i = e.target.closest('.start-task-timer').dataset.index;
+            startTaskTimer(parseInt(i));
+        }
+
+        if (e.target.closest('.stop-task-timer')) {
+            stopTaskTimer();
+        }
+    });
+
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            filterBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentFilter = btn.dataset.filter;
+            renderTodos();
+        });
     });
 
     renderTodos();
 
-    // ========== Pomodoro ==========
-    const workMinutesInput = document.getElementById('work-minutes');
-    const breakMinutesInput = document.getElementById('break-minutes');
+    // ===================== الملاحظات =====================
+    let notes = JSON.parse(localStorage.getItem('hayyiz-notes') || '[]');
 
-    const pomodoroState = storage.get('adawati_pomodoro', {
-        mode: 'work',
-        timeLeft: 25 * 60,
-        isRunning: false,
-        completedSessions: 0,
-        workMinutes: 25,
-        breakMinutes: 5,
-        endTimestamp: null
-    });
+    const notesForm = document.getElementById('notes-form');
+    const noteTitle = document.getElementById('note-title');
+    const noteContent = document.getElementById('note-content');
+    const notesList = document.getElementById('notes-list');
+    const notesEmpty = document.getElementById('notes-empty');
+    const notesSearch = document.getElementById('notes-search');
+    const clearNoteBtn = document.getElementById('clear-note-btn');
 
-    let pomodoroTimer = null;
-    const timerDisplay = document.getElementById('timer-display');
-    const startBtn = document.getElementById('timer-start-btn');
-    const pauseBtn = document.getElementById('timer-pause-btn');
-    const resetBtn = document.getElementById('timer-reset-btn');
-    const sessionsCountDisplay = document.getElementById('completed-sessions-count');
-    const workModeBtn = document.getElementById('mode-work');
-    const breakModeBtn = document.getElementById('mode-break');
-
-    // تعبئة القيم المحفوظة
-    if (workMinutesInput) workMinutesInput.value = pomodoroState.workMinutes || 25;
-    if (breakMinutesInput) breakMinutesInput.value = pomodoroState.breakMinutes || 5;
-
-    function savePomodoroState() {
-        storage.set('adawati_pomodoro', pomodoroState);
+    function saveNotes() {
+        localStorage.setItem('hayyiz-notes', JSON.stringify(notes));
     }
 
-    function updatePomodoroUI() {
-        // لو شغال، نحسب الوقت الحقيقي
-        if (pomodoroState.isRunning && pomodoroState.endTimestamp) {
-            pomodoroState.timeLeft = Math.max(0, Math.round((pomodoroState.endTimestamp - Date.now()) / 1000));
+    function renderNotes(filter = '') {
+        const filtered = notes.filter(n =>
+            n.title.includes(filter) || n.content.includes(filter)
+        );
+        notesList.innerHTML = '';
+        if (filtered.length === 0) {
+            notesEmpty.classList.remove('hidden');
+            return;
         }
+        notesEmpty.classList.add('hidden');
 
-        const m = Math.floor(pomodoroState.timeLeft / 60);
-        const s = pomodoroState.timeLeft % 60;
-        if (timerDisplay) timerDisplay.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-        if (sessionsCountDisplay) sessionsCountDisplay.textContent = pomodoroState.completedSessions;
-
-        if (workModeBtn && breakModeBtn) {
-            workModeBtn.classList.toggle('active', pomodoroState.mode === 'work');
-            breakModeBtn.classList.toggle('active', pomodoroState.mode === 'break');
-        }
-    }
-
-    function playBeep() {
-        try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.frequency.value = 800;
-            gain.gain.value = 0.3;
-            osc.start();
-            setTimeout(() => {
-                osc.stop();
-                ctx.close();
-            }, 400);
-        } catch (e) {}
-    }
-
-    function startPomodoro() {
-        if (pomodoroState.isRunning) return;
-
-        pomodoroState.isRunning = true;
-        pomodoroState.endTimestamp = Date.now() + pomodoroState.timeLeft * 1000;
-        savePomodoroState();
-        updatePomodoroUI();
-
-        if (pomodoroTimer) clearInterval(pomodoroTimer);
-
-        pomodoroTimer = setInterval(() => {
-            updatePomodoroUI();
-            savePomodoroState();
-
-            if (pomodoroState.timeLeft <= 0) {
-                clearInterval(pomodoroTimer);
-                pomodoroTimer = null;
-                pomodoroState.isRunning = false;
-                pomodoroState.endTimestamp = null;
-                playBeep();
-
-                if (pomodoroState.mode === 'work') {
-                    pomodoroState.completedSessions++;
-                    alert('أحسنت! انتهت فترة الدراسة. حان وقت الراحة.');
-                    setPomodoroMode('break');
-                } else {
-                    alert('انتهت فترة الراحة! استعد للجولة القادمة.');
-                    setPomodoroMode('work');
-                }
-            }
-        }, 1000);
-    }
-
-    function pausePomodoro() {
-        if (!pomodoroState.isRunning) return;
-
-        // نحسب المتبقي الحقيقي قبل الإيقاف
-        if (pomodoroState.endTimestamp) {
-            pomodoroState.timeLeft = Math.max(0, Math.round((pomodoroState.endTimestamp - Date.now()) / 1000));
-        }
-        pomodoroState.isRunning = false;
-        pomodoroState.endTimestamp = null;
-
-        clearInterval(pomodoroTimer);
-        pomodoroTimer = null;
-        savePomodoroState();
-        updatePomodoroUI();
-    }
-
-    function setPomodoroMode(mode) {
-        pausePomodoro();
-        pomodoroState.mode = mode;
-        const mins = mode === 'work'
-            ? (parseInt(workMinutesInput?.value) || pomodoroState.workMinutes || 25)
-            : (parseInt(breakMinutesInput?.value) || pomodoroState.breakMinutes || 5);
-        pomodoroState.timeLeft = mins * 60;
-        pomodoroState.endTimestamp = null;
-        updatePomodoroUI();
-        savePomodoroState();
-    }
-
-    // تحديث الأوقات عند تغيير المدخلات
-    if (workMinutesInput) {
-        workMinutesInput.addEventListener('change', () => {
-            const val = Math.max(1, Math.min(120, parseInt(workMinutesInput.value) || 25));
-            workMinutesInput.value = val;
-            pomodoroState.workMinutes = val;
-            if (pomodoroState.mode === 'work' && !pomodoroState.isRunning) {
-                pomodoroState.timeLeft = val * 60;
-                updatePomodoroUI();
-            }
-            savePomodoroState();
+        filtered.forEach((note) => {
+            const realIndex = notes.indexOf(note);
+            const div = document.createElement('div');
+            div.className = 'note-card';
+            div.innerHTML = `
+                <button class="note-delete" data-index="${realIndex}"><i class="fa-solid fa-trash"></i></button>
+                <h4>${note.title || 'بدون عنوان'}</h4>
+                <p>${note.content}</p>
+                <div class="note-date">${new Date(note.created).toLocaleString('ar-EG')}</div>
+            `;
+            notesList.appendChild(div);
         });
     }
 
-    if (breakMinutesInput) {
-        breakMinutesInput.addEventListener('change', () => {
-            const val = Math.max(1, Math.min(60, parseInt(breakMinutesInput.value) || 5));
-            breakMinutesInput.value = val;
-            pomodoroState.breakMinutes = val;
-            if (pomodoroState.mode === 'break' && !pomodoroState.isRunning) {
-                pomodoroState.timeLeft = val * 60;
-                updatePomodoroUI();
-            }
-            savePomodoroState();
+    notesForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const content = noteContent.value.trim();
+        if (!content) return;
+        notes.unshift({
+            title: noteTitle.value.trim(),
+            content,
+            created: Date.now()
         });
-    }
+        saveNotes();
+        noteTitle.value = '';
+        noteContent.value = '';
+        renderNotes();
+    });
 
-    if (startBtn) startBtn.addEventListener('click', startPomodoro);
-    if (pauseBtn) pauseBtn.addEventListener('click', pausePomodoro);
-    if (resetBtn) resetBtn.addEventListener('click', () => setPomodoroMode(pomodoroState.mode));
-    if (workModeBtn) workModeBtn.addEventListener('click', () => setPomodoroMode('work'));
-    if (breakModeBtn) breakModeBtn.addEventListener('click', () => setPomodoroMode('break'));
+    clearNoteBtn.addEventListener('click', () => {
+        noteTitle.value = '';
+        noteContent.value = '';
+    });
 
-    // استعادة المؤقت لو كان شغال قبل ما تسكّر الصفحة
-    updatePomodoroUI();
-    if (pomodoroState.isRunning && pomodoroState.endTimestamp) {
-        // لو الوقت انتهى وهو برا التبويبة
-        if (pomodoroState.endTimestamp <= Date.now()) {
-            pomodoroState.timeLeft = 0;
-            pomodoroState.isRunning = false;
-            pomodoroState.endTimestamp = null;
-            savePomodoroState();
-            updatePomodoroUI();
-        } else {
-            startPomodoro();
-        }
-    }
-
-    // تحديث فور الرجوع للتبويبة
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            updatePomodoroUI();
-            if (pomodoroState.isRunning && pomodoroState.timeLeft <= 0) {
-                pausePomodoro();
-                playBeep();
-                if (pomodoroState.mode === 'work') {
-                    pomodoroState.completedSessions++;
-                    alert('أحسنت! انتهت فترة الدراسة. حان وقت الراحة.');
-                    setPomodoroMode('break');
-                } else {
-                    alert('انتهت فترة الراحة! استعد للجولة القادمة.');
-                    setPomodoroMode('work');
-                }
-            }
+    notesList.addEventListener('click', (e) => {
+        if (e.target.closest('.note-delete')) {
+            const i = e.target.closest('.note-delete').dataset.index;
+            notes.splice(i, 1);
+            saveNotes();
+            renderNotes(notesSearch.value);
         }
     });
 
-    // ========== Game ==========
-    let dictionary = null;
-    let gameTimer = null;
-    let gameTimeLeft = 60;
+    notesSearch.addEventListener('input', () => {
+        renderNotes(notesSearch.value.trim());
+    });
+
+    renderNotes();
+
+    // ===================== متتبع العادات =====================
+    let habits = JSON.parse(localStorage.getItem('hayyiz-habits') || '[]');
+
+    const habitForm = document.getElementById('habit-form');
+    const habitInput = document.getElementById('habit-input');
+    const habitsList = document.getElementById('habits-list');
+    const habitsEmpty = document.getElementById('habits-empty');
+    const totalHabitsEl = document.getElementById('total-habits');
+    const bestStreakEl = document.getElementById('best-streak');
+    const todayCompletedEl = document.getElementById('today-completed');
+
+    function getToday() {
+        return new Date().toISOString().slice(0, 10);
+    }
+
+    function saveHabits() {
+        localStorage.setItem('hayyiz-habits', JSON.stringify(habits));
+        updateHabitStats();
+        updateHomeStats();
+    }
+
+    function updateHabitStats() {
+        totalHabitsEl.textContent = habits.length;
+        let best = 0;
+        let todayCount = 0;
+        const today = getToday();
+        habits.forEach(h => {
+            if (h.streak > best) best = h.streak;
+            if (h.lastCompleted === today) todayCount++;
+        });
+        bestStreakEl.textContent = best;
+        todayCompletedEl.textContent = todayCount;
+    }
+
+    function renderHabits() {
+        habitsList.innerHTML = '';
+        if (habits.length === 0) {
+            habitsEmpty.classList.remove('hidden');
+            return;
+        }
+        habitsEmpty.classList.add('hidden');
+
+        const today = getToday();
+        habits.forEach((habit, i) => {
+            const doneToday = habit.lastCompleted === today;
+            const div = document.createElement('div');
+            div.className = 'habit-item';
+            div.innerHTML = `
+                <input type="checkbox" class="habit-check" ${doneToday ? 'checked' : ''} data-index="${i}">
+                <div class="habit-info">
+                    <div class="habit-name">${habit.name}</div>
+                    <div class="habit-streak">السلسلة الحالية: <strong>${habit.streak} يوم</strong></div>
+                </div>
+                <button class="habit-delete" data-index="${i}"><i class="fa-solid fa-trash"></i></button>
+            `;
+            habitsList.appendChild(div);
+        });
+        updateHabitStats();
+    }
+
+    habitForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = habitInput.value.trim();
+        if (!name) return;
+        habits.push({ name, streak: 0, lastCompleted: null });
+        saveHabits();
+        habitInput.value = '';
+        renderHabits();
+    });
+
+    habitsList.addEventListener('click', (e) => {
+        if (e.target.classList.contains('habit-check')) {
+            const i = e.target.dataset.index;
+            const today = getToday();
+            const habit = habits[i];
+
+            if (e.target.checked) {
+                if (habit.lastCompleted !== today) {
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    const yesterdayStr = yesterday.toISOString().slice(0, 10);
+                    habit.streak = (habit.lastCompleted === yesterdayStr) ? habit.streak + 1 : 1;
+                    habit.lastCompleted = today;
+                }
+            } else {
+                if (habit.lastCompleted === today) {
+                    habit.streak = Math.max(0, habit.streak - 1);
+                    habit.lastCompleted = null;
+                }
+            }
+            saveHabits();
+            renderHabits();
+        }
+
+        if (e.target.closest('.habit-delete')) {
+            const i = e.target.closest('.habit-delete').dataset.index;
+            habits.splice(i, 1);
+            saveHabits();
+            renderHabits();
+        }
+    });
+
+    renderHabits();
+
+    // ===================== لعبة الحروف (مع القاموس + توقيت حقيقي) =====================
+    const letters = 'أبتثجحخدذرزسشصضطظعغفقكلمنهوي';
     let currentLetter = '';
-    let highScore = storage.get('adawati_highscore', 0);
+    let gameEndTime = null;
+    let gameTimerInterval = null;
+    let highScore = parseInt(localStorage.getItem('hayyiz-highscore') || '0');
 
-    const highScoreEl = document.getElementById('high-score');
     const currentLetterEl = document.getElementById('current-letter');
     const startGameBtn = document.getElementById('start-game-btn');
     const gameForm = document.getElementById('game-form');
     const gameTimerDisplay = document.getElementById('game-timer-display');
     const gameResultBox = document.getElementById('game-result-box');
+    const highScoreEl = document.getElementById('high-score');
 
-    if (highScoreEl) highScoreEl.textContent = highScore;
+    highScoreEl.textContent = highScore;
 
-    // تحميل القاموس
-    fetch('words.json')
-        .then(res => res.json())
-        .then(data => { dictionary = data; })
-        .catch(() => {
-            // قاموس احتياطي بسيط إذا فشل التحميل
-            dictionary = {
-                human: { "أ": ["أحمد", "أمل"], "م": ["محمد", "مريم"] },
-                animal: { "أ": ["أسد", "أرنب"], "ق": ["قط", "قرد"] },
-                plant: { "ت": ["تفاح", "تمر"], "ن": ["نخيل", "نعناع"] },
-                thing: { "ق": ["قلم", "كتاب"], "س": ["ساعة", "سرير"] },
-                country: { "س": ["السعودية", "سوريا"], "م": ["مصر", "المغرب"] }
-            };
-        });
-
-    const arabicLetters = ['أ', 'ب', 'ت', 'ث', 'ج', 'ح', 'خ', 'د', 'ذ', 'ر', 'ز', 'س', 'ش', 'ص', 'ض', 'ط', 'ظ', 'ع', 'غ', 'ف', 'ق', 'ك', 'ل', 'م', 'ن', 'هـ', 'و', 'ي'];
-
-    function normalizeArabic(str) {
-        if (!str) return '';
-        return str.trim()
-            .replace(/[أإآ]/g, 'ا')
-            .replace(/ة/g, 'ه')
-            .replace(/ى/g, 'ي')
-            .replace(/ؤ/g, 'و')
-            .replace(/ئ/g, 'ي')
-            .toLowerCase();
+    function normalize(str) {
+        return str.trim().replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/أ|إ|آ/g, 'ا');
     }
 
-    function checkWord(category, word, letter) {
-        if (!dictionary || !word) return false;
-        const list = dictionary[category]?.[letter] || [];
-        const normalized = normalizeArabic(word);
-        return list.some(w => normalizeArabic(w) === normalized);
+    function isValidWord(category, letter, word) {
+        if (!dictionary || !dictionary[category] || !dictionary[category][letter]) return false;
+        const list = dictionary[category][letter];
+        const normalizedWord = normalize(word);
+        return list.some(item => normalize(item) === normalizedWord);
     }
 
-    function startGame() {
+    function updateGameTimer() {
+        if (!gameEndTime) return;
+        const remaining = Math.max(0, Math.round((gameEndTime - Date.now()) / 1000));
+        gameTimerDisplay.innerHTML = `<i class="fa-solid fa-hourglass-half"></i> الوقت: ${remaining}ث`;
+
+        if (remaining <= 0) {
+            clearInterval(gameTimerInterval);
+            submitGame();
+        }
+    }
+
+    startGameBtn.addEventListener('click', () => {
         if (!dictionary) {
-            alert('جاري تحميل القاموس، حاول مرة أخرى بعد ثوانٍ.');
+            alert('القاموس غير محمّل. تأكد من وجود ملف words.json');
             return;
         }
 
-        currentLetter = arabicLetters[Math.floor(Math.random() * arabicLetters.length)];
-        if (currentLetterEl) currentLetterEl.textContent = currentLetter;
+        const availableLetters = letters.split('').filter(l => {
+            return dictionary.human[l] || dictionary.animal[l] || dictionary.plant[l] ||
+                   dictionary.thing[l] || dictionary.country[l];
+        });
 
-        gameTimeLeft = 60;
-        if (gameTimerDisplay) gameTimerDisplay.textContent = `الوقت: ${gameTimeLeft}ث`;
+        currentLetter = availableLetters[Math.floor(Math.random() * availableLetters.length)];
+        currentLetterEl.textContent = currentLetter;
 
-        if (gameForm) {
-            gameForm.classList.remove('hidden');
-            gameForm.reset();
-        }
-        if (gameResultBox) {
-            gameResultBox.classList.add('hidden');
-            gameResultBox.innerHTML = '';
-        }
-        if (startGameBtn) startGameBtn.classList.add('hidden');
+        gameForm.classList.remove('hidden');
+        gameResultBox.classList.add('hidden');
+        startGameBtn.classList.add('hidden');
 
-        clearInterval(gameTimer);
-        gameTimer = setInterval(() => {
-            gameTimeLeft--;
-            if (gameTimerDisplay) gameTimerDisplay.textContent = `الوقت: ${gameTimeLeft}ث`;
-            if (gameTimeLeft <= 0) {
-                clearInterval(gameTimer);
-                submitGame();
-            }
-        }, 1000);
-    }
+        gameEndTime = Date.now() + 60000;
+        clearInterval(gameTimerInterval);
+        gameTimerInterval = setInterval(updateGameTimer, 200);
+        updateGameTimer();
+
+        ['g-human', 'g-animal', 'g-plant', 'g-thing', 'g-country'].forEach(id => {
+            document.getElementById(id).value = '';
+        });
+    });
+
+    gameForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        submitGame();
+    });
 
     function submitGame() {
-        clearInterval(gameTimer);
+        clearInterval(gameTimerInterval);
+        gameEndTime = null;
 
         const answers = {
-            human: document.getElementById('g-human')?.value || '',
-            animal: document.getElementById('g-animal')?.value || '',
-            plant: document.getElementById('g-plant')?.value || '',
-            thing: document.getElementById('g-thing')?.value || '',
-            country: document.getElementById('g-country')?.value || ''
+            human: document.getElementById('g-human').value.trim(),
+            animal: document.getElementById('g-animal').value.trim(),
+            plant: document.getElementById('g-plant').value.trim(),
+            thing: document.getElementById('g-thing').value.trim(),
+            country: document.getElementById('g-country').value.trim()
         };
+
+        let score = 0;
+        let details = [];
 
         const categories = [
             { key: 'human', label: 'إنسان' },
@@ -595,46 +715,72 @@ document.addEventListener('DOMContentLoaded', () => {
             { key: 'country', label: 'بلاد' }
         ];
 
-        let score = 0;
-        let resultsHtml = '<h3 class="result-title">نتيجة الجولة</h3><ul class="result-list">';
-
         categories.forEach(cat => {
             const word = answers[cat.key];
-            const valid = checkWord(cat.key, word, currentLetter);
-            if (valid) score += 20;
-            resultsHtml += `
-                <li class="result-item">
-                    <span><strong>${cat.label}:</strong> ${sanitizeText(word) || '—'}</span>
-                    <span class="${valid ? 'text-success' : 'text-danger'} fw-bold">
-                        ${valid ? '✓ صحيح' : '✗ غير موجود بالقاموس'}
-                    </span>
-                </li>`;
-        });
 
-        resultsHtml += `</ul><p class="result-score">النتيجة: ${score} / 100</p>`;
+            if (!word) {
+                details.push(`
+                    <div style="margin-bottom: 10px; font-size: 0.95rem; line-height: 1.6;">
+                        <strong>${cat.label}:</strong>
+                        <span style="color: #94a3b8;">— لم تُدخل إجابة</span>
+                    </div>
+                `);
+                return;
+            }
+
+            if (isValidWord(cat.key, currentLetter, word)) {
+                score += 20;
+                details.push(`
+                    <div style="margin-bottom: 10px; font-size: 0.95rem; line-height: 1.6;">
+                        <strong>${cat.label}:</strong>
+                        <span style="color: #059669; font-weight: 700;">${word}</span>
+                        <span style="color: #059669; font-weight: 700; margin-right: 6px;">✓ صح</span>
+                    </div>
+                `);
+            } else {
+                details.push(`
+                    <div style="margin-bottom: 10px; font-size: 0.95rem; line-height: 1.6;">
+                        <strong>${cat.label}:</strong>
+                        <span style="color: #dc2626; font-weight: 700;">${word}</span>
+                        <span style="color: #dc2626; font-weight: 700; margin-right: 6px;">✗ غير موجود بالقاموس</span>
+                    </div>
+                `);
+            }
+        });
 
         if (score > highScore) {
             highScore = score;
-            storage.set('adawati_highscore', highScore);
-            if (highScoreEl) highScoreEl.textContent = highScore;
-            resultsHtml += `<p class="text-success result-new-record">🎉 رقم قياسي جديد!</p>`;
+            localStorage.setItem('hayyiz-highscore', highScore);
+            highScoreEl.textContent = highScore;
         }
 
-        if (gameResultBox) {
-            gameResultBox.innerHTML = resultsHtml;
-            gameResultBox.classList.remove('hidden');
-        }
-        if (gameForm) gameForm.classList.add('hidden');
-        if (startGameBtn) startGameBtn.classList.remove('hidden');
-        if (currentLetterEl) currentLetterEl.textContent = '؟';
+        gameResultBox.innerHTML = `
+            <div style="font-size: 1.5rem; margin-bottom: 20px; font-weight: 800; text-align: center;">
+                نتيجتك: ${score} / 100
+            </div>
+            <div style="text-align: right;">
+                ${details.join('')}
+            </div>
+            <p style="margin-top: 20px; color: #64748b; font-size: 0.95rem; text-align: center;">
+                الحرف المطلوب كان: <strong style="color: var(--primary);">${currentLetter}</strong>
+            </p>
+        `;
+
+        gameResultBox.classList.remove('hidden');
+        gameForm.classList.add('hidden');
+        startGameBtn.classList.remove('hidden');
+        startGameBtn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> جولة جديدة';
     }
 
-    if (startGameBtn) startGameBtn.addEventListener('click', startGame);
-    if (gameForm) {
-        gameForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            submitGame();
-        });
+    // ===================== إحصائيات الرئيسية =====================
+    function updateHomeStats() {
+        document.getElementById('home-sessions').textContent = completedSessions;
+        document.getElementById('home-tasks').textContent = todos.filter(t => !t.completed).length;
+
+        let best = 0;
+        habits.forEach(h => { if (h.streak > best) best = h.streak; });
+        document.getElementById('home-streak').textContent = best;
     }
 
+    updateHomeStats();
 });
