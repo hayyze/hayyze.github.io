@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة الحروف | حيز</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-light">
+
+<header class="navbar">
+    <div class="container nav-container">
+        <a href="index.html" class="logo">
+            <div class="logo-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+            <span class="logo-text">حيز</span>
+        </a>
+        <button class="menu-toggle" id="menu-toggle"><i class="fa-solid fa-bars"></i></button>
+        <nav class="nav-links" id="nav-links">
+            <a href="index.html" class="nav-btn"><i class="fa-solid fa-house"></i> الرئيسية</a>
+            <a href="pomodoro.html" class="nav-btn"><i class="fa-solid fa-clock"></i> المؤقت</a>
+            <a href="todo.html" class="nav-btn"><i class="fa-solid fa-list-check"></i> المهام</a>
+            <a href="gpa.html" class="nav-btn"><i class="fa-solid fa-calculator"></i> حاسبة المعدل</a>
+            <a href="notes.html" class="nav-btn"><i class="fa-solid fa-note-sticky"></i> الملاحظات</a>
+            <a href="habits.html" class="nav-btn"><i class="fa-solid fa-fire"></i> العادات</a>
+            <a href="game.html" class="nav-btn active"><i class="fa-solid fa-gamepad"></i> لعبة الحروف</a>
+            <a href="about.html" class="nav-btn"><i class="fa-solid fa-circle-info"></i> عن حيز</a>
+        </nav>
+        <div class="nav-actions">
+            <button id="theme-toggle" class="theme-btn"><i class="fa-solid fa-moon"></i></button>
+        </div>
+    </div>
+</header>
+
+<main class="container main-content">
+    <div class="card game-card">
+        <div class="game-header">
+            <div>
+                <h2><i class="fa-solid fa-gamepad"></i> لعبة الحروف</h2>
+                <p class="section-desc">جماد • حيوان • نبات • إنسان • بلاد</p>
+            </div>
+            <div class="score-board">
+                <i class="fa-solid fa-trophy"></i> أعلى نتيجة: <span id="high-score">0</span>
+            </div>
+        </div>
+        
+        <div class="game-start-box">
+            <div class="random-letter" id="current-letter">؟</div>
+            <p class="letter-hint">الحرف المطلوب</p>
+            <button class="btn btn-primary btn-lg" id="start-game-btn"><i class="fa-solid fa-play"></i> بدء جولة جديدة</button>
+            <div class="game-timer" id="game-timer-display"><i class="fa-solid fa-hourglass-half"></i> الوقت: 60ث</div>
+        </div>
+
+        <form id="game-form" class="game-form hidden">
+            <div class="form-grid">
+                <div class="field"><label>إنسان</label><input type="text" id="g-human" autocomplete="off"></div>
+                <div class="field"><label>حيوان</label><input type="text" id="g-animal" autocomplete="off"></div>
+                <div class="field"><label>نبات</label><input type="text" id="g-plant" autocomplete="off"></div>
+                <div class="field"><label>جماد</label><input type="text" id="g-thing" autocomplete="off"></div>
+                <div class="field"><label>بلاد</label><input type="text" id="g-country" autocomplete="off"></div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg width-full"><i class="fa-solid fa-paper-plane"></i> إرسال الإجابات</button>
+        </form>
+
+        <div id="game-result-box" class="result-box hidden"></div>
+    </div>
+</main>
+
+<footer class="footer">
+    <div class="container footer-container">
+        <div class="footer-brand">
+            <i class="fa-solid fa-graduation-cap"></i>
+            <span>حيز</span>
+        </div>
+        <p class="footer-copy">&copy; 2026 حيز — جميع الحقوق محفوظة</p>
+        <div class="footer-links">
+            <a href="privacy.html">سياسة الخصوصية</a>
+            <a href="mailto:adawati.support@gmail.com">تواصل معنا</a>
+        </div>
+    </div>
+</footer>
+
+<script src="common.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مؤقت المذاكرة | حيز</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-light">
+
+<header class="navbar">
+    <div class="container nav-container">
+        <a href="index.html" class="logo">
+            <div class="logo-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+            <span class="logo-text">حيز</span>
+        </a>
+        <button class="menu-toggle" id="menu-toggle"><i class="fa-solid fa-bars"></i></button>
+        <nav class="nav-links" id="nav-links">
+            <a href="index.html" class="nav-btn"><i class="fa-solid fa-house"></i> الرئيسية</a>
+            <a href="pomodoro.html" class="nav-btn active"><i class="fa-solid fa-clock"></i> المؤقت</a>
+            <a href="todo.html" class="nav-btn"><i class="fa-solid fa-list-check"></i> المهام</a>
+            <a href="gpa.html" class="nav-btn"><i class="fa-solid fa-calculator"></i> حاسبة المعدل</a>
+            <a href="notes.html" class="nav-btn"><i class="fa-solid fa-note-sticky"></i> الملاحظات</a>
+            <a href="habits.html" class="nav-btn"><i class="fa-solid fa-fire"></i> العادات</a>
+            <a href="game.html" class="nav-btn"><i class="fa-solid fa-gamepad"></i> لعبة الحروف</a>
+            <a href="about.html" class="nav-btn"><i class="fa-solid fa-circle-info"></i> عن حيز</a>
+        </nav>
+        <div class="nav-actions">
+            <button id="theme-toggle" class="theme-btn"><i class="fa-solid fa-moon"></i></button>
+        </div>
+    </div>
+</header>
+
+<main class="container main-content">
+    <div class="card pomodoro-card">
+        <div class="section-header">
+            <h2><i class="fa-solid fa-clock"></i> مؤقت المذاكرة</h2>
+            <p class="section-desc">استخدم تقنية بومودورو لزيادة تركيزك</p>
+        </div>
+
+        <div class="timer-settings">
+            <div class="setting-item">
+                <label><i class="fa-solid fa-book-open"></i> وقت الدراسة</label>
+                <div class="input-with-unit">
+                    <input type="number" id="work-minutes" min="1" max="120" value="25">
+                    <span>دقيقة</span>
+                </div>
+            </div>
+            <div class="setting-item">
+                <label><i class="fa-solid fa-mug-hot"></i> وقت الراحة</label>
+                <div class="input-with-unit">
+                    <input type="number" id="break-minutes" min="1" max="60" value="5">
+                    <span>دقيقة</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="timer-mode-selector">
+            <button class="mode-btn active" id="mode-work"><i class="fa-solid fa-brain"></i> دراسة</button>
+            <button class="mode-btn" id="mode-break"><i class="fa-solid fa-coffee"></i> راحة</button>
+        </div>
+
+        <div class="timer-display-wrapper">
+            <div class="timer-display" id="timer-display">25:00</div>
+            <div class="timer-progress"><div class="progress-bar" id="timer-progress-bar"></div></div>
+        </div>
+
+        <div class="controls-row">
+            <button class="btn btn-primary btn-lg" id="timer-start-btn"><i class="fa-solid fa-play"></i> تشغيل</button>
+            <button class="btn btn-secondary" id="timer-pause-btn"><i class="fa-solid fa-pause"></i> إيقاف</button>
+            <button class="btn btn-outline" id="timer-reset-btn"><i class="fa-solid fa-rotate-right"></i> إعادة</button>
+        </div>
+
+        <div class="sessions-info">
+            <div class="session-badge">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>الجلسات المكتملة: <strong id="completed-sessions-count">0</strong></span>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer class="footer">
+    <div class="container footer-container">
+        <div class="footer-brand">
+            <i class="fa-solid fa-graduation-cap"></i>
+            <span>حيز</span>
+        </div>
+        <p class="footer-copy">&copy; 2026 حيز — جميع الحقوق محفوظة</p>
+        <div class="footer-links">
+            <a href="privacy.html">سياسة الخصوصية</a>
+            <a href="mailto:adawati.support@gmail.com">تواصل معنا</a>
+        </div>
+    </div>
+</footer>
+
+<script src="common.js"></script>
+<script src="pomodoro.js"></script>
+</body>
+</html>
