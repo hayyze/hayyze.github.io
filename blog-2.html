@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>كيف تنظم قائمة مهامك الدراسية؟ | حيز</title>
+    <meta name="description" content="تعلم كيفية تنظيم المهام والواجبات الدراسية بفعالية وترتيب الأولويات للتغلب على التراكم الدراسي وتسليم الواجبات في مواعيدها.">
+    <meta name="keywords" content="قائمة المهام, تنظيم الواجبات, قائمة المهام الدراسية, إدارة المهام, جدول المذاكرة, ترتيب الأولويات, تنظيم الوقت للطلاب">
+    <meta name="author" content="حيز">
+    <meta name="robots" content="index, follow">
+
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self';
+                   script-src 'self' https://www.googletagmanager.com 'unsafe-inline';
+                   style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com 'unsafe-inline';
+                   font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:;
+                   connect-src 'self' https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com;
+                   img-src 'self' data: https://www.google-analytics.com;
+                   object-src 'none';
+                   base-uri 'self';">
+
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="icon" href="favicon.ico">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-F94Z3H2D3S');
+    </script>
+</head>
+<body class="theme-light">
+
+<header class="navbar">
+    <div class="container nav-container">
+        <a href="index.html" class="logo">
+            <div class="logo-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+            <span class="logo-text">حيز</span>
+        </a>
+
+        <button class="menu-toggle" id="menu-toggle" aria-label="فتح القائمة">
+            <i class="fa-solid fa-bars"></i>
+        </button>
+
+        <nav class="nav-links" id="nav-links">
+            <a href="index.html" class="nav-btn"><i class="fa-solid fa-house"></i> الرئيسية</a>
+            <a href="pomodoro.html" class="nav-btn"><i class="fa-solid fa-clock"></i> المؤقت</a>
+            <a href="todo.html" class="nav-btn"><i class="fa-solid fa-list-check"></i> المهام</a>
+            <a href="gpa.html" class="nav-btn"><i class="fa-solid fa-calculator"></i> حاسبة المعدل</a>
+            <a href="notes.html" class="nav-btn"><i class="fa-solid fa-note-sticky"></i> الملاحظات</a>
+            <a href="habits.html" class="nav-btn"><i class="fa-solid fa-fire"></i> العادات</a>
+            <a href="game.html" class="nav-btn"><i class="fa-solid fa-gamepad"></i> لعبة الحروف</a>
+            <a href="blog.html" class="nav-btn active"><i class="fa-solid fa-newspaper"></i> المدونة</a>
+            <a href="about.html" class="nav-btn"><i class="fa-solid fa-circle-info"></i> عن حيز</a>
+        </nav>
+
+        <div class="nav-actions">
+            <button id="theme-toggle" class="theme-btn" aria-label="تبديل الوضع">
+                <i class="fa-solid fa-moon"></i>
+            </button>
+        </div>
+    </div>
+</header>
+
+<main class="container main-content">
+    <article class="card about-card">
+        <div class="about-hero">
+            <p style="color: var(--primary); font-weight: 600; margin-bottom: 10px;">إدارة المهام والأولويات</p>
+            <h1>كيف تنظم قائمة مهامك الدراسية وتمنع التراكم؟</h1>
+            <p class="about-lead">
+                التراكم الدراسي هو العدو الأول لراحة الطالب الأكاديمية. استخدام قائمة مهام منظمة يرفع عن كاهلك عبء التفكير المستمر فيما يجب إنجازه.
+            </p>
+        </div>
+
+        <div class="about-section">
+            <h2>لماذا تحتاجا قائمة مهام مخصصة للدراسة؟</h2>
+            <p>الاعتماد على الذاكرة المجردة لتذكر مواعيد التسليم واختبارات المواد المتعددة يؤدي إلى تشتت ذهني وشعور دائم بالقلق. قائمة المهام الدراسية تعمل بمثابة "ذاكرة خارجية" تفرغ فيها كافة التكليفات للتركيز الكامل على التنفيذ.</p>
+        </div>
+
+        <div class="about-section">
+            <h2>خطوات إعداد قائمة مهام فعالة</h2>
+            <ul class="about-pros">
+                <li>اكتب كل التكليفات والواجبات فور إسنادها إليك.</li>
+                <li>جزّء المشاريع الكبيرة إلى مهام فرعية صغيرة.</li>
+                <li>حدد درجة الأولوية وتاريخ الاستحقاق لكل مهمة.</li>
+                <li>حدد من 3 إلى 5 مهام رئيسية يومياً فقط لتجنب الإحباط.</li>
+                <li>راجع القائمة في نهاية كل يوم واضبط جدول اليوم التالي.</li>
+            </ul>
+        </div>
+
+        <div class="about-section">
+            <h2>كيف تحدد أولوياتك الدراسية؟</h2>
+            <p>ليست كل المهام متساوية في الأهمية. ابدأ دائماً بالواجبات ذات المواعيد القريبة أو المواد التي تتطلب جهداً ذهنياً عالياً في بداية اليوم عندما تكون طاقتك في أوجها.</p>
+        </div>
+
+        <div class="about-section">
+            <h2>استخدم قائمة مهام حيز</h2>
+            <p>تتيح لك <a href="todo.html" style="color:var(--primary);font-weight:600;">قائمة المهام في حيز</a> تنظيم الواجبات اليومية بسرعة، وتحديد التواريخ، ومتابعة ما تم إنجازه مع حفظ كافة بياناتك محلياً دون الحاجة لتسجيل دخول.</p>
+        </div>
+
+        <div class="about-section">
+            <h2>الخلاصة</h2>
+            <p>التنظيم المستمر يعطيك السيطرة الكاملة على جدولك الأكاديمي. ابدأ بتدوين مهامك بوضوح وحول الأهداف الكبيرة إلى خطوات عملية يومية.</p>
+        </div>
+
+        <div style="margin-top: 40px; text-align: center;">
+            <a href="blog.html" class="btn btn-outline"><i class="fa-solid fa-arrow-right"></i> العودة للمدونة</a>
+            <a href="todo.html" class="btn btn-primary" style="margin-right: 12px;"><i class="fa-solid fa-list-check"></i> نظّم مهامك الآن</a>
+        </div>
+    </article>
+</main>
+
+<footer class="footer">
+    <div class="container footer-container">
+        <div class="footer-brand"><i class="fa-solid fa-graduation-cap"></i> حيز</div>
+        <p class="footer-copy">&copy; 2026 حيز — جميع الحقوق محفوظة</p>
+        <div class="footer-links">
+            <a href="privacy.html">سياسة الخصوصية</a>
+            <a href="mailto:adawati.support@gmail.com">تواصل معنا</a>
+        </div>
+    </div>
+</footer>
+
+<script src="common.js"></script>
+</body>
+</html>
