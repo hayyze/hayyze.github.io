@@ -68,553 +68,86 @@
     </script>
 </head>
 <body>
-         <header class="navbar">
-        <div class="container nav-container">
-            <a href="#" class="logo" id="logo-btn">
-                <div class="logo-icon"><i class="fa-solid fa-graduation-cap"></i></div>
-                <span class="logo-text">حيز</span>
-            </a>
+      <body class="theme-light">
 
-            <button class="menu-toggle" id="menu-toggle" aria-label="فتح القائمة">
-                <i class="fa-solid fa-bars"></i>
-            </button>
-
-            <nav class="nav-links" id="nav-links">
-                <button class="nav-btn active" data-tab="home">
-                    <i class="fa-solid fa-house"></i>
-                    <span>الرئيسية</span>
-                </button>
-                <button class="nav-btn" data-tab="pomodoro">
-                    <i class="fa-solid fa-clock"></i>
-                    <span>المؤقت</span>
-                </button>
-                <button class="nav-btn" data-tab="todo">
-                    <i class="fa-solid fa-list-check"></i>
-                    <span>المهام</span>
-                </button>
-                <button class="nav-btn" data-tab="notes">
-                    <i class="fa-solid fa-note-sticky"></i>
-                    <span>الملاحظات</span>
-                </button>
-                <button class="nav-btn" data-tab="habits">
-                    <i class="fa-solid fa-fire"></i>
-                    <span>العادات</span>
-                </button>
-                <button class="nav-btn" data-tab="game">
-                    <i class="fa-solid fa-gamepad"></i>
-                    <span>لعبة الحروف</span>
-                </button>
-                <button class="nav-btn" data-tab="about">
-                    <i class="fa-solid fa-circle-info"></i>
-                    <span>عن حيز</span>
-                </button>
-            </nav>
-
-            <div class="nav-actions">
-                <button id="theme-toggle" class="theme-btn" aria-label="تبديل الوضع">
-                    <i class="fa-solid fa-moon"></i>
-                </button>
-            </div>
+<header class="navbar">
+    <div class="container nav-container">
+        <a href="index.html" class="logo">
+            <div class="logo-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+            <span class="logo-text">حيز</span>
+        </a>
+        <button class="menu-toggle" id="menu-toggle" aria-label="فتح القائمة"><i class="fa-solid fa-bars"></i></button>
+        <nav class="nav-links" id="nav-links">
+            <a href="index.html" class="nav-btn active"><i class="fa-solid fa-house"></i> الرئيسية</a>
+            <a href="pomodoro.html" class="nav-btn"><i class="fa-solid fa-clock"></i> المؤقت</a>
+            <a href="todo.html" class="nav-btn"><i class="fa-solid fa-list-check"></i> المهام</a>
+            <a href="gpa.html" class="nav-btn"><i class="fa-solid fa-calculator"></i> حاسبة المعدل</a>
+            <a href="notes.html" class="nav-btn"><i class="fa-solid fa-note-sticky"></i> الملاحظات</a>
+            <a href="habits.html" class="nav-btn"><i class="fa-solid fa-fire"></i> العادات</a>
+            <a href="game.html" class="nav-btn"><i class="fa-solid fa-gamepad"></i> لعبة الحروف</a>
+            <a href="about.html" class="nav-btn"><i class="fa-solid fa-circle-info"></i> عن حيز</a>
+        </nav>
+        <div class="nav-actions">
+            <button id="theme-toggle" class="theme-btn"><i class="fa-solid fa-moon"></i></button>
         </div>
-    </header>
-
-    <main class="container main-content">
-
-        <!-- ==================== الصفحة الرئيسية ==================== -->
-        <section id="tab-home" class="tab-content active">
-            <div class="hero">
-                <div class="hero-badge">منصة أدوات دراسية مجانية</div>
-                <h1 class="hero-title">مرحبًا بك في <span class="highlight">حيز</span></h1>
-                <p class="hero-desc">
-                مساحة نظيفة وبسيطة تساعدك على تنظيم دراستك، زيادة تركيزك، وتتبع تقدمك — معظم بياناتك تُحفظ محليًا على جهازك، مع استخدام تحليلات مجهولة لتحسين الموقع.
-                </p>
-                <div class="hero-stats">
-                    <div class="stat-item">
-                        <span class="stat-number" id="home-sessions">0</span>
-                        <span class="stat-label">جلسة مكتملة</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-number" id="home-tasks">0</span>
-                        <span class="stat-label">مهمة نشطة</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-number" id="home-streak">0</span>
-                        <span class="stat-label">يوم متتالي</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="tools-grid">
-                <div class="card tool-card" data-tab="pomodoro">
-                    <div class="card-icon pomodoro-icon"><i class="fa-solid fa-stopwatch"></i></div>
-                    <h3>مؤقت المذاكرة</h3>
-                    <p>تقنية بومودورو مع تخصيص كامل لأوقات الدراسة والراحة، وتتبع الجلسات المكتملة.</p>
-                    <div class="card-footer">
-                        <span class="tag">تركيز</span>
-                        <button class="btn btn-secondary btn-sm">افتح الأداة</button>
-                    </div>
-                </div>
-
-                <div class="card tool-card" data-tab="todo">
-                    <div class="card-icon todo-icon"><i class="fa-solid fa-tasks"></i></div>
-                    <h3>قائمة المهام</h3>
-                    <p>نظم واجباتك ومشاريعك بأولويات وتواريخ استحقاق، واحفظ كل شيء محليًا.</p>
-                    <div class="card-footer">
-                        <span class="tag">تنظيم</span>
-                        <button class="btn btn-secondary btn-sm">افتح الأداة</button>
-                    </div>
-                </div>
-
-                <div class="card tool-card" data-tab="notes">
-                    <div class="card-icon notes-icon"><i class="fa-solid fa-note-sticky"></i></div>
-                    <h3>دفتر الملاحظات</h3>
-                    <p>اكتب ملاحظاتك الدراسية بسرعة، ونظمها في بطاقات قابلة للبحث والتعديل.</p>
-                    <div class="card-footer">
-                        <span class="tag">جديد</span>
-                        <button class="btn btn-secondary btn-sm">افتح الأداة</button>
-                    </div>
-                </div>
-
-                <div class="card tool-card" data-tab="habits">
-                    <div class="card-icon habits-icon"><i class="fa-solid fa-fire"></i></div>
-                    <h3>متتبع العادات</h3>
-                    <p>ابنِ عادات دراسية يومية وتتبع استمرارك (Streak) لتحفيز نفسك يوميًا.</p>
-                    <div class="card-footer">
-                        <span class="tag">جديد</span>
-                        <button class="btn btn-secondary btn-sm">افتح الأداة</button>
-                    </div>
-                </div>
-
-                <div class="card tool-card" data-tab="game">
-                    <div class="card-icon game-icon"><i class="fa-solid fa-font"></i></div>
-                    <h3>لعبة الحروف</h3>
-                    <p>جماد • حيوان • نبات • إنسان • بلاد — تحدَّ سرعة بديهتك بالحروف العربية.</p>
-                    <div class="card-footer">
-                        <span class="tag">ترفيه</span>
-                        <button class="btn btn-secondary btn-sm">العب الآن</button>
-                    </div>
-                </div>
-            </div>
-
-            <section class="info-section card">
-                <div class="info-header">
-                    <i class="fa-solid fa-shield-halved"></i>
-                    <h2>لماذا حيز؟</h2>
-                </div>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <i class="fa-solid fa-lock"></i>
-                        <h4>خصوصية كاملة</h4>
-                        <p>لا نجمع بيانات المهام والملاحظات والعادات الخاصة بك على خوادمنا، وتبقى هذه البيانات محفوظة محليًا على جهازك.</p>
-                    </div>
-                    <div class="info-item">
-                        <i class="fa-solid fa-bolt"></i>
-                        <h4>سرعة فائقة</h4>
-                        <p>يعمل بدون إنترنت بعد التحميل الأول، وخفيف جدًا على أي جهاز.</p>
-                    </div>
-                    <div class="info-item">
-                        <i class="fa-solid fa-palette"></i>
-                        <h4>تصميم نظيف</h4>
-                        <p>واجهة بسيطة وحديثة تركز على المحتوى وتقلل التشتيت.</p>
-                    </div>
-                </div>
-            </section>
-        </section>
-
-        <!-- ==================== مؤقت البومودورو ==================== -->
-        <section id="tab-pomodoro" class="tab-content">
-            <div class="card pomodoro-card">
-                <div class="section-header">
-                    <h2><i class="fa-solid fa-clock"></i> مؤقت المذاكرة</h2>
-                    <p class="section-desc">استخدم تقنية بومودورو لزيادة تركيزك وتقليل الإرهاق</p>
-                </div>
-
-                <div class="timer-settings">
-                    <div class="setting-item">
-                        <label for="work-minutes"><i class="fa-solid fa-book-open"></i> وقت الدراسة</label>
-                        <div class="input-with-unit">
-                            <input type="number" id="work-minutes" min="1" max="120" value="25">
-                            <span>دقيقة</span>
-                        </div>
-                    </div>
-                    <div class="setting-item">
-                        <label for="break-minutes"><i class="fa-solid fa-mug-hot"></i> وقت الراحة</label>
-                        <div class="input-with-unit">
-                            <input type="number" id="break-minutes" min="1" max="60" value="5">
-                            <span>دقيقة</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="timer-mode-selector">
-                    <button class="mode-btn active" id="mode-work">
-                        <i class="fa-solid fa-brain"></i> دراسة
-                    </button>
-                    <button class="mode-btn" id="mode-break">
-                        <i class="fa-solid fa-coffee"></i> راحة
-                    </button>
-                </div>
-
-                <div class="timer-display-wrapper">
-                    <div class="timer-display" id="timer-display">25:00</div>
-                    <div class="timer-progress">
-                        <div class="progress-bar" id="timer-progress-bar"></div>
-                    </div>
-                </div>
-
-                <div class="controls-row">
-                    <button class="btn btn-primary btn-lg" id="timer-start-btn">
-                        <i class="fa-solid fa-play"></i> تشغيل
-                    </button>
-                    <button class="btn btn-secondary" id="timer-pause-btn">
-                        <i class="fa-solid fa-pause"></i> إيقاف
-                    </button>
-                    <button class="btn btn-outline" id="timer-reset-btn">
-                        <i class="fa-solid fa-rotate-right"></i> إعادة
-                    </button>
-                </div>
-
-                <div class="sessions-info">
-                    <div class="session-badge">
-                        <i class="fa-solid fa-circle-check"></i>
-                        <span>الجلسات المكتملة: <strong id="completed-sessions-count">0</strong></span>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- ==================== قائمة المهام ==================== -->
-        <section id="tab-todo" class="tab-content">
-            <div class="card">
-                <div class="section-header">
-                    <h2><i class="fa-solid fa-list-check"></i> قائمة المهام الدراسية</h2>
-                    <p class="section-desc">أضف مهامك وحدد أولوياتها وتواريخها</p>
-                </div>
-                
-                <form id="todo-form" class="todo-form">
-                    <div class="input-group">
-                        <input type="text" id="todo-input" placeholder="أضف مهمة جديدة... (مثال: مراجعة الفصل الثالث)" required>
-                        <button type="submit" class="btn btn-primary" id="add-todo-btn">
-                            <i class="fa-solid fa-plus"></i> إضافة
-                        </button>
-                    </div>
-
-                    <div class="todo-options">
-                        <div class="option-field">
-                            <label for="todo-priority"><i class="fa-solid fa-flag"></i> الأولوية</label>
-                            <select id="todo-priority">
-                                <option value="low">منخفضة</option>
-                                <option value="medium" selected>متوسطة</option>
-                                <option value="high">عالية</option>
-                            </select>
-                        </div>
-                        <div class="option-field">
-                            <label for="todo-date"><i class="fa-regular fa-calendar-days"></i> تاريخ الاستحقاق</label>
-                            <input type="datetime-local" id="todo-date">
-                        </div>
-                        <div class="option-field">
-                            <label for="todo-minutes"><i class="fa-solid fa-hourglass-half"></i> المدة المتوقعة</label>
-                            <input type="number" id="todo-minutes" min="1" max="1440" placeholder="بالدقائق">
-                        </div>
-                    </div>
-                </form>
-
-                <div class="todo-filters">
-                    <button class="filter-btn active" data-filter="all">الكل</button>
-                    <button class="filter-btn" data-filter="active">نشطة</button>
-                    <button class="filter-btn" data-filter="completed">مكتملة</button>
-                    <button class="filter-btn" data-filter="high">عالية الأولوية</button>
-                </div>
-
-                <ul id="todo-list" class="todo-list"></ul>
-                
-                <div class="todo-empty hidden" id="todo-empty">
-                    <i class="fa-solid fa-clipboard-list"></i>
-                    <p>لا توجد مهام بعد. أضف مهمتك الأولى!</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- ==================== دفتر الملاحظات ==================== -->
-        <section id="tab-notes" class="tab-content">
-            <div class="card">
-                <div class="section-header">
-                    <h2><i class="fa-solid fa-note-sticky"></i> دفتر الملاحظات</h2>
-                    <p class="section-desc">اكتب أفكارك وملاحظاتك الدراسية بسرعة</p>
-                </div>
-
-                <form id="notes-form" class="notes-form">
-                    <input type="text" id="note-title" placeholder="عنوان الملاحظة (اختياري)">
-                    <textarea id="note-content" placeholder="اكتب ملاحظتك هنا..." rows="4" required></textarea>
-                    <div class="notes-actions">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fa-solid fa-plus"></i> حفظ الملاحظة
-                        </button>
-                        <button type="button" class="btn btn-outline" id="clear-note-btn">مسح</button>
-                    </div>
-                </form>
-
-                <div class="notes-search">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" id="notes-search" placeholder="ابحث في ملاحظاتك...">
-                </div>
-
-                <div id="notes-list" class="notes-grid"></div>
-                
-                <div class="notes-empty hidden" id="notes-empty">
-                    <i class="fa-solid fa-book-open"></i>
-                    <p>لا توجد ملاحظات بعد. ابدأ بكتابة أول ملاحظة!</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- ==================== متتبع العادات ==================== -->
-        <section id="tab-habits" class="tab-content">
-            <div class="card">
-                <div class="section-header">
-                    <h2><i class="fa-solid fa-fire"></i> متتبع العادات الدراسية</h2>
-                    <p class="section-desc">ابنِ عادات يومية وتتبع استمرارك</p>
-                </div>
-
-                <form id="habit-form" class="habit-form">
-                    <div class="input-group">
-                        <input type="text" id="habit-input" placeholder="أضف عادة جديدة... (مثال: مراجعة يومية 30 دقيقة)" required>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fa-solid fa-plus"></i> إضافة
-                        </button>
-                    </div>
-                </form>
-
-                <div class="habits-stats">
-                    <div class="habit-stat">
-                        <span class="habit-stat-num" id="total-habits">0</span>
-                        <span>عادات نشطة</span>
-                    </div>
-                    <div class="habit-stat">
-                        <span class="habit-stat-num" id="best-streak">0</span>
-                        <span>أفضل سلسلة</span>
-                    </div>
-                    <div class="habit-stat">
-                        <span class="habit-stat-num" id="today-completed">0</span>
-                        <span>مكتملة اليوم</span>
-                    </div>
-                </div>
-
-                <div id="habits-list" class="habits-list"></div>
-
-                <div class="habits-empty hidden" id="habits-empty">
-                    <i class="fa-solid fa-seedling"></i>
-                    <p>ابدأ بإضافة عادتك الدراسية الأولى!</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- ==================== لعبة الحروف ==================== -->
-        <section id="tab-game" class="tab-content">
-            <div class="card game-card">
-                <div class="game-header">
-                    <div>
-                        <h2><i class="fa-solid fa-gamepad"></i> لعبة الحروف والقاموس</h2>
-                        <p class="section-desc">جماد • حيوان • نبات • إنسان • بلاد</p>
-                    </div>
-                    <div class="score-board">
-                        <i class="fa-solid fa-trophy"></i>
-                        أعلى نتيجة: <span id="high-score">0</span>
-                    </div>
-                </div>
-                
-                <div class="game-start-box">
-                    <div class="random-letter" id="current-letter">؟</div>
-                    <p class="letter-hint">الحرف المطلوب</p>
-                    <button class="btn btn-primary btn-lg" id="start-game-btn">
-                        <i class="fa-solid fa-play"></i> بدء جولة جديدة
-                    </button>
-                    <div class="game-timer" id="game-timer-display">
-                        <i class="fa-solid fa-hourglass-half"></i> الوقت: 60ث
-                    </div>
-                </div>
-
-                <form id="game-form" class="game-form hidden">
-                    <div class="form-grid">
-                        <div class="field">
-                            <label for="g-human"><i class="fa-solid fa-user"></i> إنسان</label>
-                            <input type="text" id="g-human" autocomplete="off" placeholder="مثال: أحمد">
-                        </div>
-                        <div class="field">
-                            <label for="g-animal"><i class="fa-solid fa-paw"></i> حيوان</label>
-                            <input type="text" id="g-animal" autocomplete="off" placeholder="مثال: أسد">
-                        </div>
-                        <div class="field">
-                            <label for="g-plant"><i class="fa-solid fa-seedling"></i> نبات</label>
-                            <input type="text" id="g-plant" autocomplete="off" placeholder="مثال: تفاح">
-                        </div>
-                        <div class="field">
-                            <label for="g-thing"><i class="fa-solid fa-cube"></i> جماد</label>
-                            <input type="text" id="g-thing" autocomplete="off" placeholder="مثال: كتاب">
-                        </div>
-                        <div class="field">
-                            <label for="g-country"><i class="fa-solid fa-flag"></i> بلاد</label>
-                            <input type="text" id="g-country" autocomplete="off" placeholder="مثال: مصر">
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-lg width-full">
-                        <i class="fa-solid fa-paper-plane"></i> إرسال الإجابات
-                    </button>
-                </form>
-
-                <div id="game-result-box" class="result-box hidden"></div>
-            </div>
-        </section>
-
-        <!-- ==================== عن حيز ==================== -->
-        <section id="tab-about" class="tab-content">
-            <div class="card about-card">
-                <div class="about-hero">
-                    <h1>عن منصة حيز – أدوات دراسية مجانية للطلاب</h1>
-                    <p class="about-lead">
-                        حيز هي منصة أدوات دراسية عربية مجانية 100% مصممة لمساعدة الطلاب على تنظيم وقتهم، زيادة تركيزهم، وتحسين إنتاجيتهم الدراسية بطريقة بسيطة وسريعة دون الحاجة إلى تسجيل الدخول أو مشاركة أي بيانات شخصية.
-                    </p>
-                </div>
-
-                <div class="about-section">
-                    <h2>ما هي منصة حيز؟</h2>
-                    <p>
-                        حيز (أو مساحة الدراسة) هي موقع إلكتروني عربي يقدم مجموعة من الأدوات الدراسية الأساسية التي يحتاجها كل طالب. تم تصميم المنصة لتكون خفيفة وسريعة وتعمل بالكامل داخل المتصفح، مما يعني أن جميع بياناتك تبقى محفوظة محليًا على جهازك فقط عبر تقنية LocalStorage، دون أي تتبع أو جمع للمعلومات.
-                    </p>
-                    <p>
-                        سواء كنت طالبًا في المرحلة الثانوية أو الجامعية، فإن حيز يوفر لك بيئة نظيفة ومرتبة تساعدك على المذاكرة بفعالية أكبر وتجنب التشتت.
-                    </p>
-                </div>
-
-                <div class="about-section">
-                    <h2>الأدوات المتوفرة في منصة حيز</h2>
-
-                    <div class="about-tool">
-                        <h3><i class="fa-solid fa-stopwatch"></i> مؤقت المذاكرة (بومودورو)</h3>
-                        <p>
-                            أداة مؤقت دراسي تعتمد على تقنية بومودورو الشهيرة. تتيح لك تحديد وقت الدراسة ووقت الراحة بحرية تامة، مع إمكانية تتبع عدد الجلسات المكتملة. تساعد هذه الأداة الطلاب على زيادة التركيز وتجنب الإرهاق أثناء المذاكرة الطويلة.
-                        </p>
-                    </div>
-
-                    <div class="about-tool">
-                        <h3><i class="fa-solid fa-list-check"></i> قائمة المهام الدراسية</h3>
-                        <p>
-                            قائمة مهام ذكية مخصصة للطلاب تتيح إضافة الواجبات والمشاريع مع تحديد الأولوية (عالية – متوسطة – منخفضة) وتاريخ الاستحقاق والمدة المتوقعة. يمكن تصفية المهام حسب حالتها أو أولويتها، وكل شيء يُحفظ تلقائيًا على جهازك.
-                        </p>
-                    </div>
-
-                    <div class="about-tool">
-                        <h3><i class="fa-solid fa-note-sticky"></i> دفتر الملاحظات الدراسية</h3>
-                        <p>
-                            مساحة سريعة لكتابة الملاحظات والأفكار الدراسية. يمكنك إضافة عنوان لكل ملاحظة والبحث فيها لاحقًا بسهولة. مثالية لتلخيص الدروس أو حفظ النقاط المهمة أثناء المذاكرة.
-                        </p>
-                    </div>
-
-                    <div class="about-tool">
-                        <h3><i class="fa-solid fa-fire"></i> متتبع العادات الدراسية</h3>
-                        <p>
-                            أداة تساعدك على بناء عادات دراسية يومية وتتبع استمرارك (Streak). كلما التزمت بعادتك يوميًا زادت سلسلتك، مما يحفزك على الاستمرار وتحقيق تقدم ملحوظ على المدى الطويل.
-                        </p>
-                    </div>
-
-                    <div class="about-tool">
-                        <h3><i class="fa-solid fa-gamepad"></i> لعبة الحروف العربية (جماد حيوان نبات)</h3>
-                        <p>
-                            لعبة ترفيهية تعليمية تعتمد على الحروف العربية. تظهر لك حرفًا عشوائيًا وعليك إيجاد كلمات في فئات: إنسان، حيوان، نبات، جماد، وبلاد. تساعد اللعبة على تنشيط الذاكرة وسرعة البديهة بطريقة ممتعة.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="about-section">
-                    <h2>لماذا تختار منصة حيز؟</h2>
-                    <ul class="about-pros">
-                        <li><strong>مجانية تمامًا</strong> – لا توجد رسوم أو اشتراكات.</li>
-                        <li><strong>سريعة وخفيفة</strong> – تعمل بدون إنترنت بعد التحميل الأول.</li>
-                        <li><strong>واجهة عربية نظيفة</strong> – تصميم بسيط وحديث يركز على سهولة الاستخدام.</li>
-                        <li><strong>متجاوبة مع الجوال</strong> – تعمل بكفاءة على الهواتف والحواسيب.</li>
-                    </ul>
-                </div>
-
-                <div class="about-section">
-                    <h2>الكلمات المفتاحية المرتبطة بمنصة حيز</h2>
-                    <p class="keywords-text">
-                        منصة دراسية عربية، أدوات طلاب مجانية، مؤقت بومودورو عربي، قائمة مهام للطلاب، دفتر ملاحظات دراسية، متتبع عادات دراسية، لعبة جماد حيوان نبات، أدوات مذاكرة، تنظيم الوقت للطلاب، زيادة التركيز أثناء الدراسة، موقع أدوات تعليمية، حيز للدراسة، مساحة دراسية رقمية.
-                    </p>
-                </div>
-            </div>
-        </section>
-    </main>
-     <section class="card contact-card">
-            <div class="contact-content">
-                <div>
-                    <h2><i class="fa-solid fa-envelope"></i> تواصل معنا</h2>
-                    <p>هل لديك اقتراح لأداة جديدة أو لاحظت مشكلة؟ راسلنا وسنكون سعداء بالاستماع إليك.</p>
-                </div>
-                <a href="mailto:adawati.support@gmail.com" class="btn btn-primary">
-                    <i class="fa-solid fa-paper-plane"></i> adawati.support@gmail.com
-                </a>
-            </div>
-        </section>
-
-    <!-- التذييل -->
-    <footer class="footer">
-        <div class="container footer-container">
-            <div class="footer-brand">
-                <i class="fa-solid fa-graduation-cap"></i>
-                <span>حيز</span>
-            </div>
-            <p class="footer-copy">&copy; 2026 حيز — جميع الحقوق محفوظة. صُمم لخدمة الطلاب.</p>
-            <div class="footer-links">
-                <a href="javascript:void(0)" id="privacy-link">سياسة الخصوصية</a>
-            </div>
-        </div>
-    </footer>
-
-    <!-- نافذة سياسة الخصوصية -->
-    <div id="privacy-modal" class="modal hidden">
-    <div class="modal-content card">
-        <button class="close-modal" aria-label="إغلاق">&times;</button>
-        <h2><i class="fa-solid fa-shield-halved"></i> سياسة الخصوصية</h2>
-        
-      <p>
-    نحن نحترم خصوصيتك. منصة <strong>حيز</strong> مصممة لتعمل بشكل أساسي داخل متصفحك، ومعظم بياناتك (المهام، الملاحظات، العادات، الجلسات) تُحفظ محليًا على جهازك فقط باستخدام تقنية LocalStorage ولا نصل إليها. كما نستخدم خدمة Google Analytics لجمع إحصائيات عامة ومجهولة عن زيارات الموقع بهدف تحسينه.
-     </p>
-
-        <h3 style="margin-top: 20px; margin-bottom: 10px;">تحليلات الموقع (Google Analytics)</h3>
-        <p>
-            نستخدم خدمة <strong>Google Analytics</strong> لفهم كيفية استخدام الزوار للموقع وتحسينه. 
-            تقوم Google Analytics بجمع معلومات عامة مثل:
-        </p>
-        <ul style="margin: 12px 0 12px 20px; color: var(--text-muted);">
-            <li>الصفحات التي تزورها</li>
-            <li>نوع الجهاز والمتصفح</li>
-            <li>البلد واللغة التقريبية</li>
-            <li>مدة البقاء في الموقع</li>
-        </ul>
-        <p>
-            هذه البيانات تكون مجهولة الهوية قدر الإمكان ولا نستخدمها للتعرف عليك شخصيًا.
-            يمكنك معرفة المزيد عن كيفية استخدام Google للبيانات من خلال الرابط التالي:<br>
-            <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener" style="color: var(--primary); font-weight: 600;">
-                كيف تستخدم Google المعلومات من المواقع أو التطبيقات التي تستخدم خدماتنا
-            </a>
-        </p>
-
-        <h3 style="margin-top: 20px; margin-bottom: 10px;">ملفات تعريف الارتباط (Cookies)</h3>
-        <p>
-            يستخدم Google Analytics ملفات تعريف ارتباط (كوكيز) لجمع البيانات المذكورة أعلاه. 
-            يمكنك تعطيل الكوكيز من إعدادات متصفحك إذا أردت.
-        </p>
-
-        <h3 style="margin-top: 20px; margin-bottom: 10px;">بياناتك المحلية</h3>
-        <p>
-            كل المهام والملاحظات والعادات والجلسات تبقى محفوظة على جهازك فقط، ولا نرسلها إلى أي خادم خارجي.
-        </p>
-
-        <p style="margin-top: 20px; font-size: 0.95rem; color: var(--text-muted);">
-            آخر تحديث: أغسطس 2026
-        </p>
     </div>
-</div>
-  <script src="adawati.js"></script>
+</header>
+
+<main class="container main-content">
+    <div class="hero">
+        <div class="hero-badge">منصة أدوات دراسية مجانية</div>
+        <h1 class="hero-title">مرحبًا بك في <span class="highlight">حيز</span></h1>
+        <p class="hero-desc">مساحة نظيفة وبسيطة تساعدك على تنظيم دراستك وزيادة تركيزك. كل شيء يعمل محليًا على جهازك.</p>
+    </div>
+
+    <div class="tools-grid">
+        <a href="pomodoro.html" class="card tool-card">
+            <div class="card-icon pomodoro-icon"><i class="fa-solid fa-stopwatch"></i></div>
+            <h3>مؤقت المذاكرة</h3>
+            <p>تقنية بومودورو مع تخصيص أوقات الدراسة والراحة.</p>
+        </a>
+        <a href="todo.html" class="card tool-card">
+            <div class="card-icon todo-icon"><i class="fa-solid fa-tasks"></i></div>
+            <h3>قائمة المهام</h3>
+            <p>نظم واجباتك بأولويات وتواريخ استحقاق.</p>
+        </a>
+        <a href="gpa.html" class="card tool-card">
+            <div class="card-icon" style="background: linear-gradient(135deg, #059669, #34d399);"><i class="fa-solid fa-calculator"></i></div>
+            <h3>حاسبة المعدل</h3>
+            <p>احسب معدلك الموزون لأول وثاني ثانوي بدقة.</p>
+        </a>
+        <a href="notes.html" class="card tool-card">
+            <div class="card-icon notes-icon"><i class="fa-solid fa-note-sticky"></i></div>
+            <h3>دفتر الملاحظات</h3>
+            <p>اكتب ملاحظاتك الدراسية وابحث فيها بسهولة.</p>
+        </a>
+        <a href="habits.html" class="card tool-card">
+            <div class="card-icon habits-icon"><i class="fa-solid fa-fire"></i></div>
+            <h3>متتبع العادات</h3>
+            <p>ابنِ عادات دراسية يومية وتتبع استمرارك.</p>
+        </a>
+        <a href="game.html" class="card tool-card">
+            <div class="card-icon game-icon"><i class="fa-solid fa-font"></i></div>
+            <h3>لعبة الحروف</h3>
+            <p>جماد • حيوان • نبات • إنسان • بلاد</p>
+        </a>
+    </div>
+</main>
+
+<footer class="footer">
+    <div class="container footer-container">
+        <div class="footer-brand">
+            <i class="fa-solid fa-graduation-cap"></i>
+            <span>حيز</span>
+        </div>
+        <p class="footer-copy">&copy; 2026 حيز — جميع الحقوق محفوظة</p>
+        <div class="footer-links">
+            <a href="privacy.html">سياسة الخصوصية</a>
+            <a href="mailto:adawati.support@gmail.com">تواصل معنا</a>
+        </div>
+    </div>
+</footer>
+
+<script src="common.js"></script>
 </body>
 </html>
