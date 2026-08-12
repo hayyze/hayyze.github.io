@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <!-- سياسة الأمان (CSP) -->
      <meta http-equiv="Content-Security-Policy"
       content="default-src 'self';
@@ -15,34 +14,27 @@
                object-src 'none';
                frame-ancestors 'none';
                base-uri 'self';">
-
     <!-- إعدادات أمنية إضافية -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-
     <!-- SEO -->
-    <title>الملاحظات |حيز</title>
-    <meta name="description" content="حيز منصة أدوات دراسية عربية مجانية تساعد الطلاب على تنظيم وقتهم وزيادة تركيزهم. مؤقت بومودورو، قائمة مهام، دفتر ملاحظات، متتبع عادات، ولعبة حروف عربية.">
-    <meta name="keywords" content="حيز, منصة دراسية, أدوات طلاب, بومودورو, قائمة مهام, ملاحظات دراسية, متتبع عادات, لعبة جماد حيوان نبات, أدوات مذاكرة, تنظيم الوقت,منصة ادواتي">
+    <title>دفتر الملاحظات الدراسية | حيز</title>
+    <meta name="description" content="اكتب ملاحظاتك الدراسية ونظمها وابحث فيها بسهولة مع دفتر الملاحظات من حيز. أداة بسيطة تعمل مباشرة من المتصفح دون الحاجة إلى تسجيل.">
     <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
-
+    <link rel="canonical" href="https://just-c.github.io/adawati/notes.html">
     <!-- الخطوط والأيقونات -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
-
     <!-- ملف التنسيقات -->
     <link rel="stylesheet" href="style.css">
-
     <!-- الأيقونات (Favicon) -->
     <link rel="icon" href="favicon.ico">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
-
     <!-- التحقق من جوجل -->
     <meta name="google-site-verification" content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw">
-
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S"></script>
     <script>
@@ -51,25 +43,40 @@
         gtag('js', new Date());
         gtag('config', 'G-F94Z3H2D3S');
     </script>
+    <!-- Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "دفتر الملاحظات الدراسية | حيز",
+  "url": "https://just-c.github.io/adawati/notes.html",
+  "description": "دفتر ملاحظات دراسية مجاني يساعد الطلاب على كتابة الملاحظات وتنظيمها والبحث فيها مباشرة من المتصفح.",
+  "inLanguage": "ar",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "حيز",
+    "url": "https://just-c.github.io/adawati/"
+  }
+}
+</script>
 </head>
 <body class="theme-light">
-
 <header class="navbar">
     <div class="container nav-container">
         <a href="index.html" class="logo">
             <div class="logo-icon"><i class="fa-solid fa-graduation-cap"></i></div>
             <span class="logo-text">حيز</span>
         </a>
-        <button class="menu-toggle" id="menu-toggle"><i class="fa-solid fa-bars"></i></button>
+        <button class="menu-toggle" id="menu-toggle" aria-label="فتح القائمة"><i class="fa-solid fa-bars"></i></button>
 <nav class="nav-links" id="nav-links">
     <a href="index.html" class="nav-btn"><i class="fa-solid fa-house"></i> الرئيسية</a>
     <a href="pomodoro.html" class="nav-btn"><i class="fa-solid fa-clock"></i> المؤقت</a>
     <a href="todo.html" class="nav-btn"><i class="fa-solid fa-list-check"></i> المهام</a>
     <a href="gpa.html" class="nav-btn"><i class="fa-solid fa-calculator"></i> حاسبة المعدل</a>
-    <a href="notes.html" class="nav-btn"><i class="fa-solid fa-note-sticky"></i> الملاحظات</a>
+    <a href="notes.html" class="nav-btn active"><i class="fa-solid fa-note-sticky"></i> الملاحظات</a>
     <a href="habits.html" class="nav-btn"><i class="fa-solid fa-fire"></i> العادات</a>
     <a href="game.html" class="nav-btn"><i class="fa-solid fa-gamepad"></i> لعبة الحروف</a>
-    <a href="blog.html" class="nav-btn active"><i class="fa-solid fa-newspaper"></i> المدونة</a>
+    <a href="blog.html" class="nav-btn"><i class="fa-solid fa-newspaper"></i> المدونة</a>
     <a href="about.html" class="nav-btn"><i class="fa-solid fa-circle-info"></i> عن حيز</a>
 </nav>
         <div class="nav-actions">
@@ -77,14 +84,12 @@
         </div>
     </div>
 </header>
-
 <main class="container main-content">
     <div class="card">
         <div class="section-header">
-            <h2><i class="fa-solid fa-note-sticky"></i> دفتر الملاحظات</h2>
+            <h1><i class="fa-solid fa-note-sticky"></i> دفتر الملاحظات</h1>
             <p class="section-desc">اكتب أفكارك وملاحظاتك الدراسية</p>
         </div>
-
         <form id="notes-form" class="notes-form">
             <input type="text" id="note-title" placeholder="عنوان الملاحظة (اختياري)">
             <textarea id="note-content" placeholder="اكتب ملاحظتك هنا..." rows="4" required></textarea>
@@ -93,20 +98,92 @@
                 <button type="button" class="btn btn-outline" id="clear-note-btn">مسح</button>
             </div>
         </form>
-
         <div class="notes-search">
             <i class="fa-solid fa-magnifying-glass"></i>
             <input type="text" id="notes-search" placeholder="ابحث في ملاحظاتك...">
         </div>
-
         <div id="notes-list" class="notes-grid"></div>
         <div class="notes-empty hidden" id="notes-empty">
             <i class="fa-solid fa-book-open"></i>
             <p>لا توجد ملاحظات بعد</p>
         </div>
     </div>
-</main>
 
+    <!-- المحتوى النصي التوضيحي -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header">
+            <h2><i class="fa-solid fa-info-circle"></i> كيف يساعدك دفتر الملاحظات في دراستك؟</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+            <p>
+                تدوين الملاحظات من العادات الأساسية التي يعتمد عليها معظم الطلاب المتفوقين. عندما تكتب ما تفهمه بأسلوبك الخاص، يصبح استرجاع المعلومات أسهل بكثير وقت المراجعة أو قبل الاختبار. دفتر الملاحظات في منصة حيز مصمم ليكون بسيطًا وسريعًا، بحيث تركز على الكتابة دون تشتيت.
+            </p>
+            <p>
+                الأداة تتيح لك إضافة عنوان اختياري لكل ملاحظة، ثم كتابة المحتوى بحرية. بعد الحفظ تظهر الملاحظات في شبكة منظمة، ويمكنك البحث فيها بسرعة باستخدام خانة البحث. هذا مفيد جدًا عندما يكون لديك عشرات الملاحظات وتحتاج إلى إيجاد معلومة محددة خلال ثوانٍ.
+            </p>
+            <p>
+                من أفضل استخدامات دفتر الملاحظات: تلخيص الدروس بعد الحصة مباشرة، كتابة النقاط المهمة من الكتاب، تسجيل الأسئلة التي تحتاج إلى مراجعتها لاحقًا، أو حتى تدوين أفكارك حول طريقة حل مسألة معينة. الكتابة بعد الدراسة مباشرة تساعد على تثبيت المعلومة في الذاكرة بشكل أفضل من القراءة المتكررة فقط.
+            </p>
+            <p>
+                دفتر الملاحظات يعمل بالكامل داخل المتصفح، ولا يحتاج إلى تسجيل حساب أو اتصال دائم بالإنترنت بعد تحميل الصفحة. بياناتك تبقى محفوظة محليًا على جهازك، وتبقى بيانات الملاحظات محفوظة محليًا في متصفحك على جهازك. يمكنك استخدامها على الجوال أو الكمبيوتر بنفس السهولة.
+            </p>
+            <p>
+                يُفضل أن تجعل ملاحظاتك قصيرة وواضحة قدر الإمكان. استخدم عناوين معبرة مثل اسم المادة أو عنوان الدرس، حتى يسهل عليك العثور عليها لاحقًا. إذا كنت تذاكر باستخدام <a href="pomodoro.html">مؤقت بومودورو</a>، يمكنك تخصيص آخر دقائق من الجلسة لتلخيص ما تعلمته في دفتر الملاحظات.
+            </p>
+            <p>
+                كما يمكنك ربط الملاحظات مع باقي أدوات حيز. بعد كتابة ملاحظاتك، أضف المهام المتعلقة بها في <a href="todo.html">قائمة المهام</a>، أو تابع عادة التلخيص اليومي من خلال <a href="habits.html">متتبع العادات</a>. هذا التكامل البسيط يجعل نظام دراستك أكثر تنظيمًا.
+            </p>
+            <p>
+                ابدأ بملاحظة واحدة بعد كل جلسة مذاكرة، وستلاحظ مع الوقت أن لديك مرجعًا شخصيًا قويًا تعتمد عليه قبل الاختبارات. البساطة في الأداة تجعل الاستمرار عليها أسهل من التطبيقات المعقدة التي تتطلب الكثير من الخطوات.
+            </p>
+        </div>
+    </section>
+
+    <!-- قسم الأسئلة الشائعة -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header">
+            <h2><i class="fa-solid fa-circle-question"></i> الأسئلة الشائعة حول دفتر الملاحظات</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+            
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">كيف أضيف ملاحظة جديدة؟</h3>
+                <p>
+                    اكتب العنوان (اختياري) ثم المحتوى في الخانة المخصصة، واضغط على زر الحفظ. ستظهر الملاحظة مباشرة في القائمة.
+                </p>
+            </div>
+
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل يمكنني البحث داخل الملاحظات؟</h3>
+                <p>
+                    نعم، يوجد شريط بحث أعلى قائمة الملاحظات يتيح لك البحث في العناوين والمحتوى بسرعة.
+                </p>
+            </div>
+
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل تُحفظ ملاحظاتي إذا أغلقت المتصفح؟</h3>
+                <p>
+                    نعم، الملاحظات تُحفظ محليًا في متصفحك، وستجدها عند العودة من نفس الجهاز والمتصفح.
+                </p>
+            </div>
+
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل أحتاج إلى تسجيل حساب؟</h3>
+                <p>
+                    لا، دفتر الملاحظات يعمل مباشرة دون أي تسجيل أو تحميل تطبيق، مثل باقي أدوات حيز.
+                </p>
+            </div>
+
+            <div class="faq-item">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل يمكنني استخدامه على الجوال؟</h3>
+                <p>
+                    نعم، الصفحة متجاوبة وتعمل بشكل جيد على الهواتف والأجهزة اللوحية.
+                </p>
+            </div>
+
+        </div>
+    </section>
+</main>
 <footer class="footer">
     <div class="container footer-container">
         <div class="footer-brand">
@@ -123,7 +200,6 @@
         </div>
     </div>
 </footer>
-
 <script src="common.js"></script>
 <script src="notes.js"></script>
 </body>
