@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <!-- سياسة الأمان (CSP) -->
      <meta http-equiv="Content-Security-Policy"
       content="default-src 'self';
@@ -15,34 +14,26 @@
                object-src 'none';
                frame-ancestors 'none';
                base-uri 'self';">
-
     <!-- إعدادات أمنية إضافية -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-
     <!-- SEO -->
-    <title>قائمة المهام | حيز</title>
-    <meta name="description" content="قائمة مهام مجانية من حيز تساعدك على تنظيم مهامك الدراسية واليومية، وتسجيل المهام ومتابعة ما أنجزته بسهولة.">
-    <meta name="keywords" content="قائمة المهام, قائمة مهام, مهام دراسية, مهام الطلاب, تنظيم المهام, مهام يومية, إدارة المهام, تنظيم الدراسة">
-    <meta name="author" content="حيز">
+    <title>قائمة المهام الدراسية | حيز</title>
+    <meta name="description" content="نظم واجباتك ومهامك الدراسية بسهولة مع قائمة المهام من حيز. أضف المهام، حدد الأولوية وتاريخ الاستحقاق والمدة المتوقعة، وتابع المهام المكتملة.">    <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
-
+    <link rel="canonical" href="https://just-c.github.io/adawati/todo.html">
     <!-- الخطوط والأيقونات -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
-
     <!-- ملف التنسيقات -->
     <link rel="stylesheet" href="style.css">
-
     <!-- الأيقونات (Favicon) -->
     <link rel="icon" href="favicon.ico">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
-
     <!-- التحقق من جوجل -->
     <meta name="google-site-verification" content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw">
-
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S"></script>
     <script>
@@ -51,9 +42,28 @@
         gtag('js', new Date());
         gtag('config', 'G-F94Z3H2D3S');
     </script>
+    <!-- Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "قائمة المهام الدراسية | حيز",
+  "url": "https://just-c.github.io/adawati/todo.html",
+  "description": "قائمة مهام دراسية مجانية تساعد الطلاب على تنظيم الواجبات والمهام، وتحديد الأولويات وتواريخ الاستحقاق والمدة المتوقعة للإنجاز.",
+  "inLanguage": "ar",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "حيز",
+    "url": "https://just-c.github.io/adawati/"
+  },
+  "about": {
+    "@type": "Thing",
+    "name": "تنظيم المهام الدراسية"
+  }
+}
+</script>
 </head>
 <body class="theme-light">
-
 <header class="navbar">
     <div class="container nav-container">
         <a href="index.html" class="logo">
@@ -69,7 +79,7 @@
     <a href="notes.html" class="nav-btn"><i class="fa-solid fa-note-sticky"></i> الملاحظات</a>
     <a href="habits.html" class="nav-btn"><i class="fa-solid fa-fire"></i> العادات</a>
     <a href="game.html" class="nav-btn"><i class="fa-solid fa-gamepad"></i> لعبة الحروف</a>
-    <a href="blog.html" class="nav-btn "><i class="fa-solid fa-newspaper"></i> المدونة</a>
+    <a href="blog.html" class="nav-btn"><i class="fa-solid fa-newspaper"></i> المدونة</a>
     <a href="about.html" class="nav-btn"><i class="fa-solid fa-circle-info"></i> عن حيز</a>
 </nav>
         <div class="nav-actions">
@@ -77,14 +87,13 @@
         </div>
     </div>
 </header>
-
 <main class="container main-content">
     <div class="card">
         <div class="section-header">
-            <h2><i class="fa-solid fa-list-check"></i> قائمة المهام الدراسية</h2>
+            <h1><i class="fa-solid fa-list-check"></i> قائمة المهام الدراسية</h1>
             <p class="section-desc">أضف مهامك وحدد أولوياتها وتواريخها</p>
         </div>
-        
+       
         <form id="todo-form" class="todo-form">
             <div class="input-group">
                 <input type="text" id="todo-input" placeholder="أضف مهمة جديدة..." required>
@@ -109,22 +118,94 @@
                 </div>
             </div>
         </form>
-
         <div class="todo-filters">
             <button class="filter-btn active" data-filter="all">الكل</button>
             <button class="filter-btn" data-filter="active">نشطة</button>
             <button class="filter-btn" data-filter="completed">مكتملة</button>
             <button class="filter-btn" data-filter="high">عالية الأولوية</button>
         </div>
-
         <ul id="todo-list" class="todo-list"></ul>
         <div class="todo-empty hidden" id="todo-empty">
             <i class="fa-solid fa-clipboard-list"></i>
             <p>لا توجد مهام بعد</p>
         </div>
     </div>
-</main>
 
+    <!-- المحتوى النصي التوضيحي -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header">
+            <h2><i class="fa-solid fa-info-circle"></i> لماذا تحتاج إلى قائمة مهام دراسية؟</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+            <p>
+                تنظيم المهام اليومية من أكبر التحديات التي يواجهها الطلاب. الواجبات، المراجعات، المشاريع، والاختبارات تتراكم بسرعة، وبدون نظام واضح يصبح من السهل نسيان شيء مهم أو تأجيل المهام ذات الأولوية العالية. قائمة المهام في منصة حيز مصممة خصيصًا لمساعدة الطالب على ترتيب أعماله بطريقة بسيطة وواضحة.
+            </p>
+            <p>
+                الأداة تتيح لك إضافة مهمة جديدة، وتحديد مستوى أولويتها (منخفضة، متوسطة، أو عالية)، واختيار تاريخ الاستحقاق، وحتى تقدير المدة المتوقعة لإنجازها بالدقائق. بعد الإضافة يمكنك تصفية المهام حسب حالتها: الكل، النشطة، المكتملة، أو عالية الأولوية فقط. هذا يساعدك على التركيز على ما هو أهم في الوقت الحالي.
+            </p>
+            <p>
+                من أفضل طرق استخدام قائمة المهام: اكتب في بداية كل يوم أو مساء اليوم السابق المهام المطلوبة، ورتبها حسب الأولوية. ابدأ بالمهام العالية أولًا، ثم انتقل إلى المتوسطة. يمكنك ربط المهمة بجلسة مذاكرة باستخدام <a href="pomodoro.html">مؤقت بومودورو</a>، بحيث تخصص عددًا معينًا من الجلسات لإنجازها.
+            </p>
+            <p>
+                قائمة المهام تعمل مباشرة من المتصفح دون الحاجة إلى تسجيل حساب أو تحميل تطبيق. بياناتك تُحفظ محليًا على جهازك، مما يحافظ على خصوصيتك ويجعل الوصول إليها سريعًا. مناسبة للاستخدام على الجوال والكمبيوتر بنفس السهولة.
+            </p>
+            <p>
+                يمكنك أيضًا دمجها مع باقي أدوات حيز. بعد إنجاز مهمة دراسية، سجلها كمكتملة، ثم أضف ملاحظة سريعة في <a href="notes.html">دفتر الملاحظات</a> إذا لزم الأمر، أو تابع عادة إنجاز المهام اليومية من خلال <a href="habits.html">متتبع العادات</a>. هذا التكامل البسيط يجعل يومك الدراسي أكثر تنظيمًا.
+            </p>
+            <p>
+                النصيحة الأهم: لا تُكثر من المهام في قائمة واحدة. ركز على عدد معقول يمكن إنجازه فعليًا خلال اليوم. عندما تنهي مهمة وتشطبها، تشعر بإنجاز حقيقي يدفعك للاستمرار. الاستمرارية أهم من الكمال.
+            </p>
+            <p>
+                ابدأ الآن بإضافة مهامك الحالية، وحدد أولوياتها، وستلاحظ فرقًا واضحًا في قدرتك على متابعة دراستك دون الشعور بالفوضى أو النسيان.
+            </p>
+        </div>
+    </section>
+
+    <!-- قسم الأسئلة الشائعة -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header">
+            <h2><i class="fa-solid fa-circle-question"></i> الأسئلة الشائعة حول قائمة المهام</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+            
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">كيف أضيف مهمة جديدة؟</h3>
+                <p>
+                    اكتب نص المهمة، اختر الأولوية وتاريخ الاستحقاق إن أردت، ثم اضغط على زر الإضافة. ستظهر المهمة مباشرة في القائمة.
+                </p>
+            </div>
+
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">ما فائدة تحديد الأولوية؟</h3>
+                <p>
+                    تحديد الأولوية يساعدك على التركيز على المهام الأهم أولًا، ويمكنك تصفية القائمة لعرض المهام عالية الأولوية فقط.
+                </p>
+            </div>
+
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل تُحفظ مهامي إذا أغلقت المتصفح؟</h3>
+                <p>
+                    نعم، المهام تُحفظ محليًا في متصفحك، وستجدها عند العودة من نفس الجهاز والمتصفح.
+                </p>
+            </div>
+
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل أحتاج إلى تسجيل حساب؟</h3>
+                <p>
+                    لا، قائمة المهام تعمل مباشرة دون أي تسجيل أو تحميل تطبيق، مثل باقي أدوات حيز.
+                </p>
+            </div>
+
+            <div class="faq-item">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل يمكن استخدامها على الجوال؟</h3>
+                <p>
+                    نعم، الصفحة متجاوبة وتعمل بشكل جيد على الهواتف والأجهزة اللوحية.
+                </p>
+            </div>
+
+        </div>
+    </section>
+</main>
 <footer class="footer">
     <div class="container footer-container">
         <div class="footer-brand">
@@ -141,7 +222,6 @@
         </div>
     </div>
 </footer>
-
 <script src="common.js"></script>
 <script src="todo.js"></script>
 </body>
