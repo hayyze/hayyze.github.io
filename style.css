@@ -51,8 +51,8 @@ body {
 }
 
 a {
-    text-decoration: none;
-    color: inherit;
+    color: #60A5FA;
+    text-decoration: underline;
 }
 
 button, input, select, textarea {
