@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <!-- سياسة الأمان (CSP) -->
      <meta http-equiv="Content-Security-Policy"
       content="default-src 'self';
@@ -15,34 +14,27 @@
                object-src 'none';
                frame-ancestors 'none';
                base-uri 'self';">
-
     <!-- إعدادات أمنية إضافية -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-
     <!-- SEO -->
-    <title>العادات | منصة الأدوات الطلابية المتكاملة</title>
-    <meta name="description" content="حيز منصة أدوات دراسية عربية مجانية تساعد الطلاب على تنظيم وقتهم وزيادة تركيزهم. مؤقت بومودورو، قائمة مهام، دفتر ملاحظات، متتبع عادات، ولعبة حروف عربية.">
-    <meta name="keywords" content="حيز, منصة دراسية, أدوات طلاب, بومودورو, قائمة مهام, ملاحظات دراسية, متتبع عادات, لعبة جماد حيوان نبات, أدوات مذاكرة, تنظيم الوقت,منصة ادواتي,منصة ادوات">
+    <title>متتبع العادات الدراسية | حيز</title>
+    <meta name="description" content="تتبع عاداتك الدراسية اليومية مع متتبع العادات من حيز. أضف عاداتك، راقب سلسلتك اليومية، وحافظ على استمراريك في المذاكرة والتنظيم.">
     <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
-
+    <link rel="canonical" href="https://just-c.github.io/adawati/habits.html">
     <!-- الخطوط والأيقونات -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
-
     <!-- ملف التنسيقات -->
     <link rel="stylesheet" href="style.css">
-
     <!-- الأيقونات (Favicon) -->
     <link rel="icon" href="favicon.ico">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
-
     <!-- التحقق من جوجل -->
     <meta name="google-site-verification" content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw">
-
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S"></script>
     <script>
@@ -51,9 +43,24 @@
         gtag('js', new Date());
         gtag('config', 'G-F94Z3H2D3S');
     </script>
+    <!-- Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "متتبع العادات الدراسية | حيز",
+  "url": "https://just-c.github.io/adawati/habits.html",
+  "description": "تتبع عاداتك الدراسية اليومية مع متتبع العادات من حيز. أضف عاداتك وراقب استمراريتك في المذاكرة والتنظيم.",
+  "inLanguage": "ar",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "حيز",
+    "url": "https://just-c.github.io/adawati/"
+  }
+}
+</script>
 </head>
 <body class="theme-light">
-
 <header class="navbar">
     <div class="container nav-container">
         <a href="index.html" class="logo">
@@ -67,9 +74,9 @@
     <a href="todo.html" class="nav-btn"><i class="fa-solid fa-list-check"></i> المهام</a>
     <a href="gpa.html" class="nav-btn"><i class="fa-solid fa-calculator"></i> حاسبة المعدل</a>
     <a href="notes.html" class="nav-btn"><i class="fa-solid fa-note-sticky"></i> الملاحظات</a>
-    <a href="habits.html" class="nav-btn"><i class="fa-solid fa-fire"></i> العادات</a>
+    <a href="habits.html" class="nav-btn active"><i class="fa-solid fa-fire"></i> العادات</a>
     <a href="game.html" class="nav-btn"><i class="fa-solid fa-gamepad"></i> لعبة الحروف</a>
-    <a href="blog.html" class="nav-btn active"><i class="fa-solid fa-newspaper"></i> المدونة</a>
+    <a href="blog.html" class="nav-btn "><i class="fa-solid fa-newspaper"></i> المدونة</a>
     <a href="about.html" class="nav-btn"><i class="fa-solid fa-circle-info"></i> عن حيز</a>
 </nav>
         <div class="nav-actions">
@@ -77,21 +84,19 @@
         </div>
     </div>
 </header>
-
 <main class="container main-content">
     <div class="card">
         <div class="section-header">
-            <h2><i class="fa-solid fa-fire"></i> متتبع العادات الدراسية</h2>
+            <h1>
+    <i class="fa-solid fa-fire" aria-hidden="true"></i> متتبع العادات الدراسية</h1>
             <p class="section-desc">ابنِ عادات يومية وتتبع استمرارك</p>
         </div>
-
         <form id="habit-form" class="habit-form">
             <div class="input-group">
                 <input type="text" id="habit-input" placeholder="أضف عادة جديدة..." required>
                 <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> إضافة</button>
             </div>
         </form>
-
         <div class="habits-stats">
             <div class="habit-stat">
                 <span class="habit-stat-num" id="total-habits">0</span>
@@ -106,15 +111,88 @@
                 <span>مكتملة اليوم</span>
             </div>
         </div>
-
         <div id="habits-list" class="habits-list"></div>
         <div class="habits-empty hidden" id="habits-empty">
             <i class="fa-solid fa-seedling"></i>
             <p>ابدأ بإضافة عادتك الأولى</p>
         </div>
     </div>
-</main>
 
+    <!-- المحتوى النصي التوضيحي -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header">
+            <h2><i class="fa-solid fa-info-circle"></i> لماذا يهم تتبع العادات الدراسية؟</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+            <p>
+                بناء العادات الدراسية القوية من أهم العوامل التي تساعد الطالب على الاستمرار وتحقيق نتائج أفضل على المدى الطويل. كثير من الطلاب يبدأون بحماس كبير في بداية الترم، ثم يتراجعون تدريجيًا بسبب عدم وجود نظام واضح يتابعون من خلاله تقدمهم اليومي. متتبع العادات موجود خصيصًا لحل هذه المشكلة بطريقة بسيطة وعملية.
+            </p>
+            <p>
+                الفكرة الأساسية بسيطة: تضيف العادات التي تريد الالتزام بها (مثل المذاكرة ساعة يوميًا، أو مراجعة مادة معينة، أو حل تمارين)، ثم تسجل إنجازها كل يوم. مع مرور الأيام تظهر لك سلسلة الاستمرارية (Streak)، وهذا الرقم الصغير غالبًا ما يكون دافعًا قويًا لعدم كسر السلسلة. عندما ترى أنك أكملت العادة 7 أو 14 يومًا متتاليًا، يصبح من الصعب التوقف.
+            </p>
+            <p>
+                متتبع العادات في منصة حيز يعمل مباشرة من المتصفح ولا يحتاج إلى تسجيل حساب أو تحميل تطبيق. كل بياناتك تبقى محفوظة محليًا على جهازك، وتُحفظ بيانات العادات محليًا في المتصفح. يمكنك إضافة العادات التي تريد متابعتها، ومتابعة الإحصائيات مثل عدد العادات النشطة، وأفضل سلسلة حققتها، وعدد العادات التي أنجزتها اليوم.
+            </p>
+            <p>
+                من أمثلة العادات المفيدة للطلاب: المذاكرة اليومية لمدة محددة، مراجعة الدروس في نفس اليوم، حل واجب واحد على الأقل، قراءة صفحة من كتاب خارجي، أو حتى عادة بسيطة مثل تجهيز الحقيبة قبل النوم. المهم أن تكون العادة واضحة وقابلة للتنفيذ يوميًا، وليست عامة جدًا.
+            </p>
+            <p>
+                الاستمرارية أهم من الكمال. حتى لو فاتتك يومًا، يمكنك العودة في اليوم التالي دون الشعور بالفشل. الهدف ليس الكمال المطلق، بل بناء نظام يجعل الدراسة جزءًا طبيعيًا من روتينك اليومي. ومع الوقت، تصبح هذه العادات أسهل وأقل اعتمادًا على الحماس المؤقت.
+            </p>
+            <p>
+                يمكنك دمج متتبع العادات مع باقي أدوات حيز. على سبيل المثال، استخدم <a href="pomodoro.html">مؤقت بومودورو</a> لتنفيذ جلسة المذاكرة، وسجل العادة بعد الانتهاء. أو أضف المهام اليومية في <a href="todo.html">قائمة المهام</a> وربطها بعاداتك. هذا التكامل البسيط يساعد على تنظيم اليوم الدراسي بشكل أفضل.
+            </p>
+            <p>
+                ابدأ بعدد قليل من العادات (واحدة أو اثنتين)، وتأكد من قدرتك على الالتزام بها قبل إضافة المزيد. الجودة أهم من الكمية في بناء العادات. مع المتابعة المنتظمة، ستلاحظ فرقًا واضحًا في انضباطك الدراسي خلال أسابيع قليلة.
+            </p>
+        </div>
+    </section>
+
+    <!-- قسم الأسئلة الشائعة -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header">
+            <h2><i class="fa-solid fa-circle-question"></i> الأسئلة الشائعة حول متتبع العادات</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+            
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">كيف أبدأ باستخدام متتبع العادات؟</h3>
+                <p>
+                    اكتب اسم العادة في خانة الإدخال ثم اضغط على زر الإضافة. بعد ذلك يمكنك تسجيل إنجاز العادة كل يوم من خلال الضغط عليها.
+                </p>
+            </div>
+
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل يتم حفظ عاداتي إذا أغلقت المتصفح؟</h3>
+                <p>
+                    نعم، البيانات تُحفظ محليًا في متصفحك، لذا ستجد عاداتك عند العودة لاحقًا من نفس الجهاز والمتصفح.
+                </p>
+            </div>
+
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">ماذا تعني "أفضل سلسلة"؟</h3>
+                <p>
+                    أفضل سلسلة هي أطول عدد أيام متتالية أكملت فيها عادة معينة دون انقطاع.هذا الرقم يساعدك على قياس استمراريتك.
+                </p>
+            </div>
+
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل يمكنني حذف عادة أو تعديلها؟</h3>
+                <p>
+                    نعم، يمكنك إدارة عاداتك بسهولة من خلال الخيارات المتاحة بجانب كل عادة في القائمة.
+                </p>
+            </div>
+
+            <div class="faq-item">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل أحتاج إلى حساب لاستخدام الأداة؟</h3>
+                <p>
+                    لا، متتبع العادات يعمل مباشرة دون أي تسجيل أو تحميل، مثل باقي أدوات منصة حيز.
+                </p>
+            </div>
+
+        </div>
+    </section>
+</main>
 <footer class="footer">
     <div class="container footer-container">
         <div class="footer-brand">
