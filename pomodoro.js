@@ -281,4 +281,59 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         updateTimerDisplay();
     }
+        // ========== زر تفعيل الإشعارات ==========
+    const notifBtn = document.getElementById('enable-notifications-btn');
+
+    function updateNotifButton() {
+        if (!notifBtn || !('Notification' in window)) {
+            if (notifBtn) notifBtn.style.display = 'none';
+            return;
+        }
+
+        if (Notification.permission === 'granted') {
+            notifBtn.innerHTML = '<i class="fa-solid fa-bell"></i><span style="font-size: 0.85rem;">التنبيه مفعّل</span>';
+            notifBtn.disabled = true;
+            notifBtn.style.opacity = '0.7';
+        } else if (Notification.permission === 'denied') {
+            notifBtn.innerHTML = '<i class="fa-solid fa-bell-slash"></i><span style="font-size: 0.85rem;">التنبيه مرفوض</span>';
+            notifBtn.disabled = true;
+            notifBtn.style.opacity = '0.7';
+        } else {
+            notifBtn.innerHTML = '<i class="fa-solid fa-bell"></i><span style="font-size: 0.85rem;">تفعيل التنبيه</span>';
+            notifBtn.disabled = false;
+            notifBtn.style.opacity = '1';
+        }
+    }
+
+    if (notifBtn) {
+        notifBtn.addEventListener('click', async () => {
+            if (!('Notification' in window)) {
+                alert('متصفحك لا يدعم الإشعارات');
+                return;
+            }
+
+            if (Notification.permission === 'granted') {
+                updateNotifButton();
+                return;
+            }
+
+            try {
+                const permission = await Notification.requestPermission();
+                updateNotifButton();
+
+                if (permission === 'granted') {
+                    // إشعار تجريبي بسيط
+                    new Notification('حيز - بومودورو', {
+                        body: 'تم تفعيل التنبيهات بنجاح. سننبهك عند انتهاء الجلسة.',
+                        icon: 'favicon-32x32.png'
+                    });
+                }
+            } catch (e) {
+                console.log(e);
+            }
+        });
+
+        // تحديث شكل الزر عند تحميل الصفحة
+        updateNotifButton();
+    }
 });
