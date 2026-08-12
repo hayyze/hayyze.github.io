@@ -19,8 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ========== الحالة ==========
     let timerInterval = null;
-    let endTime = null;          // وقت الانتهاء الفعلي (timestamp)
-    let totalDuration = 25 * 60; // بالثواني (للشريط)
+    let endTime = null;
+    let totalDuration = 25 * 60;
     let isRunning = false;
     let isWorkMode = true;
     let completedSessions = parseInt(localStorage.getItem('hayyiz-sessions') || '0');
@@ -76,6 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const raw = localStorage.getItem('hayyiz-pomodoro-state');
             if (!raw) return false;
+
             const state = JSON.parse(raw);
 
             if (state.workMinutes) workInput.value = state.workMinutes;
@@ -86,7 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
             endTime = state.endTime || null;
             isRunning = !!state.isRunning;
 
-            // تحديث أزرار الوضع
             if (isWorkMode) {
                 modeWork.classList.add('active');
                 modeBreak.classList.remove('active');
@@ -95,17 +95,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 modeWork.classList.remove('active');
             }
 
-            // إذا كان المؤقت شغال، نتحقق من الوقت الفعلي
             if (isRunning && endTime) {
                 const remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
                 if (remaining <= 0) {
-                    // انتهى أثناء غياب المستخدم
                     isRunning = false;
                     endTime = null;
-                    handleTimerEnd(true); // true = كان غائب
+                    handleTimerEnd(true);
                     return true;
                 }
-                // ما زال شغال → نكمل
                 startBtn.innerHTML = '<i class="fa-solid fa-play"></i> يعمل...';
                 clearInterval(timerInterval);
                 timerInterval = setInterval(updateTimerDisplay, 250);
@@ -160,6 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!wasAway) alert('انتهت الراحة! ابدأ جلسة جديدة.');
             switchToWork();
         }
+
         saveState();
     }
 
@@ -184,6 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function pauseTimer() {
         if (!isRunning) return;
+
         clearInterval(timerInterval);
         isRunning = false;
 
@@ -221,21 +220,10 @@ document.addEventListener('DOMContentLoaded', () => {
         resetTimer();
     }
 
-    // ========== طلب الإذن فقط عند مغادرة الصفحة والمؤقت شغال ==========
-    function tryRequestPermissionOnLeave() {
-        if (!isRunning) return;
-        if (!('Notification' in window)) return;
-        if (Notification.permission !== 'default') return;
-
-        // محاولة طلب الإذن (قد يرفضها المتصفح لأنها ليست من تفاعل مباشر)
-        Notification.requestPermission().catch(() => {});
-    }
-
+    // ========== حفظ عند مغادرة الصفحة ==========
     window.addEventListener('beforeunload', (e) => {
         saveState();
         if (isRunning) {
-            tryRequestPermissionOnLeave();
-            // بعض المتصفحات تظهر رسالة تأكيد
             e.preventDefault();
             e.returnValue = '';
         }
@@ -245,7 +233,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (document.visibilityState === 'hidden') {
             saveState();
         } else {
-            // رجع للصفحة → نحدث العرض حسب الوقت الفعلي
             updateTimerDisplay();
         }
     });
@@ -281,59 +268,62 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         updateTimerDisplay();
     }
-        // ========== زر تفعيل الإشعارات ==========
+
+    // ========== زر تفعيل الإشعارات ==========
     const notifBtn = document.getElementById('enable-notifications-btn');
 
     function updateNotifButton() {
-        if (!notifBtn || !('Notification' in window)) {
-            if (notifBtn) notifBtn.style.display = 'none';
+        if (!notifBtn) return;
+
+        if (!('Notification' in window)) {
+            notifBtn.style.display = 'none';
             return;
         }
 
         if (Notification.permission === 'granted') {
-            notifBtn.innerHTML = '<i class="fa-solid fa-bell"></i><span style="font-size: 0.85rem;">التنبيه مفعّل</span>';
+            notifBtn.innerHTML = '<i class="fa-solid fa-bell"></i> التنبيه مفعّل';
             notifBtn.disabled = true;
             notifBtn.style.opacity = '0.7';
+            notifBtn.style.cursor = 'default';
         } else if (Notification.permission === 'denied') {
-            notifBtn.innerHTML = '<i class="fa-solid fa-bell-slash"></i><span style="font-size: 0.85rem;">التنبيه مرفوض</span>';
+            notifBtn.innerHTML = '<i class="fa-solid fa-bell-slash"></i> التنبيه مرفوض';
             notifBtn.disabled = true;
             notifBtn.style.opacity = '0.7';
+            notifBtn.style.cursor = 'default';
         } else {
-            notifBtn.innerHTML = '<i class="fa-solid fa-bell"></i><span style="font-size: 0.85rem;">تفعيل التنبيه</span>';
+            notifBtn.innerHTML = '<i class="fa-solid fa-bell"></i> تفعيل التنبيه';
             notifBtn.disabled = false;
             notifBtn.style.opacity = '1';
+            notifBtn.style.cursor = 'pointer';
         }
     }
 
     if (notifBtn) {
-        notifBtn.addEventListener('click', async () => {
+        notifBtn.addEventListener('click', function () {
             if (!('Notification' in window)) {
                 alert('متصفحك لا يدعم الإشعارات');
                 return;
             }
 
-            if (Notification.permission === 'granted') {
+            if (Notification.permission === 'granted' || Notification.permission === 'denied') {
                 updateNotifButton();
                 return;
             }
 
-            try {
-                const permission = await Notification.requestPermission();
+            Notification.requestPermission().then(function (permission) {
                 updateNotifButton();
 
                 if (permission === 'granted') {
-                    // إشعار تجريبي بسيط
-                    new Notification('حيز - بومودورو', {
-                        body: 'تم تفعيل التنبيهات بنجاح. سننبهك عند انتهاء الجلسة.',
-                        icon: 'favicon-32x32.png'
-                    });
+                    try {
+                        new Notification('حيز - بومودورو', {
+                            body: 'تم تفعيل التنبيهات بنجاح. سننبهك عند انتهاء الجلسة.',
+                            icon: 'favicon-32x32.png'
+                        });
+                    } catch (e) {}
                 }
-            } catch (e) {
-                console.log(e);
-            }
+            }).catch(function () {});
         });
 
-        // تحديث شكل الزر عند تحميل الصفحة
         updateNotifButton();
     }
 });
