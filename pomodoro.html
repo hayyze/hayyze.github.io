@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <!-- سياسة الأمان (CSP) -->
      <meta http-equiv="Content-Security-Policy"
       content="default-src 'self';
@@ -15,34 +14,29 @@
                object-src 'none';
                frame-ancestors 'none';
                base-uri 'self';">
-
     <!-- إعدادات أمنية إضافية -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-
     <!-- SEO -->
-    <title>مؤقت بومودورو | منصة الأدوات الطلابية المتكاملة</title>
-    <meta name="description" content="مؤقت بومودورو,مؤقت,موقت,مؤقت تركيز,بومودورو">
+    <title>مؤقت بومودورو للمذاكرة أونلاين | حيز</title>
+    <meta name="description" content="استخدم مؤقت بومودورو المجاني من حيز لتنظيم جلسات المذاكرة والتركيز، مع إمكانية تخصيص وقت الدراسة والراحة ومتابعة الجلسات المكتملة.">
     <meta name="keywords" content="حيز, منصة دراسية, أدوات طلاب, بومودورو, قائمة مهام, ملاحظات دراسية, متتبع عادات, لعبة جماد حيوان نبات, أدوات مذاكرة, تنظيم الوقت">
     <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
-
     <!-- الخطوط والأيقونات -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
-
     <!-- ملف التنسيقات -->
     <link rel="stylesheet" href="style.css">
-
     <!-- الأيقونات (Favicon) -->
     <link rel="icon" href="favicon.ico">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
-
+   
+    <link rel="canonical" href="https://just-c.github.io/adawati/pomodoro.html">
     <!-- التحقق من جوجل -->
     <meta name="google-site-verification" content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw">
-
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S"></script>
     <script>
@@ -53,7 +47,6 @@
     </script>
 </head>
 <body class="theme-light">
-
 <header class="navbar">
     <div class="container nav-container">
         <a href="index.html" class="logo">
@@ -63,13 +56,13 @@
         <button class="menu-toggle" id="menu-toggle"><i class="fa-solid fa-bars"></i></button>
 <nav class="nav-links" id="nav-links">
     <a href="index.html" class="nav-btn"><i class="fa-solid fa-house"></i> الرئيسية</a>
-    <a href="pomodoro.html" class="nav-btn"><i class="fa-solid fa-clock"></i> المؤقت</a>
+    <a href="pomodoro.html" class="nav-btn active"><i class="fa-solid fa-clock"></i> المؤقت</a>
     <a href="todo.html" class="nav-btn"><i class="fa-solid fa-list-check"></i> المهام</a>
     <a href="gpa.html" class="nav-btn"><i class="fa-solid fa-calculator"></i> حاسبة المعدل</a>
     <a href="notes.html" class="nav-btn"><i class="fa-solid fa-note-sticky"></i> الملاحظات</a>
     <a href="habits.html" class="nav-btn"><i class="fa-solid fa-fire"></i> العادات</a>
     <a href="game.html" class="nav-btn"><i class="fa-solid fa-gamepad"></i> لعبة الحروف</a>
-    <a href="blog.html" class="nav-btn active"><i class="fa-solid fa-newspaper"></i> المدونة</a>
+    <a href="blog.html" class="nav-btn"><i class="fa-solid fa-newspaper"></i> المدونة</a>
     <a href="about.html" class="nav-btn"><i class="fa-solid fa-circle-info"></i> عن حيز</a>
 </nav>
         <div class="nav-actions">
@@ -77,14 +70,12 @@
         </div>
     </div>
 </header>
-
 <main class="container main-content">
     <div class="card pomodoro-card">
         <div class="section-header">
-            <h2><i class="fa-solid fa-clock"></i> مؤقت المذاكرة</h2>
-            <p class="section-desc">استخدم تقنية بومودورو لزيادة تركيزك</p>
+            <h1><i class="fa-solid fa-clock"></i> مؤقت المذاكرة</h1>
+            <h2 class="section-desc">استخدم تقنية بومودورو لزيادة تركيزك</h2>
         </div>
-
         <div class="timer-settings">
             <div class="setting-item">
                 <label><i class="fa-solid fa-book-open"></i> وقت الدراسة</label>
@@ -101,23 +92,19 @@
                 </div>
             </div>
         </div>
-
         <div class="timer-mode-selector">
             <button class="mode-btn active" id="mode-work"><i class="fa-solid fa-brain"></i> دراسة</button>
             <button class="mode-btn" id="mode-break"><i class="fa-solid fa-coffee"></i> راحة</button>
         </div>
-
         <div class="timer-display-wrapper">
             <div class="timer-display" id="timer-display">25:00</div>
             <div class="timer-progress"><div class="progress-bar" id="timer-progress-bar"></div></div>
         </div>
-
         <div class="controls-row">
             <button class="btn btn-primary btn-lg" id="timer-start-btn"><i class="fa-solid fa-play"></i> تشغيل</button>
             <button class="btn btn-secondary" id="timer-pause-btn"><i class="fa-solid fa-pause"></i> إيقاف</button>
             <button class="btn btn-outline" id="timer-reset-btn"><i class="fa-solid fa-rotate-right"></i> إعادة</button>
         </div>
-
         <div class="sessions-info">
             <div class="session-badge">
                 <i class="fa-solid fa-circle-check"></i>
@@ -125,8 +112,68 @@
             </div>
         </div>
     </div>
-</main>
 
+  
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header">
+            <h2><i class="fa-solid fa-info-circle"></i> ما هي تقنية بومودورو وكيف تساعدك في المذاكرة؟</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+            <p>
+                تقنية بومودورو هي طريقة بسيطة وفعالة لإدارة الوقت طورها فرانشيسكو سيريلو في أواخر الثمانينيات. تعتمد الفكرة الأساسية على تقسيم وقت العمل أو الدراسة إلى فترات قصيرة مركزة تُسمى «بومودورو»، عادة ما تكون مدتها 25 دقيقة، تليها استراحة قصيرة مدتها 5 دقائق. بعد أربع جلسات عمل، تأخذ استراحة أطول تصل إلى 15 أو 30 دقيقة. هذه الدورة تساعد الدماغ على الحفاظ على التركيز دون الشعور بالإرهاق السريع.
+            </p>
+            <p>
+                كثير من الطلاب يواجهون صعوبة في الجلوس لساعات طويلة أمام الكتب أو الشاشات. عندما يحاولون المذاكرة بدون فواصل، يبدأ التركيز في التراجع بعد فترة قصيرة، ويزداد التشتت. تقنية بومودورو تعالج هذه المشكلة من خلال فرض فترات راحة منتظمة، مما يسمح للعقل بالاسترخاء قليلاً ثم العودة إلى العمل بطاقة أفضل. النتيجة غالبًا ما تكون إنجازًا أكبر في وقت أقل، مع شعور أقل بالإجهاد.
+            </p>
+            <p>
+                مؤقت بومودورو المتوفر في منصة حيز مصمم خصيصًا للطلاب. يمكنك تخصيص مدة جلسة الدراسة ومدة الراحة حسب احتياجك. إذا كنت تفضل جلسات أطول أو أقصر من المدة التقليدية، فالأمر بيدك. كما يمكنك التبديل بسهولة بين وضع الدراسة ووضع الراحة، ومتابعة عدد الجلسات التي أكملتها خلال اليوم. هذه الميزات تجعل الأداة عملية ومرنة للاستخدام اليومي.
+            </p>
+            <p>
+                استخدام المؤقت لا يتطلب أي تسجيل أو تحميل تطبيقات إضافية. يكفي فتح الصفحة وضبط الوقت ثم الضغط على زر التشغيل. الأداة تعمل مباشرة من المتصفح، ويمكن استخدامها على الهاتف أو الكمبيوتر. هذا يجعلها مناسبة أثناء المذاكرة في المكتبة أو في المنزل أو حتى في أوقات الفراغ القصيرة.
+            </p>
+            <p>
+                من فوائد تطبيق هذه التقنية بشكل منتظم: تحسين القدرة على التركيز، تقليل المماطلة، وزيادة الوعي بمرور الوقت. عندما تعرف أن أمامك 25 دقيقة فقط، يصبح من الأسهل تأجيل المشتتات والتركيز على المهمة الحالية. مع الوقت، يعتاد الدماغ على هذه الإيقاعات، ويصبح الانتقال بين العمل والراحة أكثر سلاسة.
+            </p>
+            <p>
+                يُنصح بتجربة التقنية لعدة أيام متتالية لتقييم تأثيرها. ابدأ بالمدة الافتراضية (25 دقيقة دراسة و5 دقائق راحة)، ثم عدّل الأوقات إذا شعرت أنها غير مناسبة. المهم هو الالتزام بالفواصل وعدم تمديد جلسة العمل إلى ما لا نهاية. الراحة جزء أساسي من الإنتاجية، وليست ترفًا.
+            </p>
+            <p>
+                منصة حيز توفر هذا المؤقت كجزء من مجموعة أدوات مخصصة للطلاب، تشمل أيضًا قوائم المهام وحساب المعدل وتتبع العادات والملاحظات. الهدف هو مساعدة الطالب على تنظيم وقته ودراسته بطريقة بسيطة وواضحة، دون تعقيدات غير ضرورية.
+            </p>
+        </div>
+    </section>
+    <!-- قسم الأسئلة الشائعة -->
+<section class="card content-section" style="margin-top: 2rem;">
+    <div class="section-header">
+        <h2><i class="fa-solid fa-circle-question"></i> الأسئلة الشائعة حول مؤقت بومودورو</h2>
+    </div>
+    <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+        
+        <div class="faq-item" style="margin-bottom: 1.8rem;">
+            <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">ما هي مدة جلسة بومودورو التقليدية؟</h3>
+            <p>
+                المدة التقليدية هي 25 دقيقة من التركيز تليها 5 دقائق من الراحة،
+                لكن يمكنك تغيير المدة باستخدام مؤقت حيز.
+            </p>
+        </div>
+
+        <div class="faq-item" style="margin-bottom: 1.8rem;">
+            <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل يمكن تغيير مدة الدراسة والراحة؟</h3>
+            <p>
+                نعم، يمكنك تحديد مدة الدراسة والراحة حسب احتياجاتك مباشرة من المؤقت.
+            </p>
+        </div>
+
+        <div class="faq-item">
+            <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل يحتاج مؤقت حيز إلى تحميل؟</h3>
+            <p>
+                لا، يعمل المؤقت مباشرة من المتصفح دون الحاجة إلى تثبيت تطبيق.
+            </p>
+        </div>
+
+    </div>
+</section>
+</main>
 <footer class="footer">
     <div class="container footer-container">
         <div class="footer-brand">
