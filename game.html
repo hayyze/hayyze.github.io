@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <!-- سياسة الأمان (CSP) -->
      <meta http-equiv="Content-Security-Policy"
       content="default-src 'self';
@@ -15,34 +14,27 @@
                object-src 'none';
                frame-ancestors 'none';
                base-uri 'self';">
-
     <!-- إعدادات أمنية إضافية -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-
     <!-- SEO -->
-    <title>لعبة جماد حيوان انسان | حيز</title>
-    <meta name="description" content="حيز منصة أدوات دراسية عربية مجانية تساعد الطلاب على تنظيم وقتهم وزيادة تركيزهم. مؤقت بومودورو، قائمة مهام، دفتر ملاحظات، متتبع عادات، ولعبة حروف عربية.">
-    <meta name="keywords" content="لعبة جماد حيوان نبات, حيوان انسان نبات,انسان نبات حيوان،جماد حيوان نبات">
+    <title>لعبة جماد حيوان نبات | حيز</title>
+    <meta name="description" content="العب لعبة جماد حيوان نبات العربية مجانًا من حيز. اختبر سرعة تفكيرك ومفرداتك مع مؤقت وتسجيل أعلى نتيجة.">
     <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
-
+    <link rel="canonical" href="https://just-c.github.io/adawati/game.html">
     <!-- الخطوط والأيقونات -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
-
     <!-- ملف التنسيقات -->
     <link rel="stylesheet" href="style.css">
-
     <!-- الأيقونات (Favicon) -->
     <link rel="icon" href="favicon.ico">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
-
     <!-- التحقق من جوجل -->
     <meta name="google-site-verification" content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw">
-
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S"></script>
     <script>
@@ -51,9 +43,24 @@
         gtag('js', new Date());
         gtag('config', 'G-F94Z3H2D3S');
     </script>
+    <!-- Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "لعبة جماد حيوان نبات | حيز",
+  "url": "https://just-c.github.io/adawati/game.html",
+  "description": "لعبة جماد حيوان نبات عربية مجانية تساعد على تنشيط الذاكرة وتوسيع المفردات وسرعة التفكير.",
+  "inLanguage": "ar",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "حيز",
+    "url": "https://just-c.github.io/adawati/"
+  }
+}
+</script>
 </head>
 <body class="theme-light">
-
 <header class="navbar">
     <div class="container nav-container">
         <a href="index.html" class="logo">
@@ -68,8 +75,8 @@
     <a href="gpa.html" class="nav-btn"><i class="fa-solid fa-calculator"></i> حاسبة المعدل</a>
     <a href="notes.html" class="nav-btn"><i class="fa-solid fa-note-sticky"></i> الملاحظات</a>
     <a href="habits.html" class="nav-btn"><i class="fa-solid fa-fire"></i> العادات</a>
-    <a href="game.html" class="nav-btn"><i class="fa-solid fa-gamepad"></i> لعبة الحروف</a>
-    <a href="blog.html" class="nav-btn active"><i class="fa-solid fa-newspaper"></i> المدونة</a>
+    <a href="game.html" class="nav-btn active"><i class="fa-solid fa-gamepad"></i> لعبة الحروف</a>
+    <a href="blog.html" class="nav-btn"><i class="fa-solid fa-newspaper"></i> المدونة</a>
     <a href="about.html" class="nav-btn"><i class="fa-solid fa-circle-info"></i> عن حيز</a>
 </nav>
         <div class="nav-actions">
@@ -77,26 +84,24 @@
         </div>
     </div>
 </header>
-
 <main class="container main-content">
     <div class="card game-card">
         <div class="game-header">
             <div>
-                <h2><i class="fa-solid fa-gamepad"></i> لعبة الحروف</h2>
-                <p class="section-desc">جماد • حيوان • نبات • إنسان • بلاد</p>
+                <h1><i class="fa-solid fa-gamepad" aria-hidden="true"></i> لعبة جماد حيوان نبات</h1>
+                <p class="section-desc">إنسان • حيوان • نبات • جماد • بلاد</p>
             </div>
             <div class="score-board">
                 <i class="fa-solid fa-trophy"></i> أعلى نتيجة: <span id="high-score">0</span>
             </div>
         </div>
-        
+       
         <div class="game-start-box">
             <div class="random-letter" id="current-letter">؟</div>
             <p class="letter-hint">الحرف المطلوب</p>
             <button class="btn btn-primary btn-lg" id="start-game-btn"><i class="fa-solid fa-play"></i> بدء جولة جديدة</button>
             <div class="game-timer" id="game-timer-display"><i class="fa-solid fa-hourglass-half"></i> الوقت: 60ث</div>
         </div>
-
         <form id="game-form" class="game-form hidden">
             <div class="form-grid">
                 <div class="field"><label>إنسان</label><input type="text" id="g-human" autocomplete="off"></div>
@@ -107,11 +112,84 @@
             </div>
             <button type="submit" class="btn btn-primary btn-lg width-full"><i class="fa-solid fa-paper-plane"></i> إرسال الإجابات</button>
         </form>
-
         <div id="game-result-box" class="result-box hidden"></div>
     </div>
-</main>
 
+    <!-- المحتوى النصي التوضيحي -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header">
+            <h2><i class="fa-solid fa-info-circle"></i> ما هي لعبة جماد حيوان نبات؟</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+            <p>
+                لعبة جماد حيوان نبات (أو جماد حيوان نبات إنسان بلاد) من الألعاب العربية الكلاسيكية التي يعتمد عليها كثير من الطلاب والأطفال في أوقات الفراغ. تعتمد اللعبة على اختيار حرف عشوائي، ثم محاولة إيجاد كلمة تبدأ بهذا الحرف في فئات محددة: إنسان، حيوان، نبات، جماد، وبلاد.
+            </p>
+            <p>
+                اللعبة في منصة حيز تحوّل هذه الفكرة التقليدية إلى تجربة رقمية بسيطة وسريعة. تضغط على زر بدء جولة جديدة فيظهر حرف عشوائي، ويبدأ العد التنازلي (عادة 60 ثانية). خلال هذا الوقت تكتب إجاباتك في الحقول الخمسة ثم ترسلها. بعد الإرسال تظهر نتيجتك، ويتم حفظ أعلى نتيجة حققتها.
+            </p>
+            <p>
+                فائدة اللعبة تتجاوز التسلية. فهي تساعد على تنشيط الذاكرة اللغوية، وتوسيع المفردات، وتحسين سرعة التفكير تحت ضغط الوقت. كثير من الطلاب يستخدمونها كاستراحة قصيرة بين جلسات المذاكرة، خاصة بعد استخدام <a href="pomodoro.html">مؤقت بومودورو</a>، لأنها تُبعد العقل عن الروتين الدراسي دون إبعاده تمامًا عن النشاط الذهني.
+            </p>
+            <p>
+                اللعبة تعمل مباشرة من المتصفح دون الحاجة إلى تسجيل أو تحميل. مناسبة للعب الفردي، ويمكن استخدامها أيضًا مع الأصدقاء أو أفراد العائلة في جلسة جماعية (كل شخص يلعب على جهازه ويقارن النتائج). الواجهة بسيطة ومتجاوبة، لذا تعمل بشكل جيد على الهاتف والكمبيوتر.
+            </p>
+            <p>
+                لزيادة المتعة والتحدي، حاول أن تكتب كلمات أقل شيوعًا كلما أمكن. الكلمات النادرة غالبًا ما تعطي شعورًا أفضل بالإنجاز. كما يمكنك تحدي نفسك بتقليل الوقت أو محاولة كسر أعلى نتيجة سابقة. مع التكرار ستلاحظ تحسنًا في سرعة استحضار الكلمات.
+            </p>
+            <p>
+                إذا كنت تبحث عن طريقة خفيفة لكسر الملل أثناء الدراسة، فهذه اللعبة خيار مناسب. وبعد الانتهاء يمكنك العودة إلى <a href="todo.html">قائمة المهام</a> أو <a href="notes.html">دفتر الملاحظات</a> لمتابعة دراستك. التوازن بين التركيز والراحة من أساسيات الإنتاجية الدراسية.
+            </p>
+            <p>
+                ابدأ جولة الآن واختر حرفًا، وجرب كم كلمة تستطيع إيجادها قبل انتهاء الوقت. اللعبة مجانية تمامًا ومصممة لتكون سريعة وخالية من التعقيد.
+            </p>
+        </div>
+    </section>
+
+    <!-- قسم الأسئلة الشائعة -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header">
+            <h2><i class="fa-solid fa-circle-question"></i> الأسئلة الشائعة حول لعبة الحروف</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+            
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">كيف ألعب لعبة جماد حيوان نبات في حيز؟</h3>
+                <p>
+                    اضغط على زر "بدء جولة جديدة"، سيظهر حرف عشوائي ويبدأ العد التنازلي. اكتب كلمة في كل فئة تبدأ بنفس الحرف ثم أرسل إجاباتك.
+                </p>
+            </div>
+
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">ما هي الفئات المطلوبة في اللعبة؟</h3>
+                <p>
+                    الفئات هي: إنسان، حيوان، نبات، جماد، وبلاد. يجب أن تبدأ كل إجابة بالحرف المطلوب.
+                </p>
+            </div>
+
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل يتم حفظ أعلى نتيجة؟</h3>
+                <p>
+                    نعم، أعلى نتيجة تُحفظ محليًا في متصفحك وتظهر في أعلى الصفحة.
+                </p>
+            </div>
+
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل أحتاج إلى تسجيل حساب للعب؟</h3>
+                <p>
+                    لا، اللعبة تعمل مباشرة من المتصفح دون أي تسجيل أو تحميل.
+                </p>
+            </div>
+
+            <div class="faq-item">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل يمكن اللعب على الجوال؟</h3>
+                <p>
+                    نعم، الصفحة متجاوبة وتعمل بشكل جيد على الهواتف والأجهزة اللوحية.
+                </p>
+            </div>
+
+        </div>
+    </section>
+</main>
 <footer class="footer">
     <div class="container footer-container">
         <div class="footer-brand">
@@ -128,7 +206,6 @@
         </div>
     </div>
 </footer>
-
 <script src="common.js"></script>
 <script src="game.js"></script>
 </body>
