@@ -280,50 +280,69 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (Notification.permission === 'granted') {
+        const permission = Notification.permission;
+
+        if (permission === 'granted') {
             notifBtn.innerHTML = '<i class="fa-solid fa-bell"></i> التنبيه مفعّل';
             notifBtn.disabled = true;
             notifBtn.style.opacity = '0.7';
-            notifBtn.style.cursor = 'default';
-        } else if (Notification.permission === 'denied') {
+        } else if (permission === 'denied') {
             notifBtn.innerHTML = '<i class="fa-solid fa-bell-slash"></i> التنبيه مرفوض';
             notifBtn.disabled = true;
             notifBtn.style.opacity = '0.7';
-            notifBtn.style.cursor = 'default';
         } else {
             notifBtn.innerHTML = '<i class="fa-solid fa-bell"></i> تفعيل التنبيه';
             notifBtn.disabled = false;
             notifBtn.style.opacity = '1';
-            notifBtn.style.cursor = 'pointer';
         }
     }
 
     if (notifBtn) {
         notifBtn.addEventListener('click', function () {
+            console.log('تم الضغط على زر التنبيه'); // للتأكد
+
             if (!('Notification' in window)) {
                 alert('متصفحك لا يدعم الإشعارات');
                 return;
             }
 
-            if (Notification.permission === 'granted' || Notification.permission === 'denied') {
+            // إذا كان مرفوض مسبقاً
+            if (Notification.permission === 'denied') {
+                alert('لقد رفضت الإشعارات سابقاً. يمكنك تفعيلها من إعدادات المتصفح.');
                 updateNotifButton();
                 return;
             }
 
+            // إذا كان مفعّل
+            if (Notification.permission === 'granted') {
+                updateNotifButton();
+                return;
+            }
+
+            // طلب الإذن
             Notification.requestPermission().then(function (permission) {
+                console.log('نتيجة الإذن:', permission);
                 updateNotifButton();
 
                 if (permission === 'granted') {
                     try {
                         new Notification('حيز - بومودورو', {
-                            body: 'تم تفعيل التنبيهات بنجاح. سننبهك عند انتهاء الجلسة.',
+                            body: 'تم تفعيل التنبيهات بنجاح.',
                             icon: 'favicon-32x32.png'
                         });
-                    } catch (e) {}
+                    } catch (e) {
+                        console.log(e);
+                    }
+                } else if (permission === 'denied') {
+                    alert('تم رفض الإشعارات.');
                 }
-            }).catch(function () {});
+            }).catch(function (err) {
+                console.log('خطأ في طلب الإذن:', err);
+            });
         });
 
         updateNotifButton();
+    } else {
+        console.log('زر الإشعارات غير موجود في الصفحة');
     }
 });
