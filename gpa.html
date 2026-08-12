@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <!-- سياسة الأمان (CSP) -->
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'self';
@@ -28,30 +27,26 @@
     <!-- إعدادات أمنية إضافية -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-
     <!-- SEO -->
     <title>حساب المعدل | حيز</title>
     <meta name="description" content="حاسبة المعدل من حيز تساعدك على حساب معدلك الدراسي بسهولة، سواء كنت في أول ثانوي أو ثاني ثانوي أو تبحث عن حساب المعدل التراكمي.">
     <meta name="keywords" content="حاسبة المعدل, احسب معدلي, معدل تراكمي, معدل أول ثانوي, معدل ثاني ثانوي, حساب المعدل الدراسي">
     <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
-
     <!-- الخطوط والأيقونات -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
-
     <!-- ملف التنسيقات -->
     <link rel="stylesheet" href="style.css">
-
     <!-- الأيقونات (Favicon) -->
     <link rel="icon" href="favicon.ico">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
-
+    
+    <link rel="canonical" href="https://just-c.github.io/adawati/gpa.html">
     <!-- التحقق من جوجل -->
     <meta name="google-site-verification" content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw">
-
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S"></script>
     <script>
@@ -62,7 +57,6 @@
     </script>
 </head>
 <body class="theme-light">
-
 <header class="navbar">
     <div class="container nav-container">
         <a href="index.html" class="logo">
@@ -74,11 +68,11 @@
     <a href="index.html" class="nav-btn"><i class="fa-solid fa-house"></i> الرئيسية</a>
     <a href="pomodoro.html" class="nav-btn"><i class="fa-solid fa-clock"></i> المؤقت</a>
     <a href="todo.html" class="nav-btn"><i class="fa-solid fa-list-check"></i> المهام</a>
-    <a href="gpa.html" class="nav-btn"><i class="fa-solid fa-calculator"></i> حاسبة المعدل</a>
+    <a href="gpa.html" class="nav-btn active"><i class="fa-solid fa-calculator"></i> حاسبة المعدل</a>
     <a href="notes.html" class="nav-btn"><i class="fa-solid fa-note-sticky"></i> الملاحظات</a>
     <a href="habits.html" class="nav-btn"><i class="fa-solid fa-fire"></i> العادات</a>
     <a href="game.html" class="nav-btn"><i class="fa-solid fa-gamepad"></i> لعبة الحروف</a>
-    <a href="blog.html" class="nav-btn active"><i class="fa-solid fa-newspaper"></i> المدونة</a>
+    <a href="blog.html" class="nav-btn"><i class="fa-solid fa-newspaper"></i> المدونة</a>
     <a href="about.html" class="nav-btn"><i class="fa-solid fa-circle-info"></i> عن حيز</a>
 </nav>
         <div class="nav-actions">
@@ -86,14 +80,12 @@
         </div>
     </div>
 </header>
-
 <main class="container main-content">
     <div class="card">
         <div class="section-header">
             <h2><i class="fa-solid fa-calculator"></i> حاسبة المعدل الموزون</h2>
             <p class="section-desc">احسب معدلك من 100 حسب أوزان وزارة التعليم</p>
         </div>
-
         <div class="gpa-controls">
             <div class="option-field">
                 <label>السنة الدراسية</label>
@@ -111,21 +103,92 @@
                 </select>
             </div>
         </div>
-
         <div id="subjects-container" class="subjects-list"></div>
-
         <div class="gpa-result hidden" id="gpa-result">
             <div class="gpa-score" id="gpa-score">0.00</div>
             <div class="gpa-label">المعدل الموزون من 100</div>
         </div>
-
         <div class="controls-row" style="margin-top: 24px;">
             <button class="btn btn-primary" id="calculate-btn"><i class="fa-solid fa-calculator"></i> احسب المعدل</button>
             <button class="btn btn-outline" id="reset-gpa-btn"><i class="fa-solid fa-rotate-right"></i> إعادة تعيين</button>
         </div>
     </div>
-</main>
 
+    <!-- المحتوى النصي التوضيحي -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header">
+            <h2><i class="fa-solid fa-info-circle"></i> كيف تعمل حاسبة المعدل في منصة حيز؟</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+            <p>
+                حساب المعدل الدراسي من الأمور المهمة لكل طالب في المرحلة الثانوية. المعدل الموزون يعتمد على درجات المواد مع مراعاة أوزانها حسب نظام وزارة التعليم في المملكة العربية السعودية. كل مادة لها وزن مختلف يؤثر على النتيجة النهائية، ولهذا فإن الحساب اليدوي قد يكون مرهقًا ومعرضًا للأخطاء.
+            </p>
+            <p>
+                حاسبة المعدل في منصة حيز صُممت لتسهيل هذه العملية. تختار السنة الدراسية (أول ثانوي أو ثاني ثانوي) والترم، ثم تدخل درجاتك في المواد، وتقوم الأداة بحساب المعدل الموزون من 100 تلقائيًا. هذا يوفر عليك الوقت والجهد، ويعطيك نتيجة دقيقة بناءً على الأوزان الرسمية.
+            </p>
+            <p>
+                معرفة معدلك بشكل دوري يساعدك على متابعة مستواك الأكاديمي. إذا كان المعدل منخفضًا في مادة معينة، يمكنك التركيز عليها أكثر في الفترة القادمة. وإذا كان مرتفعًا، فهذا يعطيك دافعًا للاستمرار بنفس الوتيرة. كثير من الطلاب يؤجلون حساب المعدل حتى نهاية الترم، لكن المتابعة المستمرة أفضل بكثير.
+            </p>
+            <p>
+                الأداة تدعم حاليًا الصفين الأول والثاني الثانوي، مع إمكانية اختيار الترم الأول أو الثاني. خيار ثالث ثانوي موجود وسيتم تفعيله قريبًا. الاستخدام بسيط ولا يحتاج إلى تسجيل حساب أو تحميل أي برنامج، فكل شيء يعمل مباشرة من المتصفح على الجوال أو الكمبيوتر.
+            </p>
+            <p>
+                من فوائد استخدام حاسبة المعدل بشكل منتظم: التخطيط الأفضل للدراسة، معرفة المواد التي تحتاج إلى جهد إضافي، والاستعداد المبكر للاختبارات النهائية. كما تساعد في تقدير المعدل التراكمي المتوقع إذا استمر الأداء بنفس المستوى.
+            </p>
+            <p>
+                يُفضل إدخال الدرجات بدقة بعد كل اختبار أو فترة تقييم. يمكنك إعادة الحساب في أي وقت بعد تعديل الدرجات. الأداة لا تحفظ بياناتك على السيرفر، فكل الحسابات تتم محليًا في متصفحك، مما يحافظ على خصوصيتك.
+            </p>
+            <p>
+                منصة حيز توفر هذه الحاسبة ضمن مجموعة أدوات مخصصة للطلاب، تشمل مؤقت بومودورو وقوائم المهام وتتبع العادات والملاحظات. الهدف هو مساعدة الطالب على تنظيم دراسته ومتابعة أدائه بطريقة عملية وواضحة دون تعقيد.
+            </p>
+        </div>
+    </section>
+
+    <!-- قسم الأسئلة الشائعة -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header">
+            <h2><i class="fa-solid fa-circle-question"></i> الأسئلة الشائعة حول حاسبة المعدل</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+            
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">كيف يتم حساب المعدل الموزون؟</h3>
+                <p>
+                    يتم ضرب درجة كل مادة في وزنها المحدد من وزارة التعليم، ثم جمع النتائج وقسمتها على مجموع الأوزان. الحاسبة تقوم بهذه العملية تلقائيًا بعد إدخال الدرجات.
+                </p>
+            </div>
+
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل الحاسبة تدعم ثالث ثانوي؟</h3>
+                <p>
+                    خيار ثالث ثانوي موجود حاليًا، وسيتم تفعيله قريبًا مع إضافة الأوزان والمواد الخاصة به.
+                </p>
+            </div>
+
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل النتائج دقيقة حسب نظام وزارة التعليم؟</h3>
+                <p>
+                    نعم، الحاسبة تعتمد على الأوزان الرسمية المستخدمة في حساب المعدل الموزون للمرحلتين الأول والثاني الثانوي.
+                </p>
+            </div>
+
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل أحتاج إلى تسجيل حساب لاستخدام الحاسبة؟</h3>
+                <p>
+                    لا، يمكنك استخدامها مباشرة دون أي تسجيل أو تحميل تطبيق.
+                </p>
+            </div>
+
+            <div class="faq-item">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل يتم حفظ درجاتي على الموقع؟</h3>
+                <p>
+                    لا، جميع الحسابات تتم داخل متصفحك فقط، ولا يتم إرسال أو تخزين أي بيانات على السيرفر.
+                </p>
+            </div>
+
+        </div>
+    </section>
+</main>
 <footer class="footer">
     <div class="container footer-container">
         <div class="footer-brand">
@@ -142,7 +205,6 @@
         </div>
     </div>
 </footer>
-
 <script src="common.js"></script>
 <script src="gpa.js"></script>
 </body>
