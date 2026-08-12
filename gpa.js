@@ -1,138 +1,455 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const subjectsData = {
-        1: {
-            1: [
-                { name: "القرآن الكريم وتفسيره", weight: 4 },
-                { name: "الرياضيات", weight: 5 },
-                { name: "اللغة الإنجليزية", weight: 5 },
-                { name: "التقنية الرقمية", weight: 3 },
-                { name: "الأحياء", weight: 3 },
-                { name: "الكيمياء", weight: 3 },
-                { name: "الكفايات اللغوية", weight: 4 },
-                { name: "التفكير الناقد", weight: 3 },
-                { name: "التربية الصحية والبدنية", weight: 2 },
-                { name: "السلوك", weight: 1 },
-                { name: "المواظبة", weight: 5 }
-            ],
-            2: [
-                { name: "الرياضيات", weight: 5 },
-                { name: "اللغة الإنجليزية", weight: 5 },
-                { name: "التقنية الرقمية", weight: 3 },
-                { name: "الفيزياء", weight: 3 },
-                { name: "علم البيئة", weight: 2 },
-                { name: "الكفايات اللغوية", weight: 3 },
-                { name: "الحديث", weight: 2 },
-                { name: "المعرفة المالية", weight: 2 },
-                { name: "الدراسات الاجتماعية", weight: 3 },
-                { name: "التربية المهنية", weight: 2 },
-                { name: "التربية الصحية والبدنية", weight: 2 },
-                { name: "السلوك", weight: 1 },
-                { name: "المواظبة", weight: 5 }
-            ]
-        },
-        2: {
-            1: [
-                { name: "الرياضيات", weight: 5 },
-                { name: "اللغة الإنجليزية", weight: 5 },
-                { name: "الكيمياء", weight: 5 },
-                { name: "الأحياء", weight: 4 },
-                { name: "الفيزياء", weight: 4 },
-                { name: "الكفايات اللغوية", weight: 4 },
-                { name: "التاريخ", weight: 3 },
-                { name: "النشاط", weight: 2 },
-                { name: "السلوك", weight: 1 },
-                { name: "المواظبة", weight: 5 }
-            ],
-            2: [
-                { name: "الرياضيات", weight: 5 },
-                { name: "اللغة الإنجليزية", weight: 5 },
-                { name: "الكيمياء", weight: 5 },
-                { name: "الأحياء", weight: 4 },
-                { name: "التوحيد", weight: 2 },
-                { name: "التقنية الرقمية", weight: 4 },
-                { name: "الفنون", weight: 2 },
-                { name: "اللياقة والثقافة الصحية", weight: 3 },
-                { name: "النشاط", weight: 2 },
-                { name: "السلوك", weight: 1 },
-                { name: "المواظبة", weight: 5 }
-            ]
-        },
-        3: { 1: [], 2: [] }
-    };
+/* gpa.js - حاسبة المعدل مع دعم المسارات */
+(function () {
+  const SUBJECTS = {
+    // ===== أول ثانوي (مشتركة) =====
+    "1": {
+      "1": [
+        { name: "القرآن الكريم وتفسيره", weight: 4 },
+        { name: "الرياضيات", weight: 5 },
+        { name: "اللغة الإنجليزية", weight: 5 },
+        { name: "التقنية الرقمية", weight: 3 },
+        { name: "الأحياء", weight: 3 },
+        { name: "الكيمياء", weight: 3 },
+        { name: "الكفايات اللغوية", weight: 4 },
+        { name: "التفكير الناقد", weight: 3 },
+        { name: "التربية الصحية والبدنية", weight: 2 },
+        { name: "السلوك", weight: 1 },
+        { name: "المواظبة", weight: 5 }
+      ],
+      "2": [
+        { name: "الرياضيات", weight: 5 },
+        { name: "اللغة الإنجليزية", weight: 5 },
+        { name: "التقنية الرقمية", weight: 3 },
+        { name: "الفيزياء", weight: 3 },
+        { name: "علم البيئة", weight: 2 },
+        { name: "الكفايات اللغوية", weight: 3 },
+        { name: "الحديث", weight: 2 },
+        { name: "المعرفة المالية", weight: 2 },
+        { name: "الدراسات الاجتماعية", weight: 3 },
+        { name: "التربية المهنية", weight: 2 },
+        { name: "التربية الصحية والبدنية", weight: 2 },
+        { name: "السلوك", weight: 1 },
+        { name: "المواظبة", weight: 5 }
+      ]
+    },
 
-    const yearSelect = document.getElementById('year-select');
-    const termSelect = document.getElementById('term-select');
-    const subjectsContainer = document.getElementById('subjects-container');
-    const calculateBtn = document.getElementById('calculate-btn');
-    const resetBtn = document.getElementById('reset-gpa-btn');
-    const resultBox = document.getElementById('gpa-result');
-    const scoreEl = document.getElementById('gpa-score');
+    // ===== ثاني ثانوي =====
+    "2": {
+      general: {
+        "1": [
+          { name: "الرياضيات", weight: 5 },
+          { name: "اللغة الإنجليزية", weight: 5 },
+          { name: "الكيمياء", weight: 5 },
+          { name: "الأحياء", weight: 4 },
+          { name: "الفيزياء", weight: 4 },
+          { name: "الكفايات اللغوية", weight: 4 },
+          { name: "التاريخ", weight: 3 },
+          { name: "النشاط", weight: 2 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ],
+        "2": [
+          { name: "الرياضيات", weight: 5 },
+          { name: "اللغة الإنجليزية", weight: 5 },
+          { name: "الكيمياء", weight: 5 },
+          { name: "الأحياء", weight: 4 },
+          { name: "التوحيد", weight: 2 },
+          { name: "التقنية الرقمية", weight: 4 },
+          { name: "الفنون", weight: 2 },
+          { name: "اللياقة والثقافة الصحية", weight: 3 },
+          { name: "النشاط", weight: 2 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ]
+      },
+      cs: {
+        "1": [
+          { name: "التوحيد", weight: 3 },
+          { name: "اللغة الإنجليزية", weight: 5 },
+          { name: "الرياضيات", weight: 5 },
+          { name: "الكيمياء", weight: 5 },
+          { name: "الفيزياء", weight: 5 },
+          { name: "الأحياء", weight: 4 },
+          { name: "علم البيانات", weight: 3 },
+          { name: "الهندسة", weight: 3 },
+          { name: "إنترنت الأشياء", weight: 3 },
+          { name: "اللياقة والثقافة الصحية", weight: 4 },
+          { name: "الكفايات اللغوية", weight: 3 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ],
+        "2": [
+          { name: "التوحيد", weight: 3 },
+          { name: "اللغة الإنجليزية", weight: 5 },
+          { name: "الرياضيات", weight: 5 },
+          { name: "الكيمياء", weight: 5 },
+          { name: "الفيزياء", weight: 5 },
+          { name: "الأحياء", weight: 4 },
+          { name: "علم البيانات", weight: 3 },
+          { name: "الهندسة", weight: 3 },
+          { name: "إنترنت الأشياء", weight: 3 },
+          { name: "اللياقة والثقافة الصحية", weight: 4 },
+          { name: "الكفايات اللغوية", weight: 3 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ]
+      },
+      health: {
+        "1": [
+          { name: "التوحيد", weight: 3 },
+          { name: "اللغة الإنجليزية", weight: 5 },
+          { name: "الرياضيات", weight: 5 },
+          { name: "الكيمياء", weight: 5 },
+          { name: "الفيزياء", weight: 5 },
+          { name: "الأحياء", weight: 4 },
+          { name: "اللياقة والثقافة الصحية", weight: 4 },
+          { name: "الكفايات اللغوية", weight: 3 },
+          { name: "التقنية الرقمية", weight: 3 },
+          { name: "مبادئ العلوم الصحية", weight: 4 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ],
+        "2": [
+          { name: "التوحيد", weight: 3 },
+          { name: "اللغة الإنجليزية", weight: 5 },
+          { name: "الرياضيات", weight: 5 },
+          { name: "الكيمياء", weight: 5 },
+          { name: "الفيزياء", weight: 5 },
+          { name: "الأحياء", weight: 4 },
+          { name: "اللياقة والثقافة الصحية", weight: 4 },
+          { name: "الكفايات اللغوية", weight: 3 },
+          { name: "التقنية الرقمية", weight: 3 },
+          { name: "مبادئ العلوم الصحية", weight: 4 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ]
+      },
+      business: {
+        "1": [
+          { name: "التوحيد", weight: 3 },
+          { name: "اللغة الإنجليزية", weight: 5 },
+          { name: "الكفايات اللغوية", weight: 3 },
+          { name: "مقدمة في الأعمال", weight: 4 },
+          { name: "الإدارة المالية", weight: 4 },
+          { name: "اللياقة والثقافة الصحية", weight: 4 },
+          { name: "التاريخ", weight: 5 },
+          { name: "التقنية الرقمية", weight: 3 },
+          { name: "مبادئ الإدارة", weight: 4 },
+          { name: "الفنون", weight: 3 },
+          { name: "صناعة القرار في الأعمال", weight: 3 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ],
+        "2": [
+          { name: "التوحيد", weight: 3 },
+          { name: "اللغة الإنجليزية", weight: 5 },
+          { name: "الكفايات اللغوية", weight: 3 },
+          { name: "مقدمة في الأعمال", weight: 4 },
+          { name: "الإدارة المالية", weight: 4 },
+          { name: "اللياقة والثقافة الصحية", weight: 4 },
+          { name: "التاريخ", weight: 5 },
+          { name: "التقنية الرقمية", weight: 3 },
+          { name: "مبادئ الإدارة", weight: 4 },
+          { name: "الفنون", weight: 3 },
+          { name: "صناعة القرار في الأعمال", weight: 3 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ]
+      },
+      sharia: {
+        "1": [
+          { name: "التوحيد", weight: 3 },
+          { name: "القرآن الكريم", weight: 4 },
+          { name: "الكفايات اللغوية", weight: 3 },
+          { name: "التقنية الرقمية", weight: 3 },
+          { name: "اللياقة والثقافة الصحية", weight: 4 },
+          { name: "اللغة الإنجليزية", weight: 5 },
+          { name: "التاريخ", weight: 5 },
+          { name: "الحديث", weight: 3 },
+          { name: "علوم القرآن", weight: 3 },
+          { name: "التفسير", weight: 3 },
+          { name: "الفنون", weight: 3 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ],
+        "2": [
+          { name: "التوحيد", weight: 3 },
+          { name: "القرآن الكريم", weight: 4 },
+          { name: "الكفايات اللغوية", weight: 3 },
+          { name: "التقنية الرقمية", weight: 3 },
+          { name: "اللياقة والثقافة الصحية", weight: 4 },
+          { name: "اللغة الإنجليزية", weight: 5 },
+          { name: "التاريخ", weight: 5 },
+          { name: "الحديث", weight: 3 },
+          { name: "علوم القرآن", weight: 3 },
+          { name: "التفسير", weight: 3 },
+          { name: "الفنون", weight: 3 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ]
+      }
+    },
 
-    function renderSubjects() {
-        const year = yearSelect.value;
-        const term = termSelect.value;
-        const subjects = subjectsData[year][term];
-        subjectsContainer.innerHTML = '';
+    // ===== ثالث ثانوي (حسب بياناتك) =====
+    "3": {
+      general: {
+        "1": [
+          { name: "الرياضيات", weight: 4 },
+          { name: "اللغة الإنجليزية", weight: 4 },
+          { name: "الكيمياء", weight: 3 },
+          { name: "الفيزياء", weight: 5 },
+          { name: "علوم الأرض والفضاء", weight: 3 },
+          { name: "التقنية الرقمية", weight: 2 },
+          { name: "التربية الصحية والبدنية", weight: 3 },
+          { name: "البحث ومصادر المعلومات", weight: 2 },
+          { name: "المجال الاختياري", weight: 5 },
+          { name: "النشاط", weight: 1 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ],
+        "2": [
+          { name: "الرياضيات", weight: 4 },
+          { name: "اللغة الإنجليزية", weight: 4 },
+          { name: "الفيزياء", weight: 5 },
+          { name: "علوم الأرض والفضاء", weight: 3 },
+          { name: "الفقه", weight: 2 },
+          { name: "الدراسات الأدبية", weight: 2 },
+          { name: "الدراسات النفسية والاجتماعية", weight: 2 },
+          { name: "المواطنة الرقمية", weight: 2 },
+          { name: "الجغرافيا", weight: 2 },
+          { name: "المهارات الحياتية", weight: 2 },
+          { name: "المجال الاختياري", weight: 2 },
+          { name: "النشاط", weight: 2 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ]
+      },
+      cs: {
+        "1": [
+          { name: "الرياضيات", weight: 4 },
+          { name: "اللغة الإنجليزية", weight: 4 },
+          { name: "الكيمياء", weight: 3 },
+          { name: "الفيزياء", weight: 5 },
+          { name: "علوم الأرض والفضاء", weight: 3 },
+          { name: "الدراسات الأدبية", weight: 2 },
+          { name: "الذكاء الاصطناعي", weight: 2 },
+          { name: "الأمن السيبراني", weight: 2 },
+          { name: "التصميم الهندسي", weight: 3 },
+          { name: "البحث ومصادر المعلومات", weight: 2 },
+          { name: "النشاط", weight: 2 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ],
+        "2": [
+          { name: "الرياضيات", weight: 4 },
+          { name: "اللغة الإنجليزية", weight: 4 },
+          { name: "الفيزياء", weight: 5 },
+          { name: "علوم الأرض والفضاء", weight: 3 },
+          { name: "الفقه", weight: 2 },
+          { name: "الذكاء الاصطناعي", weight: 3 },
+          { name: "هندسة البرمجيات", weight: 3 },
+          { name: "المهارات الحياتية", weight: 2 },
+          { name: "التربية الصحية والبدنية", weight: 3 },
+          { name: "مشروع التخرج", weight: 2 },
+          { name: "النشاط", weight: 1 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ]
+      },
+      health: {
+        "1": [
+          { name: "الرياضيات", weight: 4 },
+          { name: "اللغة الإنجليزية", weight: 4 },
+          { name: "الكيمياء", weight: 3 },
+          { name: "الفيزياء", weight: 5 },
+          { name: "علوم الأرض والفضاء", weight: 3 },
+          { name: "الدراسات الأدبية", weight: 2 },
+          { name: "الرعاية الصحية", weight: 3 },
+          { name: "أنظمة جسم الإنسان", weight: 3 },
+          { name: "الإحصاء", weight: 2 },
+          { name: "البحث ومصادر المعلومات", weight: 2 },
+          { name: "النشاط", weight: 1 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ],
+        "2": [
+          { name: "الرياضيات", weight: 4 },
+          { name: "اللغة الإنجليزية", weight: 4 },
+          { name: "الفيزياء", weight: 5 },
+          { name: "علوم الأرض والفضاء", weight: 3 },
+          { name: "الفقه", weight: 2 },
+          { name: "الرعاية الصحية", weight: 3 },
+          { name: "أنظمة جسم الإنسان", weight: 2 },
+          { name: "المهارات الحياتية", weight: 2 },
+          { name: "التربية الصحية والبدنية", weight: 3 },
+          { name: "مشروع التخرج", weight: 2 },
+          { name: "النشاط", weight: 2 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ]
+      },
+      business: {
+        "1": [
+          { name: "اللغة الإنجليزية", weight: 4 },
+          { name: "الفقه", weight: 2 },
+          { name: "الدراسات الأدبية", weight: 2 },
+          { name: "مبادئ الإدارة", weight: 3 },
+          { name: "إدارة الفعاليات", weight: 4 },
+          { name: "تخطيط الحملات التسويقية", weight: 3 },
+          { name: "مبادئ القانون", weight: 3 },
+          { name: "الإحصاء", weight: 2 },
+          { name: "الجغرافيا", weight: 2 },
+          { name: "التربية الصحية والبدنية", weight: 3 },
+          { name: "البحث ومصادر المعلومات", weight: 2 },
+          { name: "النشاط", weight: 2 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ],
+        "2": [
+          { name: "اللغة الإنجليزية", weight: 4 },
+          { name: "الدراسات النفسية والاجتماعية", weight: 2 },
+          { name: "الدراسات البلاغية والنقدية", weight: 3 },
+          { name: "إدارة الفعاليات", weight: 3 },
+          { name: "تخطيط الحملات التسويقية", weight: 4 },
+          { name: "السكرتارية والإدارة المكتبية", weight: 3 },
+          { name: "مبادئ القانون", weight: 4 },
+          { name: "تطبيقات في القانون", weight: 2 },
+          { name: "المواطنة الرقمية", weight: 2 },
+          { name: "المهارات الحياتية", weight: 2 },
+          { name: "مشروع التخرج", weight: 2 },
+          { name: "النشاط", weight: 1 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ]
+      },
+      sharia: {
+        "1": [
+          { name: "القرآن الكريم", weight: 5 },
+          { name: "اللغة الإنجليزية", weight: 4 },
+          { name: "التفسير", weight: 2 },
+          { name: "الفقه 1", weight: 2 },
+          { name: "مصطلح الحديث", weight: 2 },
+          { name: "الدراسات الأدبية", weight: 2 },
+          { name: "مبادئ القانون", weight: 3 },
+          { name: "المواطنة الرقمية", weight: 2 },
+          { name: "الجغرافيا", weight: 2 },
+          { name: "المهارات الحياتية", weight: 2 },
+          { name: "التربية الصحية والبدنية", weight: 3 },
+          { name: "البحث ومصادر المعلومات", weight: 2 },
+          { name: "النشاط", weight: 1 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ],
+        "2": [
+          { name: "القرآن الكريم", weight: 5 },
+          { name: "اللغة الإنجليزية", weight: 4 },
+          { name: "الفقه 2", weight: 4 },
+          { name: "أصول الفقه", weight: 2 },
+          { name: "الفرائض", weight: 2 },
+          { name: "الدراسات النفسية والاجتماعية", weight: 2 },
+          { name: "الدراسات البلاغية والنقدية", weight: 3 },
+          { name: "مبادئ القانون", weight: 4 },
+          { name: "تطبيقات في القانون", weight: 2 },
+          { name: "مشروع التخرج", weight: 2 },
+          { name: "النشاط", weight: 2 },
+          { name: "السلوك", weight: 1 },
+          { name: "المواظبة", weight: 5 }
+        ]
+      }
+    }
+  };
 
-        if (year === '3') {
-            subjectsContainer.innerHTML = `
-                <div style="text-align:center;padding:40px;">
-                    <i class="fa-solid fa-clock" style="font-size:3rem;color:var(--text-muted);margin-bottom:16px;"></i>
-                    <h3>ثالث ثانوي</h3>
-                    <p style="color:var(--text-muted)">سيتم إضافة الأوزان قريباً</p>
-                </div>`;
-            resultBox.classList.add('hidden');
-            return;
-        }
+  const yearSelect = document.getElementById("year-select");
+  const termSelect = document.getElementById("term-select");
+  const trackSelect = document.getElementById("track-select");
+  const trackField = document.getElementById("track-field");
+  const subjectsContainer = document.getElementById("subjects-container");
+  const calculateBtn = document.getElementById("calculate-btn");
+  const resetBtn = document.getElementById("reset-gpa-btn");
+  const resultBox = document.getElementById("gpa-result");
+  const scoreEl = document.getElementById("gpa-score");
 
-        subjects.forEach(subject => {
-            const div = document.createElement('div');
-            div.className = 'subject-row';
-            div.innerHTML = `
-                <div class="subject-info">
-                    <span class="subject-name">${subject.name}</span>
-                    <span class="subject-weight">الوزن: ${subject.weight}</span>
-                </div>
-                <input type="number" class="subject-score" data-weight="${subject.weight}" min="0" max="100" step="0.01" placeholder="من 100">
-            `;
-            subjectsContainer.appendChild(div);
-        });
+  function needsTrack(year) {
+    return year === "2" || year === "3";
+  }
+
+  function getSubjects() {
+    const year = yearSelect.value;
+    const term = termSelect.value;
+
+    if (year === "1") {
+      return SUBJECTS["1"][term] || [];
     }
 
-    function calculateGPA() {
-        const inputs = document.querySelectorAll('.subject-score');
-        let totalWeighted = 0, totalWeights = 0, hasError = false;
+    const track = trackSelect.value;
+    return (SUBJECTS[year] && SUBJECTS[year][track] && SUBJECTS[year][track][term]) || [];
+  }
 
-        inputs.forEach(input => {
-            const score = parseFloat(input.value);
-            const weight = parseFloat(input.dataset.weight);
-            if (isNaN(score) || score < 0 || score > 100) {
-                input.style.borderColor = '#ef4444';
-                hasError = true;
-            } else {
-                input.style.borderColor = '';
-                totalWeighted += score * weight;
-                totalWeights += weight;
-            }
-        });
+  function renderSubjects() {
+    const year = yearSelect.value;
 
-        if (hasError || totalWeights === 0) {
-            alert('تأكد من إدخال درجات صحيحة (0 - 100)');
-            return;
-        }
-
-        const gpa = totalWeighted / totalWeights;
-        scoreEl.textContent = gpa.toFixed(2);
-        resultBox.classList.remove('hidden');
+    if (needsTrack(year)) {
+      trackField.style.display = "";
+    } else {
+      trackField.style.display = "none";
     }
 
-    yearSelect.addEventListener('change', renderSubjects);
-    termSelect.addEventListener('change', renderSubjects);
-    calculateBtn.addEventListener('click', calculateGPA);
-    resetBtn.addEventListener('click', () => {
-        document.querySelectorAll('.subject-score').forEach(i => i.value = '');
-        resultBox.classList.add('hidden');
+    const subjects = getSubjects();
+    if (!subjects.length) {
+      subjectsContainer.innerHTML = '<p class="section-desc">لا توجد مواد لهذا الاختيار حاليًا.</p>';
+      resultBox.classList.add("hidden");
+      return;
+    }
+
+    subjectsContainer.innerHTML = subjects.map((s, i) => `
+      <div class="subject-row">
+        <label for="grade-${i}">${s.name} <span class="weight-tag">وزن ${s.weight}</span></label>
+        <input type="number" id="grade-${i}" class="grade-input" min="0" max="100" step="0.01" placeholder="الدرجة من 100" data-weight="${s.weight}">
+      </div>
+    `).join("");
+
+    resultBox.classList.add("hidden");
+  }
+
+  function calculate() {
+    const inputs = subjectsContainer.querySelectorAll(".grade-input");
+    if (!inputs.length) return;
+
+    let totalWeighted = 0;
+    let totalWeight = 0;
+    let filled = 0;
+
+    inputs.forEach((input) => {
+      const val = parseFloat(input.value);
+      const weight = parseFloat(input.dataset.weight);
+      if (!isNaN(val) && val >= 0 && val <= 100) {
+        totalWeighted += val * weight;
+        totalWeight += weight;
+        filled++;
+      }
     });
 
-    renderSubjects();
-});
+    if (filled === 0) {
+      alert("أدخل درجة واحدة على الأقل");
+      return;
+    }
+
+    const gpa = totalWeight ? totalWeighted / totalWeight : 0;
+    scoreEl.textContent = gpa.toFixed(2);
+    resultBox.classList.remove("hidden");
+  }
+
+  function resetAll() {
+    subjectsContainer.querySelectorAll(".grade-input").forEach((i) => (i.value = ""));
+    resultBox.classList.add("hidden");
+    scoreEl.textContent = "0.00";
+  }
+
+  yearSelect.addEventListener("change", renderSubjects);
+  termSelect.addEventListener("change", renderSubjects);
+  trackSelect.addEventListener("change", renderSubjects);
+  calculateBtn.addEventListener("click", calculate);
+  resetBtn.addEventListener("click", resetAll);
+
+  renderSubjects();
+})();
