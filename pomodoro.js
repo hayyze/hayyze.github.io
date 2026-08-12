@@ -1,4 +1,33 @@
 document.addEventListener('DOMContentLoaded', () => {
+
+    // ========== Service Worker ==========
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+
+    // ========== عناصر الصفحة ==========
+    const timerDisplay = document.getElementById('timer-display');
+    const progressBar = document.getElementById('timer-progress-bar');
+    const startBtn = document.getElementById('timer-start-btn');
+    const pauseBtn = document.getElementById('timer-pause-btn');
+    const resetBtn = document.getElementById('timer-reset-btn');
+    const workInput = document.getElementById('work-minutes');
+    const breakInput = document.getElementById('break-minutes');
+    const modeWork = document.getElementById('mode-work');
+    const modeBreak = document.getElementById('mode-break');
+    const sessionsCount = document.getElementById('completed-sessions-count');
+
+    // ========== الحالة ==========
+    let timerInterval = null;
+    let endTime = null;          // وقت الانتهاء الفعلي (timestamp)
+    let totalDuration = 25 * 60; // بالثواني (للشريط)
+    let isRunning = false;
+    let isWorkMode = true;
+    let completedSessions = parseInt(localStorage.getItem('hayyiz-sessions') || '0');
+
+    if (sessionsCount) sessionsCount.textContent = completedSessions;
+
+    // ========== الصوت ==========
     function playNotificationSound() {
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -16,82 +45,166 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {}
     }
 
-    let timerInterval = null;
-    let endTime = null;
-    let totalDuration = 25 * 60;
-    let isRunning = false;
-    let isWorkMode = true;
-    let completedSessions = parseInt(localStorage.getItem('hayyiz-sessions') || '0');
+    // ========== إشعار ==========
+    function showNotification(title, body) {
+        if (!('Notification' in window)) return;
+        if (Notification.permission === 'granted') {
+            try {
+                new Notification(title, {
+                    body: body,
+                    icon: 'favicon-32x32.png',
+                    silent: false
+                });
+            } catch (e) {}
+        }
+    }
 
-    const timerDisplay = document.getElementById('timer-display');
-    const progressBar = document.getElementById('timer-progress-bar');
-    const startBtn = document.getElementById('timer-start-btn');
-    const pauseBtn = document.getElementById('timer-pause-btn');
-    const resetBtn = document.getElementById('timer-reset-btn');
-    const workInput = document.getElementById('work-minutes');
-    const breakInput = document.getElementById('break-minutes');
-    const modeWork = document.getElementById('mode-work');
-    const modeBreak = document.getElementById('mode-break');
-    const sessionsCount = document.getElementById('completed-sessions-count');
+    // ========== حفظ / استعادة الحالة ==========
+    function saveState() {
+        const state = {
+            endTime: endTime,
+            totalDuration: totalDuration,
+            isRunning: isRunning,
+            isWorkMode: isWorkMode,
+            workMinutes: workInput.value,
+            breakMinutes: breakInput.value
+        };
+        localStorage.setItem('hayyiz-pomodoro-state', JSON.stringify(state));
+    }
 
-    if (sessionsCount) sessionsCount.textContent = completedSessions;
+    function loadState() {
+        try {
+            const raw = localStorage.getItem('hayyiz-pomodoro-state');
+            if (!raw) return false;
+            const state = JSON.parse(raw);
 
+            if (state.workMinutes) workInput.value = state.workMinutes;
+            if (state.breakMinutes) breakInput.value = state.breakMinutes;
+
+            isWorkMode = state.isWorkMode !== false;
+            totalDuration = state.totalDuration || (isWorkMode ? workInput.value : breakInput.value) * 60;
+            endTime = state.endTime || null;
+            isRunning = !!state.isRunning;
+
+            // تحديث أزرار الوضع
+            if (isWorkMode) {
+                modeWork.classList.add('active');
+                modeBreak.classList.remove('active');
+            } else {
+                modeBreak.classList.add('active');
+                modeWork.classList.remove('active');
+            }
+
+            // إذا كان المؤقت شغال، نتحقق من الوقت الفعلي
+            if (isRunning && endTime) {
+                const remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
+                if (remaining <= 0) {
+                    // انتهى أثناء غياب المستخدم
+                    isRunning = false;
+                    endTime = null;
+                    handleTimerEnd(true); // true = كان غائب
+                    return true;
+                }
+                // ما زال شغال → نكمل
+                startBtn.innerHTML = '<i class="fa-solid fa-play"></i> يعمل...';
+                clearInterval(timerInterval);
+                timerInterval = setInterval(updateTimerDisplay, 250);
+            }
+
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    // ========== عرض الوقت ==========
     function updateTimerDisplay() {
-        let remaining = isRunning && endTime ? Math.max(0, Math.round((endTime - Date.now()) / 1000)) : totalDuration;
+        let remaining;
+
+        if (isRunning && endTime) {
+            remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
+        } else {
+            remaining = totalDuration;
+        }
+
         const min = Math.floor(remaining / 60);
         const sec = remaining % 60;
         timerDisplay.textContent = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-        progressBar.style.width = `${(remaining / totalDuration) * 100}%`;
+        progressBar.style.width = `${Math.max(0, (remaining / totalDuration) * 100)}%`;
 
         if (isRunning && remaining <= 0) {
             clearInterval(timerInterval);
             isRunning = false;
+            endTime = null;
             startBtn.innerHTML = '<i class="fa-solid fa-play"></i> تشغيل';
-            playNotificationSound();
-
-            if (isWorkMode) {
-                completedSessions++;
-                localStorage.setItem('hayyiz-sessions', completedSessions);
-                sessionsCount.textContent = completedSessions;
-                alert('انتهت جلسة الدراسة! حان وقت الراحة.');
-                switchToBreak();
-            } else {
-                alert('انتهت الراحة! ابدأ جلسة جديدة.');
-                switchToWork();
-            }
+            handleTimerEnd(false);
         }
+
+        saveState();
     }
 
+    // ========== عند انتهاء الوقت ==========
+    function handleTimerEnd(wasAway) {
+        playNotificationSound();
+
+        if (isWorkMode) {
+            completedSessions++;
+            localStorage.setItem('hayyiz-sessions', completedSessions);
+            if (sessionsCount) sessionsCount.textContent = completedSessions;
+
+            showNotification('حيز - بومودورو', 'انتهت جلسة الدراسة! حان وقت الراحة.');
+            if (!wasAway) alert('انتهت جلسة الدراسة! حان وقت الراحة.');
+            switchToBreak();
+        } else {
+            showNotification('حيز - بومودورو', 'انتهت الراحة! ابدأ جلسة جديدة.');
+            if (!wasAway) alert('انتهت الراحة! ابدأ جلسة جديدة.');
+            switchToWork();
+        }
+        saveState();
+    }
+
+    // ========== التحكم ==========
     function startTimer() {
         if (isRunning) return;
-        let remaining = endTime ? Math.max(0, Math.round((endTime - Date.now()) / 1000)) : totalDuration;
+
+        let remaining = endTime
+            ? Math.max(0, Math.round((endTime - Date.now()) / 1000))
+            : totalDuration;
+
+        if (remaining <= 0) remaining = totalDuration;
+
         endTime = Date.now() + remaining * 1000;
         isRunning = true;
         startBtn.innerHTML = '<i class="fa-solid fa-play"></i> يعمل...';
         clearInterval(timerInterval);
-        timerInterval = setInterval(updateTimerDisplay, 200);
+        timerInterval = setInterval(updateTimerDisplay, 250);
         updateTimerDisplay();
+        saveState();
     }
 
     function pauseTimer() {
         if (!isRunning) return;
         clearInterval(timerInterval);
         isRunning = false;
+
         if (endTime) {
             totalDuration = Math.max(0, Math.round((endTime - Date.now()) / 1000));
             endTime = null;
         }
+
         startBtn.innerHTML = '<i class="fa-solid fa-play"></i> تشغيل';
         updateTimerDisplay();
+        saveState();
     }
 
     function resetTimer() {
         clearInterval(timerInterval);
         isRunning = false;
         endTime = null;
-        totalDuration = (isWorkMode ? parseInt(workInput.value) : parseInt(breakInput.value)) * 60;
+        totalDuration = (isWorkMode ? parseInt(workInput.value) || 25 : parseInt(breakInput.value) || 5) * 60;
         startBtn.innerHTML = '<i class="fa-solid fa-play"></i> تشغيل';
         updateTimerDisplay();
+        saveState();
     }
 
     function switchToWork() {
@@ -108,13 +221,64 @@ document.addEventListener('DOMContentLoaded', () => {
         resetTimer();
     }
 
+    // ========== طلب الإذن فقط عند مغادرة الصفحة والمؤقت شغال ==========
+    function tryRequestPermissionOnLeave() {
+        if (!isRunning) return;
+        if (!('Notification' in window)) return;
+        if (Notification.permission !== 'default') return;
+
+        // محاولة طلب الإذن (قد يرفضها المتصفح لأنها ليست من تفاعل مباشر)
+        Notification.requestPermission().catch(() => {});
+    }
+
+    window.addEventListener('beforeunload', (e) => {
+        saveState();
+        if (isRunning) {
+            tryRequestPermissionOnLeave();
+            // بعض المتصفحات تظهر رسالة تأكيد
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            saveState();
+        } else {
+            // رجع للصفحة → نحدث العرض حسب الوقت الفعلي
+            updateTimerDisplay();
+        }
+    });
+
+    // ========== الأحداث ==========
     startBtn.addEventListener('click', startTimer);
     pauseBtn.addEventListener('click', pauseTimer);
     resetBtn.addEventListener('click', resetTimer);
-    modeWork.addEventListener('click', () => { pauseTimer(); switchToWork(); });
-    modeBreak.addEventListener('click', () => { pauseTimer(); switchToBreak(); });
-    workInput.addEventListener('change', () => { if (isWorkMode) resetTimer(); });
-    breakInput.addEventListener('change', () => { if (!isWorkMode) resetTimer(); });
 
-    updateTimerDisplay();
+    modeWork.addEventListener('click', () => {
+        pauseTimer();
+        switchToWork();
+    });
+
+    modeBreak.addEventListener('click', () => {
+        pauseTimer();
+        switchToBreak();
+    });
+
+    workInput.addEventListener('change', () => {
+        if (isWorkMode && !isRunning) resetTimer();
+    });
+
+    breakInput.addEventListener('change', () => {
+        if (!isWorkMode && !isRunning) resetTimer();
+    });
+
+    // ========== بدء التشغيل ==========
+    const restored = loadState();
+    if (!restored) {
+        totalDuration = (parseInt(workInput.value) || 25) * 60;
+        updateTimerDisplay();
+    } else {
+        updateTimerDisplay();
+    }
 });
