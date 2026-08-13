@@ -1,5 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
-    let habits = JSON.parse(localStorage.getItem('hayyiz-habits') || '[]');
+    let habits = JSON.parse(
+        localStorage.getItem('hayyiz-habits') || '[]'
+    );
 
     const habitForm = document.getElementById('habit-form');
     const habitInput = document.getElementById('habit-input');
@@ -14,80 +16,219 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function saveHabits() {
-        localStorage.setItem('hayyiz-habits', JSON.stringify(habits));
+        localStorage.setItem(
+            'hayyiz-habits',
+            JSON.stringify(habits)
+        );
+
         updateHabitStats();
     }
 
     function updateHabitStats() {
         totalHabitsEl.textContent = habits.length;
-        let best = 0, todayCount = 0;
+
+        let best = 0;
+        let todayCount = 0;
+
         const today = getToday();
-        habits.forEach(h => {
-            if (h.streak > best) best = h.streak;
-            if (h.lastCompleted === today) todayCount++;
+
+        habits.forEach(habit => {
+            if (habit.streak > best) {
+                best = habit.streak;
+            }
+
+            if (habit.lastCompleted === today) {
+                todayCount++;
+            }
         });
+
         bestStreakEl.textContent = best;
         todayCompletedEl.textContent = todayCount;
     }
 
     function renderHabits() {
+        // مسح القائمة الحالية
         habitsList.innerHTML = '';
+
         if (habits.length === 0) {
             habitsEmpty.classList.remove('hidden');
+            updateHabitStats();
             return;
         }
+
         habitsEmpty.classList.add('hidden');
 
         const today = getToday();
+
         habits.forEach((habit, i) => {
             const doneToday = habit.lastCompleted === today;
+
             const div = document.createElement('div');
             div.className = 'habit-item';
-            div.innerHTML = `
-                <input type="checkbox" class="habit-check" ${doneToday ? 'checked' : ''} data-index="${i}">
-                <div class="habit-info">
-                    <div class="habit-name">${habit.name}</div>
-                    <div class="habit-streak">السلسلة الحالية: <strong>${habit.streak} يوم</strong></div>
-                </div>
-                <button class="habit-delete" data-index="${i}"><i class="fa-solid fa-trash"></i></button>
-            `;
+
+            // Checkbox
+            const checkbox = document.createElement('input');
+
+            checkbox.type = 'checkbox';
+            checkbox.className = 'habit-check';
+            checkbox.checked = doneToday;
+            checkbox.dataset.index = i;
+
+            // معلومات العادة
+            const info = document.createElement('div');
+            info.className = 'habit-info';
+
+            // اسم العادة
+            const name = document.createElement('div');
+            name.className = 'habit-name';
+
+            // مهم: textContent يمنع تفسير اسم العادة كـ HTML
+            name.textContent = habit.name;
+
+            // السلسلة
+            const streak = document.createElement('div');
+            streak.className = 'habit-streak';
+
+            const streakText = document.createTextNode(
+                'السلسلة الحالية: '
+            );
+
+            const streakStrong = document.createElement('strong');
+            streakStrong.textContent =
+                `${habit.streak} يوم`;
+
+            streak.appendChild(streakText);
+            streak.appendChild(streakStrong);
+
+            info.appendChild(name);
+            info.appendChild(streak);
+
+            // زر الحذف
+            const deleteBtn = document.createElement('button');
+
+            deleteBtn.className = 'habit-delete';
+            deleteBtn.dataset.index = i;
+            deleteBtn.type = 'button';
+            deleteBtn.setAttribute(
+                'aria-label',
+                'حذف العادة'
+            );
+
+            const deleteIcon = document.createElement('i');
+
+            deleteIcon.className = 'fa-solid fa-trash';
+            deleteIcon.setAttribute(
+                'aria-hidden',
+                'true'
+            );
+
+            deleteBtn.appendChild(deleteIcon);
+
+            // تجميع العنصر
+            div.appendChild(checkbox);
+            div.appendChild(info);
+            div.appendChild(deleteBtn);
+
             habitsList.appendChild(div);
         });
+
         updateHabitStats();
     }
 
     habitForm.addEventListener('submit', e => {
         e.preventDefault();
+
         const name = habitInput.value.trim();
-        if (!name) return;
-        habits.push({ name, streak: 0, lastCompleted: null });
+
+        if (!name) {
+            return;
+        }
+
+        habits.push({
+            name,
+            streak: 0,
+            lastCompleted: null
+        });
+
         saveHabits();
+
         habitInput.value = '';
+
         renderHabits();
     });
 
     habitsList.addEventListener('click', e => {
+
+        // تغيير حالة العادة
         if (e.target.classList.contains('habit-check')) {
-            const i = e.target.dataset.index;
+            const i = Number(e.target.dataset.index);
+
+            if (
+                !Number.isInteger(i) ||
+                i < 0 ||
+                i >= habits.length
+            ) {
+                return;
+            }
+
             const today = getToday();
             const habit = habits[i];
+
             if (e.target.checked) {
+
                 if (habit.lastCompleted !== today) {
                     const yesterday = new Date();
-                    yesterday.setDate(yesterday.getDate() - 1);
-                    const yStr = yesterday.toISOString().slice(0, 10);
-                    habit.streak = habit.lastCompleted === yStr ? habit.streak + 1 : 1;
+
+                    yesterday.setDate(
+                        yesterday.getDate() - 1
+                    );
+
+                    const yStr =
+                        yesterday.toISOString().slice(0, 10);
+
+                    habit.streak =
+                        habit.lastCompleted === yStr
+                            ? habit.streak + 1
+                            : 1;
+
                     habit.lastCompleted = today;
                 }
+
             } else if (habit.lastCompleted === today) {
-                habit.streak = Math.max(0, habit.streak - 1);
+
+                habit.streak = Math.max(
+                    0,
+                    habit.streak - 1
+                );
+
                 habit.lastCompleted = null;
             }
+
             saveHabits();
             renderHabits();
+
+            return;
         }
-        if (e.target.closest('.habit-delete')) {
-            habits.splice(e.target.closest('.habit-delete').dataset.index, 1);
+
+        // حذف العادة
+        const deleteButton =
+            e.target.closest('.habit-delete');
+
+        if (deleteButton) {
+            const i = Number(
+                deleteButton.dataset.index
+            );
+
+            if (
+                !Number.isInteger(i) ||
+                i < 0 ||
+                i >= habits.length
+            ) {
+                return;
+            }
+
+            habits.splice(i, 1);
+
             saveHabits();
             renderHabits();
         }
