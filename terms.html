@@ -1,107 +1,522 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
+
 <head>
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>شروط الاستخدام | حيز</title>
-    <meta name="description" content="شروط استخدام منصة حيز للأدوات الدراسية المجانية.">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
+
+    <meta
+        name="description"
+        content="شروط استخدام منصة حيز للأدوات الدراسية المجانية، بما في ذلك الأدوات التعليمية والمحتوى المنشور على المنصة."
+    >
+
+    <meta name="robots" content="index, follow">
+
+    <link
+        rel="canonical"
+        href="https://just-c.github.io/adawati/terms.html"
+    >
+
+    <!-- Google verification -->
+    <meta
+        name="google-site-verification"
+        content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw"
+    >
+
+    <!-- Font Awesome -->
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    >
+
+    <!-- Google Fonts -->
+    <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap"
+    >
+
+    <!-- Main stylesheet -->
     <link rel="stylesheet" href="style.css">
+
+    <!-- Favicon -->
     <link rel="icon" href="favicon.ico">
-        <meta name="google-site-verification" content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw">
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S"></script>
 </head>
+
 <body class="theme-light">
 
 <header class="navbar">
     <div class="container nav-container">
-        <a href="index.html" class="logo">
-            <div class="logo-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+
+        <a
+            href="index.html"
+            class="logo"
+            aria-label="الصفحة الرئيسية - حيز"
+        >
+            <div class="logo-icon">
+                <i
+                    class="fa-solid fa-graduation-cap"
+                    aria-hidden="true"
+                ></i>
+            </div>
+
             <span class="logo-text">حيز</span>
         </a>
-        <button class="menu-toggle" id="menu-toggle"><i class="fa-solid fa-bars"></i></button>
-        <nav class="nav-links" id="nav-links">
-            <a href="index.html" class="nav-btn"><i class="fa-solid fa-house"></i> الرئيسية</a>
-            <a href="blog.html" class="nav-btn"><i class="fa-solid fa-newspaper"></i> المدونة</a>
-            <a href="about.html" class="nav-btn"><i class="fa-solid fa-circle-info"></i> عن حيز</a>
-            <a href="contact.html" class="nav-btn"><i class="fa-solid fa-envelope"></i> تواصل معنا</a>
+
+        <button
+            class="menu-toggle"
+            id="menu-toggle"
+            type="button"
+            aria-label="فتح قائمة التنقل"
+            aria-controls="nav-links"
+            aria-expanded="false"
+        >
+            <i
+                class="fa-solid fa-bars"
+                aria-hidden="true"
+            ></i>
+        </button>
+
+        <nav
+            class="nav-links"
+            id="nav-links"
+            aria-label="التنقل الرئيسي"
+        >
+            <a href="index.html" class="nav-btn">
+                <i
+                    class="fa-solid fa-house"
+                    aria-hidden="true"
+                ></i>
+                الرئيسية
+            </a>
+
+            <a href="blog.html" class="nav-btn">
+                <i
+                    class="fa-solid fa-newspaper"
+                    aria-hidden="true"
+                ></i>
+                المدونة
+            </a>
+
+            <a href="about.html" class="nav-btn">
+                <i
+                    class="fa-solid fa-circle-info"
+                    aria-hidden="true"
+                ></i>
+                عن حيز
+            </a>
+
+            <a href="contact.html" class="nav-btn">
+                <i
+                    class="fa-solid fa-envelope"
+                    aria-hidden="true"
+                ></i>
+                تواصل معنا
+            </a>
         </nav>
+
         <div class="nav-actions">
-            <button id="theme-toggle" class="theme-btn"><i class="fa-solid fa-moon"></i></button>
+            <button
+                id="theme-toggle"
+                class="theme-btn"
+                type="button"
+                aria-label="تبديل الوضع الليلي"
+            >
+                <i
+                    class="fa-solid fa-moon"
+                    aria-hidden="true"
+                ></i>
+            </button>
         </div>
+
     </div>
 </header>
 
+
 <main class="container main-content">
+
     <div class="card about-card">
+
         <div class="about-hero">
-            <h1>شروط الاستخدام</h1>
-            <p class="about-lead">آخر تحديث: أغسطس 2026</p>
+
+            <h1>
+                <i
+                    class="fa-solid fa-file-contract"
+                    aria-hidden="true"
+                ></i>
+                شروط الاستخدام
+            </h1>
+
+            <p class="about-lead">
+                آخر تحديث: أغسطس 2026
+            </p>
+
         </div>
 
+
         <div class="about-section">
+
             <h2>1. قبول الشروط</h2>
-            <p>باستخدامك لمنصة حيز، فإنك توافق على هذه الشروط. إذا كنت لا توافق عليها، يرجى عدم استخدام الموقع.</p>
+
+            <p>
+                باستخدامك لمنصة <strong>حيز</strong> أو أي من صفحاتها
+                وأدواتها، فإنك تقر بأنك قرأت شروط الاستخدام هذه
+                وتوافق على الالتزام بها.
+            </p>
+
+            <p>
+                إذا كنت لا توافق على هذه الشروط، فيُرجى عدم استخدام
+                الموقع أو خدماته.
+            </p>
+
         </div>
 
-        <div class="about-section">
-            <h2>2. وصف الخدمة</h2>
-            <p>حيز منصة أدوات دراسية مجانية تعمل داخل المتصفح، وتشمل مؤقت المذاكرة، قائمة المهام، حاسبة المعدل، الملاحظات، متتبع العادات، ولعبة الحروف، بالإضافة إلى محتوى تثقيفي في المدونة.</p>
-        </div>
 
         <div class="about-section">
+
+            <h2>2. وصف المنصة</h2>
+
+            <p>
+                حيز هي منصة أدوات دراسية مجانية تعمل من خلال متصفح
+                الويب، وتهدف إلى مساعدة الطلاب والمستخدمين في تنظيم
+                الدراسة والوقت والمهام.
+            </p>
+
+            <p>
+                قد تشمل المنصة، من بين أمور أخرى:
+            </p>
+
+            <ul class="about-pros">
+                <li>مؤقت المذاكرة.</li>
+                <li>قائمة المهام.</li>
+                <li>حاسبة المعدل.</li>
+                <li>الملاحظات.</li>
+                <li>متتبع العادات.</li>
+                <li>لعبة الحروف.</li>
+                <li>المقالات والمحتوى التعليمي المنشور في المدونة.</li>
+            </ul>
+
+            <p>
+                قد تتم إضافة أدوات أو تعديلها أو إيقاف بعضها في أي وقت.
+            </p>
+
+        </div>
+
+
+        <div class="about-section">
+
             <h2>3. الاستخدام المسموح</h2>
+
+            <p>
+                يجوز لك استخدام المنصة للأغراض الشخصية والتعليمية
+                والمشروعة، ويشمل ذلك:
+            </p>
+
             <ul class="about-pros">
-                <li>استخدام الأدوات للأغراض الدراسية والشخصية</li>
-                <li>الاستفادة من المقالات والمحتوى التعليمي</li>
-                <li>مشاركة رابط الموقع مع الآخرين</li>
+                <li>استخدام الأدوات لتنظيم الدراسة والمهام الشخصية.</li>
+                <li>الاستفادة من المحتوى التعليمي المنشور على المنصة.</li>
+                <li>مشاركة روابط صفحات حيز مع الآخرين.</li>
+                <li>استخدام الموقع وفق الأنظمة والقوانين المعمول بها.</li>
             </ul>
+
         </div>
 
+
         <div class="about-section">
+
             <h2>4. الاستخدام الممنوع</h2>
+
+            <p>
+                يُمنع استخدام الموقع بطريقة قد تؤدي إلى الإضرار
+                بالموقع أو بالمستخدمين أو بالخدمات التي يعتمد عليها.
+            </p>
+
             <ul class="about-pros">
-                <li>محاولة اختراق الموقع أو الإضرار به</li>
-                <li>إعادة نشر محتوى المنصة على أنه ملكك دون إذن</li>
-                <li>استخدام الموقع بطريقة تخالف الأنظمة المعمول بها</li>
+                <li>محاولة اختراق الموقع أو تعطيله أو إلحاق الضرر به.</li>
+                <li>محاولة الوصول غير المصرح به إلى أنظمة أو بيانات لا تخصك.</li>
+                <li>استخدام الموقع لنشر أو تنفيذ برمجيات ضارة.</li>
+                <li>استغلال الموقع بطريقة تؤدي إلى تعطيل الخدمة أو إساءة استخدامها.</li>
+                <li>إعادة نشر محتوى المنصة على أنه ملكك دون الحصول على الإذن اللازم.</li>
+                <li>استخدام الموقع لأي غرض يخالف الأنظمة أو القوانين المعمول بها.</li>
             </ul>
+
         </div>
 
-        <div class="about-section">
-            <h2>5. البيانات والخصوصية</h2>
-            <p>معظم بياناتك تُحفظ محليًا على جهازك. لمزيد من التفاصيل، راجع <a href="privacy.html" style="color:var(--primary);font-weight:600;">سياسة الخصوصية</a>.</p>
-        </div>
 
         <div class="about-section">
-            <h2>6. إخلاء المسؤولية</h2>
-            <p>تُقدم أدوات حيز كما هي دون ضمانات. حاسبة المعدل أداة مساعدة وقد تختلف بعض التفاصيل حسب نظام مدرستك، لذا تحقق دائمًا من المصادر الرسمية.</p>
+
+            <h2>5. البيانات والتخزين المحلي</h2>
+
+            <p>
+                تعتمد بعض أدوات حيز على تقنية
+                <strong>LocalStorage</strong>
+                لتخزين البيانات داخل متصفح المستخدم، مثل المهام
+                والملاحظات والعادات وبعض بيانات استخدام الأدوات.
+            </p>
+
+            <p>
+                هذه البيانات المخزنة محليًا لا تمثل حسابًا على حيز،
+                ولا توفر المنصة إمكانية وصول مباشر إلى محتواها.
+            </p>
+
+            <p>
+                أنت مسؤول عن البيانات التي تدخلها في الأدوات وعن
+                الاحتفاظ بنسخة احتياطية منها إذا كانت مهمة بالنسبة لك.
+            </p>
+
+            <p>
+                لمزيد من المعلومات حول البيانات والخصوصية، يرجى
+                مراجعة
+                <a
+                    href="privacy.html"
+                    style="color: var(--primary); font-weight: 600;"
+                >
+                    سياسة الخصوصية
+                </a>.
+            </p>
+
         </div>
 
-        <div class="about-section">
-            <h2>7. التعديلات</h2>
-            <p>قد نحدّث هذه الشروط من وقت لآخر، وسيتم نشر النسخة المحدثة على هذه الصفحة.</p>
-        </div>
 
         <div class="about-section">
-            <h2>8. التواصل</h2>
-            <p>لأي استفسار: <a href="mailto:adawati.support@gmail.com" style="color:var(--primary);font-weight:600;">adawati.support@gmail.com</a></p>
+
+            <h2>6. دقة الأدوات والمعلومات</h2>
+
+            <p>
+                تُقدم أدوات حيز لأغراض المساعدة والتنظيم والتعلم،
+                ولا ينبغي اعتبار نتائجها بديلًا عن المصادر الرسمية
+                أو القرارات الأكاديمية أو المهنية.
+            </p>
+
+            <p>
+                على سبيل المثال، حاسبة المعدل تعتمد على البيانات
+                والإعدادات التي يدخلها المستخدم، وقد تختلف طريقة
+                احتساب المعدل أو أوزان المواد من مؤسسة تعليمية إلى
+                أخرى.
+            </p>
+
+            <p>
+                لذلك يُنصح بالتحقق من اللوائح والمصادر الرسمية
+                التابعة لمدرستك أو مؤسستك التعليمية عند الحاجة.
+            </p>
+
         </div>
+
+
+        <div class="about-section">
+
+            <h2>7. المحتوى التعليمي والمدونة</h2>
+
+            <p>
+                قد تحتوي مدونة حيز على مقالات وشروحات ومعلومات
+                تعليمية تهدف إلى تقديم المساعدة العامة.
+            </p>
+
+            <p>
+                قد تحتوي بعض المعلومات على أخطاء أو تصبح قديمة
+                نتيجة تغير الأنظمة أو المناهج أو المصادر.
+                لذلك ينبغي التحقق من المعلومات المهمة من المصادر
+                الرسمية ذات الصلة.
+            </p>
+
+        </div>
+
+
+        <div class="about-section">
+
+            <h2>8. الملكية الفكرية</h2>
+
+            <p>
+                ما لم يُذكر خلاف ذلك، فإن تصميم منصة حيز والهوية
+                البصرية والنصوص والبرمجيات والمحتوى الأصلي المنشور
+                فيها مملوك أو مرخص لحيز، وتبقى الحقوق المتعلقة بها
+                محفوظة لأصحابها.
+            </p>
+
+            <p>
+                لا يجوز نسخ أو إعادة نشر أو توزيع المحتوى الأصلي
+                للمنصة على أنه ملك لشخص آخر دون الحصول على الإذن
+                المناسب أو وجود أساس قانوني يسمح بذلك.
+            </p>
+
+            <p>
+                لا تمنع هذه الشروط استخدام الروابط أو الاقتباسات
+                المسموح بها بموجب القوانين المعمول بها.
+            </p>
+
+        </div>
+
+
+        <div class="about-section">
+
+            <h2>9. الخدمات الخارجية</h2>
+
+            <p>
+                قد تعتمد بعض أجزاء الموقع على خدمات أو موارد تقدمها
+                جهات خارجية، مثل خدمات التحليلات أو استضافة الخطوط
+                أو الأيقونات.
+            </p>
+
+            <p>
+                تخضع هذه الخدمات لشروط وسياسات الخصوصية الخاصة
+                بالجهات التي تقدمها، وقد تتغير هذه الخدمات أو
+                إعداداتها من وقت لآخر.
+            </p>
+
+        </div>
+
+
+        <div class="about-section">
+
+            <h2>10. توفر الموقع</h2>
+
+            <p>
+                نسعى إلى إبقاء منصة حيز متاحة وقابلة للاستخدام،
+                ولكن لا نضمن أن الموقع أو جميع أدواته ستكون متاحة
+                دون انقطاع أو أخطاء في جميع الأوقات.
+            </p>
+
+            <p>
+                قد يتم إجراء تحديثات أو صيانة أو تغييرات تقنية
+                تؤدي مؤقتًا إلى عدم توفر بعض وظائف الموقع.
+            </p>
+
+        </div>
+
+
+        <div class="about-section">
+
+            <h2>11. إخلاء المسؤولية</h2>
+
+            <p>
+                تُقدم منصة حيز وأدواتها ومحتواها كما هي ولأغراض
+                تعليمية وتنظيمية عامة، دون تقديم ضمان بأن النتائج
+                ستكون دقيقة أو مناسبة لكل حالة أو نظام تعليمي.
+            </p>
+
+            <p>
+                لا ينبغي الاعتماد على أدوات حيز وحدها عند اتخاذ
+                قرارات أكاديمية أو مالية أو غيرها من القرارات التي
+                تتطلب معلومات رسمية أو متخصصة.
+            </p>
+
+        </div>
+
+
+        <div class="about-section">
+
+            <h2>12. مسؤولية المستخدم</h2>
+
+            <p>
+                أنت مسؤول عن طريقة استخدامك للمنصة وعن البيانات التي
+                تدخلها فيها، وعن التحقق من المعلومات المهمة قبل
+                الاعتماد عليها.
+            </p>
+
+            <p>
+                كما يُنصح بعدم إدخال كلمات المرور أو مفاتيح الوصول
+                أو المعلومات المالية أو غيرها من البيانات الحساسة
+                في أدوات التخزين المحلي.
+            </p>
+
+        </div>
+
+
+        <div class="about-section">
+
+            <h2>13. التعديلات على الشروط</h2>
+
+            <p>
+                قد نقوم بتعديل شروط الاستخدام من وقت لآخر نتيجة
+                لتغييرات في الموقع أو خدماته أو طريقة تشغيله.
+            </p>
+
+            <p>
+                سيتم نشر النسخة المحدثة على هذه الصفحة مع تحديث
+                تاريخ "آخر تحديث". ويُعد استمرار استخدام الموقع
+                بعد نشر التعديلات قبولًا بالشروط المحدثة، بالقدر
+                الذي يسمح به القانون المعمول به.
+            </p>
+
+        </div>
+
+
+        <div class="about-section">
+
+            <h2>14. التواصل</h2>
+
+            <p>
+                إذا كان لديك استفسار يتعلق بشروط الاستخدام أو
+                المنصة، يمكنك التواصل معنا عبر البريد الإلكتروني:
+            </p>
+
+            <p style="margin-top: 12px;">
+
+                <a
+                    href="mailto:adawati.support@gmail.com"
+                    class="btn btn-primary"
+                    style="display: inline-flex;"
+                >
+                    <i
+                        class="fa-solid fa-envelope"
+                        aria-hidden="true"
+                    ></i>
+
+                    adawati.support@gmail.com
+                </a>
+
+            </p>
+
+        </div>
+
     </div>
+
 </main>
 
+
 <footer class="footer">
+
     <div class="container footer-container">
-        <div class="footer-brand"><i class="fa-solid fa-graduation-cap"></i> حيز</div>
-        <p class="footer-copy">&copy; 2026 حيز — جميع الحقوق محفوظة</p>
-        <div class="footer-links">
-            <a href="privacy.html">سياسة الخصوصية</a>
-            <a href="terms.html">شروط الاستخدام</a>
-            <a href="contact.html">تواصل معنا</a>
+
+        <div class="footer-brand">
+            <i
+                class="fa-solid fa-graduation-cap"
+                aria-hidden="true"
+            ></i>
+            حيز
         </div>
+
+        <p class="footer-copy">
+            &copy; 2026 حيز — جميع الحقوق محفوظة
+        </p>
+
+        <div class="footer-links">
+
+            <a href="privacy.html">
+                سياسة الخصوصية
+            </a>
+
+            <a
+                href="terms.html"
+                aria-current="page"
+            >
+                شروط الاستخدام
+            </a>
+
+            <a href="contact.html">
+                تواصل معنا
+            </a>
+
+        </div>
+
     </div>
+
 </footer>
 
+
 <script src="common.js"></script>
+
 </body>
 </html>
