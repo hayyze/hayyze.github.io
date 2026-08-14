@@ -77,15 +77,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             )
         );
 
-        /*
-         * لا توجد بيانات من المستخدم هنا،
-         * لذلك يمكن إنشاء العناصر مباشرة بدل innerHTML.
-         */
-        gameTimerDisplay.textContent =
-            `الوقت: ${remaining}ث`;
+        gameTimerDisplay.replaceChildren();
 
-        const icon =
-            document.createElement('i');
+        const icon = document.createElement('i');
 
         icon.className =
             'fa-solid fa-hourglass-half';
@@ -95,7 +89,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             'true'
         );
 
-        gameTimerDisplay.prepend(icon);
+        gameTimerDisplay.appendChild(icon);
+
+        gameTimerDisplay.appendChild(
+            document.createTextNode(
+                ` الوقت: ${remaining}ث`
+            )
+        );
 
         if (remaining <= 0) {
             clearInterval(gameTimerInterval);
@@ -201,6 +201,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.createElement('span');
 
             span.style.color = '#94a3b8';
+
             span.textContent =
                 ' — لم تُدخل إجابة';
 
@@ -311,10 +312,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         ];
 
 
-        /*
-         * ننشئ النتيجة باستخدام DOM APIs
-         * بدل دمج إجابات المستخدم داخل HTML.
-         */
         const resultDetails =
             document.createElement('div');
 
@@ -371,15 +368,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
 
-        /*
-         * تفريغ النتيجة القديمة.
-         */
         gameResultBox.replaceChildren();
 
 
-        /*
-         * عنوان النتيجة.
-         */
         const scoreTitle =
             document.createElement('div');
 
@@ -396,21 +387,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         );
 
 
-        /*
-         * تفاصيل الإجابات.
-         */
         gameResultBox.appendChild(
             resultDetails
         );
 
 
-        /*
-         * الحرف المطلوب.
-         *
-         * currentLetter يأتي من قائمة ثابتة
-         * وليس من إدخال المستخدم، ومع ذلك
-         * نستخدم textContent أيضًا.
-         */
         const letterInfo =
             document.createElement('p');
 
@@ -449,10 +430,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         );
 
 
-        /*
-         * إنشاء محتوى زر الجولة الجديدة
-         * باستخدام DOM بدل innerHTML.
-         */
         startGameBtn.replaceChildren();
 
         const rotateIcon =
