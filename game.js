@@ -2,18 +2,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     let dictionary = null;
 
     try {
-        const res = await fetch('words.json');
+    const res = await fetch('./words.json', {
+        cache: 'no-store'
+    });
 
-        if (!res.ok) {
-            throw new Error('Failed to load dictionary');
-        }
-
-        dictionary = await res.json();
-    } catch (e) {
-        alert('تعذر تحميل ملف words.json');
+    if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
     }
 
-    const letters = 'أبتثجحخدذرزسشصضطظعغفقكلمنهوي';
+    dictionary = await res.json();
+} catch (e) {
+    console.error('Dictionary loading error:', e);
+    alert('تعذر تحميل ملف words.json');
+    return;
+}
+
+    const letters = 'أبتثجحخدذرزسشصضطظعغفقكلمنهـوي';
 
     let currentLetter = '';
     let gameEndTime = null;
