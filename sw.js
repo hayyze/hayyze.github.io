@@ -20,8 +20,8 @@ const ASSETS = [
   './game.js',
   './words.json',
   './manifest.webmanifest',
-  './icon-192.png',
-  './icon-512.png',
+  './android-chrome-192x192.png',
+  './android-chrome-512x512.png',
   './favicon.ico',
   './favicon-32x32.png',
   './apple-touch-icon.png'
@@ -81,11 +81,11 @@ self.addEventListener('fetch', (event) => {
 
           return response;
         })
-        .catch(() => {
-          // لو فشل الشبكة وأطلب صفحة HTML نرجع الصفحة الرئيسية
-          if (event.request.headers.get('accept').includes('text/html')) {
-            return caches.match('./index.html');
-          }
+       const accept = event.request.headers.get('accept') || '';
+
+         if (accept.includes('text/html')) {
+         return caches.match('./index.html');
+           }
         });
     })
   );
