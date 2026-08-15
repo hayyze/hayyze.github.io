@@ -1,10 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // ========== Service Worker ==========
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js').catch(() => {});
-    }
-
     // ========== عناصر الصفحة ==========
     const timerDisplay = document.getElementById('timer-display');
     const progressBar = document.getElementById('timer-progress-bar');
@@ -33,13 +28,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
             const oscillator = ctx.createOscillator();
             const gain = ctx.createGain();
+
             oscillator.connect(gain);
             gain.connect(ctx.destination);
+
             oscillator.type = 'sine';
             oscillator.frequency.setValueAtTime(880, ctx.currentTime);
             oscillator.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3);
+
             gain.gain.setValueAtTime(0.3, ctx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
+
             oscillator.start(ctx.currentTime);
             oscillator.stop(ctx.currentTime + 0.8);
         } catch (e) {}
@@ -48,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========== إشعار ==========
     function showNotification(title, body) {
         if (!('Notification' in window)) return;
+
         if (Notification.permission === 'granted') {
             try {
                 new Notification(title, {
@@ -69,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
             workMinutes: workInput.value,
             breakMinutes: breakInput.value
         };
+
         localStorage.setItem('hayyiz-pomodoro-state', JSON.stringify(state));
     }
 
@@ -83,7 +84,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (state.breakMinutes) breakInput.value = state.breakMinutes;
 
             isWorkMode = state.isWorkMode !== false;
-            totalDuration = state.totalDuration || (isWorkMode ? workInput.value : breakInput.value) * 60;
+
+            totalDuration =
+                state.totalDuration ||
+                (isWorkMode ? workInput.value : breakInput.value) * 60;
+
             endTime = state.endTime || null;
             isRunning = !!state.isRunning;
 
@@ -96,14 +101,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (isRunning && endTime) {
-                const remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
+                const remaining = Math.max(
+                    0,
+                    Math.round((endTime - Date.now()) / 1000)
+                );
+
                 if (remaining <= 0) {
                     isRunning = false;
                     endTime = null;
                     handleTimerEnd(true);
                     return true;
                 }
-                startBtn.innerHTML = '<i class="fa-solid fa-play"></i> يعمل...';
+
+                startBtn.innerHTML =
+                    '<i class="fa-solid fa-play"></i> يعمل...';
+
                 clearInterval(timerInterval);
                 timerInterval = setInterval(updateTimerDisplay, 250);
             }
@@ -119,21 +131,32 @@ document.addEventListener('DOMContentLoaded', () => {
         let remaining;
 
         if (isRunning && endTime) {
-            remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
+            remaining = Math.max(
+                0,
+                Math.round((endTime - Date.now()) / 1000)
+            );
         } else {
             remaining = totalDuration;
         }
 
         const min = Math.floor(remaining / 60);
         const sec = remaining % 60;
-        timerDisplay.textContent = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-        progressBar.style.width = `${Math.max(0, (remaining / totalDuration) * 100)}%`;
+
+        timerDisplay.textContent =
+            `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+
+        progressBar.style.width =
+            `${Math.max(0, (remaining / totalDuration) * 100)}%`;
 
         if (isRunning && remaining <= 0) {
             clearInterval(timerInterval);
+
             isRunning = false;
             endTime = null;
-            startBtn.innerHTML = '<i class="fa-solid fa-play"></i> تشغيل';
+
+            startBtn.innerHTML =
+                '<i class="fa-solid fa-play"></i> تشغيل';
+
             handleTimerEnd(false);
         }
 
@@ -146,15 +169,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (isWorkMode) {
             completedSessions++;
-            localStorage.setItem('hayyiz-sessions', completedSessions);
-            if (sessionsCount) sessionsCount.textContent = completedSessions;
 
-            showNotification('حيز - بومودورو', 'انتهت جلسة الدراسة! حان وقت الراحة.');
-            if (!wasAway) alert('انتهت جلسة الدراسة! حان وقت الراحة.');
+            localStorage.setItem(
+                'hayyiz-sessions',
+                completedSessions
+            );
+
+            if (sessionsCount) {
+                sessionsCount.textContent = completedSessions;
+            }
+
+            showNotification(
+                'حيز - بومودورو',
+                'انتهت جلسة الدراسة! حان وقت الراحة.'
+            );
+
+            if (!wasAway) {
+                alert('انتهت جلسة الدراسة! حان وقت الراحة.');
+            }
+
             switchToBreak();
         } else {
-            showNotification('حيز - بومودورو', 'انتهت الراحة! ابدأ جلسة جديدة.');
-            if (!wasAway) alert('انتهت الراحة! ابدأ جلسة جديدة.');
+            showNotification(
+                'حيز - بومودورو',
+                'انتهت الراحة! ابدأ جلسة جديدة.'
+            );
+
+            if (!wasAway) {
+                alert('انتهت الراحة! ابدأ جلسة جديدة.');
+            }
+
             switchToWork();
         }
 
@@ -166,16 +210,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isRunning) return;
 
         let remaining = endTime
-            ? Math.max(0, Math.round((endTime - Date.now()) / 1000))
+            ? Math.max(
+                0,
+                Math.round((endTime - Date.now()) / 1000)
+            )
             : totalDuration;
 
-        if (remaining <= 0) remaining = totalDuration;
+        if (remaining <= 0) {
+            remaining = totalDuration;
+        }
 
         endTime = Date.now() + remaining * 1000;
         isRunning = true;
-        startBtn.innerHTML = '<i class="fa-solid fa-play"></i> يعمل...';
+
+        startBtn.innerHTML =
+            '<i class="fa-solid fa-play"></i> يعمل...';
+
         clearInterval(timerInterval);
         timerInterval = setInterval(updateTimerDisplay, 250);
+
         updateTimerDisplay();
         saveState();
     }
@@ -187,42 +240,62 @@ document.addEventListener('DOMContentLoaded', () => {
         isRunning = false;
 
         if (endTime) {
-            totalDuration = Math.max(0, Math.round((endTime - Date.now()) / 1000));
+            totalDuration = Math.max(
+                0,
+                Math.round((endTime - Date.now()) / 1000)
+            );
+
             endTime = null;
         }
 
-        startBtn.innerHTML = '<i class="fa-solid fa-play"></i> تشغيل';
+        startBtn.innerHTML =
+            '<i class="fa-solid fa-play"></i> تشغيل';
+
         updateTimerDisplay();
         saveState();
     }
 
     function resetTimer() {
         clearInterval(timerInterval);
+
         isRunning = false;
         endTime = null;
-        totalDuration = (isWorkMode ? parseInt(workInput.value) || 25 : parseInt(breakInput.value) || 5) * 60;
-        startBtn.innerHTML = '<i class="fa-solid fa-play"></i> تشغيل';
+
+        totalDuration =
+            (isWorkMode
+                ? parseInt(workInput.value) || 25
+                : parseInt(breakInput.value) || 5
+            ) * 60;
+
+        startBtn.innerHTML =
+            '<i class="fa-solid fa-play"></i> تشغيل';
+
         updateTimerDisplay();
         saveState();
     }
 
     function switchToWork() {
         isWorkMode = true;
+
         modeWork.classList.add('active');
         modeBreak.classList.remove('active');
+
         resetTimer();
     }
 
     function switchToBreak() {
         isWorkMode = false;
+
         modeBreak.classList.add('active');
         modeWork.classList.remove('active');
+
         resetTimer();
     }
 
     // ========== حفظ عند مغادرة الصفحة ==========
     window.addEventListener('beforeunload', (e) => {
         saveState();
+
         if (isRunning) {
             e.preventDefault();
             e.returnValue = '';
@@ -253,24 +326,32 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     workInput.addEventListener('change', () => {
-        if (isWorkMode && !isRunning) resetTimer();
+        if (isWorkMode && !isRunning) {
+            resetTimer();
+        }
     });
 
     breakInput.addEventListener('change', () => {
-        if (!isWorkMode && !isRunning) resetTimer();
+        if (!isWorkMode && !isRunning) {
+            resetTimer();
+        }
     });
 
     // ========== بدء التشغيل ==========
     const restored = loadState();
+
     if (!restored) {
-        totalDuration = (parseInt(workInput.value) || 25) * 60;
+        totalDuration =
+            (parseInt(workInput.value) || 25) * 60;
+
         updateTimerDisplay();
     } else {
         updateTimerDisplay();
     }
 
     // ========== زر تفعيل الإشعارات ==========
-    const notifBtn = document.getElementById('enable-notifications-btn');
+    const notifBtn =
+        document.getElementById('enable-notifications-btn');
 
     function updateNotifButton() {
         if (!notifBtn) return;
@@ -283,15 +364,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const permission = Notification.permission;
 
         if (permission === 'granted') {
-            notifBtn.innerHTML = '<i class="fa-solid fa-bell"></i> التنبيه مفعّل';
+            notifBtn.innerHTML =
+                '<i class="fa-solid fa-bell"></i> التنبيه مفعّل';
+
             notifBtn.disabled = true;
             notifBtn.style.opacity = '0.7';
+
         } else if (permission === 'denied') {
-            notifBtn.innerHTML = '<i class="fa-solid fa-bell-slash"></i> التنبيه مرفوض';
+            notifBtn.innerHTML =
+                '<i class="fa-solid fa-bell-slash"></i> التنبيه مرفوض';
+
             notifBtn.disabled = true;
             notifBtn.style.opacity = '0.7';
+
         } else {
-            notifBtn.innerHTML = '<i class="fa-solid fa-bell"></i> تفعيل التنبيه';
+            notifBtn.innerHTML =
+                '<i class="fa-solid fa-bell"></i> تفعيل التنبيه';
+
             notifBtn.disabled = false;
             notifBtn.style.opacity = '1';
         }
@@ -299,7 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (notifBtn) {
         notifBtn.addEventListener('click', function () {
-            console.log('تم الضغط على زر التنبيه'); // للتأكد
+            console.log('تم الضغط على زر التنبيه');
 
             if (!('Notification' in window)) {
                 alert('متصفحك لا يدعم الإشعارات');
@@ -308,7 +397,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // إذا كان مرفوض مسبقاً
             if (Notification.permission === 'denied') {
-                alert('لقد رفضت الإشعارات سابقاً. يمكنك تفعيلها من إعدادات المتصفح.');
+                alert(
+                    'لقد رفضت الإشعارات سابقاً. يمكنك تفعيلها من إعدادات المتصفح.'
+                );
+
                 updateNotifButton();
                 return;
             }
@@ -320,28 +412,36 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // طلب الإذن
-            Notification.requestPermission().then(function (permission) {
-                console.log('نتيجة الإذن:', permission);
-                updateNotifButton();
+            Notification.requestPermission()
+                .then(function (permission) {
+                    console.log('نتيجة الإذن:', permission);
 
-                if (permission === 'granted') {
-                    try {
-                        new Notification('حيز - بومودورو', {
-                            body: 'تم تفعيل التنبيهات بنجاح.',
-                            icon: 'favicon-32x32.png'
-                        });
-                    } catch (e) {
-                        console.log(e);
+                    updateNotifButton();
+
+                    if (permission === 'granted') {
+                        try {
+                            new Notification(
+                                'حيز - بومودورو',
+                                {
+                                    body: 'تم تفعيل التنبيهات بنجاح.',
+                                    icon: 'favicon-32x32.png'
+                                }
+                            );
+                        } catch (e) {
+                            console.log(e);
+                        }
+
+                    } else if (permission === 'denied') {
+                        alert('تم رفض الإشعارات.');
                     }
-                } else if (permission === 'denied') {
-                    alert('تم رفض الإشعارات.');
-                }
-            }).catch(function (err) {
-                console.log('خطأ في طلب الإذن:', err);
-            });
+                })
+                .catch(function (err) {
+                    console.log('خطأ في طلب الإذن:', err);
+                });
         });
 
         updateNotifButton();
+
     } else {
         console.log('زر الإشعارات غير موجود في الصفحة');
     }
