@@ -1,4 +1,5 @@
 const CACHE_NAME = 'heez-v1.0.0';
+
 const ASSETS = [
   './',
   './index.html',
@@ -27,7 +28,7 @@ const ASSETS = [
   './apple-touch-icon.png'
 ];
 
-// تثبيت الـ Service Worker وتخزين الملفات
+// تثبيت Service Worker وتخزين الملفات
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -42,68 +43,86 @@ self.addEventListener('install', (event) => {
 // تفعيل وتنظيف الكاش القديم
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
-      );
-    }).then(() => self.clients.claim())
+    caches.keys()
+      .then((keys) => {
+        return Promise.all(
+          keys
+            .filter((key) => key !== CACHE_NAME)
+            .map((key) => caches.delete(key))
+        );
+      })
+      .then(() => self.clients.claim())
   );
 });
 
-// استراتيجية: Cache First مع Network Fallback
+// Cache First مع Network Fallback
 self.addEventListener('fetch', (event) => {
-  // نتجاهل طلبات غير GET وطلبات خارجية
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) {
-        return cached;
-      }
+    caches.match(event.request)
+      .then((cached) => {
+        if (cached) {
+          return cached;
+        }
 
-      return fetch(event.request)
-        .then((response) => {
-          // نخزن فقط الاستجابات الناجحة من نفس الأصل
-          if (
-            !response ||
-            response.status !== 200 ||
-            response.type !== 'basic'
-          ) {
+        return fetch(event.request)
+          .then((response) => {
+            if (
+              !response ||
+              response.status !== 200 ||
+              response.type !== 'basic'
+            ) {
+              return response;
+            }
+
+            const responseToCache = response.clone();
+
+            caches.open(CACHE_NAME)
+              .then((cache) => {
+                cache.put(event.request, responseToCache);
+              });
+
             return response;
-          }
+          })
+          .catch(() => {
+            const accept = event.request.headers.get('accept') || '';
 
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
+            if (accept.includes('text/html')) {
+              return caches.match('./index.html');
+            }
+
+            return new Response('', {
+              status: 503,
+              statusText: 'Offline'
+            });
           });
-
-          return response;
-        })
-       const accept = event.request.headers.get('accept') || '';
-
-         if (accept.includes('text/html')) {
-         return caches.match('./index.html');
-           }
-        });
-    })
+      })
   );
 });
 
-// دعم النقر على الإشعارات (من الكود القديم)
+// دعم النقر على إشعارات بومودورو
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
   event.waitUntil(
-    clients.matchAll({ type: 'window' }).then((clientList) => {
-      for (const client of clientList) {
-        if (client.url.includes('pomodoro.html') && 'focus' in client) {
-          return client.focus();
-        }
-      }
-      if (clients.openWindow) {
-        return clients.openWindow('./pomodoro.html');
-      }
+    clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true
     })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if (
+            client.url.includes('pomodoro.html') &&
+            'focus' in client
+          ) {
+            return client.focus();
+          }
+        }
+
+        if (clients.openWindow) {
+          return clients.openWindow('./pomodoro.html');
+        }
+      })
   );
 });
