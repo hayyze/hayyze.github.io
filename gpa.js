@@ -461,8 +461,10 @@
   const stageScreen = document.getElementById("stage-screen");
   const calculatorScreen = document.getElementById("calculator-screen");
   const cumulativeScreen = document.getElementById("cumulative-screen");
+  const weightedScreen = document.getElementById("weighted-screen");
   const backToStageBtn = document.getElementById("back-to-stage");
   const backToStageCumBtn = document.getElementById("back-to-stage-cum");
+  const backToStageWeightedBtn = document.getElementById("back-to-stage-weighted");
 
   const yearSelect = document.getElementById("year-select");
   const termSelect = document.getElementById("term-select");
@@ -484,27 +486,52 @@
   const cumCalculateBtn = document.getElementById("cum-calculate-btn");
   const cumResetBtn = document.getElementById("cum-reset-btn");
 
-  let currentStage = null; // "middle" | "secondary" | "cumulative"
+  // عناصر النسبة الموزونة
+  const weightedRowsEl = document.getElementById("weighted-rows");
+  const weightedAddBtn = document.getElementById("weighted-add-btn");
+  const weightedRemainingEl = document.getElementById("weighted-remaining");
+  const weightedLeftEl = document.getElementById("weighted-left");
+  const weightedResult = document.getElementById("weighted-result");
+  const weightedScore = document.getElementById("weighted-score");
+  const weightedCalculateBtn = document.getElementById("weighted-calculate-btn");
+  const weightedResetBtn = document.getElementById("weighted-reset-btn");
+  const linkToCumulative = document.getElementById("link-to-cumulative");
+
+  let currentStage = null; // "middle" | "secondary" | "cumulative" | "weighted"
+
+  // بيانات النسبة الموزونة الافتراضية
+  let weightedItems = [
+    { id: 1, name: "الثانوية العامة", percent: 40, score: "" },
+    { id: 2, name: "القدرات", percent: 30, score: "" },
+    { id: 3, name: "التحصيلي", percent: 30, score: "" }
+  ];
+  let nextWeightedId = 4;
 
   // ===== وظائف =====
-  function showStageScreen() {
-    stageScreen.style.display = "";
+  function hideAllScreens() {
+    stageScreen.style.display = "none";
     calculatorScreen.style.display = "none";
     cumulativeScreen.style.display = "none";
+    weightedScreen.style.display = "none";
+  }
+
+  function showStageScreen() {
+    hideAllScreens();
+    stageScreen.style.display = "";
     currentStage = null;
     resultBox.classList.add("hidden");
     scoreEl.textContent = "0.00";
     cumResult.classList.add("hidden");
     cumScore.textContent = "0.00";
+    weightedResult.classList.add("hidden");
+    weightedScore.textContent = "0.00";
   }
 
   function showCalculator(stage) {
     currentStage = stage;
-    stageScreen.style.display = "none";
-    cumulativeScreen.style.display = "none";
+    hideAllScreens();
     calculatorScreen.style.display = "";
 
-    // تحديث خيارات السنة حسب المرحلة
     if (stage === "middle") {
       yearSelect.innerHTML = `
         <option value="1">أول متوسط</option>
@@ -529,10 +556,140 @@
 
   function showCumulative() {
     currentStage = "cumulative";
-    stageScreen.style.display = "none";
-    calculatorScreen.style.display = "none";
+    hideAllScreens();
     cumulativeScreen.style.display = "";
     updateCumProgress();
+  }
+
+  function showWeighted() {
+    currentStage = "weighted";
+    hideAllScreens();
+    weightedScreen.style.display = "";
+    renderWeightedRows();
+  }
+
+  function totalWeightedPercent() {
+    return weightedItems.reduce((sum, item) => sum + (parseFloat(item.percent) || 0), 0);
+  }
+
+  function updateWeightedRemaining() {
+    const total = totalWeightedPercent();
+    const left = Math.max(0, 100 - total);
+    weightedLeftEl.textContent = left.toFixed(0) + "%";
+    weightedRemainingEl.classList.remove("warn", "ok");
+    if (total > 100) {
+      weightedRemainingEl.classList.add("warn");
+      weightedRemainingEl.innerHTML = "تجاوزت 100% — مجموع النسب حالياً <strong>" + total.toFixed(0) + "%</strong>";
+    } else if (total === 100) {
+      weightedRemainingEl.classList.add("ok");
+      weightedRemainingEl.innerHTML = "ممتاز — مجموع النسب <strong>100%</strong>";
+    } else {
+      weightedRemainingEl.innerHTML = "لا يمكن تجاوز 100% — النسبة المتبقية <strong id=\"weighted-left\">" + left.toFixed(0) + "%</strong>";
+    }
+  }
+
+  function renderWeightedRows() {
+    weightedRowsEl.innerHTML = weightedItems.map((item) => `
+      <div class="weighted-row" data-id="${item.id}">
+        <input type="text" class="w-name" value="${item.name}" placeholder="اسم الاختبار">
+        <div class="pct-wrap">
+          <input type="number" class="w-percent" min="0" max="100" step="1" value="${item.percent}" placeholder="0">
+          <span>%</span>
+        </div>
+        <div class="score-wrap">
+          <input type="number" class="w-score" min="0" max="100" step="0.01" value="${item.score}" placeholder="الدرجة">
+          <span>/100</span>
+        </div>
+        <button type="button" class="remove-btn" title="حذف" data-id="${item.id}">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    `).join("");
+
+    // ربط الأحداث
+    weightedRowsEl.querySelectorAll(".w-name").forEach((inp) => {
+      inp.addEventListener("input", (e) => {
+        const id = parseInt(e.target.closest(".weighted-row").dataset.id, 10);
+        const item = weightedItems.find((x) => x.id === id);
+        if (item) item.name = e.target.value;
+      });
+    });
+    weightedRowsEl.querySelectorAll(".w-percent").forEach((inp) => {
+      inp.addEventListener("input", (e) => {
+        const id = parseInt(e.target.closest(".weighted-row").dataset.id, 10);
+        const item = weightedItems.find((x) => x.id === id);
+        if (item) item.percent = parseFloat(e.target.value) || 0;
+        updateWeightedRemaining();
+      });
+    });
+    weightedRowsEl.querySelectorAll(".w-score").forEach((inp) => {
+      inp.addEventListener("input", (e) => {
+        const id = parseInt(e.target.closest(".weighted-row").dataset.id, 10);
+        const item = weightedItems.find((x) => x.id === id);
+        if (item) item.score = e.target.value;
+      });
+    });
+    weightedRowsEl.querySelectorAll(".remove-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = parseInt(btn.dataset.id, 10);
+        if (weightedItems.length <= 1) {
+          alert("يجب الإبقاء على اختبار واحد على الأقل");
+          return;
+        }
+        weightedItems = weightedItems.filter((x) => x.id !== id);
+        renderWeightedRows();
+      });
+    });
+
+    updateWeightedRemaining();
+  }
+
+  function addWeightedItem() {
+    weightedItems.push({
+      id: nextWeightedId++,
+      name: "اختبار جديد",
+      percent: 0,
+      score: ""
+    });
+    renderWeightedRows();
+  }
+
+  function calculateWeighted() {
+    const totalPct = totalWeightedPercent();
+    if (totalPct > 100) {
+      alert("مجموع النسب يتجاوز 100%. عدّل النسب أولاً.");
+      return;
+    }
+    if (totalPct === 0) {
+      alert("أدخل نسباً صحيحة أولاً");
+      return;
+    }
+
+    let sum = 0;
+    let filled = 0;
+    weightedItems.forEach((item) => {
+      const score = parseFloat(item.score);
+      const pct = parseFloat(item.percent) || 0;
+      if (!isNaN(score) && score >= 0 && score <= 100 && pct > 0) {
+        sum += score * (pct / 100);
+        filled++;
+      }
+    });
+
+    if (filled === 0) {
+      alert("أدخل درجة واحدة على الأقل");
+      return;
+    }
+
+    weightedScore.textContent = sum.toFixed(2);
+    weightedResult.classList.remove("hidden");
+  }
+
+  function resetWeightedScores() {
+    weightedItems.forEach((item) => { item.score = ""; });
+    weightedResult.classList.add("hidden");
+    weightedScore.textContent = "0.00";
+    renderWeightedRows();
   }
 
   function updateCumProgress() {
@@ -678,9 +835,11 @@
   document.getElementById("btn-middle").addEventListener("click", () => showCalculator("middle"));
   document.getElementById("btn-secondary").addEventListener("click", () => showCalculator("secondary"));
   document.getElementById("btn-cumulative").addEventListener("click", showCumulative);
+  document.getElementById("btn-weighted").addEventListener("click", showWeighted);
 
   backToStageBtn.addEventListener("click", showStageScreen);
   backToStageCumBtn.addEventListener("click", showStageScreen);
+  backToStageWeightedBtn.addEventListener("click", showStageScreen);
 
   yearSelect.addEventListener("change", renderSubjects);
   termSelect.addEventListener("change", renderSubjects);
@@ -694,6 +853,17 @@
   [cumY1, cumY2, cumY3].forEach((inp) => {
     inp.addEventListener("input", updateCumProgress);
   });
+
+  // أحداث النسبة الموزونة
+  weightedAddBtn.addEventListener("click", addWeightedItem);
+  weightedCalculateBtn.addEventListener("click", calculateWeighted);
+  weightedResetBtn.addEventListener("click", resetWeightedScores);
+  if (linkToCumulative) {
+    linkToCumulative.addEventListener("click", (e) => {
+      e.preventDefault();
+      showCumulative();
+    });
+  }
 
   // البداية: شاشة اختيار المرحلة
   showStageScreen();

@@ -64,14 +64,6 @@
     gap: 1.25rem;
     margin-top: 1.5rem;
   }
-  .stage-grid-3 {
-    grid-template-columns: 1fr 1fr 1fr;
-  }
-  @media (max-width: 768px) {
-    .stage-grid-3 {
-      grid-template-columns: 1fr;
-    }
-  }
   @media (max-width: 600px) {
     .stage-grid {
       grid-template-columns: 1fr;
@@ -200,6 +192,119 @@
     color: var(--text-muted);
     text-align: center;
   }
+  /* ===== النسبة الموزونة ===== */
+  .weighted-info {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-muted);
+  }
+  .weighted-info strong { color: var(--text); }
+  .weighted-info a {
+    color: var(--primary, #4f46e5);
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .weighted-info a:hover { text-decoration: underline; }
+  .weighted-section-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 1rem 0 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .weighted-row {
+    display: grid;
+    grid-template-columns: 1fr 90px 110px auto;
+    gap: 0.6rem;
+    align-items: center;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .weighted-row:last-child { border-bottom: none; }
+  @media (max-width: 560px) {
+    .weighted-row {
+      grid-template-columns: 1fr 70px 90px auto;
+      gap: 0.4rem;
+    }
+  }
+  .weighted-row input[type="text"],
+  .weighted-row input[type="number"] {
+    width: 100%;
+    padding: 0.55rem 0.65rem;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm, 10px);
+    font-size: 0.95rem;
+    font-family: inherit;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .weighted-row input:focus {
+    outline: none;
+    border-color: var(--primary, #4f46e5);
+  }
+  .weighted-row .pct-wrap,
+  .weighted-row .score-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  .weighted-row .pct-wrap span,
+  .weighted-row .score-wrap span {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+  .weighted-row .remove-btn {
+    background: none;
+    border: none;
+    color: var(--danger, #ef4444);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0.3rem;
+    opacity: 0.7;
+  }
+  .weighted-row .remove-btn:hover { opacity: 1; }
+  .weighted-actions-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 1rem;
+    align-items: center;
+  }
+  .btn-sm {
+    padding: 0.45rem 0.9rem;
+    font-size: 0.9rem;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text);
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .btn-sm:hover {
+    border-color: var(--primary, #4f46e5);
+    color: var(--primary, #4f46e5);
+  }
+  .weighted-remaining {
+    margin-top: 0.85rem;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    text-align: center;
+  }
+  .weighted-remaining.warn { color: var(--danger, #ef4444); font-weight: 600; }
+  .weighted-remaining.ok { color: var(--success, #10b981); }
 </style>
 </head>
 <body class="theme-light">
@@ -236,7 +341,7 @@
         <!-- شاشة اختيار المرحلة -->
         <div id="stage-screen">
             <p style="text-align:center; color: var(--text-muted, #64748b); margin-bottom: 0.5rem;">اختر نوع الحساب</p>
-            <div class="stage-grid stage-grid-3">
+            <div class="stage-grid">
                 <button type="button" class="stage-btn" id="btn-middle">
                     <i class="fa-solid fa-book-open"></i>
                     <span>المرحلة المتوسطة</span>
@@ -251,6 +356,11 @@
                     <i class="fa-solid fa-chart-line"></i>
                     <span>المعدل التراكمي</span>
                     <small>ثانوي · 20% · 40% · 40%</small>
+                </button>
+                <button type="button" class="stage-btn" id="btn-weighted">
+                    <i class="fa-solid fa-percent"></i>
+                    <span>النسبة الموزونة</span>
+                    <small>قبول جامعي · قابل للتخصيص</small>
                 </button>
             </div>
         </div>
@@ -360,6 +470,52 @@
                 <button class="btn btn-outline" id="cum-reset-btn"><i class="fa-solid fa-rotate-right"></i> إعادة تعيين</button>
             </div>
         </div>
+
+        <!-- شاشة النسبة الموزونة -->
+        <div id="weighted-screen" style="display:none;">
+            <button type="button" class="back-stage-btn" id="back-to-stage-weighted">
+                <i class="fa-solid fa-arrow-right"></i> العودة لاختيار المرحلة
+            </button>
+
+            <div class="weighted-info">
+                النسبة الموزونة هي النسبة المطلوبة للقبول الجامعي في السعودية.
+                أدخل درجاتك، وخصص الاختبارات والنسب حسب متطلبات جامعتك أو تخصصك.
+                <br>
+                مو متأكد من التراكمي؟ <a id="link-to-cumulative">احسبه هنا</a>
+            </div>
+
+            <div class="weighted-section-title">
+                <span>الاختبارات والنسب</span>
+            </div>
+
+            <div id="weighted-rows">
+                <!-- تُملأ بالجافاسكربت -->
+            </div>
+
+            <div class="weighted-actions-bar">
+                <button type="button" class="btn-sm" id="weighted-add-btn">
+                    <i class="fa-solid fa-plus"></i> إضافة اختيار جديد
+                </button>
+            </div>
+
+            <div class="weighted-remaining" id="weighted-remaining">
+                لا يمكن تجاوز 100% — النسبة المتبقية <strong id="weighted-left">100%</strong>
+            </div>
+
+            <div class="gpa-result hidden" id="weighted-result">
+                <div class="gpa-score" id="weighted-score">0.00</div>
+                <div class="gpa-label">النسبة الموزونة</div>
+            </div>
+
+            <div class="controls-row" style="margin-top: 24px;">
+                <button class="btn btn-primary" id="weighted-calculate-btn">
+                    <i class="fa-solid fa-calculator"></i> احسب النسبة الموزونة
+                </button>
+                <button class="btn btn-outline" id="weighted-reset-btn">
+                    <i class="fa-solid fa-trash"></i> مسح الدرجات
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- المحتوى النصي التوضيحي -->
@@ -375,7 +531,7 @@
                 حاسبة المعدل في منصة حيز صُممت لتسهيل هذه العملية. تختار أولاً نوع الحساب (المتوسطة أو الثانوية أو المعدل التراكمي)، ثم الصف والترم والمسار عند الحاجة، ثم تدخل درجاتك، وتقوم الأداة بالحساب تلقائيًا. هذا يوفر عليك الوقت والجهد، ويعطيك نتيجة دقيقة بناءً على الأوزان الرسمية.
             </p>
             <p>
-                الأداة تدعم الآن المرحلة المتوسطة (أول وثاني وثالث متوسط)، والثانوية بجميع المسارات، بالإضافة إلى <strong>المعدل التراكمي للثانوية</strong> (أول 20% · ثاني 40% · ثالث 40%). الاستخدام بسيط ولا يحتاج إلى تسجيل حساب أو تحميل أي برنامج.
+                الأداة تدعم الآن المرحلة المتوسطة، والثانوية بجميع المسارات، و<strong>المعدل التراكمي</strong> (20% · 40% · 40%)، و<strong>النسبة الموزونة</strong> للقبول الجامعي مع إمكانية تخصيص النسب وإضافة اختبارات حسب متطلبات كل جامعة. الاستخدام بسيط ولا يحتاج إلى تسجيل حساب.
             </p>
             <p>
                 من فوائد استخدام حاسبة المعدل بشكل منتظم: التخطيط الأفضل للدراسة، معرفة المواد التي تحتاج إلى جهد إضافي، والاستعداد المبكر للاختبارات النهائية.
@@ -458,4 +614,3 @@
 <script src="gpa.js"></script>
 </body>
 </html>
-
