@@ -1,7 +1,109 @@
-/* gpa.js - حاسبة المعدل مع دعم المسارات */
+/* gpa.js - حاسبة المعدل مع دعم المتوسطة والثانوية */
 (function () {
-  const SUBJECTS = {
-    // ===== أول ثانوي (مشتركة) =====
+  // ===== بيانات المرحلة المتوسطة =====
+  const MIDDLE_SUBJECTS = {
+    "1": { // أول متوسط - الفصل الأول والثاني متطابقان
+      "1": [
+        { name: "القرآن الكريم والدراسات الإسلامية", weight: 5 },
+        { name: "اللغة العربية", weight: 5 },
+        { name: "الدراسات الاجتماعية", weight: 3 },
+        { name: "الرياضيات", weight: 6 },
+        { name: "العلوم", weight: 4 },
+        { name: "اللغة الإنجليزية", weight: 4 },
+        { name: "المهارات الرقمية", weight: 2 },
+        { name: "التربية الفنية", weight: 2 },
+        { name: "التربية البدنية", weight: 2 },
+        { name: "المهارات الحياتية والأسرية", weight: 1 },
+        { name: "السلوك", weight: 1 },
+        { name: "المواظبة", weight: 5 },
+        { name: "النشاط", weight: 1 }
+      ],
+      "2": [
+        { name: "القرآن الكريم والدراسات الإسلامية", weight: 5 },
+        { name: "اللغة العربية", weight: 5 },
+        { name: "الدراسات الاجتماعية", weight: 3 },
+        { name: "الرياضيات", weight: 6 },
+        { name: "العلوم", weight: 4 },
+        { name: "اللغة الإنجليزية", weight: 4 },
+        { name: "المهارات الرقمية", weight: 2 },
+        { name: "التربية الفنية", weight: 2 },
+        { name: "التربية البدنية", weight: 2 },
+        { name: "المهارات الحياتية والأسرية", weight: 1 },
+        { name: "السلوك", weight: 1 },
+        { name: "المواظبة", weight: 5 },
+        { name: "النشاط", weight: 1 }
+      ]
+    },
+    "2": { // ثاني متوسط - نفس أول متوسط
+      "1": [
+        { name: "القرآن الكريم والدراسات الإسلامية", weight: 5 },
+        { name: "اللغة العربية", weight: 5 },
+        { name: "الدراسات الاجتماعية", weight: 3 },
+        { name: "الرياضيات", weight: 6 },
+        { name: "العلوم", weight: 4 },
+        { name: "اللغة الإنجليزية", weight: 4 },
+        { name: "المهارات الرقمية", weight: 2 },
+        { name: "التربية الفنية", weight: 2 },
+        { name: "التربية البدنية", weight: 2 },
+        { name: "المهارات الحياتية والأسرية", weight: 1 },
+        { name: "السلوك", weight: 1 },
+        { name: "المواظبة", weight: 5 },
+        { name: "النشاط", weight: 1 }
+      ],
+      "2": [
+        { name: "القرآن الكريم والدراسات الإسلامية", weight: 5 },
+        { name: "اللغة العربية", weight: 5 },
+        { name: "الدراسات الاجتماعية", weight: 3 },
+        { name: "الرياضيات", weight: 6 },
+        { name: "العلوم", weight: 4 },
+        { name: "اللغة الإنجليزية", weight: 4 },
+        { name: "المهارات الرقمية", weight: 2 },
+        { name: "التربية الفنية", weight: 2 },
+        { name: "التربية البدنية", weight: 2 },
+        { name: "المهارات الحياتية والأسرية", weight: 1 },
+        { name: "السلوك", weight: 1 },
+        { name: "المواظبة", weight: 5 },
+        { name: "النشاط", weight: 1 }
+      ]
+    },
+    "3": { // ثالث متوسط
+      "1": [
+        { name: "القرآن الكريم والدراسات الإسلامية", weight: 5 },
+        { name: "اللغة العربية", weight: 4 },
+        { name: "الدراسات الاجتماعية", weight: 2 },
+        { name: "الرياضيات", weight: 6 },
+        { name: "العلوم", weight: 4 },
+        { name: "اللغة الإنجليزية", weight: 4 },
+        { name: "المهارات الرقمية", weight: 2 },
+        { name: "التربية الفنية", weight: 2 },
+        { name: "التربية البدنية", weight: 2 },
+        { name: "المهارات الحياتية والأسرية", weight: 1 },
+        { name: "التفكير الناقد", weight: 2 },
+        { name: "السلوك", weight: 1 },
+        { name: "المواظبة", weight: 5 },
+        { name: "النشاط", weight: 1 }
+      ],
+      "2": [
+        { name: "القرآن الكريم والدراسات الإسلامية", weight: 5 },
+        { name: "اللغة العربية", weight: 4 },
+        { name: "الدراسات الاجتماعية", weight: 2 },
+        { name: "الرياضيات", weight: 6 },
+        { name: "العلوم", weight: 4 },
+        { name: "اللغة الإنجليزية", weight: 4 },
+        { name: "المهارات الرقمية", weight: 2 },
+        { name: "التربية الفنية", weight: 2 },
+        { name: "التربية البدنية", weight: 2 },
+        { name: "المهارات الحياتية والأسرية", weight: 1 },
+        { name: "التفكير الناقد", weight: 2 },
+        { name: "السلوك", weight: 1 },
+        { name: "المواظبة", weight: 5 },
+        { name: "النشاط", weight: 1 }
+      ]
+    }
+  };
+
+  // ===== بيانات المرحلة الثانوية  =====
+  const SECONDARY_SUBJECTS = {
     "1": {
       "1": [
         { name: "القرآن الكريم وتفسيره", weight: 4 },
@@ -32,8 +134,6 @@
         { name: "المواظبة", weight: 5 }
       ]
     },
-
-    // ===== ثاني ثانوي =====
     "2": {
       general: {
         "1": [
@@ -189,8 +289,6 @@
         ]
       }
     },
-
-
     "3": {
       general: {
         "1": [
@@ -359,6 +457,13 @@
     }
   };
 
+  // ===== عناصر DOM =====
+  const stageScreen = document.getElementById("stage-screen");
+  const calculatorScreen = document.getElementById("calculator-screen");
+  const cumulativeScreen = document.getElementById("cumulative-screen");
+  const backToStageBtn = document.getElementById("back-to-stage");
+  const backToStageCumBtn = document.getElementById("back-to-stage-cum");
+
   const yearSelect = document.getElementById("year-select");
   const termSelect = document.getElementById("term-select");
   const trackSelect = document.getElementById("track-select");
@@ -369,20 +474,144 @@
   const resultBox = document.getElementById("gpa-result");
   const scoreEl = document.getElementById("gpa-score");
 
+  // عناصر التراكمي
+  const cumY1 = document.getElementById("cum-y1");
+  const cumY2 = document.getElementById("cum-y2");
+  const cumY3 = document.getElementById("cum-y3");
+  const cumProgress = document.getElementById("cum-progress");
+  const cumResult = document.getElementById("cum-result");
+  const cumScore = document.getElementById("cum-score");
+  const cumCalculateBtn = document.getElementById("cum-calculate-btn");
+  const cumResetBtn = document.getElementById("cum-reset-btn");
+
+  let currentStage = null; // "middle" | "secondary" | "cumulative"
+
+  // ===== وظائف =====
+  function showStageScreen() {
+    stageScreen.style.display = "";
+    calculatorScreen.style.display = "none";
+    cumulativeScreen.style.display = "none";
+    currentStage = null;
+    resultBox.classList.add("hidden");
+    scoreEl.textContent = "0.00";
+    cumResult.classList.add("hidden");
+    cumScore.textContent = "0.00";
+  }
+
+  function showCalculator(stage) {
+    currentStage = stage;
+    stageScreen.style.display = "none";
+    cumulativeScreen.style.display = "none";
+    calculatorScreen.style.display = "";
+
+    // تحديث خيارات السنة حسب المرحلة
+    if (stage === "middle") {
+      yearSelect.innerHTML = `
+        <option value="1">أول متوسط</option>
+        <option value="2">ثاني متوسط</option>
+        <option value="3">ثالث متوسط</option>
+      `;
+      trackField.style.display = "none";
+    } else {
+      yearSelect.innerHTML = `
+        <option value="1">أول ثانوي</option>
+        <option value="2">ثاني ثانوي</option>
+        <option value="3">ثالث ثانوي</option>
+      `;
+    }
+
+    yearSelect.value = "1";
+    termSelect.value = "1";
+    if (trackSelect) trackSelect.value = "general";
+
+    renderSubjects();
+  }
+
+  function showCumulative() {
+    currentStage = "cumulative";
+    stageScreen.style.display = "none";
+    calculatorScreen.style.display = "none";
+    cumulativeScreen.style.display = "";
+    updateCumProgress();
+  }
+
+  function updateCumProgress() {
+    let filled = 0;
+    [cumY1, cumY2, cumY3].forEach((inp) => {
+      const v = parseFloat(inp.value);
+      if (!isNaN(v) && v >= 0 && v <= 100) filled++;
+    });
+    cumProgress.textContent = filled + " من 3 صفوف" + (filled === 3 ? " — 100%" : "");
+  }
+
+  function calculateCumulative() {
+    const y1 = parseFloat(cumY1.value);
+    const y2 = parseFloat(cumY2.value);
+    const y3 = parseFloat(cumY3.value);
+
+    const vals = [y1, y2, y3];
+    let filled = 0;
+    vals.forEach((v) => {
+      if (!isNaN(v) && v >= 0 && v <= 100) filled++;
+    });
+
+    if (filled === 0) {
+      alert("أدخل معدل واحد على الأقل");
+      return;
+    }
+
+    // نستخدم فقط القيم المدخلة الصحيحة
+    // الوزن: أول 20% · ثاني 40% · ثالث 40%
+    // إذا نقص صف، نعيد توزيع الأوزان نسبياً على المدخل فقط؟ 
+    // حسب الوصف: نحسب على الثلاثة، والناقص يُعتبر 0 أو نطلب الثلاثة؟
+    // الأفضل: نحسب فقط إذا الثلاثة موجودة، أو نحسب الموزون على الموجودين مع إعادة توزيع.
+    // حسب طلب المستخدم: يدخل الثلاثة. سأطلب الثلاثة للدقة.
+
+    if (filled < 3) {
+      alert("يرجى إدخال معدلات السنوات الثلاث (أول وثاني وثالث ثانوي)");
+      return;
+    }
+
+    if ([y1, y2, y3].some((v) => isNaN(v) || v < 0 || v > 100)) {
+      alert("تأكد أن جميع المعدلات بين 0 و 100");
+      return;
+    }
+
+    const cumulative = y1 * 0.20 + y2 * 0.40 + y3 * 0.40;
+    cumScore.textContent = cumulative.toFixed(2);
+    cumResult.classList.remove("hidden");
+  }
+
+  function resetCumulative() {
+    cumY1.value = "";
+    cumY2.value = "";
+    cumY3.value = "";
+    cumResult.classList.add("hidden");
+    cumScore.textContent = "0.00";
+    updateCumProgress();
+  }
+
   function needsTrack(year) {
-    return year === "2" || year === "3";
+    return currentStage === "secondary" && (year === "2" || year === "3");
   }
 
   function getSubjects() {
     const year = yearSelect.value;
     const term = termSelect.value;
 
+    if (currentStage === "middle") {
+      return (MIDDLE_SUBJECTS[year] && MIDDLE_SUBJECTS[year][term]) || [];
+    }
+
+    // secondary
     if (year === "1") {
-      return SUBJECTS["1"][term] || [];
+      return (SECONDARY_SUBJECTS["1"] && SECONDARY_SUBJECTS["1"][term]) || [];
     }
 
     const track = trackSelect.value;
-    return (SUBJECTS[year] && SUBJECTS[year][track] && SUBJECTS[year][track][term]) || [];
+    return (SECONDARY_SUBJECTS[year] &&
+            SECONDARY_SUBJECTS[year][track] &&
+            SECONDARY_SUBJECTS[year][track][term]) || [];
   }
 
   function renderSubjects() {
@@ -445,11 +674,27 @@
     scoreEl.textContent = "0.00";
   }
 
+  // ===== أحداث =====
+  document.getElementById("btn-middle").addEventListener("click", () => showCalculator("middle"));
+  document.getElementById("btn-secondary").addEventListener("click", () => showCalculator("secondary"));
+  document.getElementById("btn-cumulative").addEventListener("click", showCumulative);
+
+  backToStageBtn.addEventListener("click", showStageScreen);
+  backToStageCumBtn.addEventListener("click", showStageScreen);
+
   yearSelect.addEventListener("change", renderSubjects);
   termSelect.addEventListener("change", renderSubjects);
   trackSelect.addEventListener("change", renderSubjects);
   calculateBtn.addEventListener("click", calculate);
   resetBtn.addEventListener("click", resetAll);
 
-  renderSubjects();
+  // أحداث التراكمي
+  cumCalculateBtn.addEventListener("click", calculateCumulative);
+  cumResetBtn.addEventListener("click", resetCumulative);
+  [cumY1, cumY2, cumY3].forEach((inp) => {
+    inp.addEventListener("input", updateCumProgress);
+  });
+
+  // البداية: شاشة اختيار المرحلة
+  showStageScreen();
 })();
