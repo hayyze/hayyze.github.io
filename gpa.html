@@ -64,6 +64,14 @@
     gap: 1.25rem;
     margin-top: 1.5rem;
   }
+  .stage-grid-3 {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  @media (max-width: 768px) {
+    .stage-grid-3 {
+      grid-template-columns: 1fr;
+    }
+  }
   @media (max-width: 600px) {
     .stage-grid {
       grid-template-columns: 1fr;
@@ -95,12 +103,12 @@
     color: #6366f1;
   }
   .stage-btn span {
-    font-size: 1.2rem;
+    font-size: 1.15rem;
     font-weight: 700;
     color: var(--text-color, #1e293b);
   }
   .stage-btn small {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: var(--text-muted, #64748b);
     font-weight: 500;
   }
@@ -120,6 +128,70 @@
   }
   .back-stage-btn:hover {
     text-decoration: underline;
+  }
+  .cumulative-info {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: #475569;
+  }
+  .cumulative-info strong {
+    color: #1e293b;
+  }
+  .cum-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .cum-row:last-of-type {
+    border-bottom: none;
+  }
+  .cum-label {
+    flex: 1;
+  }
+  .cum-label strong {
+    display: block;
+    font-size: 1.05rem;
+    margin-bottom: 0.2rem;
+  }
+  .cum-label span {
+    font-size: 0.85rem;
+    color: #64748b;
+  }
+  .cum-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .cum-input-wrap input {
+    width: 110px;
+    padding: 0.6rem 0.75rem;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 1.05rem;
+    text-align: center;
+    font-family: inherit;
+  }
+  .cum-input-wrap input:focus {
+    outline: none;
+    border-color: #6366f1;
+  }
+  .cum-input-wrap .suffix {
+    color: #94a3b8;
+    font-size: 0.9rem;
+  }
+  .cum-progress {
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    color: #64748b;
+    text-align: center;
   }
 </style>
 </head>
@@ -156,8 +228,8 @@
 
         <!-- شاشة اختيار المرحلة -->
         <div id="stage-screen">
-            <p style="text-align:center; color: var(--text-muted, #64748b); margin-bottom: 0.5rem;">اختر مرحلتك الدراسية</p>
-            <div class="stage-grid">
+            <p style="text-align:center; color: var(--text-muted, #64748b); margin-bottom: 0.5rem;">اختر نوع الحساب</p>
+            <div class="stage-grid stage-grid-3">
                 <button type="button" class="stage-btn" id="btn-middle">
                     <i class="fa-solid fa-book-open"></i>
                     <span>المرحلة المتوسطة</span>
@@ -168,10 +240,15 @@
                     <span>المرحلة الثانوية</span>
                     <small>أول · ثاني · ثالث ثانوي</small>
                 </button>
+                <button type="button" class="stage-btn" id="btn-cumulative">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>المعدل التراكمي</span>
+                    <small>ثانوي · 20% · 40% · 40%</small>
+                </button>
             </div>
         </div>
 
-        <!-- شاشة الحاسبة -->
+        <!-- شاشة الحاسبة (متوسط / ثانوي) -->
         <div id="calculator-screen" style="display:none;">
             <button type="button" class="back-stage-btn" id="back-to-stage">
                 <i class="fa-solid fa-arrow-right"></i> العودة لاختيار المرحلة
@@ -214,6 +291,68 @@
                 <button class="btn btn-outline" id="reset-gpa-btn"><i class="fa-solid fa-rotate-right"></i> إعادة تعيين</button>
             </div>
         </div>
+
+        <!-- شاشة المعدل التراكمي -->
+        <div id="cumulative-screen" style="display:none;">
+            <button type="button" class="back-stage-btn" id="back-to-stage-cum">
+                <i class="fa-solid fa-arrow-right"></i> العودة لاختيار المرحلة
+            </button>
+
+            <div class="cumulative-info">
+                أدخل معدلاتك لكل من الصف الأول الثانوي، الثاني الثانوي، والثالث الثانوي.
+                يتم احتساب المعدل التراكمي باستخدام النسب التالية:
+                <strong>معدل أول ثانوي (20%)</strong> —
+                <strong>معدل ثاني ثانوي (40%)</strong> —
+                <strong>معدل ثالث ثانوي (40%)</strong>.
+                الحقول تقبل أرقام عشرية (مثال: 95.5). القيم يجب أن تكون بين 0 و 100.
+            </div>
+
+            <div id="cum-fields">
+                <div class="cum-row">
+                    <div class="cum-label">
+                        <strong>أول ثانوي</strong>
+                        <span>الوزن 20%</span>
+                    </div>
+                    <div class="cum-input-wrap">
+                        <input type="number" id="cum-y1" min="0" max="100" step="0.01" placeholder="0.00">
+                        <span class="suffix">/100</span>
+                    </div>
+                </div>
+                <div class="cum-row">
+                    <div class="cum-label">
+                        <strong>ثاني ثانوي</strong>
+                        <span>الوزن 40%</span>
+                    </div>
+                    <div class="cum-input-wrap">
+                        <input type="number" id="cum-y2" min="0" max="100" step="0.01" placeholder="0.00">
+                        <span class="suffix">/100</span>
+                    </div>
+                </div>
+                <div class="cum-row">
+                    <div class="cum-label">
+                        <strong>ثالث ثانوي</strong>
+                        <span>الوزن 40%</span>
+                    </div>
+                    <div class="cum-input-wrap">
+                        <input type="number" id="cum-y3" min="0" max="100" step="0.01" placeholder="0.00">
+                        <span class="suffix">/100</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cum-progress" id="cum-progress">0 من 3 صفوف</div>
+
+            <div class="gpa-result hidden" id="cum-result">
+                <div class="gpa-score" id="cum-score">0.00</div>
+                <div class="gpa-label">المعدل التراكمي</div>
+                <div style="font-size:0.85rem; color:#64748b; margin-top:0.4rem;">النسبة: أول 20% · ثاني 40% · ثالث 40%</div>
+            </div>
+
+            <div class="controls-row" style="margin-top: 24px;">
+                <button class="btn btn-primary" id="cum-calculate-btn"><i class="fa-solid fa-calculator"></i> احسب التراكمي</button>
+                <button class="btn btn-outline" id="cum-reset-btn"><i class="fa-solid fa-rotate-right"></i> إعادة تعيين</button>
+            </div>
+        </div>
     </div>
 
     <!-- المحتوى النصي التوضيحي -->
@@ -226,10 +365,10 @@
                 حساب المعدل الدراسي من الأمور المهمة لكل طالب في المرحلة المتوسطة والثانوية. المعدل الموزون يعتمد على درجات المواد مع مراعاة أوزانها حسب نظام وزارة التعليم في المملكة العربية السعودية. كل مادة لها وزن مختلف يؤثر على النتيجة النهائية، ولهذا فإن الحساب اليدوي قد يكون مرهقًا ومعرضًا للأخطاء.
             </p>
             <p>
-                حاسبة المعدل في منصة حيز صُممت لتسهيل هذه العملية. تختار أولاً المرحلة (المتوسطة أو الثانوية)، ثم الصف والترم والمسار عند الحاجة، ثم تدخل درجاتك في المواد، وتقوم الأداة بحساب المعدل الموزون من 100 تلقائيًا. هذا يوفر عليك الوقت والجهد، ويعطيك نتيجة دقيقة بناءً على الأوزان الرسمية.
+                حاسبة المعدل في منصة حيز صُممت لتسهيل هذه العملية. تختار أولاً نوع الحساب (المتوسطة أو الثانوية أو المعدل التراكمي)، ثم الصف والترم والمسار عند الحاجة، ثم تدخل درجاتك، وتقوم الأداة بالحساب تلقائيًا. هذا يوفر عليك الوقت والجهد، ويعطيك نتيجة دقيقة بناءً على الأوزان الرسمية.
             </p>
             <p>
-                الأداة تدعم الآن المرحلة المتوسطة (أول وثاني وثالث متوسط) بالإضافة إلى الصفوف الأول والثاني والثالث الثانوي مع جميع المسارات. الاستخدام بسيط ولا يحتاج إلى تسجيل حساب أو تحميل أي برنامج، فكل شيء يعمل مباشرة من المتصفح على الجوال أو الكمبيوتر.
+                الأداة تدعم الآن المرحلة المتوسطة (أول وثاني وثالث متوسط)، والثانوية بجميع المسارات، بالإضافة إلى <strong>المعدل التراكمي للثانوية</strong> (أول 20% · ثاني 40% · ثالث 40%). الاستخدام بسيط ولا يحتاج إلى تسجيل حساب أو تحميل أي برنامج.
             </p>
             <p>
                 من فوائد استخدام حاسبة المعدل بشكل منتظم: التخطيط الأفضل للدراسة، معرفة المواد التي تحتاج إلى جهد إضافي، والاستعداد المبكر للاختبارات النهائية.
@@ -257,6 +396,12 @@
                 <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل الحاسبة تدعم المرحلة المتوسطة؟</h3>
                 <p>
                     نعم، الحاسبة تدعم الآن أول وثاني وثالث متوسط مع أوزان المواد الرسمية بما فيها السلوك والمواظبة والنشاط.
+                </p>
+            </div>
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">كيف يُحسب المعدل التراكمي للثانوية؟</h3>
+                <p>
+                    يتم احتساب المعدل التراكمي كالتالي: معدل أول ثانوي × 20% + معدل ثاني ثانوي × 40% + معدل ثالث ثانوي × 40%. أدخل معدلات السنوات الثلاث للحصول على النتيجة.
                 </p>
             </div>
             <div class="faq-item" style="margin-bottom: 1.8rem;">
