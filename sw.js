@@ -1,4 +1,4 @@
-const CACHE_NAME = 'heez-v1.0.0';
+const CACHE_NAME = 'heez-v1.0.1';
 
 const ASSETS = [
   './',
@@ -28,7 +28,7 @@ const ASSETS = [
   './apple-touch-icon.png'
 ];
 
-// تثبيت Service Worker وتخزين الملفات
+// تثبيت Service Worker وتخزين الملفات الأساسية
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -40,7 +40,7 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// تفعيل وتنظيف الكاش القديم
+// تفعيل Service Worker وتنظيف الكاش القديم
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
@@ -55,18 +55,59 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Cache First مع Network Fallback
+// التعامل مع الطلبات
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
+  const request = event.request;
+
+  /*
+   * HTML + JavaScript + CSS
+   * Network First:
+   * نحاول دائمًا الحصول على أحدث نسخة من الشبكة.
+   * إذا لم يوجد إنترنت، نستخدم النسخة الموجودة في الكاش.
+   */
+  if (
+    request.destination === 'document' ||
+    request.destination === 'script' ||
+    request.destination === 'style'
+  ) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
+
+            caches.open(CACHE_NAME)
+              .then((cache) => {
+                cache.put(request, responseToCache);
+              });
+          }
+
+          return response;
+        })
+        .catch(() => {
+          return caches.match(request);
+        })
+    );
+
+    return;
+  }
+
+  /*
+   * باقي الملفات:
+   * Cache First:
+   * إذا كانت موجودة في الكاش نستخدمها.
+   * وإذا لم تكن موجودة، نحاول تحميلها من الشبكة وتخزينها.
+   */
   event.respondWith(
-    caches.match(event.request)
+    caches.match(request)
       .then((cached) => {
         if (cached) {
           return cached;
         }
 
-        return fetch(event.request)
+        return fetch(request)
           .then((response) => {
             if (
               !response ||
@@ -80,23 +121,23 @@ self.addEventListener('fetch', (event) => {
 
             caches.open(CACHE_NAME)
               .then((cache) => {
-                cache.put(event.request, responseToCache);
+                cache.put(request, responseToCache);
               });
 
             return response;
-          })
-          .catch(() => {
-            const accept = event.request.headers.get('accept') || '';
-
-            if (accept.includes('text/html')) {
-              return caches.match('./index.html');
-            }
-
-            return new Response('', {
-              status: 503,
-              statusText: 'Offline'
-            });
           });
+      })
+      .catch(() => {
+        const accept = request.headers.get('accept') || '';
+
+        if (accept.includes('text/html')) {
+          return caches.match('./index.html');
+        }
+
+        return new Response('', {
+          status: 503,
+          statusText: 'Offline'
+        });
       })
   );
 });
