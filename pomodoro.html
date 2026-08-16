@@ -77,6 +77,13 @@
             <h1><i class="fa-solid fa-clock"></i> مؤقت بومودورو للمذاكرة</h1>
             <h2 class="section-desc">استخدم تقنية بومودورو لزيادة تركيزك</h2>
         </div>
+
+        <div id="current-task-box" class="card current-task-box" style="display: none;">
+            <div class="current-task-label">المهمة الحالية</div>
+            <div id="current-task-name" class="current-task-name"></div>
+            <div id="current-task-meta" class="current-task-meta"></div>
+        </div>
+
         <div class="timer-settings">
             <div class="setting-item">
                 <label><i class="fa-solid fa-book-open"></i> وقت الدراسة</label>
@@ -89,6 +96,13 @@
                 <label><i class="fa-solid fa-mug-hot"></i> وقت الراحة</label>
                 <div class="input-with-unit">
                     <input type="number" id="break-minutes" min="1" max="60" value="5">
+                    <span>دقيقة</span>
+                </div>
+            </div>
+            <div class="setting-item">
+                <label><i class="fa-solid fa-couch"></i> راحة طويلة</label>
+                <div class="input-with-unit">
+                    <input type="number" id="long-break-minutes" min="1" max="60" value="15">
                     <span>دقيقة</span>
                 </div>
             </div>

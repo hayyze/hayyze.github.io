@@ -22,6 +22,67 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+
+    function showTaskCreatedModal(taskText) {
+        document.querySelector('.task-modal-overlay')?.remove();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'task-modal-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+
+        const modal = document.createElement('div');
+        modal.className = 'task-modal';
+
+        const h3 = document.createElement('h3');
+        h3.textContent = 'تم إنشاء المهمة';
+        modal.appendChild(h3);
+
+        const nameP = document.createElement('p');
+        nameP.className = 'task-name';
+        nameP.textContent = taskText;
+        modal.appendChild(nameP);
+
+        const q = document.createElement('p');
+        q.textContent = 'هل تريد البدء بجلسة تركيز؟';
+        modal.appendChild(q);
+
+        const actions = document.createElement('div');
+        actions.className = 'modal-actions';
+
+        const startBtn = document.createElement('button');
+        startBtn.type = 'button';
+        startBtn.className = 'btn btn-primary';
+        startBtn.id = 'start-pomodoro-from-modal';
+        startBtn.innerHTML = '<i class="fa-solid fa-play" aria-hidden="true"></i> ابدأ ببومودورو';
+
+        const laterBtn = document.createElement('button');
+        laterBtn.type = 'button';
+        laterBtn.className = 'btn btn-outline';
+        laterBtn.id = 'later-from-modal';
+        laterBtn.textContent = 'لاحقًا';
+
+        actions.appendChild(startBtn);
+        actions.appendChild(laterBtn);
+        modal.appendChild(actions);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        startBtn.addEventListener('click', () => {
+            localStorage.setItem('hayyiz-current-task', taskText);
+            window.location.href = 'pomodoro.html?task=' + encodeURIComponent(taskText);
+        });
+
+        laterBtn.addEventListener('click', () => {
+            overlay.remove();
+        });
+
+        overlay.addEventListener('click', e => {
+            if (e.target === overlay) overlay.remove();
+        });
+    }
+
+
     let todos = JSON.parse(
         localStorage.getItem('hayyiz-todos') || '[]'
     );
@@ -342,6 +403,8 @@ document.addEventListener('DOMContentLoaded', () => {
         todoMinutes.value = '';
 
         renderTodos();
+
+        showTaskCreatedModal(text);
     });
 
     todoList.addEventListener('click', e => {

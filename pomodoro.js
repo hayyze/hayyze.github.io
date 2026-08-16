@@ -8,9 +8,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetBtn = document.getElementById('timer-reset-btn');
     const workInput = document.getElementById('work-minutes');
     const breakInput = document.getElementById('break-minutes');
+    const longBreakInput = document.getElementById('long-break-minutes');
     const modeWork = document.getElementById('mode-work');
     const modeBreak = document.getElementById('mode-break');
     const sessionsCount = document.getElementById('completed-sessions-count');
+
+    // ========== المهمة الحالية ==========
+    const urlParams = new URLSearchParams(window.location.search);
+    const taskFromUrl = urlParams.get('task');
+    const taskFromStorage = localStorage.getItem('hayyiz-current-task');
+    const currentTask = taskFromUrl || taskFromStorage || null;
+
+    if (currentTask) {
+        localStorage.setItem('hayyiz-current-task', currentTask);
+        const box = document.getElementById('current-task-box');
+        const nameEl = document.getElementById('current-task-name');
+        const metaEl = document.getElementById('current-task-meta');
+        if (box && nameEl) {
+            box.style.display = 'block';
+            nameEl.textContent = currentTask;
+            if (metaEl) {
+                const workMin = parseInt(workInput?.value, 10) || 25;
+                metaEl.textContent = `4 جلسات تركيز · ${workMin * 4} دقيقة`;
+            }
+        }
+    }
 
     // ========== الحالة ==========
     let timerInterval = null;
@@ -18,9 +40,26 @@ document.addEventListener('DOMContentLoaded', () => {
     let totalDuration = 25 * 60;
     let isRunning = false;
     let isWorkMode = true;
-    let completedSessions = parseInt(localStorage.getItem('hayyiz-sessions') || '0');
+    let completedSessions = parseInt(localStorage.getItem('hayyiz-sessions') || '0', 10);
+    let sessionInCycle = parseInt(localStorage.getItem('hayyiz-session-in-cycle') || '0', 10);
 
     if (sessionsCount) sessionsCount.textContent = completedSessions;
+
+    function getToday() {
+        return new Date().toISOString().slice(0, 10);
+    }
+
+    function ensureTodayStats() {
+        const today = getToday();
+        const lastDay = localStorage.getItem('hayyiz-sessions-day');
+        if (lastDay !== today) {
+            localStorage.setItem('hayyiz-sessions-today', '0');
+            localStorage.setItem('hayyiz-focus-minutes-today', '0');
+            localStorage.setItem('hayyiz-sessions-day', today);
+        }
+    }
+
+    ensureTodayStats();
 
     // ========== الصوت ==========
     function playNotificationSound() {
@@ -67,10 +106,13 @@ document.addEventListener('DOMContentLoaded', () => {
             isRunning: isRunning,
             isWorkMode: isWorkMode,
             workMinutes: workInput.value,
-            breakMinutes: breakInput.value
+            breakMinutes: breakInput.value,
+            longBreakMinutes: longBreakInput ? longBreakInput.value : '15',
+            sessionInCycle: sessionInCycle
         };
 
         localStorage.setItem('hayyiz-pomodoro-state', JSON.stringify(state));
+        localStorage.setItem('hayyiz-session-in-cycle', String(sessionInCycle));
     }
 
     function loadState() {
@@ -82,6 +124,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (state.workMinutes) workInput.value = state.workMinutes;
             if (state.breakMinutes) breakInput.value = state.breakMinutes;
+            if (state.longBreakMinutes && longBreakInput) {
+                longBreakInput.value = state.longBreakMinutes;
+            }
+            if (typeof state.sessionInCycle === 'number') {
+                sessionInCycle = state.sessionInCycle;
+            }
 
             isWorkMode = state.isWorkMode !== false;
 
@@ -169,15 +217,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (isWorkMode) {
             completedSessions++;
+            localStorage.setItem('hayyiz-sessions', completedSessions);
 
-            localStorage.setItem(
-                'hayyiz-sessions',
-                completedSessions
-            );
+            // إحصائيات اليوم
+            ensureTodayStats();
+            const sessionsToday = parseInt(localStorage.getItem('hayyiz-sessions-today') || '0', 10) + 1;
+            localStorage.setItem('hayyiz-sessions-today', String(sessionsToday));
+
+            const workMin = parseInt(workInput.value, 10) || 25;
+            const focusMin = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10) + workMin;
+            localStorage.setItem('hayyiz-focus-minutes-today', String(focusMin));
 
             if (sessionsCount) {
                 sessionsCount.textContent = completedSessions;
             }
+
+            // دورة الجلسات: بعد 4 جلسات → راحة طويلة
+            sessionInCycle++;
+            if (sessionInCycle >= 4) {
+                sessionInCycle = 0;
+                const longMin = parseInt(longBreakInput?.value, 10) || 15;
+                if (breakInput) breakInput.value = longMin;
+            } else {
+                // إعادة الراحة القصيرة الافتراضية إذا كانت الراحة الطويلة مفعّلة سابقًا
+                // لا نفرض 5 إن غيّر المستخدم القيمة يدويًا أثناء الدورة؛ نترك القيمة الحالية
+            }
+            localStorage.setItem('hayyiz-session-in-cycle', String(sessionInCycle));
 
             showNotification(
                 'حيز - بومودورو',
@@ -263,8 +328,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         totalDuration =
             (isWorkMode
-                ? parseInt(workInput.value) || 25
-                : parseInt(breakInput.value) || 5
+                ? parseInt(workInput.value, 10) || 25
+                : parseInt(breakInput.value, 10) || 5
             ) * 60;
 
         startBtn.innerHTML =
@@ -329,6 +394,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isWorkMode && !isRunning) {
             resetTimer();
         }
+        // تحديث meta المهمة
+        const metaEl = document.getElementById('current-task-meta');
+        if (metaEl && currentTask) {
+            const workMin = parseInt(workInput.value, 10) || 25;
+            metaEl.textContent = `4 جلسات تركيز · ${workMin * 4} دقيقة`;
+        }
     });
 
     breakInput.addEventListener('change', () => {
@@ -337,12 +408,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    if (longBreakInput) {
+        longBreakInput.addEventListener('change', () => {
+            saveState();
+        });
+    }
+
     // ========== بدء التشغيل ==========
     const restored = loadState();
 
     if (!restored) {
         totalDuration =
-            (parseInt(workInput.value) || 25) * 60;
+            (parseInt(workInput.value, 10) || 25) * 60;
 
         updateTimerDisplay();
     } else {
@@ -388,14 +465,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (notifBtn) {
         notifBtn.addEventListener('click', function () {
-            console.log('تم الضغط على زر التنبيه');
-
             if (!('Notification' in window)) {
                 alert('متصفحك لا يدعم الإشعارات');
                 return;
             }
 
-            // إذا كان مرفوض مسبقاً
             if (Notification.permission === 'denied') {
                 alert(
                     'لقد رفضت الإشعارات سابقاً. يمكنك تفعيلها من إعدادات المتصفح.'
@@ -405,17 +479,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // إذا كان مفعّل
             if (Notification.permission === 'granted') {
                 updateNotifButton();
                 return;
             }
 
-            // طلب الإذن
             Notification.requestPermission()
                 .then(function (permission) {
-                    console.log('نتيجة الإذن:', permission);
-
                     updateNotifButton();
 
                     if (permission === 'granted') {
@@ -427,22 +497,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                     icon: 'favicon-32x32.png'
                                 }
                             );
-                        } catch (e) {
-                            console.log(e);
-                        }
-
+                        } catch (e) {}
                     } else if (permission === 'denied') {
                         alert('تم رفض الإشعارات.');
                     }
                 })
-                .catch(function (err) {
-                    console.log('خطأ في طلب الإذن:', err);
-                });
+                .catch(function () {});
         });
 
         updateNotifButton();
-
-    } else {
-        console.log('زر الإشعارات غير موجود في الصفحة');
     }
 });

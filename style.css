@@ -1271,3 +1271,115 @@ button, input, select, textarea {
   gap: 14px;
   margin: 18px 0 10px;
 }
+
+
+/* ===================== ملخص اليوم ===================== */
+.daily-summary {
+    padding: 1.5rem;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.summary-item {
+    display: flex;
+    gap: 0.85rem;
+    align-items: flex-start;
+    background: var(--bg);
+    border-radius: 12px;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--border);
+}
+
+.summary-item i {
+    font-size: 1.25rem;
+    color: var(--primary);
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.summary-item strong {
+    display: block;
+    font-size: 0.95rem;
+    margin-bottom: 2px;
+}
+
+.summary-item span {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    display: block;
+    line-height: 1.4;
+}
+
+/* Modal / Toast للمهام */
+.task-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 1rem;
+}
+
+.task-modal {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 1.75rem;
+    max-width: 380px;
+    width: 100%;
+    text-align: center;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+
+.task-modal h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1.2rem;
+}
+
+.task-modal .task-name {
+    font-weight: 700;
+    color: var(--primary);
+    margin: 0 0 0.75rem;
+}
+
+.task-modal p {
+    margin: 0 0 1.25rem;
+    color: var(--text-muted);
+}
+
+.task-modal .modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* صندوق المهمة الحالية في البومودورو */
+.current-task-box {
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.current-task-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.current-task-name {
+    font-weight: 700;
+    font-size: 1.15rem;
+}
+
+.current-task-meta {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
