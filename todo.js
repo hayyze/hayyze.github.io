@@ -69,10 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.appendChild(overlay);
 
         startBtn.addEventListener('click', () => {
-            localStorage.setItem('hayyiz-current-task', taskText);
-            // فهرس المهمة الجديدة (أُضيفت في بداية المصفوفة)
-            localStorage.setItem('hayyiz-current-task-index', '0');
-            window.location.href = 'pomodoro.html?task=' + encodeURIComponent(taskText);
+            startPomodoroForTask(0);
         });
 
         laterBtn.addEventListener('click', () => {
@@ -84,6 +81,31 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+
+    function startPomodoroForTask(index) {
+        if (!Number.isInteger(index) || index < 0 || index >= todos.length) return;
+        const task = todos[index];
+        const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
+        const totalMinutes = task.minutes ? parseInt(task.minutes, 10) : null;
+        const sessionsNeeded =
+            totalMinutes && totalMinutes > 0
+                ? Math.ceil(totalMinutes / workMin)
+                : null;
+
+        const plan = {
+            text: task.text,
+            index: index,
+            totalMinutes: totalMinutes && totalMinutes > 0 ? totalMinutes : null,
+            focusDone: 0,
+            sessionsDone: 0,
+            sessionsNeeded: sessionsNeeded
+        };
+
+        localStorage.setItem('hayyiz-current-task', task.text);
+        localStorage.setItem('hayyiz-current-task-index', String(index));
+        localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
+        window.location.href = 'pomodoro.html?task=' + encodeURIComponent(task.text);
+    }
 
     let todos = JSON.parse(
         localStorage.getItem('hayyiz-todos') || '[]'
@@ -426,13 +448,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const pomoButton = e.target.closest('.todo-pomo-btn');
         if (pomoButton) {
             const index = Number(pomoButton.dataset.index);
-            if (Number.isInteger(index) && index >= 0 && index < todos.length) {
-                const taskText = todos[index].text;
-                localStorage.setItem('hayyiz-current-task', taskText);
-                // حفظ فهرس المهمة لإغلاق الحلقة بعد الجلسة
-                localStorage.setItem('hayyiz-current-task-index', String(index));
-                window.location.href = 'pomodoro.html?task=' + encodeURIComponent(taskText);
-            }
+            startPomodoroForTask(index);
             return;
         }
 

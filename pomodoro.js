@@ -13,33 +13,117 @@ document.addEventListener('DOMContentLoaded', () => {
     const modeBreak = document.getElementById('mode-break');
     const sessionsCount = document.getElementById('completed-sessions-count');
 
-    // ========== المهمة الحالية ==========
+    // ========== تفضيلات المدد ==========
+    if (workInput && localStorage.getItem('hayyiz-pref-work')) {
+        workInput.value = localStorage.getItem('hayyiz-pref-work');
+    }
+    if (breakInput && localStorage.getItem('hayyiz-pref-break')) {
+        breakInput.value = localStorage.getItem('hayyiz-pref-break');
+    }
+    if (longBreakInput && localStorage.getItem('hayyiz-pref-long')) {
+        longBreakInput.value = localStorage.getItem('hayyiz-pref-long');
+    }
+
+    function savePrefs() {
+        if (workInput) localStorage.setItem('hayyiz-pref-work', String(parseInt(workInput.value, 10) || 25));
+        if (breakInput) localStorage.setItem('hayyiz-pref-break', String(parseInt(breakInput.value, 10) || 5));
+        if (longBreakInput) localStorage.setItem('hayyiz-pref-long', String(parseInt(longBreakInput.value, 10) || 15));
+    }
+
+    [workInput, breakInput, longBreakInput].forEach((inp) => {
+        if (inp) inp.addEventListener('change', savePrefs);
+    });
+
+    // ========== خطة المهمة الحالية ==========
     const urlParams = new URLSearchParams(window.location.search);
     const taskFromUrl = urlParams.get('task');
     const taskFromStorage = localStorage.getItem('hayyiz-current-task');
-    const currentTask = taskFromUrl || taskFromStorage || null;
+    let currentTask = taskFromUrl || taskFromStorage || null;
 
+    function loadTaskSession() {
+        try {
+            return JSON.parse(localStorage.getItem('hayyiz-task-session') || 'null');
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function saveTaskSession(plan) {
+        if (plan) localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
+        else localStorage.removeItem('hayyiz-task-session');
+    }
+
+    let taskSession = loadTaskSession();
+
+    // مزامنة الاسم من الرابط مع الخطة
     if (currentTask) {
         localStorage.setItem('hayyiz-current-task', currentTask);
+        if (!taskSession || taskSession.text !== currentTask) {
+            // خطة جديدة من الرابط بدون تفاصيل — نحاول جلب الدقائق من المهام
+            const todos = JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
+            const idxRaw = localStorage.getItem('hayyiz-current-task-index');
+            let idx = idxRaw !== null ? parseInt(idxRaw, 10) : -1;
+            let task = Number.isInteger(idx) && todos[idx] && todos[idx].text === currentTask
+                ? todos[idx]
+                : todos.find((t) => t.text === currentTask && !t.completed);
+
+            const workMin = parseInt(workInput?.value, 10) || 25;
+            const totalMinutes = task && task.minutes ? parseInt(task.minutes, 10) : null;
+            taskSession = {
+                text: currentTask,
+                index: task ? todos.indexOf(task) : (Number.isInteger(idx) ? idx : -1),
+                totalMinutes: totalMinutes && totalMinutes > 0 ? totalMinutes : null,
+                focusDone: 0,
+                sessionsDone: 0,
+                sessionsNeeded:
+                    totalMinutes && totalMinutes > 0
+                        ? Math.ceil(totalMinutes / workMin)
+                        : null
+            };
+            saveTaskSession(taskSession);
+        }
+    }
+
+    function updateTaskMeta() {
         const box = document.getElementById('current-task-box');
         const nameEl = document.getElementById('current-task-name');
         const metaEl = document.getElementById('current-task-meta');
-        if (box && nameEl) {
-            box.style.display = 'block';
-            nameEl.textContent = currentTask;
-            if (metaEl) {
-                const workMin = parseInt(workInput?.value, 10) || 25;
-                metaEl.textContent = `4 جلسات تركيز · ${workMin * 4} دقيقة`;
-            }
+        if (!currentTask || !box || !nameEl) return;
+
+        box.style.display = 'block';
+        nameEl.textContent = currentTask;
+
+        if (!metaEl) return;
+        const workMin = parseInt(workInput?.value, 10) || 25;
+        const plan = taskSession;
+
+        if (plan && plan.totalMinutes) {
+            const needed = plan.sessionsNeeded || Math.ceil(plan.totalMinutes / workMin);
+            const done = plan.sessionsDone || 0;
+            const focusDone = plan.focusDone || 0;
+            metaEl.textContent =
+                `جلسة ${Math.min(done + 1, needed)} من ${needed} · ` +
+                `${focusDone}/${plan.totalMinutes} دقيقة`;
+        } else if (plan) {
+            const done = plan.sessionsDone || 0;
+            metaEl.textContent =
+                done > 0
+                    ? `جلسات مكتملة: ${done} · ${plan.focusDone || 0} دقيقة`
+                    : `جلسة تركيز ${workMin} دقيقة`;
+        } else {
+            metaEl.textContent = `جلسة تركيز ${workMin} دقيقة`;
         }
     }
+
+    updateTaskMeta();
 
     // ========== الحالة ==========
     let timerInterval = null;
     let endTime = null;
-    let totalDuration = 25 * 60;
+    let totalDuration = (parseInt(workInput?.value, 10) || 25) * 60;
     let isRunning = false;
     let isWorkMode = true;
+    let nextBreakIsLong = false;
     let completedSessions = parseInt(localStorage.getItem('hayyiz-sessions') || '0', 10);
     let sessionInCycle = parseInt(localStorage.getItem('hayyiz-session-in-cycle') || '0', 10);
 
@@ -232,27 +316,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 sessionsCount.textContent = completedSessions;
             }
 
-            // دورة الجلسات: بعد 4 جلسات → راحة طويلة
+            // تحديث خطة المهمة
+            if (taskSession && taskSession.text === currentTask) {
+                taskSession.sessionsDone = (taskSession.sessionsDone || 0) + 1;
+                taskSession.focusDone = (taskSession.focusDone || 0) + workMin;
+                // إعادة حساب sessionsNeeded إذا تغيّرت مدة العمل
+                if (taskSession.totalMinutes) {
+                    taskSession.sessionsNeeded = Math.ceil(
+                        taskSession.totalMinutes / workMin
+                    );
+                }
+                saveTaskSession(taskSession);
+            }
+            updateTaskMeta();
+
+            // دورة الجلسات: بعد 4 جلسات تركيز → راحة طويلة
             sessionInCycle++;
             if (sessionInCycle >= 4) {
                 sessionInCycle = 0;
-                const longMin = parseInt(longBreakInput?.value, 10) || 15;
-                if (breakInput) breakInput.value = longMin;
+                nextBreakIsLong = true;
             } else {
-                // إعادة الراحة القصيرة الافتراضية إذا كانت الراحة الطويلة مفعّلة سابقًا
-                // لا نفرض 5 إن غيّر المستخدم القيمة يدويًا أثناء الدورة؛ نترك القيمة الحالية
+                nextBreakIsLong = false;
             }
             localStorage.setItem('hayyiz-session-in-cycle', String(sessionInCycle));
 
+            const breakMin = nextBreakIsLong
+                ? (parseInt(longBreakInput?.value, 10) || 15)
+                : (parseInt(breakInput?.value, 10) || 5);
+
             showNotification(
                 'حيز - بومودورو',
-                'انتهت جلسة الدراسة! حان وقت الراحة.'
+                nextBreakIsLong
+                    ? `انتهت الجلسة! راحة طويلة ${breakMin} دقيقة.`
+                    : `انتهت جلسة التركيز (${workMin} د). راحة ${breakMin} دقيقة.`
             );
 
-            switchToBreak();
+            switchToBreak(nextBreakIsLong);
 
             if (!wasAway) {
-                showSessionEndModal();
+                showSessionEndModal(workMin);
             }
         } else {
             showNotification(
@@ -271,12 +373,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ========== مودال بعد انتهاء جلسة التركيز ==========
-    function showSessionEndModal() {
+    function showSessionEndModal(workMinJustDone) {
         document.querySelector('.session-end-overlay')?.remove();
 
-        const currentTask = localStorage.getItem('hayyiz-current-task');
+        const taskName = localStorage.getItem('hayyiz-current-task');
         const taskIndexRaw = localStorage.getItem('hayyiz-current-task-index');
         const taskIndex = taskIndexRaw !== null ? parseInt(taskIndexRaw, 10) : -1;
+        const plan = loadTaskSession();
+        const doneMin = workMinJustDone || (parseInt(workInput?.value, 10) || 25);
 
         const overlay = document.createElement('div');
         overlay.className = 'session-end-overlay task-modal-overlay';
@@ -290,15 +394,35 @@ document.addEventListener('DOMContentLoaded', () => {
         h3.textContent = 'انتهت جلسة التركيز 💪';
         modal.appendChild(h3);
 
-        if (currentTask) {
+        const summary = document.createElement('p');
+        summary.style.color = 'var(--text-muted)';
+        summary.style.fontSize = '0.95rem';
+        let summaryText = `أكملت جلسة تركيز · ${doneMin} دقيقة`;
+        if (plan && plan.sessionsDone) {
+            summaryText = `أكملت ${plan.sessionsDone} جلسة تركيز · ${plan.focusDone || doneMin} دقيقة`;
+            if (plan.totalMinutes) {
+                summaryText += ` من أصل ${plan.totalMinutes}`;
+            }
+        }
+        summary.textContent = summaryText;
+        modal.appendChild(summary);
+
+        if (taskName) {
             const nameP = document.createElement('p');
             nameP.className = 'task-name';
-            nameP.textContent = currentTask;
+            nameP.textContent = taskName;
             modal.appendChild(nameP);
         }
 
+        const goalReached =
+            plan &&
+            plan.totalMinutes &&
+            (plan.focusDone || 0) >= plan.totalMinutes;
+
         const q = document.createElement('p');
-        q.textContent = 'ماذا تريد أن تفعل الآن؟';
+        q.textContent = goalReached
+            ? 'وصلت لهدف دقائق المهمة. ماذا تريد؟'
+            : 'ماذا تريد أن تفعل الآن؟';
         modal.appendChild(q);
 
         const actions = document.createElement('div');
@@ -311,20 +435,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // إنهاء المهمة
-        if (currentTask && Number.isInteger(taskIndex) && taskIndex >= 0) {
+        if (taskName && Number.isInteger(taskIndex) && taskIndex >= 0) {
             const completeBtn = document.createElement('button');
             completeBtn.type = 'button';
             completeBtn.className = 'btn btn-primary';
-            completeBtn.innerHTML = '<i class="fa-solid fa-check"></i> تعليم المهمة كمكتملة';
+            completeBtn.innerHTML = goalReached
+                ? '<i class="fa-solid fa-check"></i> تم — تعليم المهمة كمكتملة'
+                : '<i class="fa-solid fa-check"></i> تعليم المهمة كمكتملة';
             completeBtn.addEventListener('click', () => {
                 try {
                     const todos = JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
-                    if (todos[taskIndex] && todos[taskIndex].text === currentTask) {
+                    if (todos[taskIndex] && todos[taskIndex].text === taskName) {
                         todos[taskIndex].completed = true;
                         localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
                     } else {
-                        // بحث بالاسم إذا تغيّر الفهرس
-                        const found = todos.findIndex((t) => t.text === currentTask && !t.completed);
+                        const found = todos.findIndex((t) => t.text === taskName && !t.completed);
                         if (found >= 0) {
                             todos[found].completed = true;
                             localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
@@ -333,6 +458,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 } catch (e) { /* تجاهل */ }
                 localStorage.removeItem('hayyiz-current-task');
                 localStorage.removeItem('hayyiz-current-task-index');
+                saveTaskSession(null);
+                taskSession = null;
+                currentTask = null;
                 closeModal();
             });
             actions.appendChild(completeBtn);
@@ -344,7 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
         noteBtn.className = 'btn btn-outline';
         noteBtn.innerHTML = '<i class="fa-solid fa-note-sticky"></i> اكتب ملاحظة سريعة';
         noteBtn.addEventListener('click', () => {
-            const title = currentTask ? encodeURIComponent(currentTask) : '';
+            const title = taskName ? encodeURIComponent(taskName) : '';
             window.location.href = 'notes.html' + (title ? '?title=' + title : '');
         });
         actions.appendChild(noteBtn);
@@ -422,11 +550,15 @@ document.addEventListener('DOMContentLoaded', () => {
         isRunning = false;
         endTime = null;
 
-        totalDuration =
-            (isWorkMode
-                ? parseInt(workInput.value, 10) || 25
-                : parseInt(breakInput.value, 10) || 5
-            ) * 60;
+        let mins;
+        if (isWorkMode) {
+            mins = parseInt(workInput.value, 10) || 25;
+        } else if (nextBreakIsLong) {
+            mins = parseInt(longBreakInput?.value, 10) || 15;
+        } else {
+            mins = parseInt(breakInput.value, 10) || 5;
+        }
+        totalDuration = mins * 60;
 
         startBtn.innerHTML =
             '<i class="fa-solid fa-play"></i> تشغيل';
@@ -437,15 +569,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function switchToWork() {
         isWorkMode = true;
+        nextBreakIsLong = false;
 
         modeWork.classList.add('active');
         modeBreak.classList.remove('active');
 
         resetTimer();
+        updateTaskMeta();
     }
 
-    function switchToBreak() {
+    function switchToBreak(isLong) {
         isWorkMode = false;
+        if (typeof isLong === 'boolean') {
+            nextBreakIsLong = isLong;
+        }
 
         modeBreak.classList.add('active');
         modeWork.classList.remove('active');

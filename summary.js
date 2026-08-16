@@ -70,6 +70,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const content = document.getElementById('summary-content');
     if (!content) return;
 
+    function launchPomodoroForTask(task, index) {
+        const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
+        const totalMinutes = task.minutes ? parseInt(task.minutes, 10) : null;
+        const plan = {
+            text: task.text,
+            index: index,
+            totalMinutes: totalMinutes && totalMinutes > 0 ? totalMinutes : null,
+            focusDone: 0,
+            sessionsDone: 0,
+            sessionsNeeded:
+                totalMinutes && totalMinutes > 0
+                    ? Math.ceil(totalMinutes / workMin)
+                    : null
+        };
+        localStorage.setItem('hayyiz-current-task', task.text);
+        localStorage.setItem('hayyiz-current-task-index', String(index));
+        localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
+        window.location.href = 'pomodoro.html?task=' + encodeURIComponent(task.text);
+    }
+
     content.replaceChildren();
 
     // --- ترحيب ---
@@ -108,15 +128,15 @@ document.addEventListener('DOMContentLoaded', () => {
         return el;
     }
 
-    stats.appendChild(makeStat('fa-solid fa-clock', sessionsToday, 'جلسات اليوم', 'pomodoro.html'));
-    stats.appendChild(makeStat('fa-solid fa-hourglass-half', timeText, 'وقت التركيز', 'pomodoro.html'));
-    stats.appendChild(makeStat('fa-solid fa-list-check', activeTodos.length, 'مهام نشطة', 'todo.html'));
+    stats.appendChild(makeStat('fa-solid fa-clock', sessionsToday, 'جلسات التركيز', 'pomodoro.html'));
+    stats.appendChild(makeStat('fa-solid fa-hourglass-half', timeText, 'تركيز اليوم', 'pomodoro.html'));
+    stats.appendChild(makeStat('fa-solid fa-circle-check', completedTodayish, 'المهام المنجزة', 'todo.html'));
     stats.appendChild(
         makeStat(
-            'fa-solid fa-fire',
-            habitsDoneToday + '/' + (habits.length || 0),
-            'عادات اليوم',
-            'habits.html'
+            'fa-solid fa-list-check',
+            activeTodos.length,
+            'مهام نشطة',
+            'todo.html'
         )
     );
     content.appendChild(stats);
@@ -190,6 +210,9 @@ document.addEventListener('DOMContentLoaded', () => {
             meta.className = 'dash-task-meta';
             const priMap = { high: 'عالية', medium: 'متوسطة', low: 'منخفضة' };
             let metaText = priMap[task.priority] || '';
+            if (task.minutes) {
+                metaText += (metaText ? ' · ' : '') + task.minutes + ' د';
+            }
             if (task.date) {
                 if (task.date < today) metaText += (metaText ? ' · ' : '') + 'متأخرة';
                 else if (task.date === today) metaText += (metaText ? ' · ' : '') + 'اليوم';
@@ -206,11 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
             pomoBtn.title = 'ابدأ تركيز';
             pomoBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
             pomoBtn.addEventListener('click', () => {
-                localStorage.setItem('hayyiz-current-task', task.text);
-                if (realIndex >= 0) {
-                    localStorage.setItem('hayyiz-current-task-index', String(realIndex));
-                }
-                window.location.href = 'pomodoro.html?task=' + encodeURIComponent(task.text);
+                launchPomodoroForTask(task, realIndex);
             });
 
             li.appendChild(info);
@@ -325,13 +344,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (startBtn) {
         startBtn.addEventListener('click', () => {
             if (nextTask) {
-                localStorage.setItem('hayyiz-current-task', nextTask.text);
                 const idx = todos.indexOf(nextTask);
-                if (idx >= 0) localStorage.setItem('hayyiz-current-task-index', String(idx));
-                window.location.href = `pomodoro.html?task=${encodeURIComponent(nextTask.text)}`;
+                launchPomodoroForTask(nextTask, idx >= 0 ? idx : 0);
             } else {
                 localStorage.removeItem('hayyiz-current-task');
                 localStorage.removeItem('hayyiz-current-task-index');
+                localStorage.removeItem('hayyiz-task-session');
                 window.location.href = 'pomodoro.html';
             }
         });
