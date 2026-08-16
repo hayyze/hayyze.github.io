@@ -70,6 +70,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         startBtn.addEventListener('click', () => {
             localStorage.setItem('hayyiz-current-task', taskText);
+            // فهرس المهمة الجديدة (أُضيفت في بداية المصفوفة)
+            localStorage.setItem('hayyiz-current-task-index', '0');
             window.location.href = 'pomodoro.html?task=' + encodeURIComponent(taskText);
         });
 
@@ -355,24 +357,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 content.appendChild(timerBox);
             }
 
+            // أزرار الإجراءات
+            const actions = document.createElement('div');
+            actions.className = 'todo-actions';
+
+            // زر بدء بومودورو (للمهام غير المكتملة)
+            if (!todo.completed) {
+                const pomoBtn = document.createElement('button');
+                pomoBtn.className = 'todo-pomo-btn';
+                pomoBtn.dataset.index = realIndex;
+                pomoBtn.type = 'button';
+                pomoBtn.title = 'ابدأ جلسة تركيز على هذه المهمة';
+                pomoBtn.setAttribute('aria-label', 'بدء بومودورو');
+                pomoBtn.innerHTML = '<i class="fa-solid fa-clock" aria-hidden="true"></i>';
+                actions.appendChild(pomoBtn);
+            }
+
             // زر الحذف
             const deleteBtn = document.createElement('button');
-
             deleteBtn.className = 'todo-delete';
             deleteBtn.dataset.index = realIndex;
             deleteBtn.type = 'button';
             deleteBtn.setAttribute('aria-label', 'حذف المهمة');
-
-            const deleteIcon = document.createElement('i');
-            deleteIcon.className = 'fa-solid fa-trash';
-            deleteIcon.setAttribute('aria-hidden', 'true');
-
-            deleteBtn.appendChild(deleteIcon);
+            deleteBtn.innerHTML = '<i class="fa-solid fa-trash" aria-hidden="true"></i>';
+            actions.appendChild(deleteBtn);
 
             // تجميع العنصر
             li.appendChild(checkbox);
             li.appendChild(content);
-            li.appendChild(deleteBtn);
+            li.appendChild(actions);
 
             todoList.appendChild(li);
         });
@@ -408,6 +421,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     todoList.addEventListener('click', e => {
+
+        // بدء بومودورو على المهمة
+        const pomoButton = e.target.closest('.todo-pomo-btn');
+        if (pomoButton) {
+            const index = Number(pomoButton.dataset.index);
+            if (Number.isInteger(index) && index >= 0 && index < todos.length) {
+                const taskText = todos[index].text;
+                localStorage.setItem('hayyiz-current-task', taskText);
+                // حفظ فهرس المهمة لإغلاق الحلقة بعد الجلسة
+                localStorage.setItem('hayyiz-current-task-index', String(index));
+                window.location.href = 'pomodoro.html?task=' + encodeURIComponent(taskText);
+            }
+            return;
+        }
 
         // بدء المؤقت
         const startButton = e.target.closest('.start-task-timer');

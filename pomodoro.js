@@ -249,11 +249,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 'انتهت جلسة الدراسة! حان وقت الراحة.'
             );
 
-            if (!wasAway) {
-                alert('انتهت جلسة الدراسة! حان وقت الراحة.');
-            }
-
             switchToBreak();
+
+            if (!wasAway) {
+                showSessionEndModal();
+            }
         } else {
             showNotification(
                 'حيز - بومودورو',
@@ -268,6 +268,102 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         saveState();
+    }
+
+    // ========== مودال بعد انتهاء جلسة التركيز ==========
+    function showSessionEndModal() {
+        document.querySelector('.session-end-overlay')?.remove();
+
+        const currentTask = localStorage.getItem('hayyiz-current-task');
+        const taskIndexRaw = localStorage.getItem('hayyiz-current-task-index');
+        const taskIndex = taskIndexRaw !== null ? parseInt(taskIndexRaw, 10) : -1;
+
+        const overlay = document.createElement('div');
+        overlay.className = 'session-end-overlay task-modal-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+
+        const modal = document.createElement('div');
+        modal.className = 'task-modal';
+
+        const h3 = document.createElement('h3');
+        h3.textContent = 'انتهت جلسة التركيز 💪';
+        modal.appendChild(h3);
+
+        if (currentTask) {
+            const nameP = document.createElement('p');
+            nameP.className = 'task-name';
+            nameP.textContent = currentTask;
+            modal.appendChild(nameP);
+        }
+
+        const q = document.createElement('p');
+        q.textContent = 'ماذا تريد أن تفعل الآن؟';
+        modal.appendChild(q);
+
+        const actions = document.createElement('div');
+        actions.className = 'modal-actions';
+        actions.style.flexDirection = 'column';
+        actions.style.gap = '0.5rem';
+
+        function closeModal() {
+            overlay.remove();
+        }
+
+        // إنهاء المهمة
+        if (currentTask && Number.isInteger(taskIndex) && taskIndex >= 0) {
+            const completeBtn = document.createElement('button');
+            completeBtn.type = 'button';
+            completeBtn.className = 'btn btn-primary';
+            completeBtn.innerHTML = '<i class="fa-solid fa-check"></i> تعليم المهمة كمكتملة';
+            completeBtn.addEventListener('click', () => {
+                try {
+                    const todos = JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
+                    if (todos[taskIndex] && todos[taskIndex].text === currentTask) {
+                        todos[taskIndex].completed = true;
+                        localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
+                    } else {
+                        // بحث بالاسم إذا تغيّر الفهرس
+                        const found = todos.findIndex((t) => t.text === currentTask && !t.completed);
+                        if (found >= 0) {
+                            todos[found].completed = true;
+                            localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
+                        }
+                    }
+                } catch (e) { /* تجاهل */ }
+                localStorage.removeItem('hayyiz-current-task');
+                localStorage.removeItem('hayyiz-current-task-index');
+                closeModal();
+            });
+            actions.appendChild(completeBtn);
+        }
+
+        // كتابة ملاحظة
+        const noteBtn = document.createElement('button');
+        noteBtn.type = 'button';
+        noteBtn.className = 'btn btn-outline';
+        noteBtn.innerHTML = '<i class="fa-solid fa-note-sticky"></i> اكتب ملاحظة سريعة';
+        noteBtn.addEventListener('click', () => {
+            const title = currentTask ? encodeURIComponent(currentTask) : '';
+            window.location.href = 'notes.html' + (title ? '?title=' + title : '');
+        });
+        actions.appendChild(noteBtn);
+
+        // متابعة الراحة فقط
+        const restBtn = document.createElement('button');
+        restBtn.type = 'button';
+        restBtn.className = 'btn btn-outline';
+        restBtn.textContent = 'متابعة الراحة';
+        restBtn.addEventListener('click', closeModal);
+        actions.appendChild(restBtn);
+
+        modal.appendChild(actions);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeModal();
+        });
     }
 
     // ========== التحكم ==========
