@@ -84,32 +84,36 @@
     justify-content: center;
     gap: 0.75rem;
     padding: 2rem 1.25rem;
-    border: 2px solid var(--border-color, #e2e8f0);
-    border-radius: 16px;
-    background: var(--card-bg, #fff);
+    border: 2px solid var(--border);
+    border-radius: var(--radius, 16px);
+    background: var(--bg-card);
+    color: var(--text);
     cursor: pointer;
     transition: all 0.2s ease;
     text-align: center;
     font-family: inherit;
   }
   .stage-btn:hover {
-    border-color: #6366f1;
-    background: #f5f3ff;
+    border-color: var(--primary, #4f46e5);
+    background: color-mix(in srgb, var(--primary, #4f46e5) 10%, var(--bg-card));
     transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.12);
+    box-shadow: var(--shadow);
+  }
+  body.theme-dark .stage-btn:hover {
+    background: color-mix(in srgb, var(--primary, #4f46e5) 18%, var(--bg-card));
   }
   .stage-btn i {
     font-size: 2.25rem;
-    color: #6366f1;
+    color: var(--primary, #4f46e5);
   }
   .stage-btn span {
     font-size: 1.15rem;
     font-weight: 700;
-    color: var(--text-color, #1e293b);
+    color: var(--text);
   }
   .stage-btn small {
     font-size: 0.85rem;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     font-weight: 500;
   }
   .back-stage-btn {
@@ -118,7 +122,7 @@
     gap: 0.4rem;
     background: none;
     border: none;
-    color: #6366f1;
+    color: var(--primary, #4f46e5);
     font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
@@ -130,17 +134,17 @@
     text-decoration: underline;
   }
   .cumulative-info {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: var(--bg);
+    border: 1px solid var(--border);
     border-radius: 12px;
     padding: 1rem 1.25rem;
     margin-bottom: 1.5rem;
     font-size: 0.95rem;
     line-height: 1.7;
-    color: #475569;
+    color: var(--text-muted);
   }
   .cumulative-info strong {
-    color: #1e293b;
+    color: var(--text);
   }
   .cum-row {
     display: flex;
@@ -148,7 +152,7 @@
     justify-content: space-between;
     gap: 1rem;
     padding: 1rem 0;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--border);
   }
   .cum-row:last-of-type {
     border-bottom: none;
@@ -160,10 +164,11 @@
     display: block;
     font-size: 1.05rem;
     margin-bottom: 0.2rem;
+    color: var(--text);
   }
   .cum-label span {
     font-size: 0.85rem;
-    color: #64748b;
+    color: var(--text-muted);
   }
   .cum-input-wrap {
     display: flex;
@@ -173,24 +178,26 @@
   .cum-input-wrap input {
     width: 110px;
     padding: 0.6rem 0.75rem;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm, 10px);
     font-size: 1.05rem;
     text-align: center;
     font-family: inherit;
+    background: var(--bg);
+    color: var(--text);
   }
   .cum-input-wrap input:focus {
     outline: none;
-    border-color: #6366f1;
+    border-color: var(--primary, #4f46e5);
   }
   .cum-input-wrap .suffix {
-    color: #94a3b8;
+    color: var(--text-muted);
     font-size: 0.9rem;
   }
   .cum-progress {
     margin-top: 1rem;
     font-size: 0.9rem;
-    color: #64748b;
+    color: var(--text-muted);
     text-align: center;
   }
 </style>
@@ -345,7 +352,7 @@
             <div class="gpa-result hidden" id="cum-result">
                 <div class="gpa-score" id="cum-score">0.00</div>
                 <div class="gpa-label">المعدل التراكمي</div>
-                <div style="font-size:0.85rem; color:#64748b; margin-top:0.4rem;">النسبة: أول 20% · ثاني 40% · ثالث 40%</div>
+                <div style="font-size:0.85rem; color:var(--text-muted); margin-top:0.4rem;">النسبة: أول 20% · ثاني 40% · ثالث 40%</div>
             </div>
 
             <div class="controls-row" style="margin-top: 24px;">
