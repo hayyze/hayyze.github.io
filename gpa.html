@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -29,8 +30,8 @@
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <!-- SEO -->
     <title>حساب المعدل | حيز</title>
-    <meta name="description" content="حاسبة المعدل من حيز تساعدك على حساب معدلك الدراسي بسهولة، سواء كنت في أول ثانوي أو ثاني ثانوي أو ثالث ثانوي مع دعم جميع المسارات.">
-    <meta name="keywords" content="حاسبة المعدل, احسب معدلي, معدل تراكمي, معدل أول ثانوي, معدل ثاني ثانوي, معدل ثالث ثانوي, مسارات الثانوية, حساب المعدل الدراسي">
+    <meta name="description" content="حاسبة المعدل من حيز تساعدك على حساب معدلك الدراسي بسهولة للمرحلة المتوسطة والثانوية، مع دعم جميع المسارات وأوزان وزارة التعليم.">
+    <meta name="keywords" content="حاسبة المعدل, احسب معدلي, معدل تراكمي, معدل متوسط, معدل أول متوسط, معدل ثانوي, مسارات الثانوية, حساب المعدل الدراسي">
     <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
     <!-- الخطوط والأيقونات -->
@@ -56,6 +57,71 @@
         gtag('config', 'G-F94Z3H2D3S');
     </script>
 <link rel="manifest" href="manifest.webmanifest">
+<style>
+  .stage-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+  }
+  @media (max-width: 600px) {
+    .stage-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .stage-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 2rem 1.25rem;
+    border: 2px solid var(--border-color, #e2e8f0);
+    border-radius: 16px;
+    background: var(--card-bg, #fff);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    font-family: inherit;
+  }
+  .stage-btn:hover {
+    border-color: #6366f1;
+    background: #f5f3ff;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.12);
+  }
+  .stage-btn i {
+    font-size: 2.25rem;
+    color: #6366f1;
+  }
+  .stage-btn span {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-color, #1e293b);
+  }
+  .stage-btn small {
+    font-size: 0.9rem;
+    color: var(--text-muted, #64748b);
+    font-weight: 500;
+  }
+  .back-stage-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: none;
+    border: none;
+    color: #6366f1;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 1rem;
+    padding: 0.35rem 0;
+    font-family: inherit;
+  }
+  .back-stage-btn:hover {
+    text-decoration: underline;
+  }
+</style>
 </head>
 <body class="theme-light">
 <header class="navbar">
@@ -87,43 +153,69 @@
             <h1><i class="fa-solid fa-calculator"></i> حاسبة المعدل الموزون</h1>
             <h2 class="section-desc">احسب معدلك من 100 حسب أوزان وزارة التعليم</h2>
         </div>
-        <div class="gpa-controls">
-            <div class="option-field">
-                <label>السنة الدراسية</label>
-                <select id="year-select">
-                    <option value="1">أول ثانوي</option>
-                    <option value="2">ثاني ثانوي</option>
-                    <option value="3">ثالث ثانوي</option>
-                </select>
-            </div>
-            <div class="option-field" id="track-field" style="display:none;">
-                <label>المسار</label>
-                <select id="track-select">
-                    <option value="general">المسار العام</option>
-                    <option value="cs">علوم الحاسب والهندسة</option>
-                    <option value="health">الصحة والحياة</option>
-                    <option value="business">إدارة الأعمال</option>
-                    <option value="sharia">المسار الشرعي</option>
-                </select>
-            </div>
-            <div class="option-field">
-                <label>الترم</label>
-                <select id="term-select">
-                    <option value="1">الترم الأول</option>
-                    <option value="2">الترم الثاني</option>
-                </select>
+
+        <!-- شاشة اختيار المرحلة -->
+        <div id="stage-screen">
+            <p style="text-align:center; color: var(--text-muted, #64748b); margin-bottom: 0.5rem;">اختر مرحلتك الدراسية</p>
+            <div class="stage-grid">
+                <button type="button" class="stage-btn" id="btn-middle">
+                    <i class="fa-solid fa-book-open"></i>
+                    <span>المرحلة المتوسطة</span>
+                    <small>أول · ثاني · ثالث متوسط</small>
+                </button>
+                <button type="button" class="stage-btn" id="btn-secondary">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                    <span>المرحلة الثانوية</span>
+                    <small>أول · ثاني · ثالث ثانوي</small>
+                </button>
             </div>
         </div>
-        <div id="subjects-container" class="subjects-list"></div>
-        <div class="gpa-result hidden" id="gpa-result">
-            <div class="gpa-score" id="gpa-score">0.00</div>
-            <div class="gpa-label">المعدل الموزون من 100</div>
-        </div>
-        <div class="controls-row" style="margin-top: 24px;">
-            <button class="btn btn-primary" id="calculate-btn"><i class="fa-solid fa-calculator"></i> احسب المعدل</button>
-            <button class="btn btn-outline" id="reset-gpa-btn"><i class="fa-solid fa-rotate-right"></i> إعادة تعيين</button>
+
+        <!-- شاشة الحاسبة -->
+        <div id="calculator-screen" style="display:none;">
+            <button type="button" class="back-stage-btn" id="back-to-stage">
+                <i class="fa-solid fa-arrow-right"></i> العودة لاختيار المرحلة
+            </button>
+
+            <div class="gpa-controls">
+                <div class="option-field">
+                    <label>السنة الدراسية</label>
+                    <select id="year-select">
+                        <option value="1">أول ثانوي</option>
+                        <option value="2">ثاني ثانوي</option>
+                        <option value="3">ثالث ثانوي</option>
+                    </select>
+                </div>
+                <div class="option-field" id="track-field" style="display:none;">
+                    <label>المسار</label>
+                    <select id="track-select">
+                        <option value="general">المسار العام</option>
+                        <option value="cs">علوم الحاسب والهندسة</option>
+                        <option value="health">الصحة والحياة</option>
+                        <option value="business">إدارة الأعمال</option>
+                        <option value="sharia">المسار الشرعي</option>
+                    </select>
+                </div>
+                <div class="option-field">
+                    <label>الترم</label>
+                    <select id="term-select">
+                        <option value="1">الترم الأول</option>
+                        <option value="2">الترم الثاني</option>
+                    </select>
+                </div>
+            </div>
+            <div id="subjects-container" class="subjects-list"></div>
+            <div class="gpa-result hidden" id="gpa-result">
+                <div class="gpa-score" id="gpa-score">0.00</div>
+                <div class="gpa-label">المعدل الموزون من 100</div>
+            </div>
+            <div class="controls-row" style="margin-top: 24px;">
+                <button class="btn btn-primary" id="calculate-btn"><i class="fa-solid fa-calculator"></i> احسب المعدل</button>
+                <button class="btn btn-outline" id="reset-gpa-btn"><i class="fa-solid fa-rotate-right"></i> إعادة تعيين</button>
+            </div>
         </div>
     </div>
+
     <!-- المحتوى النصي التوضيحي -->
     <section class="card content-section" style="margin-top: 2rem;">
         <div class="section-header">
@@ -131,28 +223,23 @@
         </div>
         <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
             <p>
-                حساب المعدل الدراسي من الأمور المهمة لكل طالب في المرحلة الثانوية. المعدل الموزون يعتمد على درجات المواد مع مراعاة أوزانها حسب نظام وزارة التعليم في المملكة العربية السعودية. كل مادة لها وزن مختلف يؤثر على النتيجة النهائية، ولهذا فإن الحساب اليدوي قد يكون مرهقًا ومعرضًا للأخطاء.
+                حساب المعدل الدراسي من الأمور المهمة لكل طالب في المرحلة المتوسطة والثانوية. المعدل الموزون يعتمد على درجات المواد مع مراعاة أوزانها حسب نظام وزارة التعليم في المملكة العربية السعودية. كل مادة لها وزن مختلف يؤثر على النتيجة النهائية، ولهذا فإن الحساب اليدوي قد يكون مرهقًا ومعرضًا للأخطاء.
             </p>
             <p>
-                حاسبة المعدل في منصة حيز صُممت لتسهيل هذه العملية. تختار السنة الدراسية (أول ثانوي أو ثاني ثانوي أو ثالث ثانوي) والترم، ومع المسارات عند الحاجة، ثم تدخل درجاتك في المواد، وتقوم الأداة بحساب المعدل الموزون من 100 تلقائيًا. هذا يوفر عليك الوقت والجهد، ويعطيك نتيجة دقيقة بناءً على الأوزان الرسمية.
+                حاسبة المعدل في منصة حيز صُممت لتسهيل هذه العملية. تختار أولاً المرحلة (المتوسطة أو الثانوية)، ثم الصف والترم والمسار عند الحاجة، ثم تدخل درجاتك في المواد، وتقوم الأداة بحساب المعدل الموزون من 100 تلقائيًا. هذا يوفر عليك الوقت والجهد، ويعطيك نتيجة دقيقة بناءً على الأوزان الرسمية.
             </p>
             <p>
-                معرفة معدلك بشكل دوري يساعدك على متابعة مستواك الأكاديمي. إذا كان المعدل منخفضًا في مادة معينة، يمكنك التركيز عليها أكثر في الفترة القادمة. وإذا كان مرتفعًا، فهذا يعطيك دافعًا للاستمرار بنفس الوتيرة. كثير من الطلاب يؤجلون حساب المعدل حتى نهاية الترم، لكن المتابعة المستمرة أفضل بكثير.
+                الأداة تدعم الآن المرحلة المتوسطة (أول وثاني وثالث متوسط) بالإضافة إلى الصفوف الأول والثاني والثالث الثانوي مع جميع المسارات. الاستخدام بسيط ولا يحتاج إلى تسجيل حساب أو تحميل أي برنامج، فكل شيء يعمل مباشرة من المتصفح على الجوال أو الكمبيوتر.
             </p>
             <p>
-                الأداة تدعم حاليًا الصفوف الأول والثاني والثالث الثانوي، مع إمكانية اختيار الترم الأول أو الثاني، ودعم المسارات في الثاني والثالث ثانوي. الاستخدام بسيط ولا يحتاج إلى تسجيل حساب أو تحميل أي برنامج، فكل شيء يعمل مباشرة من المتصفح على الجوال أو الكمبيوتر.
-            </p>
-            <p>
-                من فوائد استخدام حاسبة المعدل بشكل منتظم: التخطيط الأفضل للدراسة، معرفة المواد التي تحتاج إلى جهد إضافي، والاستعداد المبكر للاختبارات النهائية. كما تساعد في تقدير المعدل التراكمي المتوقع إذا استمر الأداء بنفس المستوى.
+                من فوائد استخدام حاسبة المعدل بشكل منتظم: التخطيط الأفضل للدراسة، معرفة المواد التي تحتاج إلى جهد إضافي، والاستعداد المبكر للاختبارات النهائية.
             </p>
             <p>
                 يُفضل إدخال الدرجات بدقة بعد كل اختبار أو فترة تقييم. يمكنك إعادة الحساب في أي وقت بعد تعديل الدرجات. الأداة لا تحفظ بياناتك على السيرفر، فكل الحسابات تتم محليًا في متصفحك، مما يحافظ على خصوصيتك.
             </p>
-            <p>
-                منصة حيز توفر هذه الحاسبة ضمن مجموعة أدوات مخصصة للطلاب، تشمل مؤقت بومودورو وقوائم المهام وتتبع العادات والملاحظات. الهدف هو مساعدة الطالب على تنظيم دراسته ومتابعة أدائه بطريقة عملية وواضحة دون تعقيد.
-            </p>
         </div>
     </section>
+
     <!-- قسم الأسئلة الشائعة -->
     <section class="card content-section" style="margin-top: 2rem;">
         <div class="section-header">
@@ -167,6 +254,12 @@
                 </p>
             </div>
             <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل الحاسبة تدعم المرحلة المتوسطة؟</h3>
+                <p>
+                    نعم، الحاسبة تدعم الآن أول وثاني وثالث متوسط مع أوزان المواد الرسمية بما فيها السلوك والمواظبة والنشاط.
+                </p>
+            </div>
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
                 <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل الحاسبة تدعم ثالث ثانوي؟</h3>
                 <p>
                     نعم، الحاسبة تدعم ثالث ثانوي مع جميع المسارات: العام، علوم الحاسب والهندسة، الصحة والحياة، إدارة الأعمال، والمسار الشرعي.
@@ -175,7 +268,7 @@
             <div class="faq-item" style="margin-bottom: 1.8rem;">
                 <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل النتائج دقيقة حسب نظام وزارة التعليم؟</h3>
                 <p>
-                    نعم، الحاسبة تعتمد على الأوزان الرسمية المستخدمة في حساب المعدل الموزون للصفوف الأول والثاني والثالث الثانوي.
+                    نعم، الحاسبة تعتمد على الأوزان الرسمية المستخدمة في حساب المعدل الموزون للمرحلة المتوسطة والثانوية.
                 </p>
             </div>
             <div class="faq-item" style="margin-bottom: 1.8rem;">
