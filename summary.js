@@ -1,6 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
     function getToday() {
-        return new Date().toISOString().slice(0, 10);
+        if (typeof getTodayLocal === 'function') return getTodayLocal();
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
 
     function ensureTodayStats() {
@@ -77,8 +82,8 @@ document.addEventListener('DOMContentLoaded', () => {
             text: task.text,
             index: index,
             totalMinutes: totalMinutes && totalMinutes > 0 ? totalMinutes : null,
-            focusDone: 0,
-            sessionsDone: 0,
+            focusDone: task.focusDone ? parseInt(task.focusDone, 10) || 0 : 0,
+            sessionsDone: task.sessionsDone ? parseInt(task.sessionsDone, 10) || 0 : 0,
             sessionsNeeded:
                 totalMinutes && totalMinutes > 0
                     ? Math.ceil(totalMinutes / workMin)
@@ -211,7 +216,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const priMap = { high: 'عالية', medium: 'متوسطة', low: 'منخفضة' };
             let metaText = priMap[task.priority] || '';
             if (task.minutes) {
-                metaText += (metaText ? ' · ' : '') + task.minutes + ' د';
+                const done = task.focusDone ? parseInt(task.focusDone, 10) || 0 : 0;
+                const total = parseInt(task.minutes, 10) || 0;
+                if (done > 0 && total > 0) {
+                    metaText += (metaText ? ' · ' : '') + done + '/' + total + ' د';
+                } else {
+                    metaText += (metaText ? ' · ' : '') + task.minutes + ' د';
+                }
             }
             if (task.date) {
                 if (task.date < today) metaText += (metaText ? ' · ' : '') + 'متأخرة';
@@ -280,9 +291,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (check.checked) {
                     const last = all[target].lastCompleted;
-                    const yesterday = new Date();
-                    yesterday.setDate(yesterday.getDate() - 1);
-                    const yStr = yesterday.toISOString().slice(0, 10);
+                    const yStr = typeof getYesterdayLocal === 'function'
+                        ? getYesterdayLocal()
+                        : (() => {
+                            const y = new Date();
+                            y.setDate(y.getDate() - 1);
+                            return `${y.getFullYear()}-${String(y.getMonth()+1).padStart(2,'0')}-${String(y.getDate()).padStart(2,'0')}`;
+                        })();
                     if (last === yStr) {
                         all[target].streak = (all[target].streak || 0) + 1;
                     } else if (last !== today) {
@@ -316,6 +331,60 @@ document.addEventListener('DOMContentLoaded', () => {
         habitsSection.appendChild(habitsList);
         content.appendChild(habitsSection);
     }
+
+    // --- إحصاءات الأسبوع (آخر 7 أيام) ---
+    try {
+        const hist = JSON.parse(localStorage.getItem('hayyiz-focus-history') || '{}');
+        // تأكد أن اليوم الحالي موجود
+        if (focusMinutes > 0) {
+            hist[today] = Math.max(parseInt(hist[today], 10) || 0, focusMinutes);
+        }
+        const dayNames = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+        const weekSection = document.createElement('div');
+        weekSection.className = 'dash-section';
+        const weekHead = document.createElement('div');
+        weekHead.className = 'dash-section-head';
+        const weekTitle = document.createElement('h4');
+        weekTitle.textContent = 'تركيز الأسبوع';
+        weekHead.appendChild(weekTitle);
+        weekSection.appendChild(weekHead);
+
+        const bars = document.createElement('div');
+        bars.className = 'dash-week-bars';
+        let maxVal = 1;
+        const days = [];
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            const key = `${y}-${m}-${dd}`;
+            const val = parseInt(hist[key], 10) || 0;
+            if (val > maxVal) maxVal = val;
+            days.push({ key, val, name: dayNames[d.getDay()], isToday: key === today });
+        }
+        days.forEach((day) => {
+            const col = document.createElement('div');
+            col.className = 'dash-week-col' + (day.isToday ? ' today' : '');
+            const bar = document.createElement('div');
+            bar.className = 'dash-week-bar';
+            const pct = Math.round((day.val / maxVal) * 100);
+            bar.style.height = Math.max(4, pct) + '%';
+            bar.title = day.val + ' دقيقة';
+            const label = document.createElement('span');
+            label.textContent = day.name.slice(0, 3);
+            const valEl = document.createElement('span');
+            valEl.className = 'dash-week-val';
+            valEl.textContent = day.val > 0 ? day.val + 'د' : '';
+            col.appendChild(valEl);
+            col.appendChild(bar);
+            col.appendChild(label);
+            bars.appendChild(col);
+        });
+        weekSection.appendChild(bars);
+        content.appendChild(weekSection);
+    } catch (e) { /* تجاهل */ }
 
     // --- اختصارات سريعة ---
     const quick = document.createElement('div');

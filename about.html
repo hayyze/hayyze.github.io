@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -199,6 +200,20 @@
 
 </div>
 
+<div class="about-section card backup-section" style="margin-top: 2rem; padding: 1.5rem;">
+    <h2>نسخ احتياطي واستعادة</h2>
+    <p>يمكنك تصدير جميع بيانات حيز المحفوظة محليًا (المهام، الملاحظات، العادات، جلسات التركيز، التفضيلات) إلى ملف JSON، أو استيرادها لاحقًا. العملية تتم بالكامل على جهازك دون إرسال أي بيانات إلى خادم.</p>
+    <div class="backup-actions">
+        <button type="button" id="hayyiz-export-btn" class="btn btn-primary">
+            <i class="fa-solid fa-download" aria-hidden="true"></i> تصدير بيانات حيز
+        </button>
+        <button type="button" id="hayyiz-import-btn" class="btn btn-outline">
+            <i class="fa-solid fa-upload" aria-hidden="true"></i> استيراد بيانات حيز
+        </button>
+        <input type="file" id="hayyiz-import-file" accept="application/json,.json" hidden>
+    </div>
+    <p class="backup-hint">عند الاستيراد سيتم استبدال البيانات الحالية بعد تأكيدك. احتفظ بنسخة قبل الاستيراد.</p>
+</div>
 
 <footer class="footer">
     <div class="container footer-container">

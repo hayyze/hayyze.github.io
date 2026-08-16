@@ -69,12 +69,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const workMin = parseInt(workInput?.value, 10) || 25;
             const totalMinutes = task && task.minutes ? parseInt(task.minutes, 10) : null;
+            const prevFocus = task && task.focusDone ? parseInt(task.focusDone, 10) : 0;
+            const prevSessions = task && task.sessionsDone ? parseInt(task.sessionsDone, 10) : 0;
             taskSession = {
                 text: currentTask,
                 index: task ? todos.indexOf(task) : (Number.isInteger(idx) ? idx : -1),
                 totalMinutes: totalMinutes && totalMinutes > 0 ? totalMinutes : null,
-                focusDone: 0,
-                sessionsDone: 0,
+                focusDone: prevFocus || 0,
+                sessionsDone: prevSessions || 0,
                 sessionsNeeded:
                     totalMinutes && totalMinutes > 0
                         ? Math.ceil(totalMinutes / workMin)
@@ -130,7 +132,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sessionsCount) sessionsCount.textContent = completedSessions;
 
     function getToday() {
-        return new Date().toISOString().slice(0, 10);
+        if (typeof getTodayLocal === 'function') return getTodayLocal();
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
 
     function ensureTodayStats() {
@@ -167,18 +174,38 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {}
     }
 
-    // ========== إشعار ==========
+    // ========== إشعار (يفضّل Service Worker) ==========
     function showNotification(title, body) {
         if (!('Notification' in window)) return;
+        if (Notification.permission !== 'granted') return;
 
-        if (Notification.permission === 'granted') {
-            try {
-                new Notification(title, {
-                    body: body,
-                    icon: 'favicon-32x32.png',
-                    silent: false
+        const options = {
+            body: body,
+            icon: './android-chrome-192x192.png',
+            badge: './favicon-32x32.png',
+            tag: 'hayyiz-pomodoro',
+            renotify: true,
+            silent: false
+        };
+
+        // استخدام registration.showNotification عبر Service Worker إن أمكن
+        if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+            navigator.serviceWorker.ready
+                .then((reg) => {
+                    if (reg && typeof reg.showNotification === 'function') {
+                        return reg.showNotification(title, options);
+                    }
+                    throw new Error('no-sw-notification');
+                })
+                .catch(() => {
+                    try {
+                        new Notification(title, options);
+                    } catch (e) { /* تجاهل */ }
                 });
-            } catch (e) {}
+        } else {
+            try {
+                new Notification(title, options);
+            } catch (e) { /* تجاهل */ }
         }
     }
 
@@ -312,11 +339,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const focusMin = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10) + workMin;
             localStorage.setItem('hayyiz-focus-minutes-today', String(focusMin));
 
+            // سجل أسبوعي بسيط (لا يمسح البيانات القديمة)
+            try {
+                const hist = JSON.parse(localStorage.getItem('hayyiz-focus-history') || '{}');
+                const dayKey = getToday();
+                hist[dayKey] = (parseInt(hist[dayKey], 10) || 0) + workMin;
+                const keys = Object.keys(hist).sort();
+                while (keys.length > 30) {
+                    delete hist[keys.shift()];
+                }
+                localStorage.setItem('hayyiz-focus-history', JSON.stringify(hist));
+            } catch (e) { /* تجاهل */ }
+
             if (sessionsCount) {
                 sessionsCount.textContent = completedSessions;
             }
 
-            // تحديث خطة المهمة
+            // تحديث خطة المهمة + تقدم المهمة في التخزين الدائم
             if (taskSession && taskSession.text === currentTask) {
                 taskSession.sessionsDone = (taskSession.sessionsDone || 0) + 1;
                 taskSession.focusDone = (taskSession.focusDone || 0) + workMin;
@@ -327,6 +366,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     );
                 }
                 saveTaskSession(taskSession);
+
+                // حفظ التقدم داخل كائن المهمة نفسه حتى يبقى بعد إغلاق الجلسة
+                try {
+                    const todos = JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
+                    let idx = typeof taskSession.index === 'number' ? taskSession.index : -1;
+                    if (idx < 0 || !todos[idx] || todos[idx].text !== currentTask) {
+                        idx = todos.findIndex((t) => t.text === currentTask && !t.completed);
+                    }
+                    if (idx >= 0 && todos[idx]) {
+                        todos[idx].focusDone = taskSession.focusDone;
+                        todos[idx].sessionsDone = taskSession.sessionsDone;
+                        localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
+                    }
+                } catch (e) { /* تجاهل */ }
             }
             updateTaskMeta();
 
@@ -473,7 +526,10 @@ document.addEventListener('DOMContentLoaded', () => {
         noteBtn.innerHTML = '<i class="fa-solid fa-note-sticky"></i> اكتب ملاحظة سريعة';
         noteBtn.addEventListener('click', () => {
             const title = taskName ? encodeURIComponent(taskName) : '';
-            window.location.href = 'notes.html' + (title ? '?title=' + title : '');
+            const q = title
+                ? '?title=' + title + '&task=' + title
+                : '';
+            window.location.href = 'notes.html' + q;
         });
         actions.appendChild(noteBtn);
 

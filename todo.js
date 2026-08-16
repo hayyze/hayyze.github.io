@@ -96,8 +96,8 @@ document.addEventListener('DOMContentLoaded', () => {
             text: task.text,
             index: index,
             totalMinutes: totalMinutes && totalMinutes > 0 ? totalMinutes : null,
-            focusDone: 0,
-            sessionsDone: 0,
+            focusDone: task.focusDone ? parseInt(task.focusDone, 10) || 0 : 0,
+            sessionsDone: task.sessionsDone ? parseInt(task.sessionsDone, 10) || 0 : 0,
             sessionsNeeded: sessionsNeeded
         };
 
@@ -285,7 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 meta.appendChild(dateSpan);
             }
 
-            // مدة المهمة
+            // مدة المهمة + التقدم إن وُجد
             if (todo.minutes) {
                 const minutesSpan = document.createElement('span');
 
@@ -295,11 +295,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 minutesIcon.setAttribute('aria-hidden', 'true');
 
                 minutesSpan.appendChild(minutesIcon);
-                minutesSpan.appendChild(
-                    document.createTextNode(
-                        ` ${todo.minutes} د`
-                    )
-                );
+                const doneMin = todo.focusDone ? parseInt(todo.focusDone, 10) || 0 : 0;
+                const totalMin = parseInt(todo.minutes, 10) || 0;
+                if (doneMin > 0 && totalMin > 0) {
+                    minutesSpan.appendChild(
+                        document.createTextNode(
+                            ` ${doneMin}/${totalMin} د`
+                        )
+                    );
+                } else {
+                    minutesSpan.appendChild(
+                        document.createTextNode(
+                            ` ${todo.minutes} د`
+                        )
+                    );
+                }
 
                 meta.appendChild(minutesSpan);
             }

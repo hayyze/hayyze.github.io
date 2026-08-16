@@ -11,9 +11,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const clearNoteBtn = document.getElementById('clear-note-btn');
     const submitBtn = notesForm ? notesForm.querySelector('button[type="submit"]') : null;
 
-    // دعم القدوم من بومودورو بعنوان جاهز
+    // دعم القدوم من بومودورو بعنوان جاهز + ربط بالمهمة
     const urlParams = new URLSearchParams(window.location.search);
     const prefillTitle = urlParams.get('title');
+    let relatedTask = urlParams.get('task') || prefillTitle || null;
+    if (relatedTask) {
+        try { relatedTask = decodeURIComponent(relatedTask); } catch (e) { /* keep */ }
+    }
     if (prefillTitle && noteTitle) {
         noteTitle.value = decodeURIComponent(prefillTitle);
         if (noteContent) noteContent.focus();
@@ -106,12 +110,18 @@ document.addEventListener('DOMContentLoaded', () => {
             notes[editingIndex].title = title;
             notes[editingIndex].content = content;
             notes[editingIndex].updated = Date.now();
+            if (relatedTask && !notes[editingIndex].relatedTask) {
+                notes[editingIndex].relatedTask = relatedTask;
+            }
         } else {
-            notes.unshift({
+            const note = {
                 title,
                 content,
                 created: Date.now()
-            });
+            };
+            if (relatedTask) note.relatedTask = relatedTask;
+            notes.unshift(note);
+            relatedTask = null; // مرة واحدة فقط
         }
 
         saveNotes();

@@ -12,7 +12,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const todayCompletedEl = document.getElementById('today-completed');
 
     function getToday() {
-        return new Date().toISOString().slice(0, 10);
+        // استخدام التاريخ المحلي لتجنب خطأ UTC عند منتصف الليل
+        if (typeof getTodayLocal === 'function') return getTodayLocal();
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
 
     function saveHabits() {
@@ -177,14 +183,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.checked) {
 
                 if (habit.lastCompleted !== today) {
-                    const yesterday = new Date();
-
-                    yesterday.setDate(
-                        yesterday.getDate() - 1
-                    );
-
-                    const yStr =
-                        yesterday.toISOString().slice(0, 10);
+                    const yStr = typeof getYesterdayLocal === 'function'
+                        ? getYesterdayLocal()
+                        : (() => {
+                            const y = new Date();
+                            y.setDate(y.getDate() - 1);
+                            const yy = y.getFullYear();
+                            const mm = String(y.getMonth() + 1).padStart(2, '0');
+                            const dd = String(y.getDate()).padStart(2, '0');
+                            return `${yy}-${mm}-${dd}`;
+                        })();
 
                     habit.streak =
                         habit.lastCompleted === yStr
