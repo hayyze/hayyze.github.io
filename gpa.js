@@ -683,12 +683,14 @@
 
     weightedScore.textContent = sum.toFixed(2);
     weightedResult.classList.remove("hidden");
+    ensureShareButtons(weightedResult, sum.toFixed(2), "النسبة الموزونة");
   }
 
   function resetWeightedScores() {
     weightedItems.forEach((item) => { item.score = ""; });
     weightedResult.classList.add("hidden");
     weightedScore.textContent = "0.00";
+    removeShareButtons(weightedResult);
     renderWeightedRows();
   }
 
@@ -737,6 +739,7 @@
     const cumulative = y1 * 0.20 + y2 * 0.40 + y3 * 0.40;
     cumScore.textContent = cumulative.toFixed(2);
     cumResult.classList.remove("hidden");
+    ensureShareButtons(cumResult, cumulative.toFixed(2), "المعدل التراكمي");
   }
 
   function resetCumulative() {
@@ -745,6 +748,7 @@
     cumY3.value = "";
     cumResult.classList.add("hidden");
     cumScore.textContent = "0.00";
+    removeShareButtons(cumResult);
     updateCumProgress();
   }
 
@@ -823,12 +827,83 @@
     const gpa = totalWeight ? totalWeighted / totalWeight : 0;
     scoreEl.textContent = gpa.toFixed(2);
     resultBox.classList.remove("hidden");
+    ensureShareButtons(resultBox, gpa.toFixed(2), "المعدل الموزون");
   }
 
   function resetAll() {
     subjectsContainer.querySelectorAll(".grade-input").forEach((i) => (i.value = ""));
     resultBox.classList.add("hidden");
     scoreEl.textContent = "0.00";
+    removeShareButtons(resultBox);
+  }
+
+  // ===== مشاركة النتائج =====
+  function removeShareButtons(container) {
+    const old = container.querySelector(".share-result-wrap");
+    if (old) old.remove();
+  }
+
+  function ensureShareButtons(container, scoreValue, label) {
+    removeShareButtons(container);
+
+    const wrap = document.createElement("div");
+    wrap.className = "share-result-wrap";
+    wrap.style.cssText = "margin-top:1.25rem; display:flex; justify-content:center; gap:0.75rem; flex-wrap:wrap;";
+
+    const text = `حسبت ${label} في حيز وطلع ${scoreValue} 🎯\n\nجرب حاسبة المعدل مجانًا: https://just-c.github.io/adawati/gpa.html`;
+
+    const shareBtn = document.createElement("button");
+    shareBtn.type = "button";
+    shareBtn.className = "btn btn-primary";
+    shareBtn.innerHTML = '<i class="fa-solid fa-share-nodes" aria-hidden="true"></i> شارك نتيجتك';
+    shareBtn.addEventListener("click", () => {
+      if (navigator.share) {
+        navigator.share({
+          title: label + " — حيز",
+          text: text,
+          url: "https://just-c.github.io/adawati/gpa.html"
+        }).catch(() => copyShareText(text));
+      } else {
+        copyShareText(text);
+      }
+    });
+
+    const twitterBtn = document.createElement("a");
+    twitterBtn.className = "btn btn-outline";
+    twitterBtn.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(`حسبت ${label} في حيز وطلع ${scoreValue} 🎯\n\nجرب حاسبة المعدل مجانًا:`)}&url=${encodeURIComponent("https://just-c.github.io/adawati/gpa.html")}`;
+    twitterBtn.target = "_blank";
+    twitterBtn.rel = "noopener noreferrer";
+    twitterBtn.innerHTML = '<i class="fa-brands fa-x-twitter" aria-hidden="true"></i> تويتر / إكس';
+
+    wrap.appendChild(shareBtn);
+    wrap.appendChild(twitterBtn);
+    container.appendChild(wrap);
+  }
+
+  function copyShareText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        alert("تم نسخ النص! الصقه في تويتر أو واتساب أو أي مكان");
+      }).catch(() => fallbackCopy(text));
+    } else {
+      fallbackCopy(text);
+    }
+  }
+
+  function fallbackCopy(text) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+      alert("تم نسخ النص! الصقه في تويتر أو واتساب أو أي مكان");
+    } catch (e) {
+      prompt("انسخ النص التالي:", text);
+    }
+    document.body.removeChild(ta);
   }
 
   // ===== أحداث =====

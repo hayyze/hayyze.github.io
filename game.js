@@ -420,6 +420,37 @@ document.addEventListener('DOMContentLoaded', async () => {
             letterInfo
         );
 
+        // زر مشاركة النتيجة
+        const shareWrap = document.createElement('div');
+        shareWrap.style.cssText = 'margin-top:1.5rem; display:flex; justify-content:center; gap:0.75rem; flex-wrap:wrap;';
+
+        const shareBtn = document.createElement('button');
+        shareBtn.type = 'button';
+        shareBtn.className = 'btn btn-primary';
+        shareBtn.innerHTML = '<i class="fa-solid fa-share-nodes" aria-hidden="true"></i> شارك نتيجتك';
+        shareBtn.addEventListener('click', () => {
+            const text = `لعبت جماد حيوان نبات في حيز وسجلت ${score}/100 🔥\nالحرف كان: ${currentLetter}\n\nجربها أنت كمان: https://just-c.github.io/adawati/game.html`;
+            if (navigator.share) {
+                navigator.share({
+                    title: 'نتيجتي في لعبة الحروف — حيز',
+                    text: text,
+                    url: 'https://just-c.github.io/adawati/game.html'
+                }).catch(() => copyShareText(text));
+            } else {
+                copyShareText(text);
+            }
+        });
+
+        const twitterBtn = document.createElement('a');
+        twitterBtn.className = 'btn btn-outline';
+        twitterBtn.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(`لعبت جماد حيوان نبات في حيز وسجلت ${score}/100 🔥\nالحرف كان: ${currentLetter}\n\nجربها أنت كمان:`)}&url=${encodeURIComponent('https://just-c.github.io/adawati/game.html')}`;
+        twitterBtn.target = '_blank';
+        twitterBtn.rel = 'noopener noreferrer';
+        twitterBtn.innerHTML = '<i class="fa-brands fa-x-twitter" aria-hidden="true"></i> تويتر / إكس';
+
+        shareWrap.appendChild(shareBtn);
+        shareWrap.appendChild(twitterBtn);
+        gameResultBox.appendChild(shareWrap);
 
         gameResultBox.classList.remove(
             'hidden'
@@ -456,5 +487,33 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ' جولة جديدة'
             )
         );
+    }
+
+    function copyShareText(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('تم نسخ النص! الصقه في تويتر أو واتساب أو أي مكان');
+            }).catch(() => {
+                fallbackCopy(text);
+            });
+        } else {
+            fallbackCopy(text);
+        }
+    }
+
+    function fallbackCopy(text) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+            document.execCommand('copy');
+            alert('تم نسخ النص! الصقه في تويتر أو واتساب أو أي مكان');
+        } catch (e) {
+            prompt('انسخ النص التالي:', text);
+        }
+        document.body.removeChild(ta);
     }
 });
