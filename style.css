@@ -1304,17 +1304,252 @@ button, input, select, textarea {
 }
 
 
-/* ===================== ملخص اليوم ===================== */
+/* ===================== لوحة اليوم ===================== */
 .daily-summary {
     padding: 1.5rem;
 }
 
+.dash-greeting {
+    margin-bottom: 1.1rem;
+}
+.dash-greeting h3 {
+    font-size: 1.35rem;
+    margin: 0 0 0.25rem;
+    color: var(--text);
+}
+.dash-greeting p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.dash-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+@media (max-width: 700px) {
+    .dash-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.dash-stat {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.85rem 0.7rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+}
+.dash-stat-link {
+    text-decoration: none;
+    color: inherit;
+    transition: var(--transition);
+}
+.dash-stat-link:hover {
+    border-color: var(--primary);
+    transform: translateY(-1px);
+}
+.dash-stat i {
+    color: var(--primary);
+    font-size: 1.1rem;
+}
+.dash-stat strong {
+    font-size: 1.15rem;
+    color: var(--text);
+}
+.dash-stat span {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.dash-alert {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    padding: 0.7rem 1rem;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--primary) 10%, var(--bg));
+    border: 1px solid var(--border);
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    color: var(--text);
+}
+.dash-alert.warn {
+    background: color-mix(in srgb, var(--danger) 12%, var(--bg));
+}
+.dash-alert a {
+    margin-right: auto;
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: none;
+}
+.dash-alert a:hover {
+    text-decoration: underline;
+}
+
+.dash-section {
+    margin-bottom: 1.1rem;
+}
+.dash-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.55rem;
+}
+.dash-section-head h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--text);
+}
+.dash-section-head a {
+    font-size: 0.85rem;
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+}
+.dash-section-head a:hover {
+    text-decoration: underline;
+}
+.dash-empty {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+.dash-empty a {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.dash-task-list,
+.dash-habit-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+.dash-task-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.65rem 0.75rem;
+}
+.dash-task-info {
+    flex: 1;
+    min-width: 0;
+}
+.dash-task-name {
+    display: block;
+    font-weight: 600;
+    font-size: 0.92rem;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.dash-task-meta {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+.dash-pomo-btn {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: none;
+    background: var(--primary);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+}
+.dash-pomo-btn:hover {
+    filter: brightness(1.08);
+    transform: scale(1.05);
+}
+
+.dash-habit-item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.92rem;
+    color: var(--text);
+}
+.dash-habit-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+.dash-quick {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+@media (max-width: 600px) {
+    .dash-quick {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+.dash-quick-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.7rem 0.4rem;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    text-decoration: none;
+    color: var(--text);
+    font-size: 0.78rem;
+    font-weight: 600;
+    transition: var(--transition);
+}
+.dash-quick-item i {
+    font-size: 1.15rem;
+    color: var(--primary);
+}
+.dash-quick-item:hover {
+    border-color: var(--primary);
+    transform: translateY(-1px);
+}
+
+.dash-focus-wrap {
+    margin-top: 1.25rem;
+    text-align: center;
+}
+.dash-focus-btn {
+    min-width: 200px;
+}
+
+/* توافق قديم */
 .summary-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 1rem;
 }
-
 .summary-item {
     display: flex;
     gap: 0.85rem;
@@ -1323,26 +1558,6 @@ button, input, select, textarea {
     border-radius: 12px;
     padding: 0.9rem 1rem;
     border: 1px solid var(--border);
-}
-
-.summary-item i {
-    font-size: 1.25rem;
-    color: var(--primary);
-    margin-top: 2px;
-    flex-shrink: 0;
-}
-
-.summary-item strong {
-    display: block;
-    font-size: 0.95rem;
-    margin-bottom: 2px;
-}
-
-.summary-item span {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    display: block;
-    line-height: 1.4;
 }
 
 /* Modal / Toast للمهام */

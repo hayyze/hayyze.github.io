@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ensureTodayStats();
 
+    const today = getToday();
     const todos = JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
     const habits = JSON.parse(localStorage.getItem('hayyiz-habits') || '[]');
     const notes = JSON.parse(localStorage.getItem('hayyiz-notes') || '[]');
@@ -22,151 +23,315 @@ document.addEventListener('DOMContentLoaded', () => {
     const focusMinutes = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
     const highScore = parseInt(localStorage.getItem('hayyiz-highscore') || '0', 10);
 
+    const activeTodos = todos.filter((t) => !t.completed);
+    const completedTodayish = todos.filter((t) => t.completed).length;
+    const overdue = activeTodos.filter((t) => t.date && t.date < today);
+    const dueToday = activeTodos.filter((t) => t.date === today);
+    const habitsDoneToday = habits.filter((h) => h.lastCompleted === today).length;
+
     const hours = Math.floor(focusMinutes / 60);
     const mins = focusMinutes % 60;
-    let timeText = '0 دقيقة';
+    let timeText = '0 د';
     if (focusMinutes > 0) {
-        timeText = hours > 0
-            ? `${hours} ساعة و${mins} دقيقة`
-            : `${mins} دقيقة`;
+        timeText = hours > 0 ? `${hours}س ${mins}د` : `${mins} د`;
     }
 
-    let bestHabit = null;
-    habits.forEach(h => {
-        if (!bestHabit || (h.streak || 0) > (bestHabit.streak || 0)) {
-            bestHabit = h;
-        }
+    // ترحيب حسب الوقت
+    const hour = new Date().getHours();
+    let greeting = 'مرحباً';
+    if (hour < 12) greeting = 'صباح الخير';
+    else if (hour < 17) greeting = 'مساء الخير';
+    else greeting = 'مساء الخير';
+
+    const dateLabel = new Date().toLocaleDateString('ar-SA', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long'
     });
 
-    const lastNote = notes.length > 0 ? notes[0] : null;
-
-    function getNextTask(list) {
-        const incomplete = list.filter(t => !t.completed);
-        if (incomplete.length === 0) return null;
-
+    function getNextTasks(list, limit) {
         const order = { high: 3, medium: 2, low: 1 };
-
-        return incomplete.slice().sort((a, b) => {
-            const pDiff = (order[b.priority] || 0) - (order[a.priority] || 0);
-            if (pDiff !== 0) return pDiff;
-
-            const dateA = a.date ? new Date(a.date).getTime() : Infinity;
-            const dateB = b.date ? new Date(b.date).getTime() : Infinity;
-            if (dateA !== dateB) return dateA - dateB;
-
-            return (b.created || 0) - (a.created || 0);
-        })[0];
+        return list
+            .filter((t) => !t.completed)
+            .slice()
+            .sort((a, b) => {
+                const pDiff = (order[b.priority] || 0) - (order[a.priority] || 0);
+                if (pDiff !== 0) return pDiff;
+                const dateA = a.date ? new Date(a.date).getTime() : Infinity;
+                const dateB = b.date ? new Date(b.date).getTime() : Infinity;
+                if (dateA !== dateB) return dateA - dateB;
+                return (b.created || 0) - (a.created || 0);
+            })
+            .slice(0, limit);
     }
 
-    const nextTask = getNextTask(todos);
+    const nextTasks = getNextTasks(todos, 3);
+    const nextTask = nextTasks[0] || null;
     const content = document.getElementById('summary-content');
     if (!content) return;
 
-    // بناء الملخص بأمان بدون innerHTML من بيانات المستخدم
     content.replaceChildren();
 
-    const grid = document.createElement('div');
-    grid.className = 'summary-grid';
+    // --- ترحيب ---
+    const greet = document.createElement('div');
+    greet.className = 'dash-greeting';
+    const greetTitle = document.createElement('h3');
+    greetTitle.textContent = greeting + ' 👋';
+    const greetDate = document.createElement('p');
+    greetDate.textContent = dateLabel;
+    greet.appendChild(greetTitle);
+    greet.appendChild(greetDate);
+    content.appendChild(greet);
 
-    function makeItem(iconClass, title, subtitle, extraNode) {
-        const item = document.createElement('div');
-        item.className = 'summary-item';
+    // --- بطاقات الإحصائيات ---
+    const stats = document.createElement('div');
+    stats.className = 'dash-stats';
 
-        const icon = document.createElement('i');
-        icon.className = iconClass;
-        icon.setAttribute('aria-hidden', 'true');
-        item.appendChild(icon);
-
-        const div = document.createElement('div');
-        const strong = document.createElement('strong');
-        strong.textContent = title;
-        div.appendChild(strong);
-
-        if (subtitle) {
-            const span = document.createElement('span');
-            span.textContent = subtitle;
-            div.appendChild(span);
+    function makeStat(icon, value, label, link) {
+        const el = link ? document.createElement('a') : document.createElement('div');
+        if (link) {
+            el.href = link;
+            el.className = 'dash-stat dash-stat-link';
+        } else {
+            el.className = 'dash-stat';
         }
-
-        if (extraNode) {
-            div.appendChild(extraNode);
-        }
-
-        item.appendChild(div);
-        return item;
+        const ic = document.createElement('i');
+        ic.className = icon;
+        ic.setAttribute('aria-hidden', 'true');
+        const val = document.createElement('strong');
+        val.textContent = String(value);
+        const lab = document.createElement('span');
+        lab.textContent = label;
+        el.appendChild(ic);
+        el.appendChild(val);
+        el.appendChild(lab);
+        return el;
     }
 
-    // جلسات التركيز
-    grid.appendChild(makeItem(
-        'fa-solid fa-clock',
-        `${sessionsToday} جلسات تركيز`,
-        timeText
-    ));
-
-    // المهمة التالية أو فارغ
-    if (nextTask) {
-        grid.appendChild(makeItem(
-            'fa-solid fa-list-check',
-            'المهمة التالية',
-            nextTask.text
-        ));
-    } else {
-        const link = document.createElement('a');
-        link.href = 'todo.html';
-        link.className = 'btn btn-outline btn-sm';
-        link.style.marginTop = '6px';
-        link.style.display = 'inline-block';
-        link.textContent = 'إضافة مهمة';
-
-        const emptyItem = makeItem(
-            'fa-solid fa-list-check',
-            'لا توجد مهام حاليًا',
-            null,
-            link
-        );
-        emptyItem.classList.add('empty-tasks');
-        grid.appendChild(emptyItem);
-    }
-
-    // أفضل عادة
-    if (bestHabit) {
-        grid.appendChild(makeItem(
+    stats.appendChild(makeStat('fa-solid fa-clock', sessionsToday, 'جلسات اليوم', 'pomodoro.html'));
+    stats.appendChild(makeStat('fa-solid fa-hourglass-half', timeText, 'وقت التركيز', 'pomodoro.html'));
+    stats.appendChild(makeStat('fa-solid fa-list-check', activeTodos.length, 'مهام نشطة', 'todo.html'));
+    stats.appendChild(
+        makeStat(
             'fa-solid fa-fire',
-            'أفضل عادة',
-            `${bestHabit.name} — مستمرة ${bestHabit.streak || 0} يومًا`
-        ));
+            habitsDoneToday + '/' + (habits.length || 0),
+            'عادات اليوم',
+            'habits.html'
+        )
+    );
+    content.appendChild(stats);
+
+    // تنبيه متأخرة
+    if (overdue.length > 0 || dueToday.length > 0) {
+        const alert = document.createElement('div');
+        alert.className = 'dash-alert';
+        if (overdue.length > 0) {
+            alert.classList.add('warn');
+            alert.innerHTML =
+                '<i class="fa-solid fa-triangle-exclamation"></i> ' +
+                '<span>لديك <strong>' +
+                overdue.length +
+                '</strong> مهمة متأخرة</span>';
+        } else {
+            alert.innerHTML =
+                '<i class="fa-solid fa-calendar-day"></i> ' +
+                '<span><strong>' +
+                dueToday.length +
+                '</strong> مهمة مستحقة اليوم</span>';
+        }
+        const alertLink = document.createElement('a');
+        alertLink.href = 'todo.html';
+        alertLink.textContent = 'عرض';
+        alert.appendChild(alertLink);
+        content.appendChild(alert);
     }
 
-    // آخر ملاحظة
-    if (lastNote) {
-        const notePreview = lastNote.title
-            ? lastNote.title
-            : (lastNote.content || '').slice(0, 50);
-        grid.appendChild(makeItem(
-            'fa-solid fa-note-sticky',
-            'آخر ملاحظة',
-            notePreview
-        ));
+    // --- المهام القادمة ---
+    const tasksSection = document.createElement('div');
+    tasksSection.className = 'dash-section';
+
+    const tasksHead = document.createElement('div');
+    tasksHead.className = 'dash-section-head';
+    const tasksTitle = document.createElement('h4');
+    tasksTitle.textContent = 'المهام القادمة';
+    const tasksAll = document.createElement('a');
+    tasksAll.href = 'todo.html';
+    tasksAll.textContent = 'الكل';
+    tasksHead.appendChild(tasksTitle);
+    tasksHead.appendChild(tasksAll);
+    tasksSection.appendChild(tasksHead);
+
+    if (nextTasks.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'dash-empty';
+        empty.textContent = 'لا توجد مهام نشطة — ';
+        const addLink = document.createElement('a');
+        addLink.href = 'todo.html';
+        addLink.textContent = 'أضف مهمة';
+        empty.appendChild(addLink);
+        tasksSection.appendChild(empty);
+    } else {
+        const list = document.createElement('ul');
+        list.className = 'dash-task-list';
+
+        nextTasks.forEach((task) => {
+            const realIndex = todos.indexOf(task);
+            const li = document.createElement('li');
+            li.className = 'dash-task-item';
+
+            const info = document.createElement('div');
+            info.className = 'dash-task-info';
+
+            const name = document.createElement('span');
+            name.className = 'dash-task-name';
+            name.textContent = task.text;
+
+            const meta = document.createElement('span');
+            meta.className = 'dash-task-meta';
+            const priMap = { high: 'عالية', medium: 'متوسطة', low: 'منخفضة' };
+            let metaText = priMap[task.priority] || '';
+            if (task.date) {
+                if (task.date < today) metaText += (metaText ? ' · ' : '') + 'متأخرة';
+                else if (task.date === today) metaText += (metaText ? ' · ' : '') + 'اليوم';
+                else metaText += (metaText ? ' · ' : '') + task.date;
+            }
+            meta.textContent = metaText;
+
+            info.appendChild(name);
+            info.appendChild(meta);
+
+            const pomoBtn = document.createElement('button');
+            pomoBtn.type = 'button';
+            pomoBtn.className = 'dash-pomo-btn';
+            pomoBtn.title = 'ابدأ تركيز';
+            pomoBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+            pomoBtn.addEventListener('click', () => {
+                localStorage.setItem('hayyiz-current-task', task.text);
+                if (realIndex >= 0) {
+                    localStorage.setItem('hayyiz-current-task-index', String(realIndex));
+                }
+                window.location.href = 'pomodoro.html?task=' + encodeURIComponent(task.text);
+            });
+
+            li.appendChild(info);
+            li.appendChild(pomoBtn);
+            list.appendChild(li);
+        });
+
+        tasksSection.appendChild(list);
+    }
+    content.appendChild(tasksSection);
+
+    // --- عادات اليوم ---
+    if (habits.length > 0) {
+        const habitsSection = document.createElement('div');
+        habitsSection.className = 'dash-section';
+
+        const habitsHead = document.createElement('div');
+        habitsHead.className = 'dash-section-head';
+        const habitsTitle = document.createElement('h4');
+        habitsTitle.textContent = 'عادات اليوم';
+        const habitsAll = document.createElement('a');
+        habitsAll.href = 'habits.html';
+        habitsAll.textContent = 'الكل';
+        habitsHead.appendChild(habitsTitle);
+        habitsHead.appendChild(habitsAll);
+        habitsSection.appendChild(habitsHead);
+
+        const habitsList = document.createElement('ul');
+        habitsList.className = 'dash-habit-list';
+
+        habits.slice(0, 5).forEach((habit, i) => {
+            const li = document.createElement('li');
+            li.className = 'dash-habit-item';
+
+            const check = document.createElement('input');
+            check.type = 'checkbox';
+            check.checked = habit.lastCompleted === today;
+            check.title = 'تسجيل لليوم';
+
+            check.addEventListener('change', () => {
+                const all = JSON.parse(localStorage.getItem('hayyiz-habits') || '[]');
+                // مطابقة بالاسم+الفهرس التقريبي
+                const idx = all.findIndex(
+                    (h, j) => h.name === habit.name && (j === i || h.created === habit.created)
+                );
+                const target = idx >= 0 ? idx : i;
+                if (!all[target]) return;
+
+                if (check.checked) {
+                    const last = all[target].lastCompleted;
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    const yStr = yesterday.toISOString().slice(0, 10);
+                    if (last === yStr) {
+                        all[target].streak = (all[target].streak || 0) + 1;
+                    } else if (last !== today) {
+                        all[target].streak = 1;
+                    }
+                    all[target].lastCompleted = today;
+                } else {
+                    if (all[target].lastCompleted === today) {
+                        all[target].lastCompleted = null;
+                        all[target].streak = Math.max(0, (all[target].streak || 1) - 1);
+                    }
+                }
+                localStorage.setItem('hayyiz-habits', JSON.stringify(all));
+                // تحديث العداد في الإحصائيات
+                const done = all.filter((h) => h.lastCompleted === today).length;
+                const statLabs = stats.querySelectorAll('.dash-stat');
+                if (statLabs[3]) {
+                    const strong = statLabs[3].querySelector('strong');
+                    if (strong) strong.textContent = done + '/' + all.length;
+                }
+            });
+
+            const label = document.createElement('span');
+            label.textContent = habit.name + (habit.streak ? ` · ${habit.streak}🔥` : '');
+
+            li.appendChild(check);
+            li.appendChild(label);
+            habitsList.appendChild(li);
+        });
+
+        habitsSection.appendChild(habitsList);
+        content.appendChild(habitsSection);
     }
 
-    // أعلى نتيجة
-    grid.appendChild(makeItem(
-        'fa-solid fa-gamepad',
-        'أعلى نتيجة في اللعبة',
-        `${highScore} نقطة`
-    ));
+    // --- اختصارات سريعة ---
+    const quick = document.createElement('div');
+    quick.className = 'dash-quick';
 
-    content.appendChild(grid);
+    const shortcuts = [
+        { href: 'pomodoro.html', icon: 'fa-solid fa-clock', label: 'مؤقت' },
+        { href: 'todo.html', icon: 'fa-solid fa-list-check', label: 'مهام' },
+        { href: 'notes.html', icon: 'fa-solid fa-note-sticky', label: 'ملاحظات' },
+        { href: 'gpa.html', icon: 'fa-solid fa-calculator', label: 'معدل' },
+        { href: 'habits.html', icon: 'fa-solid fa-fire', label: 'عادات' },
+        { href: 'game.html', icon: 'fa-solid fa-gamepad', label: 'لعبة' }
+    ];
 
-    // زر ابدأ جلسة تركيز
+    shortcuts.forEach((s) => {
+        const a = document.createElement('a');
+        a.href = s.href;
+        a.className = 'dash-quick-item';
+        a.innerHTML = '<i class="' + s.icon + '" aria-hidden="true"></i><span>' + s.label + '</span>';
+        quick.appendChild(a);
+    });
+    content.appendChild(quick);
+
+    // زر بدء التركيز
     const startBtn = document.getElementById('start-focus-session-btn');
     if (startBtn) {
         startBtn.addEventListener('click', () => {
             if (nextTask) {
                 localStorage.setItem('hayyiz-current-task', nextTask.text);
+                const idx = todos.indexOf(nextTask);
+                if (idx >= 0) localStorage.setItem('hayyiz-current-task-index', String(idx));
                 window.location.href = `pomodoro.html?task=${encodeURIComponent(nextTask.text)}`;
             } else {
                 localStorage.removeItem('hayyiz-current-task');
+                localStorage.removeItem('hayyiz-current-task-index');
                 window.location.href = 'pomodoro.html';
             }
         });
