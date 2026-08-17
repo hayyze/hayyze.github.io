@@ -3,37 +3,188 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
+    
+       <!-- سياسة الأمان (CSP) -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self';
+               script-src 'self' https://www.googletagmanager.com 'unsafe-inline';
+               script-src-elem 'self' https://www.googletagmanager.com 'unsafe-inline';
+               style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com 'unsafe-inline';
+               font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:;
+               connect-src 'self'
+                           https://www.google-analytics.com
+                           https://*.google-analytics.com
+                           https://analytics.google.com
+                           https://*.analytics.google.com
+                           https://www.googletagmanager.com;
+               img-src 'self'
+                        data:
+                        https://www.google-analytics.com
+                        https://*.google-analytics.com
+                        https://www.googletagmanager.com;
+               object-src 'none';
+               frame-ancestors 'none';
+               base-uri 'self';">
+
+    <!-- إعدادات أمنية إضافية -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    
+     <script async src="https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-F94Z3H2D3S');
+    </script>
+    
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>مساحة كتابة حرة | حيز</title>
     <meta name="description" content="مساحة كتابة ورسم حرة للطلاب مع دعم Apple Pencil، نص، ممحاة، تراجع، صفحات متعددة وحفظ محلي.">
     <link rel="icon" href="favicon.ico">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
             --board: #f8f6f0;
             --toolbar-bg: rgba(255, 255, 255, 0.94);
             --text: #1e293b;
+            --muted: #64748b;
             --border: rgba(0, 0, 0, 0.1);
             --primary: #4f46e5;
+            --card: #ffffff;
         }
         html, body {
             width: 100%; height: 100%; overflow: hidden;
             font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
             background: var(--board); color: var(--text);
-            touch-action: none; -webkit-user-select: none; user-select: none;
+            -webkit-user-select: none; user-select: none;
         }
+        body.drawing-mode { touch-action: none; }
         body.dark {
             --board: #1a1a1a;
             --toolbar-bg: rgba(30, 30, 30, 0.94);
             --text: #f1f5f9;
+            --muted: #94a3b8;
             --border: rgba(255, 255, 255, 0.12);
+            --card: #1e293b;
         }
-        #canvas {
+
+        /* ——— شاشة قائمة المساحات ——— */
+        #hub {
+            position: fixed; inset: 0; z-index: 500;
+            background: #f4f6f9; overflow-y: auto;
+            -webkit-user-select: text; user-select: text;
+            touch-action: auto;
+        }
+        body.dark #hub { background: #0f172a; }
+        .hub-inner {
+            max-width: 720px; margin: 0 auto; padding: 24px 16px 60px;
+        }
+        .hub-header {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
+        }
+        .hub-header h1 {
+            font-size: 1.45rem; display: flex; align-items: center; gap: 10px;
+        }
+        .hub-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .hub-btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 10px 16px; border-radius: 12px; border: none;
+            font-weight: 600; font-size: 0.95rem; cursor: pointer;
+            font-family: inherit; transition: 0.2s;
+        }
+        .hub-btn-primary { background: var(--primary); color: #fff; }
+        .hub-btn-primary:hover { filter: brightness(1.08); }
+        .hub-btn-outline {
+            background: transparent; border: 1px solid var(--border); color: var(--text);
+        }
+        .hub-btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+        .hub-search {
+            position: relative; margin-bottom: 18px;
+        }
+        .hub-search i {
+            position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+            color: var(--muted); pointer-events: none;
+        }
+        .hub-search input {
+            width: 100%; padding: 12px 42px 12px 14px;
+            border: 1px solid var(--border); border-radius: 12px;
+            background: var(--card); color: var(--text);
+            font-family: inherit; font-size: 1rem; outline: none;
+        }
+        .hub-search input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
+        .space-list { display: flex; flex-direction: column; gap: 10px; }
+        .space-card {
+            display: flex; align-items: center; gap: 14px;
+            padding: 14px 16px; border-radius: 14px;
+            background: var(--card); border: 1px solid var(--border);
+            cursor: pointer; transition: 0.2s; text-align: right;
+        }
+        .space-card:hover { border-color: var(--primary); box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+        .space-card .icon {
+            width: 44px; height: 44px; border-radius: 12px;
+            background: linear-gradient(135deg, #7c3aed, #c084fc);
+            color: #fff; display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; flex-shrink: 0;
+        }
+        .space-card .info { flex: 1; min-width: 0; }
+        .space-card .title {
+            font-weight: 700; font-size: 1.05rem;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .space-card .meta { font-size: 0.82rem; color: var(--muted); margin-top: 2px; }
+        .space-card .del {
+            border: none; background: transparent; color: var(--muted);
+            width: 36px; height: 36px; border-radius: 10px; cursor: pointer;
+            font-size: 1rem; flex-shrink: 0;
+        }
+        .space-card .del:hover { background: rgba(239,68,68,0.12); color: #ef4444; }
+        .hub-empty {
+            text-align: center; padding: 48px 16px; color: var(--muted);
+        }
+        .hub-empty i { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.5; }
+        .hub-empty p { margin-bottom: 18px; }
+
+        /* مودال إنشاء / تسمية */
+        #nameModal {
+            display: none; position: fixed; inset: 0; z-index: 600;
+            background: rgba(0,0,0,0.4); align-items: center; justify-content: center;
+            padding: 16px;
+        }
+        #nameModal.open { display: flex; }
+        .modal-box {
+            background: var(--card); color: var(--text);
+            border-radius: 16px; padding: 24px; width: 100%; max-width: 400px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+        }
+        .modal-box h2 { font-size: 1.2rem; margin-bottom: 8px; }
+        .modal-box p { font-size: 0.9rem; color: var(--muted); margin-bottom: 14px; }
+        .modal-box input {
+            width: 100%; padding: 12px 14px; border: 1px solid var(--border);
+            border-radius: 12px; background: transparent; color: var(--text);
+            font-family: inherit; font-size: 1rem; outline: none; margin-bottom: 16px;
+        }
+        .modal-box input:focus { border-color: var(--primary); }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-start; }
+        .modal-actions .hub-btn { flex: 1; justify-content: center; }
+
+        /* ——— وضع الرسم ——— */
+        #editor { display: none; position: fixed; inset: 0; }
+        #editor.active { display: block; }
+
+        #bgCanvas, #drawCanvas {
             position: fixed; inset: 0; display: block;
             width: 100%; height: 100%;
-            touch-action: none; cursor: crosshair; background: transparent;
         }
+        #bgCanvas { z-index: 1; pointer-events: none; }
+        #drawCanvas {
+            z-index: 2; touch-action: none; cursor: crosshair;
+            background: transparent;
+        }
+
         #toolbar {
             position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
             z-index: 200; display: flex; align-items: center; gap: 6px;
@@ -66,6 +217,11 @@
         .page-indicator { font-size: 13px; font-weight: 600; min-width: 48px; text-align: center; opacity: 0.85; }
         .save-dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; opacity: 0; transition: opacity 0.3s; }
         .save-dot.show { opacity: 1; }
+        .space-name-label {
+            font-size: 12px; font-weight: 600; max-width: 100px;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            opacity: 0.75; padding: 0 4px;
+        }
         #pageBar {
             position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
             z-index: 200; display: flex; align-items: center; gap: 8px;
@@ -74,74 +230,140 @@
             backdrop-filter: blur(14px);
         }
         #textInput {
-            position: fixed; z-index: 300; display: none; min-width: 120px; max-width: 80vw;
+            position: fixed; z-index: 300; display: none; min-width: 140px; max-width: 80vw;
             padding: 8px 12px; border: 2px solid var(--primary); border-radius: 8px;
             font-size: 18px; font-family: inherit; background: #fff; color: #111;
             outline: none; box-shadow: 0 4px 20px rgba(0,0,0,0.15); direction: rtl;
+            -webkit-user-select: text; user-select: text;
         }
         body.dark #textInput { background: #2a2a2a; color: #f1f5f9; }
         .back-link {
             position: fixed; top: 12px; right: 12px; z-index: 210; width: 42px; height: 42px;
             border-radius: 12px; border: 1px solid var(--border); background: var(--toolbar-bg);
             color: inherit; display: flex; align-items: center; justify-content: center;
-            text-decoration: none; font-size: 18px; box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            text-decoration: none; font-size: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            cursor: pointer; border: 1px solid var(--border);
         }
         @media (max-width: 700px) {
             #sizePicker { width: 56px; }
+            .space-name-label { display: none; }
             .back-link { top: auto; bottom: 16px; right: 12px; }
         }
     </style>
 </head>
 <body>
-    <a href="notes.html" class="back-link" title="العودة للملاحظات">←</a>
-
-    <div id="toolbar">
-        <button class="tool-btn active" id="btnPen" type="button" title="قلم">✏️</button>
-        <button class="tool-btn" id="btnText" type="button" title="نص (T)">T</button>
-        <button class="tool-btn" id="btnEraser" type="button" title="ممحاة">🧽</button>
-        <div class="sep"></div>
-        <button class="tool-btn" id="btnUndo" type="button" title="تراجع" disabled>↶</button>
-        <button class="tool-btn" id="btnRedo" type="button" title="إعادة" disabled>↷</button>
-        <div class="sep"></div>
-        <div class="color-wrap" title="اللون">
-            <div id="colorPreview"></div>
-            <input id="colorPicker" type="color" value="#1e293b" aria-label="لون">
+    <!-- قائمة المساحات -->
+    <div id="hub">
+        <div class="hub-inner">
+            <div class="hub-header">
+                <h1><i class="fa-solid fa-pen-nib" style="color:#7c3aed"></i> مساحات الكتابة الحرة</h1>
+                <div class="hub-actions">
+                    <a href="notes.html" class="hub-btn hub-btn-outline"><i class="fa-solid fa-arrow-right"></i> الملاحظات</a>
+                    <button type="button" class="hub-btn hub-btn-primary" id="btnNewSpace"><i class="fa-solid fa-plus"></i> مساحة جديدة</button>
+                </div>
+            </div>
+            <div class="hub-search" id="hubSearchWrap" style="display:none;">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="search" id="hubSearch" placeholder="ابحث بالاسم..." autocomplete="off">
+            </div>
+            <div class="space-list" id="spaceList"></div>
+            <div class="hub-empty hidden" id="hubEmpty">
+                <i class="fa-solid fa-book-open"></i>
+                <p>لا توجد مساحات بعد. أنشئ أول مساحة كتابة حرة.</p>
+                <button type="button" class="hub-btn hub-btn-primary" id="btnNewSpaceEmpty"><i class="fa-solid fa-plus"></i> إنشاء مساحة</button>
+            </div>
         </div>
-        <input id="sizePicker" type="range" min="1" max="40" value="3" title="السماكة" aria-label="سماكة">
-        <div class="sep"></div>
-        <select id="bgPicker" class="tool-select" title="خلفية الورقة" aria-label="خلفية">
-            <option value="plain">ورق عادي</option>
-            <option value="lined">مسطر</option>
-            <option value="grid">شبكة</option>
-            <option value="dotted">نقطي</option>
-            <option value="dark">داكن</option>
-        </select>
-        <div class="sep"></div>
-        <select id="inputMode" class="tool-select" title="وضع الإدخال" aria-label="الإدخال">
-            <option value="pen-only">قلم فقط</option>
-            <option value="all">قلم + لمس</option>
-        </select>
-        <div class="sep"></div>
-        <button class="tool-btn" id="btnClear" type="button" title="مسح الصفحة">مسح</button>
-        <span class="save-dot" id="saveDot" title="تم الحفظ"></span>
     </div>
 
-    <canvas id="canvas"></canvas>
-    <input type="text" id="textInput" autocomplete="off" enterkeyhint="done">
+    <!-- مودال التسمية -->
+    <div id="nameModal">
+        <div class="modal-box">
+            <h2 id="modalTitle">مساحة جديدة</h2>
+            <p>اختر اسماً للمساحة أو اتركه فارغاً لتصبح «بلا عنوان»</p>
+            <input type="text" id="modalNameInput" placeholder="اسم المساحة (اختياري)" maxlength="80" autocomplete="off">
+            <div class="modal-actions">
+                <button type="button" class="hub-btn hub-btn-primary" id="modalConfirm">إنشاء</button>
+                <button type="button" class="hub-btn hub-btn-outline" id="modalCancel">إلغاء</button>
+            </div>
+        </div>
+    </div>
 
-    <div id="pageBar">
-        <button class="tool-btn" id="btnPrevPage" type="button" title="السابق">‹</button>
-        <span class="page-indicator" id="pageLabel">1 / 1</span>
-        <button class="tool-btn" id="btnNextPage" type="button" title="التالي">›</button>
-        <button class="tool-btn" id="btnAddPage" type="button" title="صفحة جديدة">＋</button>
-        <button class="tool-btn" id="btnDelPage" type="button" title="حذف الصفحة">🗑</button>
+    <!-- المحرر -->
+    <div id="editor">
+        <button type="button" class="back-link" id="btnBackHub" title="قائمة المساحات"><i class="fa-solid fa-bars"></i></button>
+
+        <div id="toolbar">
+            <span class="space-name-label" id="spaceNameLabel"></span>
+            <div class="sep"></div>
+            <button class="tool-btn active" id="btnPen" type="button" title="قلم">✏️</button>
+            <button class="tool-btn" id="btnText" type="button" title="نص (T)">T</button>
+            <button class="tool-btn" id="btnEraser" type="button" title="ممحاة">🧽</button>
+            <div class="sep"></div>
+            <button class="tool-btn" id="btnUndo" type="button" title="تراجع" disabled>↶</button>
+            <button class="tool-btn" id="btnRedo" type="button" title="إعادة" disabled>↷</button>
+            <div class="sep"></div>
+            <div class="color-wrap" title="اللون">
+                <div id="colorPreview"></div>
+                <input id="colorPicker" type="color" value="#1e293b" aria-label="لون">
+            </div>
+            <input id="sizePicker" type="range" min="1" max="40" value="3" title="السماكة" aria-label="سماكة">
+            <div class="sep"></div>
+            <select id="bgPicker" class="tool-select" title="خلفية الورقة" aria-label="خلفية">
+                <option value="plain">ورق عادي</option>
+                <option value="lined">مسطر</option>
+                <option value="grid">شبكة</option>
+                <option value="dotted">نقطي</option>
+                <option value="dark">داكن</option>
+            </select>
+            <div class="sep"></div>
+            <select id="inputMode" class="tool-select" title="وضع الإدخال" aria-label="الإدخال">
+                <option value="pen-only">قلم فقط</option>
+                <option value="all">قلم + لمس</option>
+            </select>
+            <div class="sep"></div>
+            <button class="tool-btn" id="btnRename" type="button" title="إعادة تسمية">📝</button>
+            <button class="tool-btn" id="btnClear" type="button" title="مسح الصفحة">مسح</button>
+            <span class="save-dot" id="saveDot" title="تم الحفظ"></span>
+        </div>
+
+        <canvas id="bgCanvas"></canvas>
+        <canvas id="drawCanvas"></canvas>
+        <input type="text" id="textInput" autocomplete="off" enterkeyhint="done">
+
+        <div id="pageBar">
+            <button class="tool-btn" id="btnPrevPage" type="button" title="السابق">‹</button>
+            <span class="page-indicator" id="pageLabel">1 / 1</span>
+            <button class="tool-btn" id="btnNextPage" type="button" title="التالي">›</button>
+            <button class="tool-btn" id="btnAddPage" type="button" title="صفحة جديدة">＋</button>
+            <button class="tool-btn" id="btnDelPage" type="button" title="حذف الصفحة">🗑</button>
+        </div>
     </div>
 
     <script>
     (function () {
-        const STORAGE_KEY = 'hayyiz-free-notes-v2';
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const STORAGE_KEY = 'hayyiz-free-spaces-v1';
+        const PREFS_KEY = 'hayyiz-draw-prefs';
+
+        // عناصر القائمة
+        const hub = document.getElementById('hub');
+        const spaceList = document.getElementById('spaceList');
+        const hubEmpty = document.getElementById('hubEmpty');
+        const hubSearchWrap = document.getElementById('hubSearchWrap');
+        const hubSearch = document.getElementById('hubSearch');
+        const btnNewSpace = document.getElementById('btnNewSpace');
+        const btnNewSpaceEmpty = document.getElementById('btnNewSpaceEmpty');
+        const nameModal = document.getElementById('nameModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalNameInput = document.getElementById('modalNameInput');
+        const modalConfirm = document.getElementById('modalConfirm');
+        const modalCancel = document.getElementById('modalCancel');
+
+        // عناصر المحرر
+        const editor = document.getElementById('editor');
+        const bgCanvas = document.getElementById('bgCanvas');
+        const drawCanvas = document.getElementById('drawCanvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        const ctx = drawCanvas.getContext('2d', { willReadFrequently: true });
         const textInput = document.getElementById('textInput');
         const btnPen = document.getElementById('btnPen');
         const btnText = document.getElementById('btnText');
@@ -149,11 +371,14 @@
         const btnUndo = document.getElementById('btnUndo');
         const btnRedo = document.getElementById('btnRedo');
         const btnClear = document.getElementById('btnClear');
+        const btnRename = document.getElementById('btnRename');
         const btnPrevPage = document.getElementById('btnPrevPage');
         const btnNextPage = document.getElementById('btnNextPage');
         const btnAddPage = document.getElementById('btnAddPage');
         const btnDelPage = document.getElementById('btnDelPage');
+        const btnBackHub = document.getElementById('btnBackHub');
         const pageLabel = document.getElementById('pageLabel');
+        const spaceNameLabel = document.getElementById('spaceNameLabel');
         const colorPicker = document.getElementById('colorPicker');
         const colorPreview = document.getElementById('colorPreview');
         const sizePicker = document.getElementById('sizePicker');
@@ -161,67 +386,298 @@
         const inputModeEl = document.getElementById('inputMode');
         const saveDot = document.getElementById('saveDot');
 
+        // ——— حالة التطبيق ———
+        let spaces = [];           // [{ id, name, pages, pageIndex, bgStyle, updated }]
+        let activeSpaceId = null;
         let tool = 'pen';
-        let penColor = localStorage.getItem('heez-draw-pen-color') || '#1e293b';
-        let penSize = Number(localStorage.getItem('heez-draw-pen-size')) || 3;
-        let inputMode = localStorage.getItem('heez-draw-input-mode') || 'pen-only';
-        let bgStyle = localStorage.getItem('heez-draw-bg') || 'plain';
-        let pages = [];
-        let pageIndex = 0;
+        let penColor = '#1e293b';
+        let penSize = 3;
+        let inputMode = 'pen-only';
         let drawing = false;
         let currentStroke = null;
         let textPendingPos = null;
         let saveTimer = null;
         let dpr = 1;
+        let modalMode = 'create'; // create | rename
 
-        colorPicker.value = penColor;
-        colorPreview.style.background = penColor;
-        sizePicker.value = penSize;
-        inputModeEl.value = inputMode;
-        bgPicker.value = bgStyle;
+        function uid() {
+            return 's_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+        }
 
         function emptyPage() {
             return { strokes: [], texts: [], history: [], future: [] };
         }
 
-        function loadData() {
+        function loadAll() {
             try {
                 const raw = localStorage.getItem(STORAGE_KEY);
                 if (raw) {
                     const data = JSON.parse(raw);
-                    pages = (data.pages || []).map(function (p) {
-                        return { strokes: p.strokes || [], texts: p.texts || [], history: [], future: [] };
+                    spaces = (data.spaces || []).map(function (s) {
+                        return {
+                            id: s.id || uid(),
+                            name: (s.name && s.name.trim()) ? s.name.trim() : 'بلا عنوان',
+                            pages: (s.pages || [emptyPage()]).map(function (p) {
+                                return {
+                                    strokes: p.strokes || [],
+                                    texts: p.texts || [],
+                                    history: [],
+                                    future: []
+                                };
+                            }),
+                            pageIndex: s.pageIndex || 0,
+                            bgStyle: s.bgStyle || 'plain',
+                            updated: s.updated || Date.now()
+                        };
                     });
-                    pageIndex = Math.min(data.pageIndex || 0, Math.max(0, pages.length - 1));
-                    if (data.bgStyle) { bgStyle = data.bgStyle; bgPicker.value = bgStyle; }
+                    if (!spaces.length) {
+                        // ترحيل من النسخة القديمة إن وُجدت
+                        migrateOld();
+                    }
+                } else {
+                    migrateOld();
                 }
+            } catch (e) {
+                spaces = [];
+            }
+            try {
+                const prefs = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
+                penColor = prefs.penColor || '#1e293b';
+                penSize = prefs.penSize || 3;
+                inputMode = prefs.inputMode || 'pen-only';
             } catch (e) {}
-            if (!pages.length) pages = [emptyPage()];
+            colorPicker.value = penColor;
+            colorPreview.style.background = penColor;
+            sizePicker.value = penSize;
+            inputModeEl.value = inputMode;
         }
 
-        function saveData() {
+        function migrateOld() {
             try {
-                var slim = pages.map(function (p) {
-                    return { strokes: p.strokes, texts: p.texts };
+                const old = localStorage.getItem('hayyiz-free-notes-v2');
+                if (!old) return;
+                const data = JSON.parse(old);
+                if (!data.pages || !data.pages.length) return;
+                spaces.push({
+                    id: uid(),
+                    name: 'بلا عنوان',
+                    pages: data.pages.map(function (p) {
+                        return { strokes: p.strokes || [], texts: p.texts || [], history: [], future: [] };
+                    }),
+                    pageIndex: data.pageIndex || 0,
+                    bgStyle: data.bgStyle || 'plain',
+                    updated: data.updated || Date.now()
                 });
-                localStorage.setItem(STORAGE_KEY, JSON.stringify({
-                    pages: slim, pageIndex: pageIndex, bgStyle: bgStyle, updated: Date.now()
-                }));
+                localStorage.removeItem('hayyiz-free-notes-v2');
+            } catch (e) {}
+        }
+
+        function saveAll() {
+            try {
+                const slim = spaces.map(function (s) {
+                    return {
+                        id: s.id,
+                        name: s.name,
+                        pages: s.pages.map(function (p) {
+                            return { strokes: p.strokes, texts: p.texts };
+                        }),
+                        pageIndex: s.pageIndex,
+                        bgStyle: s.bgStyle,
+                        updated: s.updated
+                    };
+                });
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({ spaces: slim }));
                 saveDot.classList.add('show');
                 clearTimeout(saveTimer);
-                saveTimer = setTimeout(function () { saveDot.classList.remove('show'); }, 1200);
+                saveTimer = setTimeout(function () { saveDot.classList.remove('show'); }, 1000);
+            } catch (e) {
+                console.warn('حفظ فشل', e);
+            }
+        }
+
+        function savePrefs() {
+            try {
+                localStorage.setItem(PREFS_KEY, JSON.stringify({
+                    penColor: penColor, penSize: penSize, inputMode: inputMode
+                }));
             } catch (e) {}
         }
 
         function scheduleSave() {
+            if (activeSpaceId) {
+                const s = getActiveSpace();
+                if (s) s.updated = Date.now();
+            }
             clearTimeout(saveTimer);
-            saveTimer = setTimeout(saveData, 400);
+            saveTimer = setTimeout(saveAll, 450);
         }
 
-        function currentPage() { return pages[pageIndex]; }
+        function getActiveSpace() {
+            return spaces.find(function (s) { return s.id === activeSpaceId; }) || null;
+        }
 
+        function currentPage() {
+            const s = getActiveSpace();
+            if (!s) return emptyPage();
+            if (s.pageIndex < 0 || s.pageIndex >= s.pages.length) s.pageIndex = 0;
+            return s.pages[s.pageIndex];
+        }
+
+        // ——— القائمة (Hub) ———
+        function formatDate(ts) {
+            try {
+                return new Date(ts).toLocaleString('ar-EG', {
+                    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                });
+            } catch (e) { return ''; }
+        }
+
+        function renderHub(filter) {
+            filter = (filter || '').trim().toLowerCase();
+            const sorted = spaces.slice().sort(function (a, b) {
+                return (b.updated || 0) - (a.updated || 0);
+            });
+            const list = filter
+                ? sorted.filter(function (s) {
+                    return (s.name || '').toLowerCase().indexOf(filter) !== -1;
+                })
+                : sorted;
+
+            spaceList.innerHTML = '';
+            if (!spaces.length) {
+                hubEmpty.classList.remove('hidden');
+                hubSearchWrap.style.display = 'none';
+                return;
+            }
+            hubEmpty.classList.add('hidden');
+            hubSearchWrap.style.display = spaces.length >= 2 ? 'block' : 'none';
+
+            if (!list.length) {
+                spaceList.innerHTML = '<p style="text-align:center;color:var(--muted);padding:24px;">لا نتائج للبحث</p>';
+                return;
+            }
+
+            list.forEach(function (s) {
+                const card = document.createElement('div');
+                card.className = 'space-card';
+                card.innerHTML =
+                    '<div class="icon"><i class="fa-solid fa-pen-nib"></i></div>' +
+                    '<div class="info">' +
+                        '<div class="title"></div>' +
+                        '<div class="meta"></div>' +
+                    '</div>' +
+                    '<button type="button" class="del" title="حذف" aria-label="حذف"><i class="fa-solid fa-trash"></i></button>';
+                card.querySelector('.title').textContent = s.name || 'بلا عنوان';
+                const pagesCount = (s.pages && s.pages.length) || 1;
+                card.querySelector('.meta').textContent =
+                    pagesCount + ' صفحة · آخر تعديل ' + formatDate(s.updated);
+
+                card.addEventListener('click', function (e) {
+                    if (e.target.closest('.del')) return;
+                    openSpace(s.id);
+                });
+                card.querySelector('.del').addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    if (!confirm('حذف المساحة «' + (s.name || 'بلا عنوان') + '»؟')) return;
+                    spaces = spaces.filter(function (x) { return x.id !== s.id; });
+                    saveAll();
+                    renderHub(hubSearch.value);
+                });
+                spaceList.appendChild(card);
+            });
+        }
+
+        function showHub() {
+            editor.classList.remove('active');
+            hub.style.display = 'block';
+            document.body.classList.remove('drawing-mode');
+            activeSpaceId = null;
+            hideTextInput();
+            renderHub(hubSearch.value);
+        }
+
+        function openSpace(id) {
+            const s = spaces.find(function (x) { return x.id === id; });
+            if (!s) return;
+            activeSpaceId = id;
+            if (s.pageIndex >= s.pages.length) s.pageIndex = 0;
+            bgPicker.value = s.bgStyle || 'plain';
+            spaceNameLabel.textContent = s.name || 'بلا عنوان';
+            hub.style.display = 'none';
+            editor.classList.add('active');
+            document.body.classList.add('drawing-mode');
+            resizeCanvases();
+            setTool('pen');
+        }
+
+        function openNameModal(mode, preset) {
+            modalMode = mode;
+            modalTitle.textContent = mode === 'rename' ? 'إعادة تسمية' : 'مساحة جديدة';
+            modalConfirm.textContent = mode === 'rename' ? 'حفظ' : 'إنشاء';
+            modalNameInput.value = preset || '';
+            nameModal.classList.add('open');
+            setTimeout(function () { modalNameInput.focus(); }, 50);
+        }
+
+        function closeNameModal() {
+            nameModal.classList.remove('open');
+            modalNameInput.value = '';
+        }
+
+        function createSpace(name) {
+            name = (name || '').trim() || 'بلا عنوان';
+            const s = {
+                id: uid(),
+                name: name,
+                pages: [emptyPage()],
+                pageIndex: 0,
+                bgStyle: 'plain',
+                updated: Date.now()
+            };
+            spaces.unshift(s);
+            saveAll();
+            openSpace(s.id);
+        }
+
+        function renameActive(name) {
+            const s = getActiveSpace();
+            if (!s) return;
+            s.name = (name || '').trim() || 'بلا عنوان';
+            s.updated = Date.now();
+            spaceNameLabel.textContent = s.name;
+            saveAll();
+        }
+
+        btnNewSpace.addEventListener('click', function () { openNameModal('create'); });
+        btnNewSpaceEmpty.addEventListener('click', function () { openNameModal('create'); });
+        btnRename.addEventListener('click', function () {
+            const s = getActiveSpace();
+            openNameModal('rename', s ? s.name : '');
+        });
+        modalCancel.addEventListener('click', closeNameModal);
+        nameModal.addEventListener('click', function (e) {
+            if (e.target === nameModal) closeNameModal();
+        });
+        modalConfirm.addEventListener('click', function () {
+            const name = modalNameInput.value;
+            closeNameModal();
+            if (modalMode === 'rename') renameActive(name);
+            else createSpace(name);
+        });
+        modalNameInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                modalConfirm.click();
+            } else if (e.key === 'Escape') closeNameModal();
+        });
+        hubSearch.addEventListener('input', function () {
+            renderHub(hubSearch.value);
+        });
+        btnBackHub.addEventListener('click', showHub);
+
+        // ——— سجل التراجع ———
         function pushHistory() {
-            var p = currentPage();
+            const p = currentPage();
             p.history.push({
                 strokes: JSON.parse(JSON.stringify(p.strokes)),
                 texts: JSON.parse(JSON.stringify(p.texts))
@@ -232,72 +688,99 @@
         }
 
         function undo() {
-            var p = currentPage();
+            const p = currentPage();
             if (!p.history.length) return;
-            p.future.push({ strokes: JSON.parse(JSON.stringify(p.strokes)), texts: JSON.parse(JSON.stringify(p.texts)) });
-            var prev = p.history.pop();
-            p.strokes = prev.strokes; p.texts = prev.texts;
-            redraw(); updateUndoRedo(); scheduleSave();
+            p.future.push({
+                strokes: JSON.parse(JSON.stringify(p.strokes)),
+                texts: JSON.parse(JSON.stringify(p.texts))
+            });
+            const prev = p.history.pop();
+            p.strokes = prev.strokes;
+            p.texts = prev.texts;
+            redrawContent();
+            updateUndoRedo();
+            scheduleSave();
         }
 
         function redo() {
-            var p = currentPage();
+            const p = currentPage();
             if (!p.future.length) return;
-            p.history.push({ strokes: JSON.parse(JSON.stringify(p.strokes)), texts: JSON.parse(JSON.stringify(p.texts)) });
-            var next = p.future.pop();
-            p.strokes = next.strokes; p.texts = next.texts;
-            redraw(); updateUndoRedo(); scheduleSave();
+            p.history.push({
+                strokes: JSON.parse(JSON.stringify(p.strokes)),
+                texts: JSON.parse(JSON.stringify(p.texts))
+            });
+            const next = p.future.pop();
+            p.strokes = next.strokes;
+            p.texts = next.texts;
+            redrawContent();
+            updateUndoRedo();
+            scheduleSave();
         }
 
         function updateUndoRedo() {
-            var p = currentPage();
+            const p = currentPage();
             btnUndo.disabled = !p.history.length;
             btnRedo.disabled = !p.future.length;
         }
 
+        // ——— طبقتان: خلفية + رسم ———
         function drawBackground() {
-            var w = canvas.width / dpr, h = canvas.height / dpr;
+            const w = bgCanvas.width / dpr;
+            const h = bgCanvas.height / dpr;
+            const s = getActiveSpace();
+            const bgStyle = (s && s.bgStyle) || bgPicker.value || 'plain';
+
+            bgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            bgCtx.clearRect(0, 0, w, h);
+
             if (bgStyle === 'dark') {
-                ctx.fillStyle = '#1a1a1a';
-                ctx.fillRect(0, 0, w, h);
+                bgCtx.fillStyle = '#1a1a1a';
+                bgCtx.fillRect(0, 0, w, h);
                 document.body.classList.add('dark');
                 return;
             }
             document.body.classList.remove('dark');
-            ctx.fillStyle = '#f8f6f0';
-            ctx.fillRect(0, 0, w, h);
-            ctx.strokeStyle = 'rgba(0,0,0,0.07)';
-            ctx.lineWidth = 1;
+            bgCtx.fillStyle = '#f8f6f0';
+            bgCtx.fillRect(0, 0, w, h);
+            bgCtx.strokeStyle = 'rgba(0,0,0,0.07)';
+            bgCtx.lineWidth = 1;
             var x, y;
             if (bgStyle === 'lined') {
                 for (y = 40; y < h; y += 28) {
-                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+                    bgCtx.beginPath(); bgCtx.moveTo(0, y); bgCtx.lineTo(w, y); bgCtx.stroke();
                 }
             } else if (bgStyle === 'grid') {
                 for (x = 0; x < w; x += 28) {
-                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+                    bgCtx.beginPath(); bgCtx.moveTo(x, 0); bgCtx.lineTo(x, h); bgCtx.stroke();
                 }
                 for (y = 0; y < h; y += 28) {
-                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+                    bgCtx.beginPath(); bgCtx.moveTo(0, y); bgCtx.lineTo(w, y); bgCtx.stroke();
                 }
             } else if (bgStyle === 'dotted') {
-                ctx.fillStyle = 'rgba(0,0,0,0.12)';
+                bgCtx.fillStyle = 'rgba(0,0,0,0.12)';
                 for (x = 14; x < w; x += 24) {
                     for (y = 14; y < h; y += 24) {
-                        ctx.beginPath(); ctx.arc(x, y, 1.2, 0, Math.PI * 2); ctx.fill();
+                        bgCtx.beginPath(); bgCtx.arc(x, y, 1.2, 0, Math.PI * 2); bgCtx.fill();
                     }
                 }
             }
         }
 
-        function redraw() {
-            drawBackground();
-            var p = currentPage(), i, s, t, pts;
+        function redrawContent() {
+            const w = drawCanvas.width / dpr;
+            const h = drawCanvas.height / dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+
+            const p = currentPage();
+            var i, s, t, j, pt;
+
             for (i = 0; i < p.strokes.length; i++) {
                 s = p.strokes[i];
                 if (!s.points || s.points.length < 1) continue;
                 ctx.beginPath();
-                ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
                 if (s.tool === 'eraser') {
                     ctx.globalCompositeOperation = 'destination-out';
                     ctx.strokeStyle = 'rgba(0,0,0,1)';
@@ -308,8 +791,8 @@
                     ctx.lineWidth = s.size;
                 }
                 ctx.moveTo(s.points[0].x, s.points[0].y);
-                for (var j = 1; j < s.points.length; j++) {
-                    var pt = s.points[j];
+                for (j = 1; j < s.points.length; j++) {
+                    pt = s.points[j];
                     if (pt.pressure != null && s.tool !== 'eraser') {
                         ctx.lineWidth = s.size * (0.4 + pt.pressure * 0.9);
                     }
@@ -318,6 +801,7 @@
                 ctx.stroke();
             }
             ctx.globalCompositeOperation = 'source-over';
+
             for (i = 0; i < p.texts.length; i++) {
                 t = p.texts[i];
                 ctx.fillStyle = t.color || '#1e293b';
@@ -330,61 +814,87 @@
             updateUndoRedo();
         }
 
-        function resizeCanvas() {
-            dpr = Math.min(window.devicePixelRatio || 1, 2);
-            canvas.width = Math.floor(window.innerWidth * dpr);
-            canvas.height = Math.floor(window.innerHeight * dpr);
-            canvas.style.width = window.innerWidth + 'px';
-            canvas.style.height = window.innerHeight + 'px';
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            redraw();
+        function fullRedraw() {
+            drawBackground();
+            redrawContent();
         }
 
+        function resizeCanvases() {
+            dpr = Math.min(window.devicePixelRatio || 1, 2);
+            var w = Math.floor(window.innerWidth * dpr);
+            var h = Math.floor(window.innerHeight * dpr);
+            bgCanvas.width = w; bgCanvas.height = h;
+            drawCanvas.width = w; drawCanvas.height = h;
+            bgCanvas.style.width = window.innerWidth + 'px';
+            bgCanvas.style.height = window.innerHeight + 'px';
+            drawCanvas.style.width = window.innerWidth + 'px';
+            drawCanvas.style.height = window.innerHeight + 'px';
+            fullRedraw();
+        }
+
+        // ——— أدوات ———
         function setTool(name) {
             tool = name;
             btnPen.classList.toggle('active', name === 'pen');
             btnText.classList.toggle('active', name === 'text');
             btnEraser.classList.toggle('active', name === 'eraser');
-            canvas.style.cursor = name === 'text' ? 'text' : 'crosshair';
+            drawCanvas.style.cursor = name === 'text' ? 'text' : 'crosshair';
             hideTextInput();
         }
 
         function canDraw(e) {
+            // الماوس دائماً مسموح (لابتوب)
+            if (e.pointerType === 'mouse') return true;
             if (inputMode === 'pen-only') return e.pointerType === 'pen';
             return true;
         }
 
         function getPos(e) {
-            return { x: e.clientX, y: e.clientY, pressure: e.pressure > 0 ? e.pressure : 0.5 };
+            return {
+                x: e.clientX,
+                y: e.clientY,
+                pressure: (e.pressure > 0 && e.pressure < 1) ? e.pressure : 0.5
+            };
         }
 
-        canvas.addEventListener('pointerdown', function (e) {
+        // ——— أحداث الرسم (على drawCanvas فقط) ———
+        drawCanvas.addEventListener('pointerdown', function (e) {
             if (tool === 'text') {
-                if (!canDraw(e) && e.pointerType !== 'mouse') return;
+                // النص يعمل مع الماوس والقلم واللمس (حسب الوضع)
+                if (e.pointerType === 'touch' && inputMode === 'pen-only') return;
+                e.preventDefault();
                 showTextInput(e.clientX, e.clientY);
                 return;
             }
             if (!canDraw(e)) return;
             e.preventDefault();
             drawing = true;
-            canvas.setPointerCapture(e.pointerId);
+            drawCanvas.setPointerCapture(e.pointerId);
             pushHistory();
             var pos = getPos(e);
-            currentStroke = { tool: tool, color: penColor, size: penSize, points: [pos] };
+            currentStroke = {
+                tool: tool,
+                color: penColor,
+                size: penSize,
+                points: [pos]
+            };
             currentPage().strokes.push(currentStroke);
         });
 
-        canvas.addEventListener('pointermove', function (e) {
+        drawCanvas.addEventListener('pointermove', function (e) {
             if (!drawing || !currentStroke) return;
             e.preventDefault();
             var pos = getPos(e);
             currentStroke.points.push(pos);
             var pts = currentStroke.points;
             if (pts.length < 2) return;
-            var a = pts[pts.length - 2], b = pts[pts.length - 1];
+            var a = pts[pts.length - 2];
+            var b = pts[pts.length - 1];
             ctx.beginPath();
-            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
             if (currentStroke.tool === 'eraser') {
+                // الممحاة تمس فقط طبقة الرسم — الخلفية على canvas منفصلة
                 ctx.globalCompositeOperation = 'destination-out';
                 ctx.strokeStyle = 'rgba(0,0,0,1)';
                 ctx.lineWidth = currentStroke.size * 2.5;
@@ -393,7 +903,9 @@
                 ctx.strokeStyle = currentStroke.color;
                 ctx.lineWidth = currentStroke.size * (0.4 + (b.pressure || 0.5) * 0.9);
             }
-            ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
             ctx.globalCompositeOperation = 'source-over';
         });
 
@@ -401,54 +913,95 @@
             if (!drawing) return;
             drawing = false;
             currentStroke = null;
-            try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+            try { drawCanvas.releasePointerCapture(e.pointerId); } catch (_) {}
+            // بعد المسح نعيد رسم المحتوى من البيانات لضمان الاتساق
+            if (tool === 'eraser') redrawContent();
             scheduleSave();
         }
-        canvas.addEventListener('pointerup', endStroke);
-        canvas.addEventListener('pointercancel', endStroke);
+        drawCanvas.addEventListener('pointerup', endStroke);
+        drawCanvas.addEventListener('pointercancel', endStroke);
+        drawCanvas.addEventListener('pointerleave', function (e) {
+            if (drawing) endStroke(e);
+        });
 
+        // ——— النص (إصلاح اللابتوب) ———
         function showTextInput(x, y) {
             textPendingPos = { x: x, y: y };
             textInput.style.display = 'block';
-            textInput.style.left = Math.min(x, window.innerWidth - 160) + 'px';
-            textInput.style.top = Math.min(y, window.innerHeight - 50) + 'px';
+            var left = Math.min(Math.max(8, x - 20), window.innerWidth - 160);
+            var top = Math.min(Math.max(8, y - 10), window.innerHeight - 50);
+            textInput.style.left = left + 'px';
+            textInput.style.top = top + 'px';
             textInput.value = '';
-            textInput.focus();
+            // تأخير بسيط لضمان ظهور الحقل قبل التركيز (مهم للماوس)
+            requestAnimationFrame(function () {
+                textInput.focus();
+                textInput.select();
+            });
         }
+
         function hideTextInput() {
             textInput.style.display = 'none';
             textPendingPos = null;
         }
+
         function commitText() {
             var val = (textInput.value || '').trim();
             if (val && textPendingPos) {
                 pushHistory();
                 currentPage().texts.push({
-                    text: val, x: textPendingPos.x, y: textPendingPos.y,
-                    color: penColor, size: Math.max(14, penSize * 4)
+                    text: val,
+                    x: textPendingPos.x,
+                    y: textPendingPos.y,
+                    color: penColor,
+                    size: Math.max(14, penSize * 4)
                 });
-                redraw(); scheduleSave();
+                redrawContent();
+                scheduleSave();
             }
             hideTextInput();
         }
+
         textInput.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') { e.preventDefault(); commitText(); }
-            else if (e.key === 'Escape') hideTextInput();
+            e.stopPropagation();
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                commitText();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                hideTextInput();
+            }
         });
+        // لا نستخدم blur فوراً على اللابتوب لأنه قد يُغلق قبل الكتابة
         textInput.addEventListener('blur', function () {
-            if (textInput.style.display === 'block') commitText();
+            setTimeout(function () {
+                if (document.activeElement !== textInput && textInput.style.display === 'block') {
+                    commitText();
+                }
+            }, 150);
         });
 
+        // منع أن يلتقط الـ canvas النقر أثناء كتابة النص
+        textInput.addEventListener('pointerdown', function (e) {
+            e.stopPropagation();
+        });
+
+        // ——— الصفحات ———
         function updatePageLabel() {
-            pageLabel.textContent = (pageIndex + 1) + ' / ' + pages.length;
-            btnPrevPage.disabled = pageIndex <= 0;
-            btnNextPage.disabled = pageIndex >= pages.length - 1;
-            btnDelPage.disabled = pages.length <= 1;
+            const s = getActiveSpace();
+            if (!s) return;
+            pageLabel.textContent = (s.pageIndex + 1) + ' / ' + s.pages.length;
+            btnPrevPage.disabled = s.pageIndex <= 0;
+            btnNextPage.disabled = s.pageIndex >= s.pages.length - 1;
+            btnDelPage.disabled = s.pages.length <= 1;
         }
+
         function goPage(i) {
-            if (i < 0 || i >= pages.length) return;
-            pageIndex = i;
-            redraw(); scheduleSave();
+            const s = getActiveSpace();
+            if (!s || i < 0 || i >= s.pages.length) return;
+            s.pageIndex = i;
+            fullRedraw();
+            scheduleSave();
         }
 
         btnPen.addEventListener('click', function () { setTool('pen'); });
@@ -456,67 +1009,104 @@
         btnEraser.addEventListener('click', function () { setTool('eraser'); });
         btnUndo.addEventListener('click', undo);
         btnRedo.addEventListener('click', redo);
+
         btnClear.addEventListener('click', function () {
             if (!confirm('مسح هذه الصفحة بالكامل؟')) return;
             pushHistory();
             var p = currentPage();
-            p.strokes = []; p.texts = [];
-            redraw(); scheduleSave();
+            p.strokes = [];
+            p.texts = [];
+            redrawContent();
+            scheduleSave();
         });
-        btnPrevPage.addEventListener('click', function () { goPage(pageIndex - 1); });
-        btnNextPage.addEventListener('click', function () { goPage(pageIndex + 1); });
+
+        btnPrevPage.addEventListener('click', function () {
+            const s = getActiveSpace();
+            if (s) goPage(s.pageIndex - 1);
+        });
+        btnNextPage.addEventListener('click', function () {
+            const s = getActiveSpace();
+            if (s) goPage(s.pageIndex + 1);
+        });
         btnAddPage.addEventListener('click', function () {
-            pages.splice(pageIndex + 1, 0, emptyPage());
-            goPage(pageIndex + 1);
+            const s = getActiveSpace();
+            if (!s) return;
+            s.pages.splice(s.pageIndex + 1, 0, emptyPage());
+            goPage(s.pageIndex + 1);
         });
         btnDelPage.addEventListener('click', function () {
-            if (pages.length <= 1) return;
+            const s = getActiveSpace();
+            if (!s || s.pages.length <= 1) return;
             if (!confirm('حذف هذه الصفحة؟')) return;
-            pages.splice(pageIndex, 1);
-            if (pageIndex >= pages.length) pageIndex = pages.length - 1;
-            redraw(); scheduleSave();
+            s.pages.splice(s.pageIndex, 1);
+            if (s.pageIndex >= s.pages.length) s.pageIndex = s.pages.length - 1;
+            fullRedraw();
+            scheduleSave();
         });
+
         colorPicker.addEventListener('input', function () {
             penColor = colorPicker.value;
             colorPreview.style.background = penColor;
-            localStorage.setItem('heez-draw-pen-color', penColor);
+            savePrefs();
         });
         sizePicker.addEventListener('input', function () {
             penSize = Number(sizePicker.value);
-            localStorage.setItem('heez-draw-pen-size', penSize);
+            savePrefs();
         });
         bgPicker.addEventListener('change', function () {
-            bgStyle = bgPicker.value;
-            localStorage.setItem('heez-draw-bg', bgStyle);
-            redraw(); scheduleSave();
+            const s = getActiveSpace();
+            if (s) {
+                s.bgStyle = bgPicker.value;
+                s.updated = Date.now();
+            }
+            drawBackground();
+            scheduleSave();
         });
         inputModeEl.addEventListener('change', function () {
             inputMode = inputModeEl.value;
-            localStorage.setItem('heez-draw-input-mode', inputMode);
+            savePrefs();
         });
 
         window.addEventListener('keydown', function (e) {
-            if (e.target === textInput) return;
+            if (e.target === textInput || e.target === modalNameInput || e.target === hubSearch) return;
+            if (!editor.classList.contains('active')) return;
             if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
                 e.preventDefault();
                 if (e.shiftKey) redo(); else undo();
             } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
-                e.preventDefault(); redo();
+                e.preventDefault();
+                redo();
             } else if (e.key === 't' || e.key === 'T') setTool('text');
             else if (e.key === 'e' || e.key === 'E') setTool('eraser');
             else if (e.key === 'p' || e.key === 'P') setTool('pen');
         });
 
         document.body.addEventListener('touchmove', function (e) {
-            if (e.target === canvas || e.target === document.body) e.preventDefault();
+            if (!document.body.classList.contains('drawing-mode')) return;
+            if (e.target === drawCanvas || e.target === document.body) e.preventDefault();
         }, { passive: false });
 
-        window.addEventListener('resize', resizeCanvas);
-        window.addEventListener('beforeunload', saveData);
+        window.addEventListener('resize', function () {
+            if (editor.classList.contains('active')) resizeCanvases();
+        });
+        window.addEventListener('beforeunload', function () {
+            if (activeSpaceId) saveAll();
+        });
 
-        loadData();
-        resizeCanvas();
-        setTool('pen');
+        // ——— بدء ———
+        loadAll();
+
+        // إذا فيه مساحة واحدة فقط أو أكثر: اعرض القائمة
+        // المستخدم طلب: إذا ما عنده → إنشاء، إذا عنده → آخر وحدة أو قائمة
+        if (spaces.length === 0) {
+            showHub();
+        } else if (spaces.length === 1) {
+            // مساحة واحدة: افتحها مباشرة (آخر/الوحيدة)
+            openSpace(spaces[0].id);
+        } else {
+            // أكثر من واحدة: القائمة مع بحث، مرتبة بآخر تعديل
+            showHub();
+        }
     })();
     </script>
 </body>
