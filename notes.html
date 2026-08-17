@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -87,10 +88,33 @@
     </div>
 </header>
 <main class="container main-content">
-    <div class="card">
+    <!-- اختيار نوع الملاحظة -->
+    <div class="card" id="notes-mode-picker" style="margin-bottom: 1.5rem;">
         <div class="section-header">
             <h1><i class="fa-solid fa-note-sticky"></i> دفتر الملاحظات</h1>
-            <p class="section-desc">اكتب أفكارك وملاحظاتك الدراسية</p>
+            <p class="section-desc">اختر طريقة تدوين ملاحظاتك</p>
+        </div>
+        <div class="tools-grid" style="margin: 0;">
+            <button type="button" class="card tool-card" id="choose-text-notes" style="cursor:pointer; border:2px solid var(--primary); text-align:right;">
+                <div class="card-icon notes-icon"><i class="fa-solid fa-list" aria-hidden="true"></i></div>
+                <h3>ملاحظات نصية</h3>
+                <p>عناوين، بحث، وتنظيم سريع للملاحظات الدراسية.</p>
+            </button>
+            <a href="draw.html" class="card tool-card" style="text-decoration:none; color:inherit; text-align:right;">
+                <div class="card-icon" style="background: linear-gradient(135deg, #7c3aed, #c084fc);"><i class="fa-solid fa-pen-nib" aria-hidden="true"></i></div>
+                <h3>مساحة كتابة حرة</h3>
+                <p>رسم وكتابة يدوية مع قلم، نص، ممحاة، صفحات وحفظ تلقائي.</p>
+            </a>
+        </div>
+    </div>
+
+    <div class="card hidden" id="text-notes-panel">
+        <div class="section-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+            <div>
+                <h1 style="font-size:1.4rem; margin:0;"><i class="fa-solid fa-list"></i> ملاحظات نصية</h1>
+                <p class="section-desc" style="margin:4px 0 0;">اكتب أفكارك وملاحظاتك الدراسية</p>
+            </div>
+            <button type="button" class="btn btn-outline btn-sm" id="back-to-modes">← العودة للاختيار</button>
         </div>
         <form id="notes-form" class="notes-form">
             <input type="text" id="note-title" placeholder="عنوان الملاحظة (اختياري)">
@@ -109,7 +133,7 @@
             <i class="fa-solid fa-book-open"></i>
             <p>لا توجد ملاحظات بعد</p>
         </div>
-    </div>
+    </div><!-- /text-notes-panel -->
 
     <!-- المحتوى النصي التوضيحي -->
     <section class="card content-section" style="margin-top: 2rem;">

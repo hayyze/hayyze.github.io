@@ -169,5 +169,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+
+    // اختيار وضع الملاحظات
+    const modePicker = document.getElementById('notes-mode-picker');
+    const textPanel = document.getElementById('text-notes-panel');
+    const chooseText = document.getElementById('choose-text-notes');
+    const backToModes = document.getElementById('back-to-modes');
+
+    function showTextNotes() {
+        if (modePicker) modePicker.classList.add('hidden');
+        if (textPanel) textPanel.classList.remove('hidden');
+        try { sessionStorage.setItem('hayyiz-notes-mode', 'text'); } catch (e) {}
+    }
+    function showModePicker() {
+        if (modePicker) modePicker.classList.remove('hidden');
+        if (textPanel) textPanel.classList.add('hidden');
+        try { sessionStorage.setItem('hayyiz-notes-mode', 'picker'); } catch (e) {}
+    }
+    if (chooseText) chooseText.addEventListener('click', showTextNotes);
+    if (backToModes) backToModes.addEventListener('click', showModePicker);
+
+    // إذا كان المستخدم في وضع النص سابقاً في نفس الجلسة
+    try {
+        if (sessionStorage.getItem('hayyiz-notes-mode') === 'text') {
+            showTextNotes();
+        }
+    } catch (e) {}
+
     renderNotes();
 });

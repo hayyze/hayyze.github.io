@@ -1,617 +1,523 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>مساحة الكتابة | حيز</title>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>مساحة كتابة حرة | حيز</title>
+    <meta name="description" content="مساحة كتابة ورسم حرة للطلاب مع دعم Apple Pencil، نص، ممحاة، تراجع، صفحات متعددة وحفظ محلي.">
+    <link rel="icon" href="favicon.ico">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <style>
-        * {
-            box-sizing: border-box;
-        }
-
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
-            --board-light: #ffffff;
-            --board-dark: #181818;
-
-            --toolbar-light: rgba(255, 255, 255, 0.92);
-            --toolbar-dark: rgba(30, 30, 30, 0.92);
-
-            --text-light: #222;
-            --text-dark: #f5f5f5;
-
-            --border-light: rgba(0, 0, 0, 0.12);
-            --border-dark: rgba(255, 255, 255, 0.12);
+            --board: #f8f6f0;
+            --toolbar-bg: rgba(255, 255, 255, 0.94);
+            --text: #1e293b;
+            --border: rgba(0, 0, 0, 0.1);
+            --primary: #4f46e5;
         }
-
-        html,
-        body {
-            margin: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
+        html, body {
+            width: 100%; height: 100%; overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+            background: var(--board); color: var(--text);
+            touch-action: none; -webkit-user-select: none; user-select: none;
         }
-
-        body {
-            font-family: Arial, sans-serif;
-            background: var(--board-light);
-            color: var(--text-light);
-            transition: background 0.2s ease, color 0.2s ease;
+        body.dark {
+            --board: #1a1a1a;
+            --toolbar-bg: rgba(30, 30, 30, 0.94);
+            --text: #f1f5f9;
+            --border: rgba(255, 255, 255, 0.12);
         }
-
-        /* الوضع الداكن */
-        @media (prefers-color-scheme: dark) {
-            body {
-                background: var(--board-dark);
-                color: var(--text-dark);
-            }
-        }
-
         #canvas {
-            position: fixed;
-            inset: 0;
-
-            display: block;
-
-            width: 100%;
-            height: 100%;
-
-            background: var(--board-light);
-
-            touch-action: none;
-            cursor: crosshair;
+            position: fixed; inset: 0; display: block;
+            width: 100%; height: 100%;
+            touch-action: none; cursor: crosshair; background: transparent;
         }
-
-        @media (prefers-color-scheme: dark) {
-            #canvas {
-                background: var(--board-dark);
-            }
-        }
-
-        /* شريط الأدوات */
         #toolbar {
-            position: fixed;
-            top: 16px;
-            left: 50%;
-            transform: translateX(-50%);
-
-            z-index: 100;
-
-            display: flex;
-            align-items: center;
-            gap: 8px;
-
-            padding: 8px;
-
-            border: 1px solid var(--border-light);
-            border-radius: 16px;
-
-            background: var(--toolbar-light);
-
-            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.12);
-
+            position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+            z-index: 200; display: flex; align-items: center; gap: 6px;
+            padding: 6px 10px; border: 1px solid var(--border); border-radius: 16px;
+            background: var(--toolbar-bg); box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            max-width: calc(100% - 16px); overflow-x: auto; scrollbar-width: none; direction: rtl;
+        }
+        #toolbar::-webkit-scrollbar { display: none; }
+        .tool-btn {
+            border: 0; background: transparent; min-width: 40px; height: 40px;
+            padding: 0 8px; border-radius: 10px; font-size: 15px; font-family: inherit;
+            color: inherit; cursor: pointer; display: inline-flex; align-items: center;
+            justify-content: center; transition: background 0.15s, transform 0.1s; white-space: nowrap;
+        }
+        .tool-btn:hover { background: rgba(127,127,127,0.14); }
+        .tool-btn:active { transform: scale(0.94); }
+        .tool-btn.active { background: rgba(79, 70, 229, 0.18); color: var(--primary); font-weight: 700; }
+        .tool-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .sep { width: 1px; height: 26px; background: currentColor; opacity: 0.12; flex-shrink: 0; }
+        .color-wrap { position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
+        #colorPicker { position: absolute; inset: 0; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+        #colorPreview { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(127,127,127,0.35); pointer-events: none; }
+        #sizePicker { width: 72px; height: 28px; cursor: pointer; accent-color: var(--primary); }
+        select.tool-select {
+            border: 1px solid var(--border); background: transparent; color: inherit;
+            border-radius: 10px; height: 36px; padding: 0 8px; font-size: 13px;
+            font-family: inherit; cursor: pointer; outline: none;
+        }
+        .page-indicator { font-size: 13px; font-weight: 600; min-width: 48px; text-align: center; opacity: 0.85; }
+        .save-dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; opacity: 0; transition: opacity 0.3s; }
+        .save-dot.show { opacity: 1; }
+        #pageBar {
+            position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+            z-index: 200; display: flex; align-items: center; gap: 8px;
+            padding: 8px 14px; border: 1px solid var(--border); border-radius: 14px;
+            background: var(--toolbar-bg); box-shadow: 0 6px 24px rgba(0,0,0,0.1);
             backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-
-            direction: rtl;
         }
-
-        @media (prefers-color-scheme: dark) {
-            #toolbar {
-                background: var(--toolbar-dark);
-                border-color: var(--border-dark);
-                box-shadow: 0 6px 25px rgba(0, 0, 0, 0.35);
-            }
+        #textInput {
+            position: fixed; z-index: 300; display: none; min-width: 120px; max-width: 80vw;
+            padding: 8px 12px; border: 2px solid var(--primary); border-radius: 8px;
+            font-size: 18px; font-family: inherit; background: #fff; color: #111;
+            outline: none; box-shadow: 0 4px 20px rgba(0,0,0,0.15); direction: rtl;
         }
-
-        .tool-button {
-            border: 0;
-            background: transparent;
-
-            min-width: 42px;
-            height: 42px;
-
-            padding: 0 10px;
-
-            border-radius: 11px;
-
-            font-size: 14px;
-            font-family: inherit;
-
-            color: inherit;
-
-            cursor: pointer;
-
-            transition:
-                background 0.15s ease,
-                transform 0.1s ease;
+        body.dark #textInput { background: #2a2a2a; color: #f1f5f9; }
+        .back-link {
+            position: fixed; top: 12px; right: 12px; z-index: 210; width: 42px; height: 42px;
+            border-radius: 12px; border: 1px solid var(--border); background: var(--toolbar-bg);
+            color: inherit; display: flex; align-items: center; justify-content: center;
+            text-decoration: none; font-size: 18px; box-shadow: 0 4px 16px rgba(0,0,0,0.08);
         }
-
-        .tool-button:hover {
-            background: rgba(127, 127, 127, 0.14);
-        }
-
-        .tool-button:active {
-            transform: scale(0.95);
-        }
-
-        .tool-button.active {
-            background: rgba(127, 127, 127, 0.2);
-            font-weight: 700;
-        }
-
-        /* فاصل */
-        .separator {
-            width: 1px;
-            height: 28px;
-            background: currentColor;
-            opacity: 0.15;
-        }
-
-        /* اختيار اللون */
-        .color-wrapper {
-            position: relative;
-
-            display: flex;
-            align-items: center;
-            justify-content: center;
-
-            width: 42px;
-            height: 42px;
-        }
-
-        #colorPicker {
-            position: absolute;
-
-            width: 42px;
-            height: 42px;
-
-            padding: 0;
-
-            border: 0;
-            border-radius: 11px;
-
-            background: transparent;
-
-            cursor: pointer;
-
-            opacity: 0;
-        }
-
-        #colorPreview {
-            width: 25px;
-            height: 25px;
-
-            border-radius: 50%;
-
-            background: #111;
-
-            border: 2px solid rgba(127, 127, 127, 0.4);
-
-            pointer-events: none;
-        }
-
-        /* اختيار السماكة */
-        #sizePicker {
-            width: 80px;
-            cursor: pointer;
-        }
-
-        /* وضع الإدخال */
-        #inputMode {
-            border: 1px solid var(--border-light);
-
-            background: transparent;
-            color: inherit;
-
-            border-radius: 10px;
-
-            height: 38px;
-
-            padding: 0 8px;
-
-            font-family: inherit;
-            font-size: 13px;
-
-            cursor: pointer;
-
-            outline: none;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            #inputMode {
-                border-color: var(--border-dark);
-            }
-        }
-
-        #inputMode option {
-            color: #111;
-            background: white;
-        }
-
-        /* النص الصغير */
-        .tool-label {
-            font-size: 12px;
-            opacity: 0.7;
-            white-space: nowrap;
-        }
-
-        /* على الشاشات الصغيرة */
-        @media (max-width: 650px) {
-            #toolbar {
-                top: 10px;
-
-                max-width: calc(100% - 20px);
-
-                overflow-x: auto;
-
-                scrollbar-width: none;
-            }
-
-            #toolbar::-webkit-scrollbar {
-                display: none;
-            }
-
-            .tool-label {
-                display: none;
-            }
-
-            .tool-button {
-                min-width: 40px;
-            }
-
-            #sizePicker {
-                width: 65px;
-            }
+        @media (max-width: 700px) {
+            #sizePicker { width: 56px; }
+            .back-link { top: auto; bottom: 16px; right: 12px; }
         }
     </style>
 </head>
-
 <body>
+    <a href="notes.html" class="back-link" title="العودة للملاحظات">←</a>
 
     <div id="toolbar">
-
-        <span class="tool-label">الإدخال</span>
-
-        <select id="inputMode" aria-label="وضع الإدخال">
-            <option value="pen-only">القلم فقط</option>
-            <option value="all">القلم + اللمس</option>
-        </select>
-
-        <div class="separator"></div>
-
-        <button
-            class="tool-button"
-            id="clearButton"
-            type="button"
-            title="مسح السبورة"
-        >
-            مسح
-        </button>
-
-        <div class="separator"></div>
-
-        <span class="tool-label">اللون</span>
-
-        <div class="color-wrapper">
+        <button class="tool-btn active" id="btnPen" type="button" title="قلم">✏️</button>
+        <button class="tool-btn" id="btnText" type="button" title="نص (T)">T</button>
+        <button class="tool-btn" id="btnEraser" type="button" title="ممحاة">🧽</button>
+        <div class="sep"></div>
+        <button class="tool-btn" id="btnUndo" type="button" title="تراجع" disabled>↶</button>
+        <button class="tool-btn" id="btnRedo" type="button" title="إعادة" disabled>↷</button>
+        <div class="sep"></div>
+        <div class="color-wrap" title="اللون">
             <div id="colorPreview"></div>
-
-            <input
-                id="colorPicker"
-                type="color"
-                value="#111111"
-                aria-label="لون القلم"
-            >
+            <input id="colorPicker" type="color" value="#1e293b" aria-label="لون">
         </div>
-
-        <div class="separator"></div>
-
-        <span class="tool-label">السماكة</span>
-
-        <input
-            id="sizePicker"
-            type="range"
-            min="1"
-            max="30"
-            value="3"
-            aria-label="سماكة القلم"
-        >
-
+        <input id="sizePicker" type="range" min="1" max="40" value="3" title="السماكة" aria-label="سماكة">
+        <div class="sep"></div>
+        <select id="bgPicker" class="tool-select" title="خلفية الورقة" aria-label="خلفية">
+            <option value="plain">ورق عادي</option>
+            <option value="lined">مسطر</option>
+            <option value="grid">شبكة</option>
+            <option value="dotted">نقطي</option>
+            <option value="dark">داكن</option>
+        </select>
+        <div class="sep"></div>
+        <select id="inputMode" class="tool-select" title="وضع الإدخال" aria-label="الإدخال">
+            <option value="pen-only">قلم فقط</option>
+            <option value="all">قلم + لمس</option>
+        </select>
+        <div class="sep"></div>
+        <button class="tool-btn" id="btnClear" type="button" title="مسح الصفحة">مسح</button>
+        <span class="save-dot" id="saveDot" title="تم الحفظ"></span>
     </div>
 
     <canvas id="canvas"></canvas>
+    <input type="text" id="textInput" autocomplete="off" enterkeyhint="done">
+
+    <div id="pageBar">
+        <button class="tool-btn" id="btnPrevPage" type="button" title="السابق">‹</button>
+        <span class="page-indicator" id="pageLabel">1 / 1</span>
+        <button class="tool-btn" id="btnNextPage" type="button" title="التالي">›</button>
+        <button class="tool-btn" id="btnAddPage" type="button" title="صفحة جديدة">＋</button>
+        <button class="tool-btn" id="btnDelPage" type="button" title="حذف الصفحة">🗑</button>
+    </div>
 
     <script>
-        const canvas = document.getElementById("canvas");
-        const ctx = canvas.getContext("2d");
+    (function () {
+        const STORAGE_KEY = 'hayyiz-free-notes-v2';
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const textInput = document.getElementById('textInput');
+        const btnPen = document.getElementById('btnPen');
+        const btnText = document.getElementById('btnText');
+        const btnEraser = document.getElementById('btnEraser');
+        const btnUndo = document.getElementById('btnUndo');
+        const btnRedo = document.getElementById('btnRedo');
+        const btnClear = document.getElementById('btnClear');
+        const btnPrevPage = document.getElementById('btnPrevPage');
+        const btnNextPage = document.getElementById('btnNextPage');
+        const btnAddPage = document.getElementById('btnAddPage');
+        const btnDelPage = document.getElementById('btnDelPage');
+        const pageLabel = document.getElementById('pageLabel');
+        const colorPicker = document.getElementById('colorPicker');
+        const colorPreview = document.getElementById('colorPreview');
+        const sizePicker = document.getElementById('sizePicker');
+        const bgPicker = document.getElementById('bgPicker');
+        const inputModeEl = document.getElementById('inputMode');
+        const saveDot = document.getElementById('saveDot');
 
-        const inputMode = document.getElementById("inputMode");
-        const clearButton = document.getElementById("clearButton");
-        const colorPicker = document.getElementById("colorPicker");
-        const colorPreview = document.getElementById("colorPreview");
-        const sizePicker = document.getElementById("sizePicker");
-
+        let tool = 'pen';
+        let penColor = localStorage.getItem('heez-draw-pen-color') || '#1e293b';
+        let penSize = Number(localStorage.getItem('heez-draw-pen-size')) || 3;
+        let inputMode = localStorage.getItem('heez-draw-input-mode') || 'pen-only';
+        let bgStyle = localStorage.getItem('heez-draw-bg') || 'plain';
+        let pages = [];
+        let pageIndex = 0;
         let drawing = false;
-
-        /*
-         * الوضع الافتراضي:
-         * القلم فقط
-         *
-         * هذا هو الوضع الأفضل للآيباد مع Apple Pencil
-         * لأنه يمنع الإصبع وراحة اليد من الرسم.
-         */
-        let inputModeValue =
-            localStorage.getItem("heez-draw-input-mode") || "pen-only";
-
-        inputMode.value = inputModeValue;
-
-        /*
-         * اللون المحفوظ
-         */
-        let penColor =
-            localStorage.getItem("heez-draw-pen-color") || "#111111";
+        let currentStroke = null;
+        let textPendingPos = null;
+        let saveTimer = null;
+        let dpr = 1;
 
         colorPicker.value = penColor;
         colorPreview.style.background = penColor;
-
-        /*
-         * السماكة المحفوظة
-         */
-        let penSize =
-            Number(localStorage.getItem("heez-draw-pen-size")) || 3;
-
         sizePicker.value = penSize;
+        inputModeEl.value = inputMode;
+        bgPicker.value = bgStyle;
 
-        /*
-         * إعدادات Canvas
-         */
-        function setupContext() {
-            ctx.lineCap = "round";
-            ctx.lineJoin = "round";
-            ctx.strokeStyle = penColor;
-            ctx.lineWidth = penSize;
+        function emptyPage() {
+            return { strokes: [], texts: [], history: [], future: [] };
         }
 
-        /*
-         * الحصول على لون السبورة الافتراضي
-         */
-        function getDefaultBoardColor() {
-            const darkMode = window.matchMedia(
-                "(prefers-color-scheme: dark)"
-            ).matches;
-
-            return darkMode ? "#181818" : "#ffffff";
+        function loadData() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    const data = JSON.parse(raw);
+                    pages = (data.pages || []).map(function (p) {
+                        return { strokes: p.strokes || [], texts: p.texts || [], history: [], future: [] };
+                    });
+                    pageIndex = Math.min(data.pageIndex || 0, Math.max(0, pages.length - 1));
+                    if (data.bgStyle) { bgStyle = data.bgStyle; bgPicker.value = bgStyle; }
+                }
+            } catch (e) {}
+            if (!pages.length) pages = [emptyPage()];
         }
 
-        /*
-         * تحديث خلفية Canvas
-         */
-        function updateBoardColor() {
-            canvas.style.background = getDefaultBoardColor();
+        function saveData() {
+            try {
+                var slim = pages.map(function (p) {
+                    return { strokes: p.strokes, texts: p.texts };
+                });
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    pages: slim, pageIndex: pageIndex, bgStyle: bgStyle, updated: Date.now()
+                }));
+                saveDot.classList.add('show');
+                clearTimeout(saveTimer);
+                saveTimer = setTimeout(function () { saveDot.classList.remove('show'); }, 1200);
+            } catch (e) {}
         }
 
-        /*
-         * ضبط حجم Canvas
-         */
+        function scheduleSave() {
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(saveData, 400);
+        }
+
+        function currentPage() { return pages[pageIndex]; }
+
+        function pushHistory() {
+            var p = currentPage();
+            p.history.push({
+                strokes: JSON.parse(JSON.stringify(p.strokes)),
+                texts: JSON.parse(JSON.stringify(p.texts))
+            });
+            if (p.history.length > 40) p.history.shift();
+            p.future = [];
+            updateUndoRedo();
+        }
+
+        function undo() {
+            var p = currentPage();
+            if (!p.history.length) return;
+            p.future.push({ strokes: JSON.parse(JSON.stringify(p.strokes)), texts: JSON.parse(JSON.stringify(p.texts)) });
+            var prev = p.history.pop();
+            p.strokes = prev.strokes; p.texts = prev.texts;
+            redraw(); updateUndoRedo(); scheduleSave();
+        }
+
+        function redo() {
+            var p = currentPage();
+            if (!p.future.length) return;
+            p.history.push({ strokes: JSON.parse(JSON.stringify(p.strokes)), texts: JSON.parse(JSON.stringify(p.texts)) });
+            var next = p.future.pop();
+            p.strokes = next.strokes; p.texts = next.texts;
+            redraw(); updateUndoRedo(); scheduleSave();
+        }
+
+        function updateUndoRedo() {
+            var p = currentPage();
+            btnUndo.disabled = !p.history.length;
+            btnRedo.disabled = !p.future.length;
+        }
+
+        function drawBackground() {
+            var w = canvas.width / dpr, h = canvas.height / dpr;
+            if (bgStyle === 'dark') {
+                ctx.fillStyle = '#1a1a1a';
+                ctx.fillRect(0, 0, w, h);
+                document.body.classList.add('dark');
+                return;
+            }
+            document.body.classList.remove('dark');
+            ctx.fillStyle = '#f8f6f0';
+            ctx.fillRect(0, 0, w, h);
+            ctx.strokeStyle = 'rgba(0,0,0,0.07)';
+            ctx.lineWidth = 1;
+            var x, y;
+            if (bgStyle === 'lined') {
+                for (y = 40; y < h; y += 28) {
+                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+                }
+            } else if (bgStyle === 'grid') {
+                for (x = 0; x < w; x += 28) {
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+                }
+                for (y = 0; y < h; y += 28) {
+                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+                }
+            } else if (bgStyle === 'dotted') {
+                ctx.fillStyle = 'rgba(0,0,0,0.12)';
+                for (x = 14; x < w; x += 24) {
+                    for (y = 14; y < h; y += 24) {
+                        ctx.beginPath(); ctx.arc(x, y, 1.2, 0, Math.PI * 2); ctx.fill();
+                    }
+                }
+            }
+        }
+
+        function redraw() {
+            drawBackground();
+            var p = currentPage(), i, s, t, pts;
+            for (i = 0; i < p.strokes.length; i++) {
+                s = p.strokes[i];
+                if (!s.points || s.points.length < 1) continue;
+                ctx.beginPath();
+                ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                if (s.tool === 'eraser') {
+                    ctx.globalCompositeOperation = 'destination-out';
+                    ctx.strokeStyle = 'rgba(0,0,0,1)';
+                    ctx.lineWidth = s.size * 2.5;
+                } else {
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.strokeStyle = s.color;
+                    ctx.lineWidth = s.size;
+                }
+                ctx.moveTo(s.points[0].x, s.points[0].y);
+                for (var j = 1; j < s.points.length; j++) {
+                    var pt = s.points[j];
+                    if (pt.pressure != null && s.tool !== 'eraser') {
+                        ctx.lineWidth = s.size * (0.4 + pt.pressure * 0.9);
+                    }
+                    ctx.lineTo(pt.x, pt.y);
+                }
+                ctx.stroke();
+            }
+            ctx.globalCompositeOperation = 'source-over';
+            for (i = 0; i < p.texts.length; i++) {
+                t = p.texts[i];
+                ctx.fillStyle = t.color || '#1e293b';
+                ctx.font = (t.size || 18) + "px 'Segoe UI', Tahoma, Arial, sans-serif";
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'top';
+                ctx.fillText(t.text, t.x, t.y);
+            }
+            updatePageLabel();
+            updateUndoRedo();
+        }
+
         function resizeCanvas() {
-            const dpr = window.devicePixelRatio || 1;
-
-            /*
-             * نحاول الحفاظ على الرسم الموجود أثناء تغيير الحجم.
-             */
-            const oldCanvas = document.createElement("canvas");
-            const oldCtx = oldCanvas.getContext("2d");
-
-            oldCanvas.width = canvas.width;
-            oldCanvas.height = canvas.height;
-
-            if (canvas.width && canvas.height) {
-                oldCtx.drawImage(canvas, 0, 0);
-            }
-
-            canvas.width = window.innerWidth * dpr;
-            canvas.height = window.innerHeight * dpr;
-
-            canvas.style.width = window.innerWidth + "px";
-            canvas.style.height = window.innerHeight + "px";
-
+            dpr = Math.min(window.devicePixelRatio || 1, 2);
+            canvas.width = Math.floor(window.innerWidth * dpr);
+            canvas.height = Math.floor(window.innerHeight * dpr);
+            canvas.style.width = window.innerWidth + 'px';
+            canvas.style.height = window.innerHeight + 'px';
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-            setupContext();
-
-            /*
-             * إعادة الرسم السابق بعد تغيير الحجم
-             */
-            if (oldCanvas.width && oldCanvas.height) {
-                ctx.drawImage(
-                    oldCanvas,
-                    0,
-                    0,
-                    oldCanvas.width,
-                    oldCanvas.height,
-                    0,
-                    0,
-                    window.innerWidth,
-                    window.innerHeight
-                );
-            }
-
-            updateBoardColor();
+            redraw();
         }
 
-        resizeCanvas();
+        function setTool(name) {
+            tool = name;
+            btnPen.classList.toggle('active', name === 'pen');
+            btnText.classList.toggle('active', name === 'text');
+            btnEraser.classList.toggle('active', name === 'eraser');
+            canvas.style.cursor = name === 'text' ? 'text' : 'crosshair';
+            hideTextInput();
+        }
 
-        window.addEventListener("resize", resizeCanvas);
-
-        /*
-         * تحديث الخلفية إذا تغير الوضع
-         * بين الفاتح والداكن.
-         */
-        const colorScheme = window.matchMedia(
-            "(prefers-color-scheme: dark)"
-        );
-
-        colorScheme.addEventListener("change", () => {
-            updateBoardColor();
-        });
-
-        /*
-         * هل يسمح لهذا الحدث بالرسم؟
-         */
-        function canDraw(event) {
-
-            /*
-             * القلم فقط:
-             * نقبل pointerType = pen فقط.
-             */
-            if (inputModeValue === "pen-only") {
-                return event.pointerType === "pen";
-            }
-
-            /*
-             * الوضع الثاني:
-             * القلم + الإصبع + الماوس.
-             */
+        function canDraw(e) {
+            if (inputMode === 'pen-only') return e.pointerType === 'pen';
             return true;
         }
 
-        /*
-         * بدء الرسم
-         */
-        canvas.addEventListener("pointerdown", (event) => {
+        function getPos(e) {
+            return { x: e.clientX, y: e.clientY, pressure: e.pressure > 0 ? e.pressure : 0.5 };
+        }
 
-            if (!canDraw(event)) {
+        canvas.addEventListener('pointerdown', function (e) {
+            if (tool === 'text') {
+                if (!canDraw(e) && e.pointerType !== 'mouse') return;
+                showTextInput(e.clientX, e.clientY);
                 return;
             }
-
+            if (!canDraw(e)) return;
+            e.preventDefault();
             drawing = true;
+            canvas.setPointerCapture(e.pointerId);
+            pushHistory();
+            var pos = getPos(e);
+            currentStroke = { tool: tool, color: penColor, size: penSize, points: [pos] };
+            currentPage().strokes.push(currentStroke);
+        });
 
-            canvas.setPointerCapture(event.pointerId);
-
+        canvas.addEventListener('pointermove', function (e) {
+            if (!drawing || !currentStroke) return;
+            e.preventDefault();
+            var pos = getPos(e);
+            currentStroke.points.push(pos);
+            var pts = currentStroke.points;
+            if (pts.length < 2) return;
+            var a = pts[pts.length - 2], b = pts[pts.length - 1];
             ctx.beginPath();
-
-            ctx.moveTo(
-                event.clientX,
-                event.clientY
-            );
-        });
-
-        /*
-         * الاستمرار بالرسم
-         */
-        canvas.addEventListener("pointermove", (event) => {
-
-            if (!drawing) {
-                return;
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            if (currentStroke.tool === 'eraser') {
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.strokeStyle = 'rgba(0,0,0,1)';
+                ctx.lineWidth = currentStroke.size * 2.5;
+            } else {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.strokeStyle = currentStroke.color;
+                ctx.lineWidth = currentStroke.size * (0.4 + (b.pressure || 0.5) * 0.9);
             }
-
-            ctx.lineTo(
-                event.clientX,
-                event.clientY
-            );
-
-            ctx.stroke();
+            ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+            ctx.globalCompositeOperation = 'source-over';
         });
 
-        /*
-         * إنهاء الرسم
-         */
-        canvas.addEventListener("pointerup", (event) => {
+        function endStroke(e) {
+            if (!drawing) return;
+            drawing = false;
+            currentStroke = null;
+            try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+            scheduleSave();
+        }
+        canvas.addEventListener('pointerup', endStroke);
+        canvas.addEventListener('pointercancel', endStroke);
 
-            if (!drawing) {
-                return;
+        function showTextInput(x, y) {
+            textPendingPos = { x: x, y: y };
+            textInput.style.display = 'block';
+            textInput.style.left = Math.min(x, window.innerWidth - 160) + 'px';
+            textInput.style.top = Math.min(y, window.innerHeight - 50) + 'px';
+            textInput.value = '';
+            textInput.focus();
+        }
+        function hideTextInput() {
+            textInput.style.display = 'none';
+            textPendingPos = null;
+        }
+        function commitText() {
+            var val = (textInput.value || '').trim();
+            if (val && textPendingPos) {
+                pushHistory();
+                currentPage().texts.push({
+                    text: val, x: textPendingPos.x, y: textPendingPos.y,
+                    color: penColor, size: Math.max(14, penSize * 4)
+                });
+                redraw(); scheduleSave();
             }
-
-            drawing = false;
-
-            try {
-                canvas.releasePointerCapture(event.pointerId);
-            } catch (error) {}
-
-            ctx.closePath();
+            hideTextInput();
+        }
+        textInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); commitText(); }
+            else if (e.key === 'Escape') hideTextInput();
+        });
+        textInput.addEventListener('blur', function () {
+            if (textInput.style.display === 'block') commitText();
         });
 
-        /*
-         * إلغاء الرسم
-         */
-        canvas.addEventListener("pointercancel", () => {
-            drawing = false;
+        function updatePageLabel() {
+            pageLabel.textContent = (pageIndex + 1) + ' / ' + pages.length;
+            btnPrevPage.disabled = pageIndex <= 0;
+            btnNextPage.disabled = pageIndex >= pages.length - 1;
+            btnDelPage.disabled = pages.length <= 1;
+        }
+        function goPage(i) {
+            if (i < 0 || i >= pages.length) return;
+            pageIndex = i;
+            redraw(); scheduleSave();
+        }
+
+        btnPen.addEventListener('click', function () { setTool('pen'); });
+        btnText.addEventListener('click', function () { setTool('text'); });
+        btnEraser.addEventListener('click', function () { setTool('eraser'); });
+        btnUndo.addEventListener('click', undo);
+        btnRedo.addEventListener('click', redo);
+        btnClear.addEventListener('click', function () {
+            if (!confirm('مسح هذه الصفحة بالكامل؟')) return;
+            pushHistory();
+            var p = currentPage();
+            p.strokes = []; p.texts = [];
+            redraw(); scheduleSave();
         });
-
-        /*
-         * تغيير وضع الإدخال
-         */
-        inputMode.addEventListener("change", () => {
-
-            inputModeValue = inputMode.value;
-
-            localStorage.setItem(
-                "heez-draw-input-mode",
-                inputModeValue
-            );
+        btnPrevPage.addEventListener('click', function () { goPage(pageIndex - 1); });
+        btnNextPage.addEventListener('click', function () { goPage(pageIndex + 1); });
+        btnAddPage.addEventListener('click', function () {
+            pages.splice(pageIndex + 1, 0, emptyPage());
+            goPage(pageIndex + 1);
         });
-
-        /*
-         * تغيير لون القلم
-         */
-        colorPicker.addEventListener("input", () => {
-
+        btnDelPage.addEventListener('click', function () {
+            if (pages.length <= 1) return;
+            if (!confirm('حذف هذه الصفحة؟')) return;
+            pages.splice(pageIndex, 1);
+            if (pageIndex >= pages.length) pageIndex = pages.length - 1;
+            redraw(); scheduleSave();
+        });
+        colorPicker.addEventListener('input', function () {
             penColor = colorPicker.value;
-
-            ctx.strokeStyle = penColor;
-
             colorPreview.style.background = penColor;
-
-            localStorage.setItem(
-                "heez-draw-pen-color",
-                penColor
-            );
+            localStorage.setItem('heez-draw-pen-color', penColor);
         });
-
-        /*
-         * تغيير سماكة القلم
-         */
-        sizePicker.addEventListener("input", () => {
-
+        sizePicker.addEventListener('input', function () {
             penSize = Number(sizePicker.value);
-
-            ctx.lineWidth = penSize;
-
-            localStorage.setItem(
-                "heez-draw-pen-size",
-                penSize
-            );
+            localStorage.setItem('heez-draw-pen-size', penSize);
+        });
+        bgPicker.addEventListener('change', function () {
+            bgStyle = bgPicker.value;
+            localStorage.setItem('heez-draw-bg', bgStyle);
+            redraw(); scheduleSave();
+        });
+        inputModeEl.addEventListener('change', function () {
+            inputMode = inputModeEl.value;
+            localStorage.setItem('heez-draw-input-mode', inputMode);
         });
 
-        /*
-         * مسح السبورة
-         */
-        clearButton.addEventListener("click", () => {
-
-            const confirmed = confirm(
-                "هل تريد مسح كل ما كتبته؟"
-            );
-
-            if (!confirmed) {
-                return;
-            }
-
-            ctx.clearRect(
-                0,
-                0,
-                canvas.width,
-                canvas.height
-            );
-
-            updateBoardColor();
+        window.addEventListener('keydown', function (e) {
+            if (e.target === textInput) return;
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                if (e.shiftKey) redo(); else undo();
+            } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+                e.preventDefault(); redo();
+            } else if (e.key === 't' || e.key === 'T') setTool('text');
+            else if (e.key === 'e' || e.key === 'E') setTool('eraser');
+            else if (e.key === 'p' || e.key === 'P') setTool('pen');
         });
 
-        /*
-         * تهيئة السياق
-         */
-        setupContext();
+        document.body.addEventListener('touchmove', function (e) {
+            if (e.target === canvas || e.target === document.body) e.preventDefault();
+        }, { passive: false });
+
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('beforeunload', saveData);
+
+        loadData();
+        resizeCanvas();
+        setTool('pen');
+    })();
     </script>
-
 </body>
 </html>
