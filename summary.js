@@ -29,7 +29,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const highScore = parseInt(localStorage.getItem('hayyiz-highscore') || '0', 10);
 
     const activeTodos = todos.filter((t) => !t.completed);
-    const completedTodayish = todos.filter((t) => t.completed).length;
+    // مهام منجزة اليوم: تفضيل completedAt إن وُجد، وإلا لا نعرض رقمًا مضلّلًا لكل المهام القديمة
+    const completedToday = todos.filter(
+        (t) => t.completed && t.completedAt === today
+    ).length;
+    const completedAll = todos.filter((t) => t.completed).length;
     const overdue = activeTodos.filter((t) => t.date && t.date < today);
     const dueToday = activeTodos.filter((t) => t.date === today);
     const habitsDoneToday = habits.filter((h) => h.lastCompleted === today).length;
@@ -95,6 +99,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = 'pomodoro.html?task=' + encodeURIComponent(task.text);
     }
 
+    const priMap = { high: 'عالية', medium: 'متوسطة', low: 'منخفضة' };
+
     content.replaceChildren();
 
     // --- ترحيب ---
@@ -108,7 +114,102 @@ document.addEventListener('DOMContentLoaded', () => {
     greet.appendChild(greetDate);
     content.appendChild(greet);
 
-    // --- بطاقات الإحصائيات ---
+    // --- ماذا عليّ أن أفعل الآن؟ (بطاقة التركيز التالية) ---
+    const nowCard = document.createElement('div');
+    nowCard.className = 'dash-now';
+
+    if (nextTask) {
+        const nowLabel = document.createElement('div');
+        nowLabel.className = 'dash-now-label';
+        nowLabel.innerHTML =
+            '<i class="fa-solid fa-bullseye" aria-hidden="true"></i> الخطوة التالية';
+        nowCard.appendChild(nowLabel);
+
+        const nowName = document.createElement('div');
+        nowName.className = 'dash-now-name';
+        nowName.textContent = nextTask.text;
+        nowCard.appendChild(nowName);
+
+        const nowMeta = document.createElement('div');
+        nowMeta.className = 'dash-now-meta';
+        const metaParts = [];
+        if (nextTask.priority) metaParts.push('أولوية ' + (priMap[nextTask.priority] || nextTask.priority));
+        if (nextTask.minutes) {
+            const done = nextTask.focusDone ? parseInt(nextTask.focusDone, 10) || 0 : 0;
+            const total = parseInt(nextTask.minutes, 10) || 0;
+            if (done > 0 && total > 0) metaParts.push(done + '/' + total + ' د');
+            else metaParts.push(nextTask.minutes + ' د');
+        }
+        if (nextTask.date) {
+            if (nextTask.date < today) metaParts.push('متأخرة');
+            else if (nextTask.date === today) metaParts.push('اليوم');
+            else metaParts.push(nextTask.date);
+        }
+        nowMeta.textContent = metaParts.join(' · ');
+        nowCard.appendChild(nowMeta);
+
+        const nowActions = document.createElement('div');
+        nowActions.className = 'dash-now-actions';
+
+        const startNowBtn = document.createElement('button');
+        startNowBtn.type = 'button';
+        startNowBtn.className = 'btn btn-primary';
+        startNowBtn.innerHTML =
+            '<i class="fa-solid fa-play" aria-hidden="true"></i> ابدأ جلسة تركيز';
+        startNowBtn.addEventListener('click', () => {
+            const idx = todos.indexOf(nextTask);
+            launchPomodoroForTask(nextTask, idx >= 0 ? idx : 0);
+        });
+        nowActions.appendChild(startNowBtn);
+
+        const openTodo = document.createElement('a');
+        openTodo.href = 'todo.html';
+        openTodo.className = 'btn btn-outline';
+        openTodo.textContent = 'عرض المهام';
+        nowActions.appendChild(openTodo);
+
+        nowCard.appendChild(nowActions);
+    } else {
+        const nowLabel = document.createElement('div');
+        nowLabel.className = 'dash-now-label';
+        nowLabel.innerHTML =
+            '<i class="fa-solid fa-check-double" aria-hidden="true"></i> لا مهام نشطة الآن';
+        nowCard.appendChild(nowLabel);
+
+        const emptyHint = document.createElement('p');
+        emptyHint.className = 'dash-empty';
+        emptyHint.style.margin = '0.5rem 0 0.85rem';
+        emptyHint.textContent =
+            'أضف مهمة من قائمة المهام، أو ابدأ جلسة تركيز مباشرة.';
+        nowCard.appendChild(emptyHint);
+
+        const nowActions = document.createElement('div');
+        nowActions.className = 'dash-now-actions';
+
+        const startFree = document.createElement('button');
+        startFree.type = 'button';
+        startFree.className = 'btn btn-primary';
+        startFree.innerHTML =
+            '<i class="fa-solid fa-play" aria-hidden="true"></i> ابدأ جلسة تركيز';
+        startFree.addEventListener('click', () => {
+            localStorage.removeItem('hayyiz-current-task');
+            localStorage.removeItem('hayyiz-current-task-index');
+            localStorage.removeItem('hayyiz-task-session');
+            window.location.href = 'pomodoro.html';
+        });
+        nowActions.appendChild(startFree);
+
+        const addTask = document.createElement('a');
+        addTask.href = 'todo.html';
+        addTask.className = 'btn btn-outline';
+        addTask.textContent = 'أضف مهمة';
+        nowActions.appendChild(addTask);
+
+        nowCard.appendChild(nowActions);
+    }
+    content.appendChild(nowCard);
+
+    // --- بطاقات الإحصائيات (ماذا أنجزت اليوم؟) ---
     const stats = document.createElement('div');
     stats.className = 'dash-stats';
 
@@ -133,18 +234,36 @@ document.addEventListener('DOMContentLoaded', () => {
         return el;
     }
 
-    stats.appendChild(makeStat('fa-solid fa-clock', sessionsToday, 'جلسات التركيز', 'pomodoro.html'));
+    stats.appendChild(makeStat('fa-solid fa-clock', sessionsToday, 'جلسات اليوم', 'pomodoro.html'));
     stats.appendChild(makeStat('fa-solid fa-hourglass-half', timeText, 'تركيز اليوم', 'pomodoro.html'));
-    stats.appendChild(makeStat('fa-solid fa-circle-check', completedTodayish, 'المهام المنجزة', 'todo.html'));
+    // عرض منجز اليوم إن وُجدت تواريخ، وإلا إجمالي المنجز مع تسمية واضحة
+    const hasAnyCompletedAt = todos.some((t) => t.completed && t.completedAt);
+    if (hasAnyCompletedAt || completedToday > 0) {
+        stats.appendChild(
+            makeStat('fa-solid fa-circle-check', completedToday, 'منجزة اليوم', 'todo.html')
+        );
+    } else {
+        stats.appendChild(
+            makeStat('fa-solid fa-circle-check', completedAll, 'مهام منجزة', 'todo.html')
+        );
+    }
     stats.appendChild(
-        makeStat(
-            'fa-solid fa-list-check',
-            activeTodos.length,
-            'مهام نشطة',
-            'todo.html'
-        )
+        makeStat('fa-solid fa-list-check', activeTodos.length, 'مهام متبقية', 'todo.html')
     );
     content.appendChild(stats);
+
+    // ملخص يومي مختصر
+    const dayBits = [];
+    if (sessionsToday > 0) dayBits.push(sessionsToday + ' جلسة تركيز');
+    if (focusMinutes > 0) dayBits.push(timeText + ' تركيز');
+    if (completedToday > 0) dayBits.push(completedToday + ' مهمة منجزة');
+    if (habits.length > 0) dayBits.push(habitsDoneToday + '/' + habits.length + ' عادات');
+    if (dayBits.length > 0) {
+        const daySum = document.createElement('p');
+        daySum.className = 'dash-day-summary';
+        daySum.textContent = 'اليوم: ' + dayBits.join(' · ');
+        content.appendChild(daySum);
+    }
 
     // تنبيه متأخرة
     if (overdue.length > 0 || dueToday.length > 0) {
@@ -153,13 +272,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (overdue.length > 0) {
             alert.classList.add('warn');
             alert.innerHTML =
-                '<i class="fa-solid fa-triangle-exclamation"></i> ' +
+                '<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> ' +
                 '<span>لديك <strong>' +
                 overdue.length +
                 '</strong> مهمة متأخرة</span>';
         } else {
             alert.innerHTML =
-                '<i class="fa-solid fa-calendar-day"></i> ' +
+                '<i class="fa-solid fa-calendar-day" aria-hidden="true"></i> ' +
                 '<span><strong>' +
                 dueToday.length +
                 '</strong> مهمة مستحقة اليوم</span>';
@@ -171,14 +290,15 @@ document.addEventListener('DOMContentLoaded', () => {
         content.appendChild(alert);
     }
 
-    // --- المهام القادمة ---
+    // --- المهام القادمة (باقي القائمة بعد المهمة الأولى) ---
+    const moreTasks = nextTasks.slice(1);
     const tasksSection = document.createElement('div');
     tasksSection.className = 'dash-section';
 
     const tasksHead = document.createElement('div');
     tasksHead.className = 'dash-section-head';
     const tasksTitle = document.createElement('h4');
-    tasksTitle.textContent = 'المهام القادمة';
+    tasksTitle.textContent = moreTasks.length > 0 ? 'مهام أخرى قادمة' : 'المهام';
     const tasksAll = document.createElement('a');
     tasksAll.href = 'todo.html';
     tasksAll.textContent = 'الكل';
@@ -195,11 +315,12 @@ document.addEventListener('DOMContentLoaded', () => {
         addLink.textContent = 'أضف مهمة';
         empty.appendChild(addLink);
         tasksSection.appendChild(empty);
-    } else {
+        content.appendChild(tasksSection);
+    } else if (moreTasks.length > 0) {
         const list = document.createElement('ul');
         list.className = 'dash-task-list';
 
-        nextTasks.forEach((task) => {
+        moreTasks.forEach((task) => {
             const realIndex = todos.indexOf(task);
             const li = document.createElement('li');
             li.className = 'dash-task-item';
@@ -213,7 +334,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const meta = document.createElement('span');
             meta.className = 'dash-task-meta';
-            const priMap = { high: 'عالية', medium: 'متوسطة', low: 'منخفضة' };
             let metaText = priMap[task.priority] || '';
             if (task.minutes) {
                 const done = task.focusDone ? parseInt(task.focusDone, 10) || 0 : 0;
@@ -238,7 +358,8 @@ document.addEventListener('DOMContentLoaded', () => {
             pomoBtn.type = 'button';
             pomoBtn.className = 'dash-pomo-btn';
             pomoBtn.title = 'ابدأ تركيز';
-            pomoBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+            pomoBtn.setAttribute('aria-label', 'ابدأ جلسة تركيز على ' + task.text);
+            pomoBtn.innerHTML = '<i class="fa-solid fa-play" aria-hidden="true"></i>';
             pomoBtn.addEventListener('click', () => {
                 launchPomodoroForTask(task, realIndex);
             });
@@ -249,8 +370,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         tasksSection.appendChild(list);
+        content.appendChild(tasksSection);
     }
-    content.appendChild(tasksSection);
 
     // --- عادات اليوم ---
     if (habits.length > 0) {
@@ -260,7 +381,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const habitsHead = document.createElement('div');
         habitsHead.className = 'dash-section-head';
         const habitsTitle = document.createElement('h4');
-        habitsTitle.textContent = 'عادات اليوم';
+        habitsTitle.textContent =
+            'عادات اليوم · ' + habitsDoneToday + '/' + habits.length;
         const habitsAll = document.createElement('a');
         habitsAll.href = 'habits.html';
         habitsAll.textContent = 'الكل';
@@ -279,10 +401,10 @@ document.addEventListener('DOMContentLoaded', () => {
             check.type = 'checkbox';
             check.checked = habit.lastCompleted === today;
             check.title = 'تسجيل لليوم';
+            check.setAttribute('aria-label', 'تسجيل عادة ' + (habit.name || ''));
 
             check.addEventListener('change', () => {
                 const all = JSON.parse(localStorage.getItem('hayyiz-habits') || '[]');
-                // مطابقة بالاسم+الفهرس التقريبي
                 const idx = all.findIndex(
                     (h, j) => h.name === habit.name && (j === i || h.created === habit.created)
                 );
@@ -291,13 +413,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (check.checked) {
                     const last = all[target].lastCompleted;
-                    const yStr = typeof getYesterdayLocal === 'function'
-                        ? getYesterdayLocal()
-                        : (() => {
-                            const y = new Date();
-                            y.setDate(y.getDate() - 1);
-                            return `${y.getFullYear()}-${String(y.getMonth()+1).padStart(2,'0')}-${String(y.getDate()).padStart(2,'0')}`;
-                        })();
+                    const yStr =
+                        typeof getYesterdayLocal === 'function'
+                            ? getYesterdayLocal()
+                            : (() => {
+                                  const y = new Date();
+                                  y.setDate(y.getDate() - 1);
+                                  return (
+                                      y.getFullYear() +
+                                      '-' +
+                                      String(y.getMonth() + 1).padStart(2, '0') +
+                                      '-' +
+                                      String(y.getDate()).padStart(2, '0')
+                                  );
+                              })();
                     if (last === yStr) {
                         all[target].streak = (all[target].streak || 0) + 1;
                     } else if (last !== today) {
@@ -311,12 +440,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 localStorage.setItem('hayyiz-habits', JSON.stringify(all));
-                // تحديث العداد في الإحصائيات
                 const done = all.filter((h) => h.lastCompleted === today).length;
-                const statLabs = stats.querySelectorAll('.dash-stat');
-                if (statLabs[3]) {
-                    const strong = statLabs[3].querySelector('strong');
-                    if (strong) strong.textContent = done + '/' + all.length;
+                habitsTitle.textContent = 'عادات اليوم · ' + done + '/' + all.length;
+                const labelSpan = li.querySelector('span');
+                if (labelSpan) {
+                    labelSpan.textContent =
+                        all[target].name +
+                        (all[target].streak ? ' · ' + all[target].streak + '🔥' : '');
                 }
             });
 
@@ -335,11 +465,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- إحصاءات الأسبوع (آخر 7 أيام) ---
     try {
         const hist = JSON.parse(localStorage.getItem('hayyiz-focus-history') || '{}');
-        // تأكد أن اليوم الحالي موجود
         if (focusMinutes > 0) {
             hist[today] = Math.max(parseInt(hist[today], 10) || 0, focusMinutes);
         }
-        const dayNames = ['الاحد', 'الاثنين', 'الثلاثاء', 'الاربعاء', 'الخميس','الجمعة', 'السبت'];
+        const dayNames = ['الاحد', 'الاثنين', 'الثلاثاء', 'الاربعاء', 'الخميس', 'الجمعة', 'السبت'];
         const weekSection = document.createElement('div');
         weekSection.className = 'dash-section';
         const weekHead = document.createElement('div');
@@ -384,7 +513,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         weekSection.appendChild(bars);
         content.appendChild(weekSection);
-    } catch (e) { /* تجاهل */ }
+    } catch (e) {
+        /* تجاهل */
+    }
 
     // --- اختصارات سريعة ---
     const quick = document.createElement('div');
@@ -403,12 +534,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const a = document.createElement('a');
         a.href = s.href;
         a.className = 'dash-quick-item';
-        a.innerHTML = '<i class="' + s.icon + '" aria-hidden="true"></i><span>' + s.label + '</span>';
+        a.innerHTML =
+            '<i class="' + s.icon + '" aria-hidden="true"></i><span>' + s.label + '</span>';
         quick.appendChild(a);
     });
     content.appendChild(quick);
 
-    // زر بدء التركيز
+    // زر بدء التركيز في أسفل البطاقة (يبقى متوافقًا مع HTML الحالي)
     const startBtn = document.getElementById('start-focus-session-btn');
     if (startBtn) {
         startBtn.addEventListener('click', () => {

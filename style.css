@@ -1323,6 +1323,52 @@ button, input, select, textarea {
     color: var(--text-muted);
 }
 
+/* بطاقة الخطوة التالية — نفس هوية البطاقات الحالية */
+.dash-now {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 1rem;
+}
+.dash-now-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 0.35rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.dash-now-name {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.25rem;
+    line-height: 1.4;
+    word-break: break-word;
+}
+.dash-now-meta {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 0.85rem;
+}
+.dash-now-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    align-items: center;
+}
+.dash-now-actions .btn {
+    min-height: 40px;
+}
+.dash-day-summary {
+    margin: 0 0 1rem;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
 .dash-stats {
     display: grid;
     grid-template-columns: repeat(4, 1fr);

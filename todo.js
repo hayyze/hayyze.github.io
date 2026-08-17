@@ -530,6 +530,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             todos[index].completed = e.target.checked;
+            if (e.target.checked) {
+                const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : null;
+                if (todayStr) todos[index].completedAt = todayStr;
+            } else {
+                delete todos[index].completedAt;
+            }
 
             if (
                 currentTaskTimer &&

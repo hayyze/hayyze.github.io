@@ -498,13 +498,16 @@ document.addEventListener('DOMContentLoaded', () => {
             completeBtn.addEventListener('click', () => {
                 try {
                     const todos = JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
+                    const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : null;
                     if (todos[taskIndex] && todos[taskIndex].text === taskName) {
                         todos[taskIndex].completed = true;
+                        if (todayStr) todos[taskIndex].completedAt = todayStr;
                         localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
                     } else {
                         const found = todos.findIndex((t) => t.text === taskName && !t.completed);
                         if (found >= 0) {
                             todos[found].completed = true;
+                            if (todayStr) todos[found].completedAt = todayStr;
                             localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
                         }
                     }
@@ -518,6 +521,51 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             actions.appendChild(completeBtn);
         }
+
+        // المهمة التالية (إن وُجدت)
+        try {
+            const allTodos = JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
+            const orderPri = { high: 3, medium: 2, low: 1 };
+            const remaining = allTodos
+                .map((t, i) => ({ t, i }))
+                .filter(({ t }) => !t.completed && t.text !== taskName)
+                .sort((a, b) => {
+                    const pDiff = (orderPri[b.t.priority] || 0) - (orderPri[a.t.priority] || 0);
+                    if (pDiff !== 0) return pDiff;
+                    const dateA = a.t.date ? new Date(a.t.date).getTime() : Infinity;
+                    const dateB = b.t.date ? new Date(b.t.date).getTime() : Infinity;
+                    return dateA - dateB;
+                });
+            if (remaining.length > 0) {
+                const next = remaining[0];
+                const nextBtn = document.createElement('button');
+                nextBtn.type = 'button';
+                nextBtn.className = 'btn btn-outline';
+                nextBtn.innerHTML =
+                    '<i class="fa-solid fa-forward" aria-hidden="true"></i> المهمة التالية: ' +
+                    (next.t.text.length > 28 ? next.t.text.slice(0, 28) + '…' : next.t.text);
+                nextBtn.addEventListener('click', () => {
+                    const workMinPref = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
+                    const totalMinutes = next.t.minutes ? parseInt(next.t.minutes, 10) : null;
+                    const planNext = {
+                        text: next.t.text,
+                        index: next.i,
+                        totalMinutes: totalMinutes && totalMinutes > 0 ? totalMinutes : null,
+                        focusDone: next.t.focusDone ? parseInt(next.t.focusDone, 10) || 0 : 0,
+                        sessionsDone: next.t.sessionsDone ? parseInt(next.t.sessionsDone, 10) || 0 : 0,
+                        sessionsNeeded:
+                            totalMinutes && totalMinutes > 0
+                                ? Math.ceil(totalMinutes / workMinPref)
+                                : null
+                    };
+                    localStorage.setItem('hayyiz-current-task', next.t.text);
+                    localStorage.setItem('hayyiz-current-task-index', String(next.i));
+                    localStorage.setItem('hayyiz-task-session', JSON.stringify(planNext));
+                    window.location.href = 'pomodoro.html?task=' + encodeURIComponent(next.t.text);
+                });
+                actions.appendChild(nextBtn);
+            }
+        } catch (e) { /* تجاهل */ }
 
         // كتابة ملاحظة
         const noteBtn = document.createElement('button');
