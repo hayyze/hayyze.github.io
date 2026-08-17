@@ -339,7 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (focusMinutes > 0) {
             hist[today] = Math.max(parseInt(hist[today], 10) || 0, focusMinutes);
         }
-        const dayNames = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+        const dayNames = ['الاحد', 'الاثنين', 'الثلاثاء', 'الاربعاء', 'الخميس','الجمعة', 'السبت'];
         const weekSection = document.createElement('div');
         weekSection.className = 'dash-section';
         const weekHead = document.createElement('div');
