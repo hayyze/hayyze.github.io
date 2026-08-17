@@ -11,6 +11,20 @@
             box-sizing: border-box;
         }
 
+        :root {
+            --board-light: #ffffff;
+            --board-dark: #181818;
+
+            --toolbar-light: rgba(255, 255, 255, 0.92);
+            --toolbar-dark: rgba(30, 30, 30, 0.92);
+
+            --text-light: #222;
+            --text-dark: #f5f5f5;
+
+            --border-light: rgba(0, 0, 0, 0.12);
+            --border-dark: rgba(255, 255, 255, 0.12);
+        }
+
         html,
         body {
             margin: 0;
@@ -20,21 +34,291 @@
         }
 
         body {
-            background: #f5f5f5;
             font-family: Arial, sans-serif;
+            background: var(--board-light);
+            color: var(--text-light);
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+
+        /* الوضع الداكن */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: var(--board-dark);
+                color: var(--text-dark);
+            }
         }
 
         #canvas {
+            position: fixed;
+            inset: 0;
+
             display: block;
+
             width: 100%;
             height: 100%;
-            background: white;
+
+            background: var(--board-light);
+
             touch-action: none;
+            cursor: crosshair;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            #canvas {
+                background: var(--board-dark);
+            }
+        }
+
+        /* شريط الأدوات */
+        #toolbar {
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+
+            z-index: 100;
+
+            display: flex;
+            align-items: center;
+            gap: 8px;
+
+            padding: 8px;
+
+            border: 1px solid var(--border-light);
+            border-radius: 16px;
+
+            background: var(--toolbar-light);
+
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.12);
+
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+
+            direction: rtl;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            #toolbar {
+                background: var(--toolbar-dark);
+                border-color: var(--border-dark);
+                box-shadow: 0 6px 25px rgba(0, 0, 0, 0.35);
+            }
+        }
+
+        .tool-button {
+            border: 0;
+            background: transparent;
+
+            min-width: 42px;
+            height: 42px;
+
+            padding: 0 10px;
+
+            border-radius: 11px;
+
+            font-size: 14px;
+            font-family: inherit;
+
+            color: inherit;
+
+            cursor: pointer;
+
+            transition:
+                background 0.15s ease,
+                transform 0.1s ease;
+        }
+
+        .tool-button:hover {
+            background: rgba(127, 127, 127, 0.14);
+        }
+
+        .tool-button:active {
+            transform: scale(0.95);
+        }
+
+        .tool-button.active {
+            background: rgba(127, 127, 127, 0.2);
+            font-weight: 700;
+        }
+
+        /* فاصل */
+        .separator {
+            width: 1px;
+            height: 28px;
+            background: currentColor;
+            opacity: 0.15;
+        }
+
+        /* اختيار اللون */
+        .color-wrapper {
+            position: relative;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            width: 42px;
+            height: 42px;
+        }
+
+        #colorPicker {
+            position: absolute;
+
+            width: 42px;
+            height: 42px;
+
+            padding: 0;
+
+            border: 0;
+            border-radius: 11px;
+
+            background: transparent;
+
+            cursor: pointer;
+
+            opacity: 0;
+        }
+
+        #colorPreview {
+            width: 25px;
+            height: 25px;
+
+            border-radius: 50%;
+
+            background: #111;
+
+            border: 2px solid rgba(127, 127, 127, 0.4);
+
+            pointer-events: none;
+        }
+
+        /* اختيار السماكة */
+        #sizePicker {
+            width: 80px;
+            cursor: pointer;
+        }
+
+        /* وضع الإدخال */
+        #inputMode {
+            border: 1px solid var(--border-light);
+
+            background: transparent;
+            color: inherit;
+
+            border-radius: 10px;
+
+            height: 38px;
+
+            padding: 0 8px;
+
+            font-family: inherit;
+            font-size: 13px;
+
+            cursor: pointer;
+
+            outline: none;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            #inputMode {
+                border-color: var(--border-dark);
+            }
+        }
+
+        #inputMode option {
+            color: #111;
+            background: white;
+        }
+
+        /* النص الصغير */
+        .tool-label {
+            font-size: 12px;
+            opacity: 0.7;
+            white-space: nowrap;
+        }
+
+        /* على الشاشات الصغيرة */
+        @media (max-width: 650px) {
+            #toolbar {
+                top: 10px;
+
+                max-width: calc(100% - 20px);
+
+                overflow-x: auto;
+
+                scrollbar-width: none;
+            }
+
+            #toolbar::-webkit-scrollbar {
+                display: none;
+            }
+
+            .tool-label {
+                display: none;
+            }
+
+            .tool-button {
+                min-width: 40px;
+            }
+
+            #sizePicker {
+                width: 65px;
+            }
         }
     </style>
 </head>
 
 <body>
+
+    <div id="toolbar">
+
+        <span class="tool-label">الإدخال</span>
+
+        <select id="inputMode" aria-label="وضع الإدخال">
+            <option value="pen-only">القلم فقط</option>
+            <option value="all">القلم + اللمس</option>
+        </select>
+
+        <div class="separator"></div>
+
+        <button
+            class="tool-button"
+            id="clearButton"
+            type="button"
+            title="مسح السبورة"
+        >
+            مسح
+        </button>
+
+        <div class="separator"></div>
+
+        <span class="tool-label">اللون</span>
+
+        <div class="color-wrapper">
+            <div id="colorPreview"></div>
+
+            <input
+                id="colorPicker"
+                type="color"
+                value="#111111"
+                aria-label="لون القلم"
+            >
+        </div>
+
+        <div class="separator"></div>
+
+        <span class="tool-label">السماكة</span>
+
+        <input
+            id="sizePicker"
+            type="range"
+            min="1"
+            max="30"
+            value="3"
+            aria-label="سماكة القلم"
+        >
+
+    </div>
 
     <canvas id="canvas"></canvas>
 
@@ -42,10 +326,89 @@
         const canvas = document.getElementById("canvas");
         const ctx = canvas.getContext("2d");
 
+        const inputMode = document.getElementById("inputMode");
+        const clearButton = document.getElementById("clearButton");
+        const colorPicker = document.getElementById("colorPicker");
+        const colorPreview = document.getElementById("colorPreview");
+        const sizePicker = document.getElementById("sizePicker");
+
         let drawing = false;
 
+        /*
+         * الوضع الافتراضي:
+         * القلم فقط
+         *
+         * هذا هو الوضع الأفضل للآيباد مع Apple Pencil
+         * لأنه يمنع الإصبع وراحة اليد من الرسم.
+         */
+        let inputModeValue =
+            localStorage.getItem("heez-draw-input-mode") || "pen-only";
+
+        inputMode.value = inputModeValue;
+
+        /*
+         * اللون المحفوظ
+         */
+        let penColor =
+            localStorage.getItem("heez-draw-pen-color") || "#111111";
+
+        colorPicker.value = penColor;
+        colorPreview.style.background = penColor;
+
+        /*
+         * السماكة المحفوظة
+         */
+        let penSize =
+            Number(localStorage.getItem("heez-draw-pen-size")) || 3;
+
+        sizePicker.value = penSize;
+
+        /*
+         * إعدادات Canvas
+         */
+        function setupContext() {
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.strokeStyle = penColor;
+            ctx.lineWidth = penSize;
+        }
+
+        /*
+         * الحصول على لون السبورة الافتراضي
+         */
+        function getDefaultBoardColor() {
+            const darkMode = window.matchMedia(
+                "(prefers-color-scheme: dark)"
+            ).matches;
+
+            return darkMode ? "#181818" : "#ffffff";
+        }
+
+        /*
+         * تحديث خلفية Canvas
+         */
+        function updateBoardColor() {
+            canvas.style.background = getDefaultBoardColor();
+        }
+
+        /*
+         * ضبط حجم Canvas
+         */
         function resizeCanvas() {
             const dpr = window.devicePixelRatio || 1;
+
+            /*
+             * نحاول الحفاظ على الرسم الموجود أثناء تغيير الحجم.
+             */
+            const oldCanvas = document.createElement("canvas");
+            const oldCtx = oldCanvas.getContext("2d");
+
+            oldCanvas.width = canvas.width;
+            oldCanvas.height = canvas.height;
+
+            if (canvas.width && canvas.height) {
+                oldCtx.drawImage(canvas, 0, 0);
+            }
 
             canvas.width = window.innerWidth * dpr;
             canvas.height = window.innerHeight * dpr;
@@ -53,40 +416,201 @@
             canvas.style.width = window.innerWidth + "px";
             canvas.style.height = window.innerHeight + "px";
 
-            ctx.scale(dpr, dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-            ctx.lineCap = "round";
-            ctx.lineJoin = "round";
-            ctx.strokeStyle = "#111";
-            ctx.lineWidth = 3;
+            setupContext();
+
+            /*
+             * إعادة الرسم السابق بعد تغيير الحجم
+             */
+            if (oldCanvas.width && oldCanvas.height) {
+                ctx.drawImage(
+                    oldCanvas,
+                    0,
+                    0,
+                    oldCanvas.width,
+                    oldCanvas.height,
+                    0,
+                    0,
+                    window.innerWidth,
+                    window.innerHeight
+                );
+            }
+
+            updateBoardColor();
         }
 
         resizeCanvas();
 
         window.addEventListener("resize", resizeCanvas);
 
-        canvas.addEventListener("pointerdown", (event) => {
-            drawing = true;
+        /*
+         * تحديث الخلفية إذا تغير الوضع
+         * بين الفاتح والداكن.
+         */
+        const colorScheme = window.matchMedia(
+            "(prefers-color-scheme: dark)"
+        );
 
-            ctx.beginPath();
-            ctx.moveTo(event.clientX, event.clientY);
+        colorScheme.addEventListener("change", () => {
+            updateBoardColor();
         });
 
-        canvas.addEventListener("pointermove", (event) => {
-            if (!drawing) return;
+        /*
+         * هل يسمح لهذا الحدث بالرسم؟
+         */
+        function canDraw(event) {
 
-            ctx.lineTo(event.clientX, event.clientY);
+            /*
+             * القلم فقط:
+             * نقبل pointerType = pen فقط.
+             */
+            if (inputModeValue === "pen-only") {
+                return event.pointerType === "pen";
+            }
+
+            /*
+             * الوضع الثاني:
+             * القلم + الإصبع + الماوس.
+             */
+            return true;
+        }
+
+        /*
+         * بدء الرسم
+         */
+        canvas.addEventListener("pointerdown", (event) => {
+
+            if (!canDraw(event)) {
+                return;
+            }
+
+            drawing = true;
+
+            canvas.setPointerCapture(event.pointerId);
+
+            ctx.beginPath();
+
+            ctx.moveTo(
+                event.clientX,
+                event.clientY
+            );
+        });
+
+        /*
+         * الاستمرار بالرسم
+         */
+        canvas.addEventListener("pointermove", (event) => {
+
+            if (!drawing) {
+                return;
+            }
+
+            ctx.lineTo(
+                event.clientX,
+                event.clientY
+            );
+
             ctx.stroke();
         });
 
-        canvas.addEventListener("pointerup", () => {
+        /*
+         * إنهاء الرسم
+         */
+        canvas.addEventListener("pointerup", (event) => {
+
+            if (!drawing) {
+                return;
+            }
+
             drawing = false;
+
+            try {
+                canvas.releasePointerCapture(event.pointerId);
+            } catch (error) {}
+
             ctx.closePath();
         });
 
+        /*
+         * إلغاء الرسم
+         */
         canvas.addEventListener("pointercancel", () => {
             drawing = false;
         });
+
+        /*
+         * تغيير وضع الإدخال
+         */
+        inputMode.addEventListener("change", () => {
+
+            inputModeValue = inputMode.value;
+
+            localStorage.setItem(
+                "heez-draw-input-mode",
+                inputModeValue
+            );
+        });
+
+        /*
+         * تغيير لون القلم
+         */
+        colorPicker.addEventListener("input", () => {
+
+            penColor = colorPicker.value;
+
+            ctx.strokeStyle = penColor;
+
+            colorPreview.style.background = penColor;
+
+            localStorage.setItem(
+                "heez-draw-pen-color",
+                penColor
+            );
+        });
+
+        /*
+         * تغيير سماكة القلم
+         */
+        sizePicker.addEventListener("input", () => {
+
+            penSize = Number(sizePicker.value);
+
+            ctx.lineWidth = penSize;
+
+            localStorage.setItem(
+                "heez-draw-pen-size",
+                penSize
+            );
+        });
+
+        /*
+         * مسح السبورة
+         */
+        clearButton.addEventListener("click", () => {
+
+            const confirmed = confirm(
+                "هل تريد مسح كل ما كتبته؟"
+            );
+
+            if (!confirmed) {
+                return;
+            }
+
+            ctx.clearRect(
+                0,
+                0,
+                canvas.width,
+                canvas.height
+            );
+
+            updateBoardColor();
+        });
+
+        /*
+         * تهيئة السياق
+         */
+        setupContext();
     </script>
 
 </body>
