@@ -62,12 +62,13 @@
             -webkit-user-select: none; user-select: none;
         }
         body.drawing-mode { touch-action: none; }
-        body.dark {
-            --board: #1a1a1a;
-            --toolbar-bg: rgba(30, 30, 30, 0.94);
+        body.dark,
+        body.theme-dark {
+            --board: #0f172a;
+            --toolbar-bg: rgba(30, 41, 59, 0.94);
             --text: #f1f5f9;
             --muted: #94a3b8;
-            --border: rgba(255, 255, 255, 0.12);
+            --border: #334155;
             --card: #1e293b;
         }
 
@@ -78,7 +79,8 @@
             -webkit-user-select: text; user-select: text;
             touch-action: auto;
         }
-        body.dark #hub { background: #0f172a; }
+        body.dark #hub,
+        body.theme-dark #hub { background: #0f172a; }
         .hub-inner {
             max-width: 720px; margin: 0 auto; padding: 24px 16px 60px;
         }
@@ -593,6 +595,7 @@
             document.body.classList.remove('drawing-mode');
             activeSpaceId = null;
             hideTextInput();
+            applySiteTheme();
             renderHub(hubSearch.value);
         }
 
@@ -606,6 +609,21 @@
             hub.style.display = 'none';
             editor.classList.add('active');
             document.body.classList.add('drawing-mode');
+            applySiteTheme();
+            // لون القلم الافتراضي المناسب للوضع
+            if (isSiteDark() || s.bgStyle === 'dark') {
+                if (penColor === '#1e293b' || penColor === '#111111') {
+                    penColor = '#f1f5f9';
+                    colorPicker.value = penColor;
+                    colorPreview.style.background = penColor;
+                }
+            } else {
+                if (penColor === '#f1f5f9' || penColor === '#ffffff') {
+                    penColor = '#1e293b';
+                    colorPicker.value = penColor;
+                    colorPreview.style.background = penColor;
+                }
+            }
             resizeCanvases();
             setTool('pen');
         }
@@ -724,43 +742,95 @@
         }
 
         // ——— طبقتان: خلفية + رسم ———
+        function isSiteDark() {
+            return localStorage.getItem('hayyiz-theme') === 'dark';
+        }
+
+        function applySiteTheme() {
+            var dark = isSiteDark();
+            document.body.classList.toggle('theme-dark', dark);
+            document.body.classList.toggle('dark', dark);
+            // تحديث واجهة القائمة أيضاً
+            var hubEl = document.getElementById('hub');
+            if (hubEl) {
+                hubEl.style.background = dark ? '#0f172a' : '#f4f6f9';
+            }
+        }
+
         function drawBackground() {
             const w = bgCanvas.width / dpr;
             const h = bgCanvas.height / dpr;
             const s = getActiveSpace();
-            const bgStyle = (s && s.bgStyle) || bgPicker.value || 'plain';
+            var bgStyle = (s && s.bgStyle) || bgPicker.value || 'plain';
+            var dark = isSiteDark();
+
+            // إذا الموقع داكن والخلفية ليست «داكن» صراحةً، نستخدم ألوان الوضع الداكن للموقع
+            // وإذا اختار المستخدم «داكن» نثبت الوضع الداكن
+            if (bgStyle === 'dark') {
+                dark = true;
+            }
 
             bgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
             bgCtx.clearRect(0, 0, w, h);
 
-            if (bgStyle === 'dark') {
-                bgCtx.fillStyle = '#1a1a1a';
+            document.body.classList.toggle('dark', dark);
+            document.body.classList.toggle('theme-dark', dark);
+
+            if (dark) {
+                // نفس لون خلفية الموقع الداكن
+                bgCtx.fillStyle = '#0f172a';
                 bgCtx.fillRect(0, 0, w, h);
-                document.body.classList.add('dark');
+                // خطوط خفيفة مناسبة للداكن
+                bgCtx.strokeStyle = 'rgba(255,255,255,0.06)';
+                bgCtx.lineWidth = 1;
+                var x, y;
+                if (bgStyle === 'lined' || bgStyle === 'dark') {
+                    // مسطر خفيف أو عادي داكن بدون خطوط إضافية إن كان dark فقط
+                    if (bgStyle === 'lined') {
+                        for (y = 40; y < h; y += 28) {
+                            bgCtx.beginPath(); bgCtx.moveTo(0, y); bgCtx.lineTo(w, y); bgCtx.stroke();
+                        }
+                    }
+                } else if (bgStyle === 'grid') {
+                    for (x = 0; x < w; x += 28) {
+                        bgCtx.beginPath(); bgCtx.moveTo(x, 0); bgCtx.lineTo(x, h); bgCtx.stroke();
+                    }
+                    for (y = 0; y < h; y += 28) {
+                        bgCtx.beginPath(); bgCtx.moveTo(0, y); bgCtx.lineTo(w, y); bgCtx.stroke();
+                    }
+                } else if (bgStyle === 'dotted') {
+                    bgCtx.fillStyle = 'rgba(255,255,255,0.1)';
+                    for (x = 14; x < w; x += 24) {
+                        for (y = 14; y < h; y += 24) {
+                            bgCtx.beginPath(); bgCtx.arc(x, y, 1.2, 0, Math.PI * 2); bgCtx.fill();
+                        }
+                    }
+                }
                 return;
             }
-            document.body.classList.remove('dark');
+
+            // الوضع الفاتح — ورق كريمي قريب من هوية حيز
             bgCtx.fillStyle = '#f8f6f0';
             bgCtx.fillRect(0, 0, w, h);
             bgCtx.strokeStyle = 'rgba(0,0,0,0.07)';
             bgCtx.lineWidth = 1;
-            var x, y;
+            var x2, y2;
             if (bgStyle === 'lined') {
-                for (y = 40; y < h; y += 28) {
-                    bgCtx.beginPath(); bgCtx.moveTo(0, y); bgCtx.lineTo(w, y); bgCtx.stroke();
+                for (y2 = 40; y2 < h; y2 += 28) {
+                    bgCtx.beginPath(); bgCtx.moveTo(0, y2); bgCtx.lineTo(w, y2); bgCtx.stroke();
                 }
             } else if (bgStyle === 'grid') {
-                for (x = 0; x < w; x += 28) {
-                    bgCtx.beginPath(); bgCtx.moveTo(x, 0); bgCtx.lineTo(x, h); bgCtx.stroke();
+                for (x2 = 0; x2 < w; x2 += 28) {
+                    bgCtx.beginPath(); bgCtx.moveTo(x2, 0); bgCtx.lineTo(x2, h); bgCtx.stroke();
                 }
-                for (y = 0; y < h; y += 28) {
-                    bgCtx.beginPath(); bgCtx.moveTo(0, y); bgCtx.lineTo(w, y); bgCtx.stroke();
+                for (y2 = 0; y2 < h; y2 += 28) {
+                    bgCtx.beginPath(); bgCtx.moveTo(0, y2); bgCtx.lineTo(w, y2); bgCtx.stroke();
                 }
             } else if (bgStyle === 'dotted') {
                 bgCtx.fillStyle = 'rgba(0,0,0,0.12)';
-                for (x = 14; x < w; x += 24) {
-                    for (y = 14; y < h; y += 24) {
-                        bgCtx.beginPath(); bgCtx.arc(x, y, 1.2, 0, Math.PI * 2); bgCtx.fill();
+                for (x2 = 14; x2 < w; x2 += 24) {
+                    for (y2 = 14; y2 < h; y2 += 24) {
+                        bgCtx.beginPath(); bgCtx.arc(x2, y2, 1.2, 0, Math.PI * 2); bgCtx.fill();
                     }
                 }
             }
@@ -1059,6 +1129,12 @@
                 s.bgStyle = bgPicker.value;
                 s.updated = Date.now();
             }
+            // مزامنة مع ثيم الموقع: اختيار «داكن» يحفظ الوضع الداكن للموقع
+            if (bgPicker.value === 'dark') {
+                localStorage.setItem('hayyiz-theme', 'dark');
+            }
+            // إذا رجع لورق فاتح والموقع كان داكن، نبقي ثيم الموقع كما هو ونرسم حسبه
+            applySiteTheme();
             drawBackground();
             scheduleSave();
         });
@@ -1095,18 +1171,9 @@
 
         // ——— بدء ———
         loadAll();
-
-        // إذا فيه مساحة واحدة فقط أو أكثر: اعرض القائمة
-        // المستخدم طلب: إذا ما عنده → إنشاء، إذا عنده → آخر وحدة أو قائمة
-        if (spaces.length === 0) {
-            showHub();
-        } else if (spaces.length === 1) {
-            // مساحة واحدة: افتحها مباشرة (آخر/الوحيدة)
-            openSpace(spaces[0].id);
-        } else {
-            // أكثر من واحدة: القائمة مع بحث، مرتبة بآخر تعديل
-            showHub();
-        }
+        applySiteTheme();
+        // دائماً قائمة المساحات أولاً (بدون فتح آخر مساحة تلقائياً)
+        showHub();
     })();
     </script>
 </body>
