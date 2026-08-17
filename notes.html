@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -62,6 +61,72 @@
 }
 </script>
 <link rel="manifest" href="manifest.webmanifest">
+<style>
+    /* بطاقات اختيار نوع الملاحظة — بنفس أسلوب أدوات حيز */
+    .notes-mode-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+        margin: 0;
+    }
+    .notes-mode-card {
+        display: flex;
+        flex-direction: column;
+        text-align: right;
+        text-decoration: none;
+        color: inherit;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background: var(--bg-card);
+        border-radius: var(--radius);
+        padding: 22px;
+        box-shadow: var(--shadow);
+        transition: var(--transition);
+        font-family: inherit;
+        width: 100%;
+    }
+    .notes-mode-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+        border-color: var(--primary);
+    }
+    .notes-mode-card:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+    }
+    .notes-mode-card .card-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        margin-bottom: 14px;
+        color: white;
+    }
+    .notes-mode-card h3 {
+        font-size: 1.15rem;
+        margin-bottom: 8px;
+    }
+    .notes-mode-card p {
+        color: var(--text-muted);
+        font-size: 0.92rem;
+        line-height: 1.6;
+        margin: 0;
+    }
+    .draw-mode-icon {
+        background: linear-gradient(135deg, #7c3aed, #c084fc);
+    }
+    #text-notes-panel .section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        text-align: right;
+    }
+</style>
 </head>
 <body class="theme-light">
 <header class="navbar">
@@ -88,36 +153,43 @@
     </div>
 </header>
 <main class="container main-content">
+
     <!-- اختيار نوع الملاحظة -->
-    <div class="card" id="notes-mode-picker" style="margin-bottom: 1.5rem;">
+    <div class="card" id="notes-mode-picker">
         <div class="section-header">
             <h1><i class="fa-solid fa-note-sticky"></i> دفتر الملاحظات</h1>
             <p class="section-desc">اختر طريقة تدوين ملاحظاتك</p>
         </div>
-        <div class="tools-grid" style="margin: 0;">
-    <button type="button" class="card tool-card" id="choose-text-notes">
-        <div class="card-icon notes-icon">
-            <i class="fa-solid fa-list" aria-hidden="true"></i>
-        </div>
-        <h3>ملاحظات نصية</h3>
-        <p>عناوين، بحث، وتنظيم سريع للملاحظات الدراسية.</p>
-    </button>
-</div>
-            <a href="draw.html" class="card tool-card" style="text-decoration:none; color:inherit; text-align:right;">
-                <div class="card-icon" style="background: linear-gradient(135deg, #7c3aed, #c084fc);"><i class="fa-solid fa-pen-nib" aria-hidden="true"></i></div>
+        <div class="notes-mode-grid">
+            <button type="button" class="notes-mode-card" id="choose-text-notes">
+                <div class="card-icon notes-icon">
+                    <i class="fa-solid fa-list" aria-hidden="true"></i>
+                </div>
+                <h3>ملاحظات نصية</h3>
+                <p>عناوين، بحث، وتنظيم سريع للملاحظات الدراسية.</p>
+            </button>
+            <a href="draw.html" class="notes-mode-card">
+                <div class="card-icon draw-mode-icon">
+                    <i class="fa-solid fa-pen-nib" aria-hidden="true"></i>
+                </div>
                 <h3>مساحة كتابة حرة</h3>
                 <p>رسم وكتابة يدوية مع قلم، نص، ممحاة، صفحات وحفظ تلقائي.</p>
             </a>
         </div>
     </div>
 
+    <!-- لوحة الملاحظات النصية (تظهر بعد الاختيار) -->
     <div class="card hidden" id="text-notes-panel">
-        <div class="section-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <div class="section-header">
             <div>
-                <h1 style="font-size:1.4rem; margin:0;"><i class="fa-solid fa-list"></i> ملاحظات نصية</h1>
+                <h1 style="font-size:1.4rem; margin:0;">
+                    <i class="fa-solid fa-list"></i> ملاحظات نصية
+                </h1>
                 <p class="section-desc" style="margin:4px 0 0;">اكتب أفكارك وملاحظاتك الدراسية</p>
             </div>
-            <button type="button" class="btn btn-outline btn-sm" id="back-to-modes">← العودة للاختيار</button>
+            <button type="button" class="btn btn-outline btn-sm" id="back-to-modes">
+                ← العودة للاختيار
+            </button>
         </div>
         <form id="notes-form" class="notes-form">
             <input type="text" id="note-title" placeholder="عنوان الملاحظة (اختياري)">
@@ -136,7 +208,7 @@
             <i class="fa-solid fa-book-open"></i>
             <p>لا توجد ملاحظات بعد</p>
         </div>
-    </div><!-- /text-notes-panel -->
+    </div>
 
     <!-- المحتوى النصي التوضيحي -->
     <section class="card content-section" style="margin-top: 2rem;">
@@ -174,42 +246,42 @@
             <h2><i class="fa-solid fa-circle-question"></i> الأسئلة الشائعة حول دفتر الملاحظات</h2>
         </div>
         <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
-            
             <div class="faq-item" style="margin-bottom: 1.8rem;">
                 <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">كيف أضيف ملاحظة جديدة؟</h3>
                 <p>
-                    اكتب العنوان (اختياري) ثم المحتوى في الخانة المخصصة، واضغط على زر الحفظ. ستظهر الملاحظة مباشرة في القائمة.
+                    اختر «ملاحظات نصية»، اكتب العنوان (اختياري) ثم المحتوى، واضغط حفظ. ستظهر الملاحظة مباشرة في القائمة.
                 </p>
             </div>
-
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">ما الفرق بين الملاحظات النصية ومساحة الكتابة الحرة؟</h3>
+                <p>
+                    الملاحظات النصية مناسبة للتلخيص السريع والبحث. مساحة الكتابة الحرة للرسم والكتابة اليدوية (مثل الآيباد) مع صفحات وممحاة وحفظ تلقائي.
+                </p>
+            </div>
             <div class="faq-item" style="margin-bottom: 1.8rem;">
                 <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل يمكنني البحث داخل الملاحظات؟</h3>
                 <p>
-                    نعم، يوجد شريط بحث أعلى قائمة الملاحظات يتيح لك البحث في العناوين والمحتوى بسرعة.
+                    نعم، يوجد شريط بحث أعلى قائمة الملاحظات النصية. وفي مساحة الكتابة الحرة يمكنك البحث بالاسم بين مساحاتك.
                 </p>
             </div>
-
             <div class="faq-item" style="margin-bottom: 1.8rem;">
                 <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل تُحفظ ملاحظاتي إذا أغلقت المتصفح؟</h3>
                 <p>
-                    نعم، الملاحظات تُحفظ محليًا في متصفحك، وستجدها عند العودة من نفس الجهاز والمتصفح.
+                    نعم، كل شيء يُحفظ محليًا في متصفحك، وستجده عند العودة من نفس الجهاز والمتصفح.
                 </p>
             </div>
-
             <div class="faq-item" style="margin-bottom: 1.8rem;">
                 <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل أحتاج إلى تسجيل حساب؟</h3>
                 <p>
                     لا، دفتر الملاحظات يعمل مباشرة دون أي تسجيل أو تحميل تطبيق، مثل باقي أدوات حيز.
                 </p>
             </div>
-
             <div class="faq-item">
                 <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل يمكنني استخدامه على الجوال؟</h3>
                 <p>
                     نعم، الصفحة متجاوبة وتعمل بشكل جيد على الهواتف والأجهزة اللوحية.
                 </p>
             </div>
-
         </div>
     </section>
 </main>

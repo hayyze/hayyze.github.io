@@ -189,12 +189,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (chooseText) chooseText.addEventListener('click', showTextNotes);
     if (backToModes) backToModes.addEventListener('click', showModePicker);
 
-    // إذا كان المستخدم في وضع النص سابقاً في نفس الجلسة
-    try {
-        if (sessionStorage.getItem('hayyiz-notes-mode') === 'text') {
-            showTextNotes();
-        }
-    } catch (e) {}
+    // القدوم من بومودورو بعنوان جاهز → افتح الملاحظات النصية مباشرة
+    // غير ذلك: دائماً شاشة الاختيار (لا تمييز دائم لأي خيار)
+    if (prefillTitle) {
+        showTextNotes();
+    }
 
     renderNotes();
 });
