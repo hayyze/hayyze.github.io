@@ -778,6 +778,55 @@ function hayyizGetAcademicSummary() {
 }
 
 /**
+ * حساب إحصائيات المذاكرة الأسبوعية حسب المواد من البيانات المحلية الحقيقية
+ */
+function hayyizGetWeeklySubjectStats() {
+    const subjects = hayyizGetSubjects();
+    const progress = hayyizParseJSON('hayyiz-subject-progress', {});
+
+    // الأيام الـ 7 الأخيرة
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        days.push(`${year}-${month}-${day}`);
+    }
+
+    const statsBySubject = [];
+    let grandTotalMinutes = 0;
+
+    subjects.forEach((s) => {
+        let sumMin = 0;
+        const subProg = progress[s.id] || {};
+        days.forEach((dayStr) => {
+            sumMin += parseInt(subProg[dayStr], 10) || 0;
+        });
+        if (sumMin > 0) {
+            statsBySubject.push({
+                id: s.id,
+                name: s.name,
+                minutes: sumMin
+            });
+            grandTotalMinutes += sumMin;
+        }
+    });
+
+    statsBySubject.forEach((st) => {
+        st.percentage = grandTotalMinutes > 0 ? Math.round((st.minutes / grandTotalMinutes) * 100) : 0;
+    });
+
+    statsBySubject.sort((a, b) => b.minutes - a.minutes);
+
+    return {
+        totalMinutes: grandTotalMinutes,
+        subjects: statsBySubject
+    };
+}
+
+/**
  * تأثير مادة على المعدل: فرق المعدل إذا ارتفعت الدرجة إلى target
  */
 function hayyizSubjectImpact(subjects, index, newGrade) {
