@@ -59,8 +59,9 @@
             font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
             background: var(--board); color: var(--text);
             -webkit-user-select: none; user-select: none;
+            overscroll-behavior: none;
         }
-        body.drawing-mode { touch-action: none; }
+        body.drawing-mode { touch-action: none; overscroll-behavior: none; }
         body.dark,
         body.theme-dark {
             --board: #0f172a;
@@ -173,7 +174,7 @@
         .modal-actions .hub-btn { flex: 1; justify-content: center; }
 
         /* ——— وضع الرسم ومساحة العمل ——— */
-        #editor { display: none; position: fixed; inset: 0; }
+        #editor { display: none; position: fixed; inset: 0; overscroll-behavior: none; }
         #editor.active { display: block; }
 
         #bgCanvas, #drawCanvas {
@@ -429,6 +430,27 @@
         let isPanning = false;
         let panStartScreen = { x: 0, y: 0 };
         let panStartCamera = { x: 0, y: 0 };
+
+        // ——— جدولة الرسم بسلاسة عبر requestAnimationFrame ———
+        let renderScheduled = false;
+        let fullRedrawNeeded = false;
+
+        function scheduleRedraw(needFull) {
+            if (needFull) fullRedrawNeeded = true;
+            if (!renderScheduled) {
+                renderScheduled = true;
+                requestAnimationFrame(performScheduledRedraw);
+            }
+        }
+
+        function performScheduledRedraw() {
+            renderScheduled = false;
+            if (fullRedrawNeeded) {
+                fullRedrawNeeded = false;
+                drawBackground();
+            }
+            redrawContent();
+        }
 
         // ——— إدارة النصوص والتحديد ———
         let selectedTextId = null;
@@ -820,7 +842,7 @@
             p.strokes = prev.strokes;
             p.texts = prev.texts;
             selectedTextId = null;
-            redrawContent();
+            scheduleRedraw(false);
             updateUndoRedo();
             scheduleSave();
         }
@@ -836,7 +858,7 @@
             p.strokes = next.strokes;
             p.texts = next.texts;
             selectedTextId = null;
-            redrawContent();
+            scheduleRedraw(false);
             updateUndoRedo();
             scheduleSave();
         }
@@ -1068,8 +1090,7 @@
         }
 
         function fullRedraw() {
-            drawBackground();
-            redrawContent();
+            scheduleRedraw(true);
         }
 
         function resizeCanvases() {
@@ -1107,7 +1128,7 @@
             if (name !== 'select') {
                 if (selectedTextId) {
                     selectedTextId = null;
-                    redrawContent();
+                    scheduleRedraw(false);
                 }
             }
             hideTextEditor();
@@ -1215,12 +1236,11 @@
         function commitTextEditor() {
             const val = (textInput.value || '').trim();
             if (!val && activeEditingText) {
-                // حذف النص الفارغ
                 pushHistory();
                 const p = currentPage();
                 p.texts = p.texts.filter(function (x) { return x.id !== activeEditingText.id; });
                 selectedTextId = null;
-                redrawContent();
+                scheduleRedraw(false);
                 scheduleSave();
             } else if (val) {
                 pushHistory();
@@ -1244,7 +1264,7 @@
                     p.texts.push(newObj);
                     selectedTextId = newObj.id;
                 }
-                redrawContent();
+                scheduleRedraw(false);
                 scheduleSave();
             }
             hideTextEditor();
@@ -1277,19 +1297,22 @@
         drawCanvas.addEventListener('pointerdown', function (e) {
             activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
 
-            // اللمس المزدوج Pinch-to-zoom أو Pan باللمس
-            if (activePointers.size === 2 && e.pointerType === 'touch') {
+            // اللمس المزدوج Pinch-to-zoom أو Pan باللمس (لمس بالأصابع فقط وليس Apple Pencil)
+            if (activePointers.size === 2) {
                 const pts = Array.from(activePointers.values());
-                const dx = pts[1].x - pts[0].x;
-                const dy = pts[1].y - pts[0].y;
-                initialPinchDistance = Math.hypot(dx, dy);
-                initialPinchZoom = zoomLevel;
-                const centerScrX = (pts[0].x + pts[1].x) / 2;
-                const centerScrY = (pts[0].y + pts[1].y) / 2;
-                initialPinchCenterWS = screenToWorkspace(centerScrX, centerScrY);
-                drawing = false;
-                isPanning = false;
-                return;
+                const allTouch = pts.every(function (p) { return p.type === 'touch'; });
+                if (allTouch) {
+                    const dx = pts[1].x - pts[0].x;
+                    const dy = pts[1].y - pts[0].y;
+                    initialPinchDistance = Math.hypot(dx, dy);
+                    initialPinchZoom = zoomLevel;
+                    const centerScrX = (pts[0].x + pts[1].x) / 2;
+                    const centerScrY = (pts[0].y + pts[1].y) / 2;
+                    initialPinchCenterWS = screenToWorkspace(centerScrX, centerScrY);
+                    drawing = false;
+                    isPanning = false;
+                    return;
+                }
             }
 
             const wsPos = screenToWorkspace(e.clientX, e.clientY);
@@ -1313,7 +1336,7 @@
                     pushHistory();
                     p.texts = p.texts.filter(function (t) { return t.id !== selObj.id; });
                     selectedTextId = null;
-                    redrawContent();
+                    scheduleRedraw(false);
                     scheduleSave();
                     return;
                 }
@@ -1321,7 +1344,6 @@
                 const clickedText = hitTestText(wsPos);
                 if (clickedText) {
                     if (selectedTextId === clickedText.id && e.detail === 2) {
-                        // النقر المزدوج للتعديل
                         showTextEditor(clickedText, clickedText.x, clickedText.y);
                         return;
                     }
@@ -1333,10 +1355,10 @@
                     };
                     pushHistory();
                     drawCanvas.setPointerCapture(e.pointerId);
-                    redrawContent();
+                    scheduleRedraw(false);
                 } else {
                     selectedTextId = null;
-                    redrawContent();
+                    scheduleRedraw(false);
                 }
                 return;
             }
@@ -1380,17 +1402,23 @@
                 activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
             }
 
-            // معالجة pinch-to-zoom اللمسي
+            // معالجة pinch-to-zoom اللمسي بحساب دقيق حول المنتصف
             if (activePointers.size === 2 && initialPinchDistance && initialPinchCenterWS) {
                 const pts = Array.from(activePointers.values());
                 const dx = pts[1].x - pts[0].x;
                 const dy = pts[1].y - pts[0].y;
                 const dist = Math.hypot(dx, dy);
                 if (dist > 10) {
-                    const targetZoom = initialPinchZoom * (dist / initialPinchDistance);
+                    const targetZoom = Math.min(Math.max(0.5, initialPinchZoom * (dist / initialPinchDistance)), 2.0);
                     const centerScrX = (pts[0].x + pts[1].x) / 2;
                     const centerScrY = (pts[0].y + pts[1].y) / 2;
-                    setZoom(targetZoom, centerScrX, centerScrY);
+
+                    zoomLevel = Math.round(targetZoom * 100) / 100;
+                    panX = centerScrX - initialPinchCenterWS.x * zoomLevel;
+                    panY = centerScrY - initialPinchCenterWS.y * zoomLevel;
+
+                    updateZoomDisplay();
+                    fullRedraw();
                 }
                 return;
             }
@@ -1410,7 +1438,7 @@
                 const wsPos = screenToWorkspace(e.clientX, e.clientY);
                 draggingTextObj.x = wsPos.x - dragTextOffset.x;
                 draggingTextObj.y = wsPos.y - dragTextOffset.y;
-                redrawContent();
+                scheduleRedraw(false);
                 return;
             }
 
@@ -1469,7 +1497,7 @@
                 drawing = false;
                 currentStroke = null;
                 try { drawCanvas.releasePointerCapture(e.pointerId); } catch (_) {}
-                if (tool === 'eraser') redrawContent();
+                if (tool === 'eraser') scheduleRedraw(false);
                 scheduleSave();
             }
         }
@@ -1484,11 +1512,9 @@
         drawCanvas.addEventListener('wheel', function (e) {
             e.preventDefault();
             if (e.ctrlKey || e.metaKey) {
-                // Zoom
                 const factor = e.deltaY < 0 ? 1.1 : 0.9;
                 setZoom(zoomLevel * factor, e.clientX, e.clientY);
             } else {
-                // Pan
                 panX -= e.deltaX;
                 panY -= e.deltaY;
                 fullRedraw();
@@ -1529,7 +1555,7 @@
             p.strokes = [];
             p.texts = [];
             selectedTextId = null;
-            redrawContent();
+            scheduleRedraw(false);
             scheduleSave();
         });
 
@@ -1566,7 +1592,7 @@
                 if (t) {
                     pushHistory();
                     t.color = penColor;
-                    redrawContent();
+                    scheduleRedraw(false);
                     scheduleSave();
                 }
             }
@@ -1606,7 +1632,7 @@
                     const p = currentPage();
                     p.texts = p.texts.filter(function (t) { return t.id !== selectedTextId; });
                     selectedTextId = null;
-                    redrawContent();
+                    scheduleRedraw(false);
                     scheduleSave();
                 }
             } else if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
