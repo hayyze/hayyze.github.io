@@ -1,4 +1,3 @@
-
 function getTodayLocal() {
     const now = new Date();
     const year = now.getFullYear();
@@ -90,7 +89,11 @@ const HAYYIZ_BACKUP_KEYS = [
     'hayyiz-subjects',
     'hayyiz-exams',
     'hayyiz-goals',
-    'hayyiz-subject-progress'
+    'hayyiz-subject-progress',
+    'hayyiz-gpa-snapshot',
+    'hayyiz-academic-goal',
+    'hayyiz-subject-goals',
+    'hayyiz-daily-goal'
 ];
 
 function exportHayyizData() {
@@ -673,4 +676,122 @@ if (typeof window !== 'undefined') {
     try {
         hayyizEnsureDataShape();
     } catch (e) { /* تجاهل */ }
+}
+
+
+/* ---------- المعدل والأهداف الأكاديمية ---------- */
+
+/**
+ * حساب المعدل الموزون من قائمة مواد { grade, weight }
+ * Single Source of Truth — تُستخدم في الحاسبة و«ماذا لو؟» والـDashboard
+ */
+function hayyizComputeWeightedGpa(subjects) {
+    if (!Array.isArray(subjects) || !subjects.length) return null;
+    let totalWeighted = 0;
+    let totalWeight = 0;
+    subjects.forEach((s) => {
+        const val = parseFloat(s.grade);
+        const weight = parseFloat(s.weight);
+        if (!isNaN(val) && val >= 0 && val <= 100 && !isNaN(weight) && weight > 0) {
+            totalWeighted += val * weight;
+            totalWeight += weight;
+        }
+    });
+    if (totalWeight <= 0) return null;
+    return totalWeighted / totalWeight;
+}
+
+function hayyizGetGpaSnapshot() {
+    return hayyizParseJSON('hayyiz-gpa-snapshot', null);
+}
+
+function hayyizSaveGpaSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return;
+    snapshot.updatedAt = Date.now();
+    snapshot.version = 1;
+    hayyizSaveJSON('hayyiz-gpa-snapshot', snapshot);
+}
+
+function hayyizGetAcademicGoal() {
+    return hayyizParseJSON('hayyiz-academic-goal', null);
+}
+
+function hayyizSaveAcademicGoal(goal) {
+    if (!goal) {
+        localStorage.removeItem('hayyiz-academic-goal');
+        return;
+    }
+    hayyizSaveJSON('hayyiz-academic-goal', goal);
+}
+
+function hayyizGetSubjectGoals() {
+    return hayyizParseJSON('hayyiz-subject-goals', []);
+}
+
+function hayyizSaveSubjectGoals(list) {
+    hayyizSaveJSON('hayyiz-subject-goals', Array.isArray(list) ? list : []);
+}
+
+function hayyizGetDailyGoal() {
+    const g = hayyizParseJSON('hayyiz-daily-goal', null);
+    if (!g) return null;
+    const today = getTodayLocal();
+    if (g.date && g.date !== today) {
+        // هدف يوم سابق — لا نعرضه كهدف اليوم
+        return null;
+    }
+    return g;
+}
+
+function hayyizSaveDailyGoal(goal) {
+    if (!goal) {
+        localStorage.removeItem('hayyiz-daily-goal');
+        return;
+    }
+    if (!goal.date) goal.date = getTodayLocal();
+    hayyizSaveJSON('hayyiz-daily-goal', goal);
+}
+
+/**
+ * ملخص جاهز للـDashboard: معدل حالي، هدف، فجوة، هدف اليوم
+ */
+function hayyizGetAcademicSummary() {
+    const snap = hayyizGetGpaSnapshot();
+    const goal = hayyizGetAcademicGoal();
+    const current = snap && typeof snap.gpa === 'number' ? snap.gpa : null;
+    const target = goal && typeof goal.target === 'number' ? goal.target : null;
+    let gap = null;
+    if (current !== null && target !== null) {
+        gap = target - current;
+    }
+    const daily = hayyizGetDailyGoal();
+    const subjectGoals = hayyizGetSubjectGoals();
+    return {
+        current,
+        target,
+        gap,
+        snapshot: snap,
+        goal,
+        daily,
+        subjectGoals
+    };
+}
+
+/**
+ * تأثير مادة على المعدل: فرق المعدل إذا ارتفعت الدرجة إلى target
+ */
+function hayyizSubjectImpact(subjects, index, newGrade) {
+    const real = hayyizComputeWeightedGpa(subjects);
+    if (real === null) return null;
+    const clone = subjects.map((s, i) => {
+        if (i !== index) return { grade: s.grade, weight: s.weight };
+        return { grade: newGrade, weight: s.weight };
+    });
+    const hypothetical = hayyizComputeWeightedGpa(clone);
+    if (hypothetical === null) return null;
+    return {
+        real,
+        hypothetical,
+        delta: hypothetical - real
+    };
 }

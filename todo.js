@@ -454,6 +454,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 pomoBtn.setAttribute('aria-label', 'بدء بومودورو');
                 pomoBtn.innerHTML = '<i class="fa-solid fa-clock" aria-hidden="true"></i>';
                 actions.appendChild(pomoBtn);
+
+                const dailyBtn = document.createElement('button');
+                dailyBtn.className = 'todo-daily-btn';
+                dailyBtn.dataset.index = realIndex;
+                dailyBtn.type = 'button';
+                dailyBtn.title = 'اجعلها هدف اليوم';
+                dailyBtn.setAttribute('aria-label', 'هدف اليوم');
+                dailyBtn.innerHTML = '<i class="fa-solid fa-sun" aria-hidden="true"></i>';
+                dailyBtn.style.cssText = 'background:none;border:none;color:var(--warning);cursor:pointer;font-size:1rem;padding:0.25rem;';
+                actions.appendChild(dailyBtn);
             }
 
             // زر الحذف
@@ -516,6 +526,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pomoButton) {
             const index = Number(pomoButton.dataset.index);
             startPomodoroForTask(index);
+            return;
+        }
+
+        // تعيين هدف اليوم
+        const dailyButton = e.target.closest('.todo-daily-btn');
+        if (dailyButton) {
+            const index = Number(dailyButton.dataset.index);
+            if (Number.isInteger(index) && index >= 0 && index < todos.length) {
+                const t = todos[index];
+                const goal = {
+                    taskId: t.id || null,
+                    text: t.text,
+                    date: typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10),
+                    created: Date.now()
+                };
+                if (typeof hayyizSaveDailyGoal === 'function') {
+                    hayyizSaveDailyGoal(goal);
+                } else {
+                    localStorage.setItem('hayyiz-daily-goal', JSON.stringify(goal));
+                }
+                alert('تم تعيين «' + t.text + '» كهدف لليوم. ستراه في لوحة اليوم.');
+            }
             return;
         }
 
