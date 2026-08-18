@@ -721,7 +721,7 @@
 
     // نستخدم فقط القيم المدخلة الصحيحة
     // الوزن: أول 20% · ثاني 40% · ثالث 40%
-    // إذا نقص صف، نعيد توزيع الأوزان نسبياً على المدخل فقط؟ 
+    // إذا نقص صف، نعيد توزيع الأوزان نسبياً على المدخل فقط؟
     // حسب الوصف: نحسب على الثلاثة، والناقص يُعتبر 0 أو نطلب الثلاثة؟
     // الأفضل: نحسب فقط إذا الثلاثة موجودة، أو نحسب الموزون على الموجودين مع إعادة توزيع.
     // حسب طلب المستخدم: يدخل الثلاثة. سأطلب الثلاثة للدقة.
@@ -1236,12 +1236,53 @@
       localStorage.setItem("hayyiz-subject-goals", JSON.stringify(goals));
     }
 
-    // مزامنة مواد حيز (subjects) بالاسم
+    // مزامنة مواد حيز (subjects) بالاسم وإضافة مهام مقترحة للمتابعة
+    const todos = typeof hayyizGetTodos === "function" ? hayyizGetTodos() : [];
     goals.forEach((g) => {
-      if (typeof hayyizAddSubject === "function") hayyizAddSubject(g.name);
+      let subObj = null;
+      if (typeof hayyizAddSubject === "function") {
+        subObj = hayyizAddSubject(g.name);
+      }
+      const taskText = "مراجعة وتمارين مادة " + g.name + " (هدف: " + g.target + "%)";
+      const exists = todos.find(t => t.text === taskText && !t.completed);
+      if (!exists) {
+        todos.unshift({
+          id: typeof hayyizGenerateId === "function" ? hayyizGenerateId() : ("h" + Date.now() + Math.random()),
+          text: taskText,
+          priority: "high",
+          subjectId: subObj ? subObj.id : null,
+          minutes: 45,
+          completed: false,
+          created: Date.now(),
+          focusDone: 0,
+          sessionsDone: 0
+        });
+      }
     });
 
-    alert("تم إنشاء " + goals.length + " هدف مادة من السيناريو. ستظهر في لوحة اليوم ويمكن ربط المهام بها.");
+    if (typeof hayyizSaveTodos === "function") {
+      hayyizSaveTodos(todos);
+    } else {
+      localStorage.setItem("hayyiz-todos", JSON.stringify(todos));
+    }
+
+    // حفظ معدل السيناريو كهدف أكاديمي
+    const summary = document.getElementById("whatif-summary");
+    if (summary) {
+      const scores = summary.querySelectorAll(".gpa-score");
+      if (scores && scores[1]) {
+        const targetGpa = parseFloat(scores[1].textContent);
+        if (!isNaN(targetGpa) && targetGpa > 0) {
+          if (typeof hayyizSaveAcademicGoal === "function") {
+            hayyizSaveAcademicGoal({ target: targetGpa, updatedAt: Date.now() });
+          } else {
+            localStorage.setItem("hayyiz-academic-goal", JSON.stringify({ target: targetGpa, updatedAt: Date.now() }));
+          }
+        }
+      }
+    }
+
+    alert("تم تحويل السيناريو إلى هدف أكاديمي وأهداف مواد مع إضافة مهام متابعة دراسية لها في قائمة المهام! 🎉");
   }
 
   function tryRestoreSnapshot() {

@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
             goalCard.appendChild(progWrap);
 
             const gapP = document.createElement('p');
-            gapP.style.cssText = 'margin: 0; font-size: 0.88rem; color: var(--text-muted);';
+            gapP.style.cssText = 'margin: 0 0 0.6rem; font-size: 0.88rem; color: var(--text-muted);';
             if (acadSummary.gap > 0.009) {
                 gapP.textContent = 'تحتاج إلى رفع المعدل بمقدار ' + acadSummary.gap.toFixed(2) + '% للوصول إلى هدفك.';
             } else if (acadSummary.gap < -0.009) {
@@ -202,6 +202,48 @@ document.addEventListener('DOMContentLoaded', () => {
                 gapP.textContent = 'وصلت إلى هدفك تماماً! حافظ على استمراريتك 🎉';
             }
             goalCard.appendChild(gapP);
+        }
+
+        // إظهار تنفيذ أهداف المواد والمهام المرتبطة
+        if (acadSummary.subjectGoals && acadSummary.subjectGoals.length > 0) {
+            const subGoalsWrap = document.createElement('div');
+            subGoalsWrap.style.cssText = 'margin-top: 0.85rem; padding-top: 0.85rem; border-top: 1px solid var(--border);';
+
+            const subGoalsTitle = document.createElement('strong');
+            subGoalsTitle.style.cssText = 'font-size: 0.88rem; color: var(--text); display: block; margin-bottom: 0.5rem;';
+            subGoalsTitle.textContent = 'أهداف المواد والمهام المرتبطة بها:';
+            subGoalsWrap.appendChild(subGoalsTitle);
+
+            const subGoalsList = document.createElement('ul');
+            subGoalsList.style.cssText = 'list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.4rem;';
+
+            acadSummary.subjectGoals.forEach((sg) => {
+                const li = document.createElement('li');
+                li.style.cssText = 'font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; background: var(--bg); padding: 0.4rem 0.65rem; border-radius: 8px; border: 1px solid var(--border);';
+
+                // حساب المهام المرتبطة بالمادة
+                const relSubject = typeof hayyizGetSubjects === 'function' ? hayyizGetSubjects().find(s => s.name === sg.name) : null;
+                const relTodos = relSubject ? todos.filter(t => t.subjectId === relSubject.id) : [];
+                const relCompleted = relTodos.filter(t => t.completed).length;
+                const relFocusMin = relSubject ? (parseInt(relSubject.focusMinutes, 10) || 0) : 0;
+
+                const leftText = sg.name + ' (هدف: ' + sg.target + '%)';
+                let rightText = '';
+                if (relTodos.length > 0) {
+                    rightText = 'مهام: ' + relCompleted + '/' + relTodos.length;
+                }
+                if (relFocusMin > 0) {
+                    rightText += (rightText ? ' · ' : '') + relFocusMin + ' د تركيز';
+                }
+                if (!rightText) rightText = 'لا مهام مرتبطة بعد';
+
+                li.innerHTML = '<span><i class="fa-solid fa-flag" style="color:var(--primary); font-size:0.75rem;"></i> ' + leftText + '</span>' +
+                             '<span style="font-size:0.8rem; opacity:0.85;">' + rightText + '</span>';
+                subGoalsList.appendChild(li);
+            });
+
+            subGoalsWrap.appendChild(subGoalsList);
+            goalCard.appendChild(subGoalsWrap);
         }
 
         content.appendChild(goalCard);
@@ -654,6 +696,34 @@ document.addEventListener('DOMContentLoaded', () => {
             bars.appendChild(col);
         });
         weekSection.appendChild(bars);
+
+        // إحصائيات توزيع وقت المذاكرة حسب المواد هذا الأسبوع
+        if (typeof hayyizGetWeeklySubjectStats === 'function') {
+            const subStats = hayyizGetWeeklySubjectStats();
+            if (subStats && subStats.subjects.length > 0) {
+                const subBox = document.createElement('div');
+                subBox.style.cssText = 'margin-top: 1rem; padding-top: 0.85rem; border-top: 1px solid var(--border);';
+
+                const topSub = subStats.subjects[0];
+                const insightP = document.createElement('p');
+                insightP.style.cssText = 'margin: 0 0 0.6rem; font-size: 0.88rem; color: var(--text-muted);';
+                insightP.innerHTML = '<i class="fa-solid fa-chart-pie" aria-hidden="true" style="color:var(--primary);"></i> ' +
+                                    'قضيت <strong>' + topSub.percentage + '%</strong> من وقت مذاكرتك هذا الأسبوع على <strong>' + topSub.name + '</strong> (' + topSub.minutes + ' دقيقة).';
+                subBox.appendChild(insightP);
+
+                const subList = document.createElement('div');
+                subList.style.cssText = 'display: flex; flex-wrap: wrap; gap: 0.5rem;';
+                subStats.subjects.forEach((s) => {
+                    const tag = document.createElement('span');
+                    tag.style.cssText = 'font-size: 0.8rem; padding: 0.25rem 0.6rem; background: var(--bg); border: 1px solid var(--border); border-radius: 20px; color: var(--text);';
+                    tag.textContent = s.name + ': ' + s.minutes + ' د (' + s.percentage + '%)';
+                    subList.appendChild(tag);
+                });
+                subBox.appendChild(subList);
+                weekSection.appendChild(subBox);
+            }
+        }
+
         content.appendChild(weekSection);
     } catch (e) {
         /* تجاهل */
