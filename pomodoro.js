@@ -355,19 +355,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 sessionsCount.textContent = completedSessions;
             }
 
-            // تحديث خطة المهمة + تقدم المهمة في التخزين الدائم
-            if (taskSession && taskSession.text === currentTask) {
+            // تحديث خطة المهمة + تقدم المهمة + المادة عبر الطبقة المشتركة
+            if (typeof hayyizApplyFocusResult === 'function') {
+                const applied = hayyizApplyFocusResult({
+                    workMin: workMin,
+                    taskId: localStorage.getItem('hayyiz-current-task-id') || (taskSession && taskSession.id),
+                    taskText: currentTask
+                });
+                if (applied && applied.plan) {
+                    taskSession = applied.plan;
+                } else if (taskSession && taskSession.text === currentTask) {
+                    taskSession.sessionsDone = (taskSession.sessionsDone || 0) + 1;
+                    taskSession.focusDone = (taskSession.focusDone || 0) + workMin;
+                    if (taskSession.totalMinutes) {
+                        taskSession.sessionsNeeded = Math.ceil(taskSession.totalMinutes / workMin);
+                    }
+                    saveTaskSession(taskSession);
+                }
+            } else if (taskSession && taskSession.text === currentTask) {
                 taskSession.sessionsDone = (taskSession.sessionsDone || 0) + 1;
                 taskSession.focusDone = (taskSession.focusDone || 0) + workMin;
-                // إعادة حساب sessionsNeeded إذا تغيّرت مدة العمل
                 if (taskSession.totalMinutes) {
                     taskSession.sessionsNeeded = Math.ceil(
                         taskSession.totalMinutes / workMin
                     );
                 }
                 saveTaskSession(taskSession);
-
-                // حفظ التقدم داخل كائن المهمة نفسه حتى يبقى بعد إغلاق الجلسة
                 try {
                     const todos = JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
                     let idx = typeof taskSession.index === 'number' ? taskSession.index : -1;
@@ -496,24 +509,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? '<i class="fa-solid fa-check"></i> تم — تعليم المهمة كمكتملة'
                 : '<i class="fa-solid fa-check"></i> تعليم المهمة كمكتملة';
             completeBtn.addEventListener('click', () => {
-                try {
-                    const todos = JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
-                    const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : null;
-                    if (todos[taskIndex] && todos[taskIndex].text === taskName) {
-                        todos[taskIndex].completed = true;
-                        if (todayStr) todos[taskIndex].completedAt = todayStr;
-                        localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
-                    } else {
-                        const found = todos.findIndex((t) => t.text === taskName && !t.completed);
-                        if (found >= 0) {
-                            todos[found].completed = true;
-                            if (todayStr) todos[found].completedAt = todayStr;
+                const taskId = localStorage.getItem('hayyiz-current-task-id') || (plan && plan.id) || null;
+                if (typeof hayyizCompleteTask === 'function') {
+                    hayyizCompleteTask(taskId, taskName, taskIndex);
+                } else {
+                    try {
+                        const todos = JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
+                        const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : null;
+                        if (todos[taskIndex] && todos[taskIndex].text === taskName) {
+                            todos[taskIndex].completed = true;
+                            if (todayStr) todos[taskIndex].completedAt = todayStr;
                             localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
+                        } else {
+                            const found = todos.findIndex((t) => t.text === taskName && !t.completed);
+                            if (found >= 0) {
+                                todos[found].completed = true;
+                                if (todayStr) todos[found].completedAt = todayStr;
+                                localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
+                            }
                         }
-                    }
-                } catch (e) { /* تجاهل */ }
+                    } catch (e) { /* تجاهل */ }
+                }
                 localStorage.removeItem('hayyiz-current-task');
                 localStorage.removeItem('hayyiz-current-task-index');
+                localStorage.removeItem('hayyiz-current-task-id');
                 saveTaskSession(null);
                 taskSession = null;
                 currentTask = null;

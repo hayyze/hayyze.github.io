@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    function showTaskCreatedModal(taskText) {
+    function showTaskCreatedModal(taskText, taskIndex) {
         document.querySelector('.task-modal-overlay')?.remove();
 
         const overlay = document.createElement('div');
@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.appendChild(overlay);
 
         startBtn.addEventListener('click', () => {
-            startPomodoroForTask(0);
+            startPomodoroForTask(typeof taskIndex === 'number' ? taskIndex : 0);
         });
 
         laterBtn.addEventListener('click', () => {
@@ -85,6 +85,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function startPomodoroForTask(index) {
         if (!Number.isInteger(index) || index < 0 || index >= todos.length) return;
         const task = todos[index];
+        if (typeof hayyizLaunchPomodoro === 'function') {
+            hayyizLaunchPomodoro(task, index);
+            return;
+        }
+        // احتياطي إن لم تُحمّل الطبقة المشتركة
         const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
         const totalMinutes = task.minutes ? parseInt(task.minutes, 10) : null;
         const sessionsNeeded =
@@ -94,7 +99,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const plan = {
             text: task.text,
+            id: task.id || null,
             index: index,
+            subjectId: task.subjectId || null,
             totalMinutes: totalMinutes && totalMinutes > 0 ? totalMinutes : null,
             focusDone: task.focusDone ? parseInt(task.focusDone, 10) || 0 : 0,
             sessionsDone: task.sessionsDone ? parseInt(task.sessionsDone, 10) || 0 : 0,
@@ -102,14 +109,15 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         localStorage.setItem('hayyiz-current-task', task.text);
+        if (task.id) localStorage.setItem('hayyiz-current-task-id', task.id);
         localStorage.setItem('hayyiz-current-task-index', String(index));
         localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
         window.location.href = 'pomodoro.html?task=' + encodeURIComponent(task.text);
     }
 
-    let todos = JSON.parse(
-        localStorage.getItem('hayyiz-todos') || '[]'
-    );
+    let todos = typeof hayyizGetTodos === 'function'
+        ? hayyizGetTodos()
+        : JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
 
     let currentFilter = 'all';
     let currentTaskTimer = null;
@@ -119,12 +127,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const todoPriority = document.getElementById('todo-priority');
     const todoDate = document.getElementById('todo-date');
     const todoMinutes = document.getElementById('todo-minutes');
+    const todoSubject = document.getElementById('todo-subject');
+    const todoSubjectNew = document.getElementById('todo-subject-new');
+    const todoSubjectAdd = document.getElementById('todo-subject-add');
     const todoList = document.getElementById('todo-list');
     const todoEmpty = document.getElementById('todo-empty');
     const filterBtns = document.querySelectorAll('.filter-btn');
 
     function saveTodos() {
-        localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
+        if (typeof hayyizSaveTodos === 'function') {
+            hayyizSaveTodos(todos);
+        } else {
+            localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
+        }
+    }
+
+    function refreshSubjectSelect(selectedId) {
+        if (typeof hayyizFillSubjectSelect === 'function') {
+            hayyizFillSubjectSelect(todoSubject, selectedId || '');
+        }
+    }
+
+    refreshSubjectSelect();
+
+    if (todoSubjectAdd) {
+        todoSubjectAdd.addEventListener('click', () => {
+            const name = (todoSubjectNew && todoSubjectNew.value || '').trim();
+            if (!name) return;
+            let subject = null;
+            if (typeof hayyizAddSubject === 'function') {
+                subject = hayyizAddSubject(name);
+            }
+            if (todoSubjectNew) todoSubjectNew.value = '';
+            refreshSubjectSelect(subject ? subject.id : '');
+            if (todoSubject && subject) todoSubject.value = subject.id;
+        });
     }
 
     function formatTime(seconds) {
@@ -266,6 +303,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             meta.appendChild(priority);
+
+            // المادة
+            if (todo.subjectId && typeof hayyizGetSubjectName === 'function') {
+                const subName = hayyizGetSubjectName(todo.subjectId);
+                if (subName) {
+                    const subSpan = document.createElement('span');
+                    const subIcon = document.createElement('i');
+                    subIcon.className = 'fa-solid fa-book';
+                    subIcon.setAttribute('aria-hidden', 'true');
+                    subSpan.appendChild(subIcon);
+                    subSpan.appendChild(document.createTextNode(' ' + subName));
+                    meta.appendChild(subSpan);
+                }
+            }
 
             // التاريخ
             if (todo.date) {
@@ -432,14 +483,20 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        todos.unshift({
+        const newTask = {
+            id: typeof hayyizGenerateId === 'function' ? hayyizGenerateId() : ('h' + Date.now()),
             text,
             priority: todoPriority.value,
             date: todoDate.value || null,
             minutes: todoMinutes.value || null,
+            subjectId: (todoSubject && todoSubject.value) ? todoSubject.value : null,
             completed: false,
-            created: Date.now()
-        });
+            created: Date.now(),
+            focusDone: 0,
+            sessionsDone: 0
+        };
+
+        todos.unshift(newTask);
 
         saveTodos();
 
@@ -449,7 +506,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderTodos();
 
-        showTaskCreatedModal(text);
+        showTaskCreatedModal(text, 0);
     });
 
     todoList.addEventListener('click', e => {

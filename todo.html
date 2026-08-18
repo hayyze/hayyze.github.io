@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -110,12 +111,29 @@
                     </select>
                 </div>
                 <div class="option-field">
+                    <label>المادة</label>
+                    <select id="todo-subject">
+                        <option value="">بدون مادة</option>
+                    </select>
+                </div>
+                <div class="option-field">
                     <label>تاريخ الاستحقاق</label>
                     <input type="datetime-local" id="todo-date">
                 </div>
                 <div class="option-field">
                     <label>المدة المتوقعة (دقيقة)</label>
                     <input type="number" id="todo-minutes" min="1" max="1440" placeholder="مثال: 45">
+                </div>
+            </div>
+            <div class="todo-options" style="margin-top: 0.5rem;">
+                <div class="option-field" style="flex: 1;">
+                    <label>مادة جديدة (اختياري)</label>
+                    <div class="input-group" style="margin: 0;">
+                        <input type="text" id="todo-subject-new" placeholder="مثال: رياضيات" maxlength="40">
+                        <button type="button" id="todo-subject-add" class="btn btn-outline" style="white-space: nowrap;">
+                            <i class="fa-solid fa-plus" aria-hidden="true"></i> إضافة مادة
+                        </button>
+                    </div>
                 </div>
             </div>
         </form>
