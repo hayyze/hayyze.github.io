@@ -382,15 +382,24 @@ function hayyizScoreTask(task, context) {
     const today = ctx.today || getTodayLocal();
     const exams = ctx.exams || hayyizGetExams();
     const subjects = ctx.subjects || hayyizGetSubjects();
-    const workMin = ctx.workMin || parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
+    const subjectGoals = ctx.subjectGoals || hayyizGetSubjectGoals();
+    const workMin = ctx.workMin || parseInt(localStorage.getItem("hayyiz-pref-work") || "25", 10) || 25;
 
     let score = 0;
     const reasons = [];
 
+    const focusDone = parseInt(task.focusDone, 10) || 0;
+    const totalMin = parseInt(task.minutes, 10) || 0;
+    const isInProgress = focusDone > 0;
+
+    if (isInProgress) {
+        score += 60;
+        reasons.push("مهمة قيد التنفيذ — أكمل ما بدأت");
+    }
+
     // الأولوية
     const pri = { high: 40, medium: 18, low: 5 };
     score += pri[task.priority] || 10;
-    if (task.priority === 'high') reasons.push('أولوية عالية');
 
     // موعد التسليم
     if (task.date) {
@@ -398,24 +407,35 @@ function hayyizScoreTask(task, context) {
         if (days !== null) {
             if (days < 0) {
                 score += 55;
-                reasons.push('متأخرة');
+                if (!isInProgress) reasons.push("متأخرة عن موعدها");
             } else if (days === 0) {
                 score += 45;
-                reasons.push('مستحقة اليوم');
+                if (!isInProgress) reasons.push("مستحقة اليوم");
             } else if (days === 1) {
                 score += 30;
-                reasons.push('غداً');
+                if (!isInProgress) reasons.push("موعدها غداً");
             } else if (days <= 3) {
                 score += 18;
-                reasons.push('قريبة');
+                if (!isInProgress) reasons.push("موعدها قريب");
             } else if (days <= 7) {
                 score += 8;
             }
         }
     }
 
-    // قرب اختبار مرتبط بالمادة
+    if (!isInProgress && task.priority === "high") {
+        reasons.push("أولويتها عالية");
+    }
+
+    // قرب اختبار أو هدف مرتبط بالمادة
     if (task.subjectId) {
+        const sub = subjects.find((s) => s.id === task.subjectId);
+        const subGoal = sub ? subjectGoals.find((sg) => sg.name === sub.name) : null;
+        if (subGoal && !isInProgress) {
+            score += 20;
+            reasons.push("مرتبطة بهدفك النشط وموعدها قريب");
+        }
+
         const relatedExams = exams.filter(
             (e) => e && !e.done && e.subjectId === task.subjectId && e.date
         );
@@ -426,69 +446,32 @@ function hayyizScoreTask(task, context) {
                 score += 20;
             } else if (d <= 3) {
                 score += 35;
-                reasons.push('اختبار قريب');
+                if (!isInProgress) reasons.push("مرتبطة باختبار قريب");
             } else if (d <= 7) {
                 score += 22;
-                reasons.push('اختبار خلال أسبوع');
-            } else if (d <= 14) {
-                score += 10;
             }
         });
-
-        // مادة مهملة: لم تُدرَس منذ أيام
-        const sub = subjects.find((s) => s.id === task.subjectId);
-        if (sub && sub.lastFocused) {
-            const gap = hayyizDaysUntil(sub.lastFocused);
-            if (gap !== null && gap <= -3) {
-                score += 15;
-                reasons.push('المادة تحتاج متابعة');
-            }
-        } else if (sub && !sub.lastFocused) {
-            score += 8;
-        }
     }
 
-    // تقدم جزئي: الأفضل إكمال ما بدأته
-    const focusDone = parseInt(task.focusDone, 10) || 0;
-    const totalMin = parseInt(task.minutes, 10) || 0;
-    if (focusDone > 0 && totalMin > 0 && focusDone < totalMin) {
-        score += 25;
-        reasons.push('بدأت فيها مسبقاً');
-    } else if (focusDone > 0 && !totalMin) {
-        score += 12;
-        reasons.push('بدأت فيها مسبقاً');
-    }
-
-    // ملاءمة المدة لجلسة واحدة
+    // ملاءمة المدة
     if (totalMin > 0) {
         const remaining = Math.max(0, totalMin - focusDone);
         if (remaining > 0 && remaining <= workMin) {
             score += 14;
-            reasons.push('مناسبة لجلسة واحدة');
-        } else if (remaining > workMin && remaining <= workMin * 2) {
-            score += 6;
         }
     }
 
-    // حداثة الإنشاء: مهام قديمة غير منجزة قليلاً أعلى
-    if (task.created) {
-        const ageDays = Math.floor((Date.now() - task.created) / 86400000);
-        if (ageDays >= 5) score += 6;
-        else if (ageDays >= 2) score += 3;
-    }
-
-    // سبب افتراضي إن لم يُجمع شيء
     if (reasons.length === 0) {
-        if (task.priority === 'medium') reasons.push('مناسبة للبدء الآن');
-        else reasons.push('خطوة واضحة للبدء');
+        if (task.priority === "high") reasons.push("هي أعلى مهمة أولوية حالياً");
+        else reasons.push("أعلى مهمة أولوية حالياً");
     }
 
-    return { score, reasons: reasons.slice(0, 2), task };
+    return { score, reasons: reasons.slice(0, 2), task, isInProgress };
 }
 
 /**
  * يعيد أفضل مهمة للبدء + قائمة مرتبة.
- * @returns {{ next: object|null, ranked: Array, reason: string }}
+ * @returns {{ next: object|null, reason: string, isInProgress: boolean, ranked: Array, allActive: Array }}
  */
 function hayyizRecommendNext(limit) {
     const todos = hayyizGetTodos();
@@ -497,7 +480,8 @@ function hayyizRecommendNext(limit) {
         today: getTodayLocal(),
         exams: hayyizGetExams(),
         subjects: hayyizGetSubjects(),
-        workMin: parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25
+        subjectGoals: hayyizGetSubjectGoals(),
+        workMin: parseInt(localStorage.getItem("hayyiz-pref-work") || "25", 10) || 25
     };
 
     const ranked = active
@@ -508,13 +492,14 @@ function hayyizRecommendNext(limit) {
             return (b.task.created || 0) - (a.task.created || 0);
         });
 
-    const max = typeof limit === 'number' ? limit : 5;
+    const max = typeof limit === "number" ? limit : 5;
     const top = ranked.slice(0, max);
     const next = top[0] || null;
 
     return {
         next: next ? next.task : null,
-        reason: next ? next.reasons.join(' · ') : '',
+        reason: next ? next.reasons.join(" · ") : "",
+        isInProgress: next ? !!next.isInProgress : false,
         ranked: top,
         allActive: active
     };
