@@ -128,6 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const todoDate = document.getElementById('todo-date');
     const todoMinutes = document.getElementById('todo-minutes');
     const todoSubject = document.getElementById('todo-subject');
+    const todoGoal = document.getElementById('todo-goal');
     const todoSubjectNew = document.getElementById('todo-subject-new');
     const todoSubjectAdd = document.getElementById('todo-subject-add');
     const todoList = document.getElementById('todo-list');
@@ -148,7 +149,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function refreshGoalSelect(selectedId) {
+        if (!todoGoal) return;
+        todoGoal.innerHTML = '';
+        const emptyOpt = document.createElement('option');
+        emptyOpt.value = '';
+        emptyOpt.textContent = 'بدون هدف خاص';
+        todoGoal.appendChild(emptyOpt);
+
+        const acadGoal = typeof hayyizGetAcademicGoal === 'function' ? hayyizGetAcademicGoal() : null;
+        if (acadGoal && typeof acadGoal.target === 'number') {
+            const opt = document.createElement('option');
+            opt.value = 'acad-target';
+            opt.textContent = 'الهدف الأكاديمي الشامل (' + acadGoal.target + '%)';
+            if (selectedId === 'acad-target') opt.selected = true;
+            todoGoal.appendChild(opt);
+        }
+
+        const subjectGoals = typeof hayyizGetSubjectGoals === 'function' ? hayyizGetSubjectGoals() : [];
+        subjectGoals.forEach((sg) => {
+            const opt = document.createElement('option');
+            opt.value = sg.id || ('sg-' + sg.name);
+            opt.textContent = 'هدف مادة: ' + sg.name + ' (' + sg.target + '%)';
+            if (selectedId && (selectedId === sg.id || selectedId === ('sg-' + sg.name))) opt.selected = true;
+            todoGoal.appendChild(opt);
+        });
+    }
+
     refreshSubjectSelect();
+    refreshGoalSelect();
 
     if (todoSubjectAdd) {
         todoSubjectAdd.addEventListener('click', () => {
@@ -316,6 +345,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     subSpan.appendChild(document.createTextNode(' ' + subName));
                     meta.appendChild(subSpan);
                 }
+            }
+
+            // الهدف المرتبط
+            if (todo.goalId) {
+                const goalSpan = document.createElement('span');
+                const goalIcon = document.createElement('i');
+                goalIcon.className = 'fa-solid fa-bullseye';
+                goalIcon.setAttribute('aria-hidden', 'true');
+                goalSpan.appendChild(goalIcon);
+
+                let goalText = 'هدف';
+                if (todo.goalId === 'acad-target') {
+                    goalText = 'الهدف العام';
+                } else if (todo.goalId.startsWith('sg-')) {
+                    goalText = todo.goalId.replace('sg-', '');
+                } else if (typeof hayyizGetSubjectGoals === 'function') {
+                    const sgList = hayyizGetSubjectGoals();
+                    const foundSg = sgList.find(g => g.id === todo.goalId);
+                    if (foundSg) goalText = foundSg.name;
+                }
+
+                goalSpan.appendChild(document.createTextNode(' ' + goalText));
+                meta.appendChild(goalSpan);
             }
 
             // التاريخ
@@ -500,6 +552,7 @@ document.addEventListener('DOMContentLoaded', () => {
             date: todoDate.value || null,
             minutes: todoMinutes.value || null,
             subjectId: (todoSubject && todoSubject.value) ? todoSubject.value : null,
+            goalId: (todoGoal && todoGoal.value) ? todoGoal.value : null,
             completed: false,
             created: Date.now(),
             focusDone: 0,
