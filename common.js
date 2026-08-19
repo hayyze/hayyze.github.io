@@ -20,20 +20,25 @@ function getYesterdayLocal() {
 
 document.addEventListener('DOMContentLoaded', () => {
     const body = document.body;
+    const docEl = document.documentElement;
     const themeToggle = document.getElementById('theme-toggle');
     const menuToggle = document.getElementById('menu-toggle');
     const navLinks = document.getElementById('nav-links');
 
     // الثيم
     const savedTheme = localStorage.getItem('hayyiz-theme') || 'light';
-    body.classList.toggle('theme-dark', savedTheme === 'dark');
+    const isDark = savedTheme === 'dark';
+    docEl.classList.toggle('theme-dark', isDark);
+    body.classList.toggle('theme-dark', isDark);
     updateThemeIcon();
 
     if (themeToggle) {
         themeToggle.addEventListener('click', () => {
-            body.classList.toggle('theme-dark');
-            const isDark = body.classList.contains('theme-dark');
-            localStorage.setItem('hayyiz-theme', isDark ? 'dark' : 'light');
+            const currentlyDark = docEl.classList.contains('theme-dark') || body.classList.contains('theme-dark');
+            const nextIsDark = !currentlyDark;
+            docEl.classList.toggle('theme-dark', nextIsDark);
+            body.classList.toggle('theme-dark', nextIsDark);
+            localStorage.setItem('hayyiz-theme', nextIsDark ? 'dark' : 'light');
             updateThemeIcon();
         });
     }
@@ -41,7 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateThemeIcon() {
         if (!themeToggle) return;
         const icon = themeToggle.querySelector('i');
-        icon.className = body.classList.contains('theme-dark') ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+        if (!icon) return;
+        const isDarkNow = docEl.classList.contains('theme-dark') || body.classList.contains('theme-dark');
+        icon.className = isDarkNow ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
     }
 
     // قائمة الجوال
