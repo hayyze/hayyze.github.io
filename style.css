@@ -18,6 +18,7 @@
     --font: 'Cairo', sans-serif;
 }
 
+html.theme-dark,
 body.theme-dark {
     --bg: #0f172a;
     --bg-card: #1e293b;
