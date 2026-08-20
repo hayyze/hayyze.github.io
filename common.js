@@ -20,7 +20,6 @@ function getYesterdayLocal() {
 
 document.addEventListener('DOMContentLoaded', () => {
     const body = document.body;
-    const docEl = document.documentElement;
     const themeToggle = document.getElementById('theme-toggle');
     const menuToggle = document.getElementById('menu-toggle');
     const navLinks = document.getElementById('nav-links');
@@ -28,15 +27,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // الثيم
     const savedTheme = localStorage.getItem('hayyiz-theme') || 'light';
     const isDark = savedTheme === 'dark';
-    docEl.classList.toggle('theme-dark', isDark);
+    document.documentElement.classList.toggle('theme-dark', isDark);
     body.classList.toggle('theme-dark', isDark);
     updateThemeIcon();
 
     if (themeToggle) {
         themeToggle.addEventListener('click', () => {
-            const currentlyDark = docEl.classList.contains('theme-dark') || body.classList.contains('theme-dark');
+            const currentlyDark = document.documentElement.classList.contains('theme-dark') || body.classList.contains('theme-dark');
             const nextIsDark = !currentlyDark;
-            docEl.classList.toggle('theme-dark', nextIsDark);
+            document.documentElement.classList.toggle('theme-dark', nextIsDark);
             body.classList.toggle('theme-dark', nextIsDark);
             localStorage.setItem('hayyiz-theme', nextIsDark ? 'dark' : 'light');
             updateThemeIcon();
@@ -47,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!themeToggle) return;
         const icon = themeToggle.querySelector('i');
         if (!icon) return;
-        const isDarkNow = docEl.classList.contains('theme-dark') || body.classList.contains('theme-dark');
+        const isDarkNow = document.documentElement.classList.contains('theme-dark') || body.classList.contains('theme-dark');
         icon.className = isDarkNow ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
     }
 
