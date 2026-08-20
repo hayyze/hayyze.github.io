@@ -1,4 +1,4 @@
-const CACHE_NAME = 'heez-v1.1.1';
+const CACHE_NAME = 'heez-v1.1.2';
 
 const ASSETS = [
   './',
@@ -9,6 +9,7 @@ const ASSETS = [
   './notes.html',
   './draw.html',
   './habits.html',
+  './calculator.html',
   './game.html',
   './blog.html',
   './about.html',
@@ -20,6 +21,7 @@ const ASSETS = [
   './gpa.js',
   './notes.js',
   './habits.js',
+  './calculator.js',
   './game.js',
   './words.json',
   './manifest.webmanifest',

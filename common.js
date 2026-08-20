@@ -100,7 +100,10 @@ const HAYYIZ_BACKUP_KEYS = [
     'hayyiz-gpa-snapshot',
     'hayyiz-academic-goal',
     'hayyiz-subject-goals',
-    'hayyiz-daily-goal'
+    'hayyiz-daily-goal',
+    'hayyiz-birthdate',
+    'hayyiz-student-exams',
+    'hayyiz-custom-events'
 ];
 
 function exportHayyizData() {

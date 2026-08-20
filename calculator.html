@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <script>
+        (function(){try{if(localStorage.getItem('hayyiz-theme')==='dark'){document.documentElement.classList.add('theme-dark');}}catch(e){}})();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- سياسة الأمان (CSP) -->
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self';
+                   script-src 'self' https://www.googletagmanager.com 'unsafe-inline';
+                   script-src-elem 'self' https://www.googletagmanager.com 'unsafe-inline';
+                   style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com 'unsafe-inline';
+                   font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:;
+                   connect-src 'self'
+                               https://www.google-analytics.com
+                               https://*.google-analytics.com
+                               https://analytics.google.com
+                               https://*.analytics.google.com
+                               https://www.googletagmanager.com;
+                   img-src 'self'
+                            data:
+                            https://www.google-analytics.com
+                            https://*.google-analytics.com
+                            https://www.googletagmanager.com;
+                   object-src 'none';
+                   frame-ancestors 'none';
+                   base-uri 'self';">
+    <!-- إعدادات أمنية إضافية -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+
+    <!-- SEO -->
+    <title>حاسبة الطالب — حساب العمر والعد التنازلي للاختبارات | حيز</title>
+    <meta name="description" content="حاسبة الطالب من حيز: احسب عمرك بالسنوات والأشهر والأيام بدقة، واعرف كم باقي على اختبار القدرات والتحصيلي ومواعيدك واختباراتك المهمة بسهولة.">
+    <meta name="keywords" content="حاسبة الطالب, حاسبة العمر, حساب العمر, كم باقي على القدرات, كم باقي على التحصيلي, عداد الاختبارات, حاسبة العمر للطلاب, حيز">
+    <meta name="author" content="حيز">
+    <meta name="robots" content="index, follow">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://just-c.github.io/adawati/calculator.html">
+    <meta property="og:title" content="حاسبة الطالب — حساب العمر والعد التنازلي للاختبارات | حيز">
+    <meta property="og:description" content="احسب عمرك بالسنوات والأشهر والأيام بدقة واعرف كم باقي على اختبارك ومواعيدك المهمة عبر حاسبة الطالب المجانية.">
+    <meta property="og:image" content="https://just-c.github.io/adawati/android-chrome-512x512.png">
+    <meta property="og:image:width" content="512">
+    <meta property="og:image:height" content="512">
+    <meta property="og:locale" content="ar_SA">
+    <meta property="og:site_name" content="حيز">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="حاسبة الطالب | حيز">
+    <meta name="twitter:description" content="احسب عمرك بدقة واعرف كم باقي على اختباراتك ومواعيدك المهمة.">
+    <meta name="twitter:image" content="https://just-c.github.io/adawati/android-chrome-512x512.png">
+
+    <!-- الخطوط والأيقونات -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
+    <!-- ملف التنسيقات -->
+    <link rel="stylesheet" href="style.css">
+    <!-- Favicon -->
+    <link rel="icon" href="favicon.ico">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+    <link rel="canonical" href="https://just-c.github.io/adawati/calculator.html">
+    <!-- التحقق من جوجل -->
+    <meta name="google-site-verification" content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw">
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-F94Z3H2D3S');
+    </script>
+    <!-- Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "حاسبة الطالب — حيز",
+  "url": "https://just-c.github.io/adawati/calculator.html",
+  "description": "أداة حاسبة الطالب لحساب العمر بدقة بالسنوات والأشهر والأيام والعد التنازلي لمواعيد الاختبارات والمناسبات الدراسية.",
+  "applicationCategory": "EducationalApplication",
+  "operatingSystem": "All",
+  "inLanguage": "ar",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "حيز",
+    "url": "https://just-c.github.io/adawati/"
+  }
+}
+</script>
+<link rel="manifest" href="manifest.webmanifest">
+
+<style>
+  /* تنسيقات حاسبة الطالب */
+  .calc-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+  }
+
+  .calc-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .calc-form-group label {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .calc-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm, 10px);
+    font-size: 1rem;
+    font-family: inherit;
+    background: var(--bg);
+    color: var(--text);
+    transition: border-color 0.2s ease;
+  }
+
+  .calc-input:focus {
+    outline: none;
+    border-color: var(--primary, #4f46e5);
+  }
+
+  .age-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-top: 1.25rem;
+  }
+
+  @media (max-width: 500px) {
+    .age-grid {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+  }
+
+  .age-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 16px);
+    padding: 1.25rem 1rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  }
+
+  .age-num {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--primary, #4f46e5);
+    line-height: 1.2;
+  }
+
+  .age-lbl {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    margin-top: 0.3rem;
+    font-weight: 600;
+  }
+
+  .age-info-banner {
+    background: color-mix(in srgb, var(--primary, #4f46e5) 8%, var(--bg-card));
+    border: 1px solid color-mix(in srgb, var(--primary, #4f46e5) 20%, transparent);
+    border-radius: var(--radius-sm, 12px);
+    padding: 1rem 1.25rem;
+    margin-top: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .age-info-banner strong {
+    color: var(--text);
+  }
+
+  .until-18-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm, 12px);
+    padding: 1rem 1.25rem;
+    margin-top: 1rem;
+    font-size: 0.95rem;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .until-18-box i {
+    color: #f59e0b;
+    font-size: 1.25rem;
+  }
+
+  .quick-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .quick-exam-btn {
+    padding: 0.4rem 0.85rem;
+    border: 1px dashed var(--border);
+    border-radius: 20px;
+    background: var(--bg);
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s ease;
+  }
+
+  .quick-exam-btn:hover {
+    border-color: var(--primary, #4f46e5);
+    color: var(--primary, #4f46e5);
+    background: var(--bg-card);
+  }
+
+  .exams-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.25rem;
+    margin-top: 1.25rem;
+  }
+
+  .exam-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 1.25rem;
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 16px);
+    background: var(--bg-card);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .exam-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+  }
+
+  .exam-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .exam-title-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .exam-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0;
+  }
+
+  .exam-date-str {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  .badge {
+    padding: 0.3rem 0.65rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+  }
+
+  .badge-upcoming {
+    background: rgba(79, 70, 229, 0.1);
+    color: var(--primary, #4f46e5);
+  }
+
+  .badge-today {
+    background: rgba(245, 158, 11, 0.15);
+    color: #d97706;
+  }
+
+  .badge-passed {
+    background: rgba(100, 116, 139, 0.1);
+    color: var(--text-muted);
+  }
+
+  .countdown-wrap {
+    text-align: center;
+    padding: 1rem 0;
+    background: var(--bg);
+    border-radius: var(--radius-sm, 12px);
+    margin-bottom: 0.75rem;
+  }
+
+  .countdown-num {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--text);
+    display: block;
+    line-height: 1.1;
+  }
+
+  .countdown-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-top: 0.2rem;
+    display: block;
+  }
+
+  .countdown-wrap.today .countdown-num {
+    color: #d97706;
+  }
+
+  .countdown-wrap.passed .countdown-num {
+    color: var(--text-muted);
+  }
+
+  .exam-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .btn-delete-exam {
+    background: none;
+    border: none;
+    color: var(--danger, #ef4444);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    transition: background 0.2s ease;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .btn-delete-exam:hover {
+    background: rgba(239, 68, 68, 0.1);
+  }
+
+  /* التواريخ المخصصة */
+  .events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  .event-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1.1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm, 12px);
+    background: var(--bg-card);
+  }
+
+  .event-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .event-name {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text);
+  }
+
+  .event-date {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  .event-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .event-days-tag {
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 0.25rem 0.65rem;
+    border-radius: 12px;
+  }
+
+  .event-days-tag.upcoming {
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+  }
+
+  .event-days-tag.today {
+    background: rgba(245, 158, 11, 0.15);
+    color: #d97706;
+  }
+
+  .event-days-tag.passed {
+    background: rgba(100, 116, 139, 0.1);
+    color: var(--text-muted);
+  }
+
+  .btn-delete-event {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+  }
+
+  .btn-delete-event:hover {
+    color: var(--danger, #ef4444);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--text-muted);
+  }
+
+  .empty-state i {
+    font-size: 2.2rem;
+    margin-bottom: 0.6rem;
+    opacity: 0.6;
+  }
+
+  .error-text {
+    color: var(--danger, #ef4444);
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-top: 0.4rem;
+  }
+
+  .reset-bar {
+    display: flex;
+    justify-content: center;
+    margin-top: 1.5rem;
+  }
+</style>
+</head>
+<body class="theme-light">
+
+<header class="navbar">
+    <div class="container nav-container">
+        <a href="index.html" class="logo">
+            <div class="logo-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+            <span class="logo-text">حيز</span>
+        </a>
+        <button class="menu-toggle" id="menu-toggle" aria-label="فتح القائمة"><i class="fa-solid fa-bars"></i></button>
+<nav class="nav-links" id="nav-links">
+    <a href="index.html" class="nav-btn"><i class="fa-solid fa-house"></i> الرئيسية</a>
+    <a href="pomodoro.html" class="nav-btn"><i class="fa-solid fa-clock"></i> المؤقت</a>
+    <a href="todo.html" class="nav-btn"><i class="fa-solid fa-list-check"></i> المهام</a>
+    <a href="gpa.html" class="nav-btn"><i class="fa-solid fa-calculator"></i> حاسبة المعدل</a>
+    <a href="notes.html" class="nav-btn"><i class="fa-solid fa-note-sticky"></i> الملاحظات</a>
+    <a href="habits.html" class="nav-btn"><i class="fa-solid fa-fire"></i> العادات</a>
+    <a href="calculator.html" class="nav-btn active"><i class="fa-solid fa-calendar-days"></i> حاسبة الطالب</a>
+    <a href="game.html" class="nav-btn"><i class="fa-solid fa-gamepad"></i> لعبة الحروف</a>
+    <a href="blog.html" class="nav-btn"><i class="fa-solid fa-newspaper"></i> المدونة</a>
+    <a href="about.html" class="nav-btn"><i class="fa-solid fa-circle-info"></i> عن حيز</a>
+</nav>
+        <div class="nav-actions">
+            <button id="theme-toggle" class="theme-btn" aria-label="تبديل الوضع الليلي"><i class="fa-solid fa-moon"></i></button>
+        </div>
+    </div>
+</header>
+
+<main class="container main-content">
+    <div class="calc-container">
+
+        <!-- بطاقة حساب العمر -->
+        <div class="card">
+            <div class="section-header">
+                <h1><i class="fa-solid fa-cake-candles" aria-hidden="true"></i> حاسبة العمر للطالب</h1>
+                <p class="section-desc">أدخل تاريخ ميلادك لحساب عمرك بالسنوات والأشهر والأيام والمدة المتبقية لبلوغ سن 18 عاماً</p>
+            </div>
+
+            <div class="calc-form-group">
+                <label for="birthdate-input"><i class="fa-regular fa-calendar-check"></i> تاريخ الميلاد:</label>
+                <input type="date" id="birthdate-input" class="calc-input">
+                <div id="birthdate-error" class="error-text" style="display: none;"></div>
+            </div>
+
+            <div id="age-result-wrap" class="hidden">
+                <div class="age-grid">
+                    <div class="age-card">
+                        <span id="age-years" class="age-num">0</span>
+                        <span class="age-lbl">سنة</span>
+                    </div>
+                    <div class="age-card">
+                        <span id="age-months" class="age-num">0</span>
+                        <span class="age-lbl">شهر</span>
+                    </div>
+                    <div class="age-card">
+                        <span id="age-days" class="age-num">0</span>
+                        <span class="age-lbl">يوم</span>
+                    </div>
+                </div>
+
+                <div class="age-info-banner">
+                    <span><i class="fa-solid fa-gift"></i> تاريخ ميلادك: <strong id="formatted-birthdate">--</strong></span>
+                </div>
+
+                <div id="until-18-box" class="until-18-box" style="display: none;">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                    <span>المدة المتبقية لبلوغ سن 18 عاماً: <strong id="until-18-val">--</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- بطاقة اختباراتك القادمة -->
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fa-solid fa-pen-ruler" aria-hidden="true"></i> اختباراتك القادمة والعد التنازلي</h2>
+                <p class="section-desc">أضف اختباراتك ومواعيدها لمتابعة الأيام المتبقية واستعدادك لها بسهولة</p>
+            </div>
+
+            <form id="add-exam-form" class="calc-form-group" style="margin-bottom: 1.25rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <div>
+                        <label for="exam-name-input">اسم الاختبار:</label>
+                        <input type="text" id="exam-name-input" class="calc-input" placeholder="مثال: اختبار القدرات العامة" required>
+                    </div>
+                    <div>
+                        <label for="exam-date-input">تاريخ الاختبار:</label>
+                        <input type="date" id="exam-date-input" class="calc-input" required>
+                    </div>
+                </div>
+
+                <div class="quick-suggestions">
+                    <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600; align-self: center;">اختصارات سريعة:</span>
+                    <button type="button" class="quick-exam-btn" data-exam-title="اختبار القدرات العامة">اختبار القدرات</button>
+                    <button type="button" class="quick-exam-btn" data-exam-title="اختبار التحصيلي">اختبار التحصيلي</button>
+                    <button type="button" class="quick-exam-btn" data-exam-title="اختبار نافس">اختبار نافس</button>
+                    <button type="button" class="quick-exam-btn" data-exam-title="الاختبارات النهائية">الاختبارات النهائية</button>
+                </div>
+
+                <div style="margin-top: 1rem;">
+                    <button type="submit" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-plus"></i> إضافة الاختبار للعداد</button>
+                </div>
+            </form>
+
+            <div id="exams-list" class="exams-grid"></div>
+
+            <div id="exams-empty" class="empty-state">
+                <i class="fa-regular fa-calendar-xmark"></i>
+                <p>لم تقم بإضافة أي اختبارات قادمة بعد.</p>
+            </div>
+        </div>
+
+        <!-- بطاقة المواعيد والتواريخ المهمة المخصصة -->
+        <div class="card">
+            <div class="section-header">
+                <h2><i class="fa-solid fa-bell" aria-hidden="true"></i> مواعيدك وتواريخك المهمة</h2>
+                <p class="section-desc">تابِع المواعيد المخصصة مثل التخرج، فتح التسجيل الجامعي، أو المقابلات الشخصية</p>
+            </div>
+
+            <form id="add-event-form" class="calc-form-group" style="margin-bottom: 1rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <div>
+                        <label for="event-name-input">عنوان الموعد:</label>
+                        <input type="text" id="event-name-input" class="calc-input" placeholder="مثال: التقديم على الجامعات" required>
+                    </div>
+                    <div>
+                        <label for="event-date-input">التاريخ:</label>
+                        <input type="date" id="event-date-input" class="calc-input" required>
+                    </div>
+                </div>
+                <div style="margin-top: 0.75rem;">
+                    <button type="submit" class="btn btn-outline" style="width: 100%;"><i class="fa-solid fa-plus"></i> إضافة موعد مخصص</button>
+                </div>
+            </form>
+
+            <div id="events-list" class="events-list"></div>
+
+            <div id="events-empty" class="empty-state">
+                <i class="fa-regular fa-bookmark"></i>
+                <p>لا توجد مواعيد مخصصة أُضيفت بعد.</p>
+            </div>
+        </div>
+
+        <!-- زر إعادة تعيين البيانات -->
+        <div class="reset-bar">
+            <button type="button" id="reset-calc-btn" class="btn btn-outline" style="color: var(--danger, #ef4444); border-color: var(--border);">
+                <i class="fa-solid fa-rotate-right"></i> إعادة تعيين بيانات الحاسبة
+            </button>
+        </div>
+
+    </div>
+
+    <!-- المحتوى النصي التوضيحي للـ SEO ودعم المستخدم -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header">
+            <h2><i class="fa-solid fa-circle-info"></i> عن حاسبة الطالب في حيز</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+            <p>
+                تُعد <strong>حاسبة الطالب</strong> أداة بسيطة وعملية صُممت خصيصاً لمساعدة الطلاب في المملكة العربية السعودية والوطن العربي على معرفة أعمارهم الدقيقة وتتبع المواعيد الدراسية الهامة مثل اختبارات القدرات العامة، اختبار التحصيلي، الاختبارات النهائية، ومواعيد القبول الجامعي.
+            </p>
+            <p>
+                تتيح لك الأداة معرفة عمرك بالسنوات والأشهر والأيام بناءً على حساب تقويمي دقيق يراعي أطوال الأشهر الحقيقية والسنوات الكبيسة. كما توفر لك إمكانية معرفة الوقت المتبقي حتى الوصول إلى سن 18 عاماً لمساعدتك في الاستعداد المبكر للقبول الجامعي وإجراءات الرخص والأنشطة الطلابية.
+            </p>
+            <p>
+                يمكنك أيضاً إنشاء قائمة خاصة باختباراتك ومواعيدك القادمة (مثل: <em>"كم باقي على اختبار القدرات؟"</em> أو <em>"كم باقي على التحصيلي؟"</em>) ليعرض لك الموقع عداداً تنازلياً واضحاً بالأيام، مما يساعدك على جدول مراجعتك وتنظيم وقتك بفاعلية بالدمج مع باقي أدوات المنصة مثل <a href="pomodoro.html">مؤقت بومودورو</a> و<a href="todo.html">قائمة المهام الدراسية</a>.
+            </p>
+            <p>
+                جميع بياناتك وتواريخك تُحفظ محلياً وبشكل آمن تماماً داخل متصفحك باستخدام تقنية <code>localStorage</code>، ولا يتم إرسال أي من تواريخك أو بياناتك الشخصية إلى أي سيرفر أو خادم خارجي.
+            </p>
+        </div>
+    </section>
+
+    <!-- قسم الأسئلة الشائعة -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header">
+            <h2><i class="fa-solid fa-circle-question"></i> الأسئلة الشائعة حول حاسبة الطالب</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">كيف تحسب حاسبة الطالب العمر؟</h3>
+                <p>
+                    تعتمد الحاسبة على الفرق التقويمي المباشر بين تاريخ ميلادك وتاريخ اليوم الحاضر، مع خصم الأشهر والأيام بدقة وبشكل يتطابق مع النتيجة التقويمية الحقيقية مع مراعاة السنوات الكبيسة.
+                </p>
+            </div>
+
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل تتوفر مواعيد ثابتة للقدرات أو التحصيلي؟</h3>
+                <p>
+                    تتيح لك الأداة تحديد تاريخ اختبارك الخاص بك بحرية تامّة لأن المواعيد تختلف حسب فترات تسجيل الطالب ورغباته في هيئة تقويم التعليم والتدريب.
+                </p>
+            </div>
+
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل تُحفظ مواعيدي وتاريخ ميلادي عند إغلاق المتصفح؟</h3>
+                <p>
+                    نعم، تُحفظ بياناتك محلياً في ذاكرة متصفحك مجاناً لتجدها متوفرة في كل مرة تعود فيها إلى الموقع دون الحاجة لإنشاء حساب.
+                </p>
+            </div>
+
+            <div class="faq-item">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل البيانات محمية؟</h3>
+                <p>
+                    نعم، الحاسبة تعمل 100% داخل المتصفح بدون أي إرسال للبيانات إلى خوادم خارجية.
+                </p>
+            </div>
+
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <div class="container footer-container">
+        <div class="footer-brand">
+            <i class="fa-solid fa-graduation-cap"></i>
+            <span>حيز</span>
+        </div>
+        <p class="footer-copy">&copy; 2026 حيز — جميع الحقوق محفوظة</p>
+        <div class="footer-links">
+            <a href="about.html">عن حيز</a>
+            <a href="blog.html">المدونة</a>
+            <a href="privacy.html">سياسة الخصوصية</a>
+            <a href="terms.html">شروط الاستخدام</a>
+            <a href="contact.html">تواصل معنا</a>
+        </div>
+    </div>
+</footer>
+
+<script src="common.js"></script>
+<script src="calculator.js"></script>
+</body>
+</html>
