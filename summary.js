@@ -415,6 +415,209 @@ document.addEventListener('DOMContentLoaded', () => {
     content.appendChild(nowCard);
 
     // ==========================================
+    // قسم: بطاقة تقويم الطالب — Student Calendar Card
+    // ==========================================
+    if (typeof hayyizGetCalendarSummary === 'function') {
+        const calSummary = hayyizGetCalendarSummary();
+        const calCard = document.createElement('div');
+        calCard.className = 'dash-section card';
+        calCard.style.cssText = 'padding: 1.1rem 1.25rem; margin-bottom: 1.25rem; background: var(--bg-card); border-radius: var(--radius); border: 1px solid var(--border);';
+
+        const calHead = document.createElement('div');
+        calHead.className = 'dash-section-head';
+        calHead.style.cssText = 'margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;';
+
+        const calHeadTitle = document.createElement('h4');
+        calHeadTitle.style.cssText = 'font-size: 1.05rem; margin: 0;';
+        calHeadTitle.innerHTML = '<i class="fa-solid fa-calendar-days" aria-hidden="true" style="color:var(--primary);"></i> تقويم الطالب';
+
+        const calLink = document.createElement('a');
+        calLink.href = 'calculator.html';
+        calLink.textContent = 'عرض التقويم';
+        calLink.style.cssText = 'color: var(--primary); font-weight: 600; text-decoration: none; font-size: 0.9rem;';
+
+        calHead.appendChild(calHeadTitle);
+        calHead.appendChild(calLink);
+        calCard.appendChild(calHead);
+
+        // 1. أقرب حدث قادم
+        const eventBox = document.createElement('div');
+        eventBox.style.cssText = 'padding: 0.85rem; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); margin-bottom: 0.75rem;';
+
+        if (calSummary.nearestEvent) {
+            const ev = calSummary.nearestEvent;
+            const now = new Date();
+            const todayStr = getToday();
+
+            let statusBadge = '';
+            let countdownStr = '';
+
+            if (ev.time) {
+                const target = new Date(`${ev.date}T${ev.time}:00`);
+                const diffMs = target.getTime() - now.getTime();
+                if (diffMs > 0) {
+                    const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
+                    const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                    const remHours = totalHours % 24;
+
+                    if (totalDays > 0) {
+                        countdownStr = remHours > 0 ? `بعد ${totalDays} يوم و ${remHours} ساعة` : `بعد ${totalDays} يومًا`;
+                    } else {
+                        const remMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                        countdownStr = totalHours > 0 ? `بعد ${totalHours} ساعة و ${remMinutes} دقيقة` : `بعد ${remMinutes} دقيقة`;
+                    }
+                    statusBadge = '<span style="background: rgba(79, 70, 229, 0.1); color: var(--primary); font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">قادم</span>';
+                } else {
+                    countdownStr = 'اليوم';
+                    statusBadge = '<span style="background: rgba(245, 158, 11, 0.15); color: #d97706; font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">اليوم</span>';
+                }
+            } else {
+                const t0 = new Date(`${todayStr}T00:00:00`).getTime();
+                const t1 = new Date(`${ev.date}T00:00:00`).getTime();
+                const diffDays = Math.round((t1 - t0) / (1000 * 60 * 60 * 24));
+
+                if (diffDays > 0) {
+                    countdownStr = `بعد ${diffDays} يومًا`;
+                    statusBadge = '<span style="background: rgba(79, 70, 229, 0.1); color: var(--primary); font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">قادم</span>';
+                } else {
+                    countdownStr = 'اليوم';
+                    statusBadge = '<span style="background: rgba(245, 158, 11, 0.15); color: #d97706; font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">اليوم</span>';
+                }
+            }
+
+            const typeLabel = ev.type === 'exam' ? 'اختبار' : (ev.type === 'personal' ? 'موعد شخصي' : 'حدث مخصص');
+            let dateStrFormatted = ev.date;
+            if (ev.time) dateStrFormatted += ` (${ev.time})`;
+
+            eventBox.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.35rem;">
+                    <strong style="font-size: 1rem; color: var(--text);">${escapeHtml(ev.name)}</strong>
+                    ${statusBadge}
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.4rem;">
+                    <span><i class="fa-regular fa-calendar"></i> ${dateStrFormatted} · ${typeLabel}</span>
+                    <strong style="color: var(--primary); font-size: 0.95rem;">${countdownStr}</strong>
+                </div>
+            `;
+        } else {
+            eventBox.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;">
+                    <span style="font-size: 0.9rem; color: var(--text-muted);"><i class="fa-regular fa-calendar-xmark"></i> لا توجد اختبارات قادمة</span>
+                    <a href="calculator.html" style="font-size: 0.85rem; color: var(--primary); font-weight: 700; text-decoration: none;">+ إضافة موعد</a>
+                </div>
+            `;
+        }
+        calCard.appendChild(eventBox);
+
+        // 2. قسم العمر الاختياري
+        const ageBox = document.createElement('div');
+        ageBox.style.cssText = 'padding: 0.75rem 0.85rem; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); font-size: 0.88rem;';
+
+        if (calSummary.birthdate && calSummary.ageInfo) {
+            if (calSummary.showAgePref === 'true') {
+                const age = calSummary.ageInfo;
+                let ageStr = `عمرك الحالي: <strong>${age.years} سنة و ${age.months} شهر و ${age.days} يوم</strong>`;
+                if (!age.is18OrOlder && age.status18) {
+                    const st = age.status18;
+                    let remStr = '';
+                    if (st.years > 0) remStr += `${st.years} سنة `;
+                    if (st.months > 0) remStr += `و ${st.months} شهر `;
+                    if (st.days > 0 || (!st.years && !st.months)) remStr += `و ${st.days} يوم`;
+                    remStr = remStr.trim().replace(/^و\s*/, '');
+                    ageStr += `<div style="margin-top:0.3rem; color: var(--text-muted); font-size: 0.82rem;">متبقي على 18 عاماً: <strong>${remStr}</strong></div>`;
+                }
+
+                ageBox.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                        <div><i class="fa-solid fa-cake-candles" style="color:var(--primary);"></i> ${ageStr}</div>
+                        <button type="button" id="hide-age-dash-btn" style="background: none; border: none; color: var(--text-muted); font-size: 0.78rem; cursor: pointer; text-decoration: underline;">إخفاء</button>
+                    </div>
+                `;
+
+                calCard.appendChild(ageBox);
+
+                setTimeout(() => {
+                    const hideBtn = document.getElementById('hide-age-dash-btn');
+                    if (hideBtn) {
+                        hideBtn.addEventListener('click', () => {
+                            localStorage.setItem('hayyiz-show-age-in-dashboard', 'false');
+                            window.location.reload();
+                        });
+                    }
+                }, 0);
+
+            } else if (calSummary.showAgePref === 'false') {
+                ageBox.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                        <span style="color: var(--text-muted);"><i class="fa-solid fa-cake-candles"></i> معلومات العمر مخفية</span>
+                        <button type="button" id="show-age-dash-btn" style="background: none; border: none; color: var(--primary); font-weight: 600; font-size: 0.82rem; cursor: pointer;">عرض عمري</button>
+                    </div>
+                `;
+                calCard.appendChild(ageBox);
+
+                setTimeout(() => {
+                    const showBtn = document.getElementById('show-age-dash-btn');
+                    if (showBtn) {
+                        showBtn.addEventListener('click', () => {
+                            localStorage.setItem('hayyiz-show-age-in-dashboard', 'true');
+                            window.location.reload();
+                        });
+                    }
+                }, 0);
+
+            } else {
+                ageBox.innerHTML = `
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <span><i class="fa-solid fa-circle-question" style="color:var(--primary);"></i> هل تريد عرض عمرك في الملخص اليومي؟</span>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button type="button" id="accept-show-age-btn" class="btn btn-primary" style="padding: 0.3rem 0.75rem; font-size: 0.82rem;">عرض عمري</button>
+                            <button type="button" id="decline-show-age-btn" class="btn btn-outline" style="padding: 0.3rem 0.75rem; font-size: 0.82rem;">ليس الآن</button>
+                        </div>
+                    </div>
+                `;
+                calCard.appendChild(ageBox);
+
+                setTimeout(() => {
+                    const accBtn = document.getElementById('accept-show-age-btn');
+                    const decBtn = document.getElementById('decline-show-age-btn');
+                    if (accBtn) {
+                        accBtn.addEventListener('click', () => {
+                            localStorage.setItem('hayyiz-show-age-in-dashboard', 'true');
+                            window.location.reload();
+                        });
+                    }
+                    if (decBtn) {
+                        decBtn.addEventListener('click', () => {
+                            localStorage.setItem('hayyiz-show-age-in-dashboard', 'false');
+                            window.location.reload();
+                        });
+                    }
+                }, 0);
+            }
+        } else {
+            ageBox.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                    <span style="color: var(--text-muted);"><i class="fa-solid fa-cake-candles"></i> لم تقم بإدخال تاريخ ميلادك بعد</span>
+                    <a href="calculator.html" style="color: var(--primary); font-weight: 600; text-decoration: none; font-size: 0.85rem;">أضف تاريخ ميلادك</a>
+                </div>
+            `;
+            calCard.appendChild(ageBox);
+        }
+
+        content.appendChild(calCard);
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    // ==========================================
     // قسم 4: «ماذا أنجزت؟» — Dashboard Stats (اتساق رياضي تام)
     // ==========================================
     const stats = document.createElement('div');
