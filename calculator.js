@@ -78,13 +78,15 @@
      * حساب تقويمي دقيق للعمر بالأيام والأشهر والسنوات
      */
     function calculateExactAge(birthDateObj, nowObj) {
+        if (typeof hayyizCalculateExactAge === 'function') {
+            return hayyizCalculateExactAge(birthDateObj, nowObj);
+        }
         let years = nowObj.getFullYear() - birthDateObj.getFullYear();
         let months = nowObj.getMonth() - birthDateObj.getMonth();
         let days = nowObj.getDate() - birthDateObj.getDate();
 
         if (days < 0) {
             months--;
-            // عدد أيام الشهر السابق للشهر الحالي في 'nowObj'
             const prevMonthLastDay = new Date(nowObj.getFullYear(), nowObj.getMonth(), 0).getDate();
             days += prevMonthLastDay;
         }
@@ -101,14 +103,15 @@
      * حساب حالة وتاريخ بلوغ سن 18 عاماً
      */
     function get18Status(birthDateObj, nowObj) {
+        if (typeof hayyizGet18Status === 'function') {
+            return hayyizGet18Status(birthDateObj, nowObj);
+        }
         const year18 = birthDateObj.getFullYear() + 18;
         const month18 = birthDateObj.getMonth();
         const day18 = birthDateObj.getDate();
 
-        // التعامل مع المولودين في 29 فبراير في سنة كبيسة
         let date18 = new Date(year18, month18, day18);
         if (date18.getMonth() !== month18) {
-            // انزياح الشهر لعدم وجود 29 فبراير -> تعديل لـ 28 فبراير
             date18 = new Date(year18, month18, 28);
         }
 

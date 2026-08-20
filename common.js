@@ -839,3 +839,182 @@ function hayyizSubjectImpact(subjects, index, newGrade) {
         delta: hypothetical - real
     };
 }
+
+/* ---------- تقويم الطالب — Calendar Data Layer ---------- */
+
+/**
+ * حساب تقويمي دقيق للعمر بالأيام والأشهر والسنوات
+ */
+function hayyizCalculateExactAge(birthDateObj, nowObj) {
+    let years = nowObj.getFullYear() - birthDateObj.getFullYear();
+    let months = nowObj.getMonth() - birthDateObj.getMonth();
+    let days = nowObj.getDate() - birthDateObj.getDate();
+
+    if (days < 0) {
+        months--;
+        const prevMonthLastDay = new Date(nowObj.getFullYear(), nowObj.getMonth(), 0).getDate();
+        days += prevMonthLastDay;
+    }
+
+    if (months < 0) {
+        years--;
+        months += 12;
+    }
+
+    return { years, months, days };
+}
+
+/**
+ * حساب حالة وتاريخ وعداد 18 سنة
+ */
+function hayyizGet18Status(birthDateObj, nowObj) {
+    const year18 = birthDateObj.getFullYear() + 18;
+    const month18 = birthDateObj.getMonth();
+    const day18 = birthDateObj.getDate();
+
+    let date18 = new Date(year18, month18, day18);
+    if (date18.getMonth() !== month18) {
+        date18 = new Date(year18, month18, 28);
+    }
+
+    date18.setHours(0, 0, 0, 0);
+    const todayMidnight = new Date(nowObj.getFullYear(), nowObj.getMonth(), nowObj.getDate());
+
+    const monthNames = [
+        'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+        'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+    ];
+    const date18Str = `${date18.getDate()} ${monthNames[date18.getMonth()]} ${date18.getFullYear()}`;
+
+    if (todayMidnight >= date18) {
+        return {
+            is18OrOlder: true,
+            date18Str: date18Str
+        };
+    } else {
+        const rem = hayyizCalculateExactAge(todayMidnight, date18);
+        return {
+            is18OrOlder: false,
+            years: rem.years,
+            months: rem.months,
+            days: rem.days,
+            date18Str: date18Str
+        };
+    }
+}
+
+/**
+ * جلب جميع الأحداث القادمة المرتبة بحسب الأقرب زمنيًا (مستبعدًا الأحداث المنتهية)
+ */
+function hayyizGetSavedCalendarEvents() {
+    const events = [];
+    const STORAGE_KEY_EXAMS = 'hayyiz-student-exams';
+    const STORAGE_KEY_EVENTS = 'hayyiz-custom-events';
+
+    // 1. الاختبارات
+    try {
+        const rawExams = localStorage.getItem(STORAGE_KEY_EXAMS);
+        const examsList = rawExams ? JSON.parse(rawExams) : [];
+        if (Array.isArray(examsList)) {
+            examsList.forEach(item => {
+                if (item && item.name && item.date) {
+                    events.push({
+                        id: item.id || ('ex_' + Date.now()),
+                        name: item.name,
+                        date: item.date,
+                        time: item.time || '',
+                        type: item.type || 'exam'
+                    });
+                }
+            });
+        }
+    } catch (e) { /* تجاهل */ }
+
+    // 2. الأحداث والمواعيد المخصصة
+    try {
+        const rawEvents = localStorage.getItem(STORAGE_KEY_EVENTS);
+        const customList = rawEvents ? JSON.parse(rawEvents) : [];
+        if (Array.isArray(customList)) {
+            customList.forEach(item => {
+                if (item && item.name && item.date) {
+                    events.push({
+                        id: item.id || ('ev_' + Date.now()),
+                        name: item.name,
+                        date: item.date,
+                        time: item.time || '',
+                        type: item.type || 'personal'
+                    });
+                }
+            });
+        }
+    } catch (e) { /* تجاهل */ }
+
+    const now = new Date();
+    const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+
+    function isEventPassed(ev) {
+        if (!ev.date) return true;
+        if (ev.time) {
+            const target = new Date(`${ev.date}T${ev.time}:00`);
+            if (isNaN(target.getTime())) return true;
+            return target.getTime() < now.getTime();
+        } else {
+            return ev.date < todayStr;
+        }
+    }
+
+    function getEventTimestamp(ev) {
+        if (!ev.date) return Infinity;
+        if (ev.time) {
+            const d = new Date(`${ev.date}T${ev.time}:00`);
+            if (!isNaN(d.getTime())) return d.getTime();
+        }
+        const d = new Date(`${ev.date}T00:00:00`);
+        return isNaN(d.getTime()) ? Infinity : d.getTime();
+    }
+
+    const upcomingEvents = events.filter(ev => !isEventPassed(ev));
+    upcomingEvents.sort((a, b) => getEventTimestamp(a) - getEventTimestamp(b));
+
+    return upcomingEvents;
+}
+
+/**
+ * ملخص تقويم الطالب جاهز للـ Dashboard والصفحات
+ */
+function hayyizGetCalendarSummary() {
+    const upcoming = hayyizGetSavedCalendarEvents();
+    const nearestEvent = upcoming.length > 0 ? upcoming[0] : null;
+
+    const birthdate = localStorage.getItem('hayyiz-birthdate') || null;
+    const showAgePref = localStorage.getItem('hayyiz-show-age-in-dashboard');
+
+    let ageInfo = null;
+    if (birthdate) {
+        const birthObj = new Date(birthdate + 'T00:00:00');
+        const nowObj = new Date();
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+
+        if (!isNaN(birthObj.getTime()) && birthObj <= todayMidnight) {
+            const age = hayyizCalculateExactAge(birthObj, todayMidnight);
+            const status18 = hayyizGet18Status(birthObj, nowObj);
+            ageInfo = {
+                birthdate,
+                years: age.years,
+                months: age.months,
+                days: age.days,
+                is18OrOlder: status18.is18OrOlder,
+                status18
+            };
+        }
+    }
+
+    return {
+        upcoming,
+        nearestEvent,
+        birthdate,
+        showAgePref,
+        ageInfo
+    };
+}
