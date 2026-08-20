@@ -32,17 +32,17 @@
     <meta name="referrer" content="strict-origin-when-cross-origin">
 
     <!-- SEO -->
-    <title>حاسبة الطالب — حساب العمر والعد التنازلي للاختبارات | حيز</title>
-    <meta name="description" content="حاسبة الطالب من حيز: احسب عمرك بالسنوات والأشهر والأيام بدقة، واعرف كم باقي على اختبار القدرات والتحصيلي ومواعيدك واختباراتك المهمة بسهولة.">
-    <meta name="keywords" content="حاسبة الطالب, حاسبة العمر, حساب العمر, كم باقي على القدرات, كم باقي على التحصيلي, عداد الاختبارات, حاسبة العمر للطلاب, حيز">
+    <title>تقويم الطالب — تابع عمرك واختباراتك ومواعيدك المهمة | حيز</title>
+    <meta name="description" content="تقويم الطالب — تابع عمرك واختباراتك ومواعيدك المهمة في مكان واحد.">
+    <meta name="keywords" content="تقويم الطالب, حاسبة العمر, حساب العمر, كم باقي على القدرات, كم باقي على التحصيلي, عداد الاختبارات, تقويم العمر للطلاب, حيز">
     <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
 
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://just-c.github.io/adawati/calculator.html">
-    <meta property="og:title" content="حاسبة الطالب — حساب العمر والعد التنازلي للاختبارات | حيز">
-    <meta property="og:description" content="احسب عمرك بالسنوات والأشهر والأيام بدقة واعرف كم باقي على اختبارك ومواعيدك المهمة عبر حاسبة الطالب المجانية.">
+    <meta property="og:title" content="تقويم الطالب — تابع عمرك واختباراتك ومواعيدك المهمة | حيز">
+    <meta property="og:description" content="تقويم الطالب — تابع عمرك واختباراتك ومواعيدك المهمة في مكان واحد.">
     <meta property="og:image" content="https://just-c.github.io/adawati/android-chrome-512x512.png">
     <meta property="og:image:width" content="512">
     <meta property="og:image:height" content="512">
@@ -51,8 +51,8 @@
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="حاسبة الطالب | حيز">
-    <meta name="twitter:description" content="احسب عمرك بدقة واعرف كم باقي على اختباراتك ومواعيدك المهمة.">
+    <meta name="twitter:title" content="تقويم الطالب | حيز">
+    <meta name="twitter:description" content="تقويم الطالب — تابع عمرك واختباراتك ومواعيدك المهمة في مكان واحد.">
     <meta name="twitter:image" content="https://just-c.github.io/adawati/android-chrome-512x512.png">
 
     <!-- الخطوط والأيقونات -->
@@ -82,9 +82,9 @@
 {
   "@context": "https://schema.org",
   "@type": "WebApplication",
-  "name": "حاسبة الطالب — حيز",
+  "name": "تقويم الطالب — حيز",
   "url": "https://just-c.github.io/adawati/calculator.html",
-  "description": "أداة حاسبة الطالب لحساب العمر بدقة بالسنوات والأشهر والأيام والعد التنازلي لمواعيد الاختبارات والمناسبات الدراسية.",
+  "description": "تقويم الطالب — تابع عمرك واختباراتك ومواعيدك المهمة في مكان واحد.",
   "applicationCategory": "EducationalApplication",
   "operatingSystem": "All",
   "inLanguage": "ar",
@@ -98,7 +98,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 
 <style>
-  /* تنسيقات حاسبة الطالب */
+  /* تنسيقات تقويم الطالب */
   .calc-container {
     display: flex;
     flex-direction: column;
@@ -469,6 +469,24 @@
     margin-top: 0.4rem;
   }
 
+  .event-form-grid {
+    display: grid;
+    grid-template-columns: 2fr 1.2fr 1.2fr 1fr;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 768px) {
+    .event-form-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .event-form-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
   .reset-bar {
     display: flex;
     justify-content: center;
@@ -492,7 +510,7 @@
     <a href="gpa.html" class="nav-btn"><i class="fa-solid fa-calculator"></i> حاسبة المعدل</a>
     <a href="notes.html" class="nav-btn"><i class="fa-solid fa-note-sticky"></i> الملاحظات</a>
     <a href="habits.html" class="nav-btn"><i class="fa-solid fa-fire"></i> العادات</a>
-    <a href="calculator.html" class="nav-btn active"><i class="fa-solid fa-calendar-days"></i> حاسبة الطالب</a>
+    <a href="calculator.html" class="nav-btn active"><i class="fa-solid fa-calendar-days"></i> تقويم الطالب</a>
     <a href="game.html" class="nav-btn"><i class="fa-solid fa-gamepad"></i> لعبة الحروف</a>
     <a href="blog.html" class="nav-btn"><i class="fa-solid fa-newspaper"></i> المدونة</a>
     <a href="about.html" class="nav-btn"><i class="fa-solid fa-circle-info"></i> عن حيز</a>
@@ -506,11 +524,11 @@
 <main class="container main-content">
     <div class="calc-container">
 
-        <!-- بطاقة حساب العمر -->
+        <!-- بطاقة معلومات العمر -->
         <div class="card">
             <div class="section-header">
-                <h1><i class="fa-solid fa-cake-candles" aria-hidden="true"></i> حاسبة العمر للطالب</h1>
-                <p class="section-desc">أدخل تاريخ ميلادك لحساب عمرك بالسنوات والأشهر والأيام والمدة المتبقية لبلوغ سن 18 عاماً</p>
+                <h1><i class="fa-solid fa-cake-candles" aria-hidden="true"></i> معلومات العمر</h1>
+                <p class="section-desc">أدخل تاريخ ميلادك لحساب عمرك الحالي بالسنوات والأشهر والأيام وتتبع سن 18 عاماً</p>
             </div>
 
             <div class="calc-form-group">
@@ -540,87 +558,69 @@
                 </div>
 
                 <div id="until-18-box" class="until-18-box" style="display: none;">
-                    <i class="fa-solid fa-hourglass-half"></i>
-                    <span>المدة المتبقية لبلوغ سن 18 عاماً: <strong id="until-18-val">--</strong></span>
+                    <i class="fa-solid fa-hourglass-half" id="until-18-icon"></i>
+                    <span id="until-18-text">--</span>
                 </div>
             </div>
         </div>
 
-        <!-- بطاقة اختباراتك القادمة -->
+        <!-- بطاقة أحداثك القادمة -->
         <div class="card">
             <div class="section-header">
-                <h2><i class="fa-solid fa-pen-ruler" aria-hidden="true"></i> اختباراتك القادمة والعد التنازلي</h2>
-                <p class="section-desc">أضف اختباراتك ومواعيدها لمتابعة الأيام المتبقية واستعدادك لها بسهولة</p>
+                <h2><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> أحداثك القادمة</h2>
+                <p class="section-desc">تابِع اختباراتك والمواعيد الشخصية والأحداث المخصصة في مكان واحد مرتبة تلقائياً بحسب أقرب تاريخ</p>
             </div>
 
-            <form id="add-exam-form" class="calc-form-group" style="margin-bottom: 1.25rem;">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <form id="add-event-form" class="calc-form-group" style="margin-bottom: 1.25rem;">
+                <div class="event-form-grid">
                     <div>
-                        <label for="exam-name-input">اسم الاختبار:</label>
-                        <input type="text" id="exam-name-input" class="calc-input" placeholder="مثال: اختبار القدرات العامة" required>
+                        <label for="event-name-input">اسم الحدث أو الموعد:</label>
+                        <input type="text" id="event-name-input" class="calc-input" placeholder="مثال: اختبار القدرات العامة" required>
                     </div>
                     <div>
-                        <label for="exam-date-input">تاريخ الاختبار:</label>
-                        <input type="date" id="exam-date-input" class="calc-input" required>
-                    </div>
-                </div>
-
-                <div class="quick-suggestions">
-                    <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600; align-self: center;">اختصارات سريعة:</span>
-                    <button type="button" class="quick-exam-btn" data-exam-title="اختبار القدرات العامة">اختبار القدرات</button>
-                    <button type="button" class="quick-exam-btn" data-exam-title="اختبار التحصيلي">اختبار التحصيلي</button>
-                    <button type="button" class="quick-exam-btn" data-exam-title="اختبار نافس">اختبار نافس</button>
-                    <button type="button" class="quick-exam-btn" data-exam-title="الاختبارات النهائية">الاختبارات النهائية</button>
-                </div>
-
-                <div style="margin-top: 1rem;">
-                    <button type="submit" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-plus"></i> إضافة الاختبار للعداد</button>
-                </div>
-            </form>
-
-            <div id="exams-list" class="exams-grid"></div>
-
-            <div id="exams-empty" class="empty-state">
-                <i class="fa-regular fa-calendar-xmark"></i>
-                <p>لم تقم بإضافة أي اختبارات قادمة بعد.</p>
-            </div>
-        </div>
-
-        <!-- بطاقة المواعيد والتواريخ المهمة المخصصة -->
-        <div class="card">
-            <div class="section-header">
-                <h2><i class="fa-solid fa-bell" aria-hidden="true"></i> مواعيدك وتواريخك المهمة</h2>
-                <p class="section-desc">تابِع المواعيد المخصصة مثل التخرج، فتح التسجيل الجامعي، أو المقابلات الشخصية</p>
-            </div>
-
-            <form id="add-event-form" class="calc-form-group" style="margin-bottom: 1rem;">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                    <div>
-                        <label for="event-name-input">عنوان الموعد:</label>
-                        <input type="text" id="event-name-input" class="calc-input" placeholder="مثال: التقديم على الجامعات" required>
+                        <label for="event-type-input">نوع الحدث:</label>
+                        <select id="event-type-input" class="calc-input">
+                            <option value="exam">اختبار</option>
+                            <option value="personal">موعد شخصي</option>
+                            <option value="custom">حدث مخصص</option>
+                        </select>
                     </div>
                     <div>
                         <label for="event-date-input">التاريخ:</label>
                         <input type="date" id="event-date-input" class="calc-input" required>
                     </div>
+                    <div>
+                        <label for="event-time-input">الوقت (اختياري):</label>
+                        <input type="time" id="event-time-input" class="calc-input">
+                    </div>
                 </div>
-                <div style="margin-top: 0.75rem;">
-                    <button type="submit" class="btn btn-outline" style="width: 100%;"><i class="fa-solid fa-plus"></i> إضافة موعد مخصص</button>
+
+                <div class="quick-suggestions">
+                    <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600; align-self: center;">اقتراحات سريعة:</span>
+                    <button type="button" class="quick-exam-btn" data-title="القدرات" data-type="exam">القدرات</button>
+                    <button type="button" class="quick-exam-btn" data-title="التحصيلي" data-type="exam">التحصيلي</button>
+                    <button type="button" class="quick-exam-btn" data-title="اختبار مدرسي" data-type="exam">اختبار مدرسي</button>
+                    <button type="button" class="quick-exam-btn" data-title="اختبار" data-type="exam">اختبار</button>
+                    <button type="button" class="quick-exam-btn" data-title="موعد مهم" data-type="personal">موعد مهم</button>
+                </div>
+
+                <div style="margin-top: 1rem;">
+                    <button type="submit" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-plus"></i> إضافة موعد</button>
                 </div>
             </form>
 
-            <div id="events-list" class="events-list"></div>
+            <div id="events-list" class="exams-grid"></div>
 
             <div id="events-empty" class="empty-state">
-                <i class="fa-regular fa-bookmark"></i>
-                <p>لا توجد مواعيد مخصصة أُضيفت بعد.</p>
+                <i class="fa-regular fa-calendar-xmark"></i>
+                <p>لا توجد أحداث أو مواعيد قادمة أُضيفت بعد.</p>
             </div>
         </div>
 
         <!-- زر إعادة تعيين البيانات -->
         <div class="reset-bar">
             <button type="button" id="reset-calc-btn" class="btn btn-outline" style="color: var(--danger, #ef4444); border-color: var(--border);">
-                <i class="fa-solid fa-rotate-right"></i> إعادة تعيين بيانات الحاسبة
+                <i class="fa-solid fa-rotate-right"></i> إعادة تعيين بيانات التقويم
             </button>
         </div>
 
@@ -629,20 +629,20 @@
     <!-- المحتوى النصي التوضيحي للـ SEO ودعم المستخدم -->
     <section class="card content-section" style="margin-top: 2rem;">
         <div class="section-header">
-            <h2><i class="fa-solid fa-circle-info"></i> عن حاسبة الطالب في حيز</h2>
+            <h2><i class="fa-solid fa-circle-info"></i> عن تقويم الطالب في حيز</h2>
         </div>
         <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
             <p>
-                تُعد <strong>حاسبة الطالب</strong> أداة بسيطة وعملية صُممت خصيصاً لمساعدة الطلاب في المملكة العربية السعودية والوطن العربي على معرفة أعمارهم الدقيقة وتتبع المواعيد الدراسية الهامة مثل اختبارات القدرات العامة، اختبار التحصيلي، الاختبارات النهائية، ومواعيد القبول الجامعي.
+                يُعد <strong>تقويم الطالب</strong> لوحة شخصية أُنشئت خصيصاً لمساعدة الطلاب على متابعة أعمارهم واختباراتهم ومواعيدهم المهمة في مكان واحد.
             </p>
             <p>
-                تتيح لك الأداة معرفة عمرك بالسنوات والأشهر والأيام بناءً على حساب تقويمي دقيق يراعي أطوال الأشهر الحقيقية والسنوات الكبيسة. كما توفر لك إمكانية معرفة الوقت المتبقي حتى الوصول إلى سن 18 عاماً لمساعدتك في الاستعداد المبكر للقبول الجامعي وإجراءات الرخص والأنشطة الطلابية.
+                تتيح لك الأداة معرفة عمرك بالسنوات والأشهر والأيام بناءً على حساب تقويمي دقيق يراعي أطوال الأشهر الحقيقية والسنوات الكبيسة، مع إظهار تاريخ بلوغ سن 18 عاماً أو المدة المتبقية لبلوغه لمساعدتك في التخطيط للمستقبل والقبول الجامعي.
             </p>
             <p>
-                يمكنك أيضاً إنشاء قائمة خاصة باختباراتك ومواعيدك القادمة (مثل: <em>"كم باقي على اختبار القدرات؟"</em> أو <em>"كم باقي على التحصيلي؟"</em>) ليعرض لك الموقع عداداً تنازلياً واضحاً بالأيام، مما يساعدك على جدول مراجعتك وتنظيم وقتك بفاعلية بالدمج مع باقي أدوات المنصة مثل <a href="pomodoro.html">مؤقت بومودورو</a> و<a href="todo.html">قائمة المهام الدراسية</a>.
+                كما تمكّنك الأداة من تنظيم أحداثك القادمة واختباراتك ومواعيدك الشخصية مع عرض عداد تنازلي تلقائي بالأيام والتوقيتات الدقيقة، مما يساعدك على ترتيب مراجعاتك وتنظيم جدولك بالدمج مع بقية أدوات حيز مثل <a href="pomodoro.html">مؤقت بومودورو</a> و<a href="todo.html">قائمة المهام الدراسية</a>.
             </p>
             <p>
-                جميع بياناتك وتواريخك تُحفظ محلياً وبشكل آمن تماماً داخل متصفحك باستخدام تقنية <code>localStorage</code>، ولا يتم إرسال أي من تواريخك أو بياناتك الشخصية إلى أي سيرفر أو خادم خارجي.
+                جميع بياناتك وتواريخك تُحفظ محلياً وبشكل آمن تماماً داخل متصفحك باستخدام تقنية <code>localStorage</code>، ولا يتم إرسال أي من تواريخك أو بياناتك إلى أي خادم خارجي.
             </p>
         </div>
     </section>
@@ -650,14 +650,14 @@
     <!-- قسم الأسئلة الشائعة -->
     <section class="card content-section" style="margin-top: 2rem;">
         <div class="section-header">
-            <h2><i class="fa-solid fa-circle-question"></i> الأسئلة الشائعة حول حاسبة الطالب</h2>
+            <h2><i class="fa-solid fa-circle-question"></i> الأسئلة الشائعة حول تقويم الطالب</h2>
         </div>
         <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
 
             <div class="faq-item" style="margin-bottom: 1.8rem;">
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">كيف تحسب حاسبة الطالب العمر؟</h3>
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">كيف يحسب تقويم الطالب العمر؟</h3>
                 <p>
-                    تعتمد الحاسبة على الفرق التقويمي المباشر بين تاريخ ميلادك وتاريخ اليوم الحاضر، مع خصم الأشهر والأيام بدقة وبشكل يتطابق مع النتيجة التقويمية الحقيقية مع مراعاة السنوات الكبيسة.
+                    يعتمد التقويم على الفرق التقويمي المباشر بين تاريخ ميلادك وتاريخ اليوم الحاضر، مع خصم الأشهر والأيام بدقة وبشكل يتطابق مع النتيجة التقويمية الحقيقية مع مراعاة السنوات الكبيسة وأيام الشهر.
                 </p>
             </div>
 
