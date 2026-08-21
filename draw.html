@@ -46,6 +46,7 @@
     <link rel="icon" href="favicon.ico">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="pdf.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
@@ -274,6 +275,7 @@
                 <h1><i class="fa-solid fa-pen-nib" style="color:#7c3aed"></i> مساحات الكتابة الحرة</h1>
                 <div class="hub-actions">
                     <a href="notes.html" class="hub-btn hub-btn-outline"><i class="fa-solid fa-arrow-right"></i> الملاحظات</a>
+                    <button type="button" class="hub-btn hub-btn-outline" id="btnImportPdfHub"><i class="fa-solid fa-file-pdf"></i> استيراد PDF</button>
                     <button type="button" class="hub-btn hub-btn-primary" id="btnNewSpace"><i class="fa-solid fa-plus"></i> مساحة جديدة</button>
                 </div>
             </div>
@@ -284,8 +286,11 @@
             <div class="space-list" id="spaceList"></div>
             <div class="hub-empty hidden" id="hubEmpty">
                 <i class="fa-solid fa-book-open"></i>
-                <p>لا توجد مساحات بعد. أنشئ أول مساحة كتابة حرة.</p>
-                <button type="button" class="hub-btn hub-btn-primary" id="btnNewSpaceEmpty"><i class="fa-solid fa-plus"></i> إنشاء مساحة</button>
+                <p>لا توجد مساحات بعد. أنشئ أول مساحة كتابة حرة أو استورد ملف PDF.</p>
+                <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+                    <button type="button" class="hub-btn hub-btn-primary" id="btnNewSpaceEmpty"><i class="fa-solid fa-plus"></i> إنشاء مساحة</button>
+                    <button type="button" class="hub-btn hub-btn-outline" id="btnImportPdfEmpty"><i class="fa-solid fa-file-pdf"></i> استيراد PDF</button>
+                </div>
             </div>
         </div>
     </div>
@@ -307,8 +312,11 @@
     <div id="editor">
         <button type="button" class="back-link" id="btnBackHub" title="قائمة المساحات"><i class="fa-solid fa-bars"></i></button>
 
+        <input type="file" id="pdfFileInput" accept="application/pdf" style="display:none;">
+
         <div id="toolbar">
             <span class="space-name-label" id="spaceNameLabel"></span>
+            <button class="tool-btn" id="btnImportPdfToolbar" type="button" title="استيراد PDF"><i class="fa-solid fa-file-pdf"></i></button>
             <div class="sep"></div>
             <button class="tool-btn" id="btnSelect" type="button" title="تحديد / تحريك العناصر (S)"><i class="fa-solid fa-arrow-pointer"></i></button>
             <button class="tool-btn" id="btnPan" type="button" title="تحريك المساحة (H)"><i class="fa-solid fa-hand"></i></button>
@@ -367,6 +375,113 @@
         const STORAGE_KEY = 'hayyiz-free-spaces-v1';
         const PREFS_KEY = 'hayyiz-draw-prefs';
 
+        // تهيئة PDF.js Worker
+        if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = './pdf.worker.min.js';
+        }
+
+        // ——— IndexedDB engine لتخزين ملفات PDF بشكل آمن وبشكل منفصل عن LocalStorage ———
+        const PDF_DB_NAME = 'hayyiz-pdf-db';
+        const PDF_STORE_NAME = 'pdf_blobs';
+
+        function openPdfDb() {
+            return new Promise(function (resolve, reject) {
+                if (!window.indexedDB) {
+                    reject(new Error('IndexedDB غير مدعوم في هذا المتصفح.'));
+                    return;
+                }
+                const req = indexedDB.open(PDF_DB_NAME, 1);
+                req.onupgradeneeded = function (e) {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(PDF_STORE_NAME)) {
+                        db.createObjectStore(PDF_STORE_NAME, { keyPath: 'spaceId' });
+                    }
+                };
+                req.onsuccess = function (e) { resolve(e.target.result); };
+                req.onerror = function (e) { reject(e.target.error); };
+            });
+        }
+
+        function savePdfToDb(spaceId, arrayBuffer, fileName) {
+            return openPdfDb().then(function (db) {
+                return new Promise(function (resolve, reject) {
+                    const tx = db.transaction(PDF_STORE_NAME, 'readwrite');
+                    const store = tx.objectStore(PDF_STORE_NAME);
+                    const record = {
+                        spaceId: spaceId,
+                        data: arrayBuffer,
+                        fileName: fileName,
+                        updated: Date.now()
+                    };
+                    const req = store.put(record);
+                    req.onsuccess = function () { resolve(true); };
+                    req.onerror = function (e) { reject(e.target.error); };
+                });
+            });
+        }
+
+        function getPdfFromDb(spaceId) {
+            return openPdfDb().then(function (db) {
+                return new Promise(function (resolve, reject) {
+                    const tx = db.transaction(PDF_STORE_NAME, 'readonly');
+                    const store = tx.objectStore(PDF_STORE_NAME);
+                    const req = store.get(spaceId);
+                    req.onsuccess = function (e) { resolve(e.target.result ? e.target.result.data : null); };
+                    req.onerror = function (e) { reject(e.target.error); };
+                });
+            });
+        }
+
+        function deletePdfFromDb(spaceId) {
+            return openPdfDb().then(function (db) {
+                return new Promise(function (resolve, reject) {
+                    const tx = db.transaction(PDF_STORE_NAME, 'readwrite');
+                    const store = tx.objectStore(PDF_STORE_NAME);
+                    const req = store.delete(spaceId);
+                    req.onsuccess = function () { resolve(true); };
+                    req.onerror = function (e) { reject(e.target.error); };
+                });
+            });
+        }
+
+        // ——— حماية حجم الملف والتحقق من التوقيع السحري للـ PDF (%PDF-) ———
+        const MAX_PDF_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
+
+        function validatePdfFile(file) {
+            return new Promise(function (resolve, reject) {
+                if (!file) {
+                    reject(new Error('لم يتم اختيار أي ملف.'));
+                    return;
+                }
+                if (file.size > MAX_PDF_SIZE_BYTES) {
+                    reject(new Error('حجم ملف PDF كبير جداً. الحد الأقصى المسموح به هو 25 ميجابايت.'));
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const buffer = e.target.result;
+                    if (!buffer || buffer.byteLength < 5) {
+                        reject(new Error('تعذر قراءة ملف PDF. تأكد من أن الملف صالح وغير تالف.'));
+                        return;
+                    }
+                    const bytes = new Uint8Array(buffer.slice(0, 1024));
+                    let header = '';
+                    for (let i = 0; i < bytes.length; i++) {
+                        header += String.fromCharCode(bytes[i]);
+                    }
+                    if (header.indexOf('%PDF-') === -1) {
+                        reject(new Error('تعذر قراءة ملف PDF. تأكد من أن الملف صالح وغير تالف.'));
+                        return;
+                    }
+                    resolve(buffer);
+                };
+                reader.onerror = function () {
+                    reject(new Error('تعذر قراءة الملف من الجهاز.'));
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
         // عناصر القائمة
         const hub = document.getElementById('hub');
         const spaceList = document.getElementById('spaceList');
@@ -375,6 +490,8 @@
         const hubSearch = document.getElementById('hubSearch');
         const btnNewSpace = document.getElementById('btnNewSpace');
         const btnNewSpaceEmpty = document.getElementById('btnNewSpaceEmpty');
+        const btnImportPdfHub = document.getElementById('btnImportPdfHub');
+        const btnImportPdfEmpty = document.getElementById('btnImportPdfEmpty');
         const nameModal = document.getElementById('nameModal');
         const modalTitle = document.getElementById('modalTitle');
         const modalNameInput = document.getElementById('modalNameInput');
@@ -389,6 +506,8 @@
         const ctx = drawCanvas.getContext('2d', { willReadFrequently: true });
         const textEditorOverlay = document.getElementById('textEditorOverlay');
         const textInput = document.getElementById('textInput');
+        const pdfFileInput = document.getElementById('pdfFileInput');
+        const btnImportPdfToolbar = document.getElementById('btnImportPdfToolbar');
         const btnSelect = document.getElementById('btnSelect');
         const btnPan = document.getElementById('btnPan');
         const btnPen = document.getElementById('btnPen');
@@ -415,6 +534,94 @@
         const bgPicker = document.getElementById('bgPicker');
         const inputModeEl = document.getElementById('inputMode');
         const saveDot = document.getElementById('saveDot');
+
+        // ——— حالة PDF وكاش الصفحات التدريجي (Lazy Rendering) ———
+        let activePdfDoc = null;
+        let pdfPageCache = new Map(); // pageNum -> { canvas, width, height }
+        let pendingRenderPages = new Map();
+
+        function clearPdfDocState() {
+            activePdfDoc = null;
+            pdfPageCache.clear();
+            pendingRenderPages.clear();
+        }
+
+        function loadPdfDocumentForSpace(space) {
+            clearPdfDocState();
+            if (!space || !space.metadata || !space.metadata.pdf) {
+                return Promise.resolve(null);
+            }
+            return getPdfFromDb(space.id).then(function (buffer) {
+                if (!buffer || !window.pdfjsLib) {
+                    return null;
+                }
+                const loadingTask = window.pdfjsLib.getDocument({
+                    data: buffer,
+                    isEvalSupported: false,
+                    disableScripting: true,
+                    disableAutoFetch: true,
+                    disableStream: true,
+                    docBaseUrl: ''
+                });
+                return loadingTask.promise.then(function (pdfDoc) {
+                    activePdfDoc = pdfDoc;
+                    while (space.pages.length < pdfDoc.numPages) {
+                        space.pages.push(emptyPage());
+                    }
+                    return pdfDoc;
+                }).catch(function (err) {
+                    console.warn('PDF parsing error:', err);
+                    alert('تعذر قراءة ملف PDF. تأكد من أن الملف صالح وغير تالف.');
+                    return null;
+                });
+            }).catch(function (err) {
+                console.warn('IndexedDB PDF load error:', err);
+                return null;
+            });
+        }
+
+        function renderPdfPageToCanvas(pdfDoc, pageNum) {
+            if (pdfPageCache.has(pageNum)) {
+                return Promise.resolve(pdfPageCache.get(pageNum));
+            }
+            if (pendingRenderPages.has(pageNum)) {
+                return pendingRenderPages.get(pageNum);
+            }
+
+            const renderPromise = pdfDoc.getPage(pageNum).then(function (page) {
+                const viewport = page.getViewport({ scale: 1.5 });
+                const offCanvas = document.createElement('canvas');
+                offCanvas.width = viewport.width;
+                offCanvas.height = viewport.height;
+                const offCtx = offCanvas.getContext('2d');
+
+                const renderContext = {
+                    canvasContext: offCtx,
+                    viewport: viewport
+                };
+                return page.render(renderContext).promise.then(function () {
+                    const pageData = {
+                        canvas: offCanvas,
+                        width: viewport.width,
+                        height: viewport.height
+                    };
+                    if (pdfPageCache.size >= 5) {
+                        const firstKey = pdfPageCache.keys().next().value;
+                        pdfPageCache.delete(firstKey);
+                    }
+                    pdfPageCache.set(pageNum, pageData);
+                    pendingRenderPages.delete(pageNum);
+                    return pageData;
+                });
+            }).catch(function (err) {
+                pendingRenderPages.delete(pageNum);
+                console.warn('PDF page render error:', err);
+                return null;
+            });
+
+            pendingRenderPages.set(pageNum, renderPromise);
+            return renderPromise;
+        }
 
         // ——— حالة التطبيق والنظام الهندسي لمساحة العمل ———
         let spaces = [];           // [{ id, name, pages, pageIndex, bgStyle, updated, metadata }]
@@ -681,10 +888,13 @@
             }
 
             list.forEach(function (s) {
+                const hasPdf = s.metadata && s.metadata.pdf;
                 const card = document.createElement('div');
                 card.className = 'space-card';
                 card.innerHTML =
-                    '<div class="icon"><i class="fa-solid fa-pen-nib"></i></div>' +
+                    '<div class="icon" style="' + (hasPdf ? 'background: linear-gradient(135deg, #ef4444, #f87171);' : '') + '">' +
+                        '<i class="fa-solid ' + (hasPdf ? 'fa-file-pdf' : 'fa-pen-nib') + '"></i>' +
+                    '</div>' +
                     '<div class="info">' +
                         '<div class="title"></div>' +
                         '<div class="meta"></div>' +
@@ -692,8 +902,9 @@
                     '<button type="button" class="del" title="حذف" aria-label="حذف"><i class="fa-solid fa-trash"></i></button>';
                 card.querySelector('.title').textContent = s.name || 'بلا عنوان';
                 const pagesCount = (s.pages && s.pages.length) || 1;
+                const pdfMeta = (hasPdf && s.metadata.pdf.fileName) ? (s.metadata.pdf.fileName + ' · ') : '';
                 card.querySelector('.meta').textContent =
-                    pagesCount + ' صفحة · آخر تعديل ' + formatDate(s.updated);
+                    pdfMeta + pagesCount + ' صفحة · آخر تعديل ' + formatDate(s.updated);
 
                 card.addEventListener('click', function (e) {
                     if (e.target.closest('.del')) return;
@@ -702,6 +913,7 @@
                 card.querySelector('.del').addEventListener('click', function (e) {
                     e.stopPropagation();
                     if (!confirm('حذف المساحة «' + (s.name || 'بلا عنوان') + '»؟')) return;
+                    deletePdfFromDb(s.id).catch(function () {});
                     spaces = spaces.filter(function (x) { return x.id !== s.id; });
                     saveAll();
                     renderHub(hubSearch.value);
@@ -715,6 +927,7 @@
             hub.style.display = 'block';
             document.body.classList.remove('drawing-mode');
             activeSpaceId = null;
+            clearPdfDocState();
             hideTextEditor();
             applySiteTheme();
             renderHub(hubSearch.value);
@@ -754,6 +967,10 @@
             }
             resizeCanvases();
             setTool('pen');
+
+            loadPdfDocumentForSpace(s).then(function () {
+                fullRedraw();
+            });
         }
 
         function openNameModal(mode, preset) {
@@ -907,9 +1124,35 @@
             }
             bgCtx.fillRect(0, 0, w, h);
 
-            if (bgStyle === 'plain') return;
-
             bgCtx.setTransform(dpr * zoomLevel, 0, 0, dpr * zoomLevel, dpr * panX, dpr * panY);
+
+            if (activePdfDoc && s) {
+                const pageNum = (s.pageIndex || 0) + 1;
+                if (pdfPageCache.has(pageNum)) {
+                    const cached = pdfPageCache.get(pageNum);
+                    bgCtx.save();
+                    bgCtx.fillStyle = '#ffffff';
+                    bgCtx.shadowColor = dark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)';
+                    bgCtx.shadowBlur = 12 / zoomLevel;
+                    bgCtx.fillRect(0, 0, cached.width, cached.height);
+                    bgCtx.restore();
+
+                    bgCtx.drawImage(cached.canvas, 0, 0, cached.width, cached.height);
+                } else {
+                    bgCtx.fillStyle = dark ? '#1e293b' : '#ffffff';
+                    bgCtx.fillRect(0, 0, 800, 1130);
+                    bgCtx.fillStyle = dark ? '#94a3b8' : '#64748b';
+                    bgCtx.font = "16px 'Segoe UI', Tahoma, Arial, sans-serif";
+                    bgCtx.fillText('جاري تحميل الصفحة ' + pageNum + '...', 30, 50);
+
+                    renderPdfPageToCanvas(activePdfDoc, pageNum).then(function () {
+                        scheduleRedraw(true);
+                    });
+                }
+                return;
+            }
+
+            if (bgStyle === 'plain') return;
 
             const wsLeft = -panX / zoomLevel;
             const wsTop = -panY / zoomLevel;
@@ -1696,6 +1939,90 @@
         window.addEventListener('beforeunload', function () {
             if (activeSpaceId) saveAll();
         });
+
+        // ——— أحداث استيراد PDF ———
+        let pdfImportTargetMode = 'new';
+
+        function triggerPdfImport(mode) {
+            pdfImportTargetMode = mode;
+            if (pdfFileInput) {
+                pdfFileInput.value = '';
+                pdfFileInput.click();
+            }
+        }
+
+        if (btnImportPdfHub) btnImportPdfHub.addEventListener('click', function () { triggerPdfImport('new'); });
+        if (btnImportPdfEmpty) btnImportPdfEmpty.addEventListener('click', function () { triggerPdfImport('new'); });
+        if (btnImportPdfToolbar) btnImportPdfToolbar.addEventListener('click', function () { triggerPdfImport('replace'); });
+
+        if (pdfFileInput) {
+            pdfFileInput.addEventListener('change', function () {
+                const file = pdfFileInput.files && pdfFileInput.files[0];
+                if (!file) return;
+
+                validatePdfFile(file).then(function (buffer) {
+                    if (!window.pdfjsLib) {
+                        alert('مكتبة PDF غير متاحة حالياً.');
+                        return;
+                    }
+                    const loadingTask = window.pdfjsLib.getDocument({
+                        data: buffer.slice(0),
+                        isEvalSupported: false,
+                        disableScripting: true,
+                        disableAutoFetch: true,
+                        disableStream: true,
+                        docBaseUrl: ''
+                    });
+                    return loadingTask.promise.then(function (pdfDoc) {
+                        const numPages = pdfDoc.numPages;
+                        const cleanName = file.name.replace(/\.pdf$/i, '');
+
+                        if (pdfImportTargetMode === 'replace' && activeSpaceId) {
+                            const s = getActiveSpace();
+                            if (s) {
+                                s.metadata.pdf = { fileName: file.name, pageCount: numPages };
+                                s.updated = Date.now();
+                                while (s.pages.length < numPages) {
+                                    s.pages.push(emptyPage());
+                                }
+                                savePdfToDb(s.id, buffer, file.name).then(function () {
+                                    activePdfDoc = pdfDoc;
+                                    pdfPageCache.clear();
+                                    pendingRenderPages.clear();
+                                    saveAll();
+                                    fullRedraw();
+                                });
+                                return;
+                            }
+                        }
+
+                        const newSpaceId = uid();
+                        const pagesArr = [];
+                        for (let i = 0; i < numPages; i++) {
+                            pagesArr.push(emptyPage());
+                        }
+                        const newSpace = {
+                            id: newSpaceId,
+                            name: cleanName || 'ملف PDF',
+                            metadata: {
+                                pdf: { fileName: file.name, pageCount: numPages }
+                            },
+                            pages: pagesArr,
+                            pageIndex: 0,
+                            bgStyle: 'plain',
+                            updated: Date.now()
+                        };
+                        spaces.unshift(newSpace);
+                        savePdfToDb(newSpaceId, buffer, file.name).then(function () {
+                            saveAll();
+                            openSpace(newSpaceId);
+                        });
+                    });
+                }).catch(function (err) {
+                    alert(err.message || 'تعذر قراءة ملف PDF. تأكد من أن الملف صالح وغير تالف.');
+                });
+            });
+        }
 
         // ——— التشغيل والبدء ———
         loadAll();
