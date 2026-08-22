@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -22,9 +21,9 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <!-- SEO -->
-    <title>مؤقت بومودورو للمذاكرة أونلاين | حيز</title>
-    <meta name="description" content="مؤقت بومودورو ومؤقت مذاكرة مجاني من حيز لتنظيم جلسات الدراسة والتركيز، مع تخصيص وقت الدراسة والراحة ومتابعة الجلسات المكتملة.">
-    <meta name="keywords" content="حيز, منصة دراسية, أدوات طلاب, بومودورو, قائمة مهام, ملاحظات دراسية, متتبع عادات, لعبة جماد حيوان نبات, أدوات مذاكرة, تنظيم الوقت">
+    <title>مؤقت بومودورو للمذاكرة أونلاين ومحرك التركيز | حيز</title>
+    <meta name="description" content="مؤقت بومودورو ومحرك التركيز الدراسي المجاني من حيز لتنظيم الجلسات، ربط المهام والتقويم، متابعة وقت التركيز اليومي، وبناء الاستمرارية.">
+    <meta name="keywords" content="حيز, بومودورو, مؤقت مذاكرة, محرك التركيز, تنظيم الوقت, جدول المذاكرة, قائمة المهام, تقويم الطالب">
     <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
     <!-- الخطوط والأيقونات -->
@@ -58,7 +57,7 @@
             <div class="logo-icon"><i class="fa-solid fa-graduation-cap"></i></div>
             <span class="logo-text">حيز</span>
         </a>
-        <button class="menu-toggle" id="menu-toggle"><i class="fa-solid fa-bars"></i></button>
+        <button class="menu-toggle" id="menu-toggle" aria-label="فتح القائمة"><i class="fa-solid fa-bars"></i></button>
 <nav class="nav-links" id="nav-links">
     <a href="index.html" class="nav-btn"><i class="fa-solid fa-house"></i> الرئيسية</a>
     <a href="pomodoro.html" class="nav-btn active"><i class="fa-solid fa-clock"></i> المؤقت</a>
@@ -72,161 +71,167 @@
     <a href="about.html" class="nav-btn"><i class="fa-solid fa-circle-info"></i> عن حيز</a>
 </nav>
         <div class="nav-actions">
-            <button id="theme-toggle" class="theme-btn"><i class="fa-solid fa-moon"></i></button>
+            <button id="theme-toggle" class="theme-btn" aria-label="تبديل الوضع الليلي"><i class="fa-solid fa-moon"></i></button>
         </div>
     </div>
 </header>
 <main class="container main-content">
-    <div class="card pomodoro-card">
-        <div class="section-header">
-            <h1><i class="fa-solid fa-clock"></i> مؤقت بومودورو للمذاكرة</h1>
-            <h2 class="section-desc">مؤقت مذاكرة بتقنية بومودورو لزيادة التركيز</h2>
+
+    <!-- ARIA Live Region for Screen Readers -->
+    <div id="sr-timer-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- 1. ACTIVE FOCUS ENGINE HERO CARD -->
+    <div class="card pomodoro-card focus-engine-hero">
+        <div class="section-header focus-hero-header">
+            <h1><i class="fa-solid fa-bolt" style="color:var(--primary);" aria-hidden="true"></i> محرك التركيز — Focus Engine</h1>
+            <span id="focus-streak-badge" class="focus-streak-badge"><i class="fa-solid fa-fire"></i> ابدأ سلسلة الاستمرارية اليوم!</span>
         </div>
 
-        <div id="current-task-box" class="card current-task-box" style="display: none;">
-            <div class="current-task-label">المهمة الحالية</div>
-            <div id="current-task-name" class="current-task-name"></div>
-            <div id="current-task-meta" class="current-task-meta"></div>
+        <!-- 2. CURRENT FOCUS CONTEXT & SWITCHER -->
+        <div id="current-task-box" class="card current-task-box">
+            <div class="focus-context-header">
+                <div class="current-task-label"><i class="fa-solid fa-bullseye"></i> سياق التركيز الحالية</div>
+                <select id="focus-context-select" class="focus-context-select" aria-label="اختر مهمة أو حدثًا للتركيز عليه">
+                    <!-- Populated dynamically -->
+                </select>
+            </div>
+            <div id="current-focus-title" class="current-task-name">جلسة تركيز حرة</div>
+            <div id="current-focus-meta" class="current-task-meta">25 دقيقة تركيز موجه</div>
         </div>
 
-        <div class="timer-settings">
+        <!-- 3. TIMER DISPLAY & PROGRESS -->
+        <div class="timer-mode-selector">
+            <button class="mode-btn active" id="mode-work"><i class="fa-solid fa-brain"></i> تركيز</button>
+            <button class="mode-btn" id="mode-break"><i class="fa-solid fa-coffee"></i> استراحة</button>
+        </div>
+
+        <div class="timer-display-wrapper">
+            <div class="timer-display" id="timer-display">25:00</div>
+            <div class="timer-progress"><div class="progress-bar" id="timer-progress-bar"></div></div>
+        </div>
+
+        <!-- 4. PRIMARY CONTROLS -->
+        <div class="controls-row">
+            <button class="btn btn-primary btn-lg" id="timer-start-btn"><i class="fa-solid fa-play"></i> تشغيل</button>
+            <button class="btn btn-secondary btn-lg" id="timer-pause-btn" disabled><i class="fa-solid fa-pause"></i> إيقاف مؤقت</button>
+            <button class="btn btn-outline" id="timer-reset-btn"><i class="fa-solid fa-rotate-right"></i> إعادة الضبط</button>
+            <button class="btn btn-outline" id="enable-notifications-btn"><i class="fa-solid fa-bell"></i> التنبيهات</button>
+        </div>
+
+        <!-- 5. QUICK PRESETS -->
+        <div class="focus-presets-row">
+            <span class="presets-label"><i class="fa-solid fa-sliders"></i> أنماط جاهزة:</span>
+            <div class="presets-buttons">
+                <button type="button" class="preset-btn active" data-work="25" data-break="5" data-longbreak="15">25 / 5 د</button>
+                <button type="button" class="preset-btn" data-work="50" data-break="10" data-longbreak="20">50 / 10 د</button>
+                <button type="button" class="preset-btn" data-work="90" data-break="15" data-longbreak="30">90 / 15 د</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. TODAY'S PROGRESS & GOAL STATS -->
+    <section class="card focus-stats-card" style="margin-top: 1.5rem;">
+        <div class="stats-summary-grid">
+            <div class="stat-box">
+                <span class="stat-lbl"><i class="fa-solid fa-clock" style="color:var(--primary);"></i> تركيز اليوم</span>
+                <strong id="focus-minutes-today" class="stat-val">0 دقيقة</strong>
+            </div>
+            <div class="stat-box">
+                <span class="stat-lbl"><i class="fa-solid fa-circle-check" style="color:#10b981;"></i> الجلسات المكتملة</span>
+                <strong id="focus-sessions-today" class="stat-val">0</strong>
+            </div>
+            <div class="stat-box">
+                <span class="stat-lbl"><i class="fa-solid fa-award" style="color:#f59e0b;"></i> إجمالي الجلسات</span>
+                <strong id="completed-sessions-count" class="stat-val">0</strong>
+            </div>
+        </div>
+
+        <div class="daily-goal-bar-wrap" style="margin-top: 1.2rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+                <span id="daily-goal-text" style="font-size:0.9rem; font-weight:700; color:var(--text);">هدف اليوم: 0/120 دقيقة (0%)</span>
+                <span style="font-size:0.8rem; color:var(--text-muted);">هدف اختياري موصى به</span>
+            </div>
+            <div class="dash-progress-track">
+                <div id="daily-goal-progress" class="dash-progress-fill" style="width: 0%;"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. COLLAPSIBLE ADVANCED SETTINGS -->
+    <details class="card collapsible-settings" style="margin-top: 1.5rem;">
+        <summary class="settings-summary"><i class="fa-solid fa-gear"></i> تخصيص مدد الجلسات والاستراحة</summary>
+        <div class="timer-settings" style="margin-top: 1rem;">
             <div class="setting-item">
-                <label><i class="fa-solid fa-book-open"></i> وقت الدراسة</label>
+                <label for="work-minutes"><i class="fa-solid fa-book-open"></i> وقت التركيز</label>
                 <div class="input-with-unit">
-                    <input type="number" id="work-minutes" min="1" max="120" value="25">
+                    <input type="number" id="work-minutes" min="1" max="180" value="25">
                     <span>دقيقة</span>
                 </div>
             </div>
             <div class="setting-item">
-                <label><i class="fa-solid fa-mug-hot"></i> وقت الراحة</label>
+                <label for="break-minutes"><i class="fa-solid fa-mug-hot"></i> الاستراحة القصيرة</label>
                 <div class="input-with-unit">
                     <input type="number" id="break-minutes" min="1" max="60" value="5">
                     <span>دقيقة</span>
                 </div>
             </div>
             <div class="setting-item">
-                <label><i class="fa-solid fa-couch"></i> راحة طويلة</label>
+                <label for="long-break-minutes"><i class="fa-solid fa-couch"></i> الاستراحة الطويلة</label>
                 <div class="input-with-unit">
                     <input type="number" id="long-break-minutes" min="1" max="60" value="15">
                     <span>دقيقة</span>
                 </div>
             </div>
         </div>
-        <div class="timer-mode-selector">
-            <button class="mode-btn active" id="mode-work"><i class="fa-solid fa-brain"></i> دراسة</button>
-            <button class="mode-btn" id="mode-break"><i class="fa-solid fa-coffee"></i> راحة</button>
-        </div>
-        <div class="timer-display-wrapper">
-            <div class="timer-display" id="timer-display">25:00</div>
-            <div class="timer-progress"><div class="progress-bar" id="timer-progress-bar"></div></div>
-        </div>
-<div class="controls-row">
-    <button class="btn btn-primary btn-lg" id="timer-start-btn"><i class="fa-solid fa-play"></i> تشغيل</button>
-    <button class="btn btn-secondary" id="timer-pause-btn"><i class="fa-solid fa-pause"></i> إيقاف</button>
-    <button class="btn btn-outline" id="timer-reset-btn"><i class="fa-solid fa-rotate-right"></i> إعادة</button>
-    <button class="btn btn-outline" id="enable-notifications-btn"> <i class="fa-solid fa-bell"></i> تفعيل التنبيه  </button>
-</div>
-        </div>
-        <div class="sessions-info">
-            <div class="session-badge">
-                <i class="fa-solid fa-circle-check"></i>
-                <span>الجلسات المكتملة: <strong id="completed-sessions-count">0</strong></span>
-            </div>
-        </div>
-    </div>
+    </details>
 
-
+    <!-- SEO & EDUCATIONAL EXPLANATION CONTENT -->
     <section class="card content-section" style="margin-top: 2rem;">
         <div class="section-header">
-            <h2><i class="fa-solid fa-info-circle"></i> ما هي تقنية بومودورو وكيف تساعدك في المذاكرة؟</h2>
+            <h2><i class="fa-solid fa-info-circle"></i> كيف يساعدك Student Focus Engine في المذاكرة؟</h2>
         </div>
         <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
-           <p>
-    تقنية بومودورو هي طريقة بسيطة وفعالة لإدارة الوقت والمذاكرة، طورها فرانشيسكو سيريلو في أواخر الثمانينيات. تعتمد التقنية على تقسيم وقت الدراسة أو العمل إلى جلسات تركيز قصيرة تُسمى «بومودورو»، وتستمر الجلسة التقليدية 25 دقيقة، تليها استراحة قصيرة مدتها 5 دقائق. بعد أربع جلسات، يمكن أخذ استراحة أطول تتراوح عادة بين 15 و30 دقيقة. يساعد هذا الأسلوب على تنظيم وقت المذاكرة والحفاظ على التركيز وتقليل الإرهاق الناتج عن الجلسات الطويلة.
-</p>
-
-<p>
-    كثير من الطلاب يواجهون صعوبة في الاستمرار في المذاكرة لفترات طويلة أمام الكتب أو الشاشات. ومع غياب فترات الراحة، قد يتراجع التركيز ويزداد التشتت والمماطلة. تساعد تقنية بومودورو على معالجة ذلك من خلال تقسيم المذاكرة إلى جلسات واضحة تتخللها فترات راحة منتظمة، وهي من الأساليب التي يمكن أن تساعد على
-    <a href="blog-11.html">تقليل التشتت أثناء المذاكرة والحفاظ على التركيز</a>.
-</p>
-
-<p>
-    <strong>مؤقت بومودورو في منصة حيز</strong> هو مؤقت مذاكرة مجاني مصمم لمساعدة الطلاب على تطبيق هذه التقنية بسهولة. يمكنك تخصيص مدة جلسة الدراسة ومدة الراحة حسب احتياجك، سواء كنت تفضل المدة التقليدية أو جلسات أقصر أو أطول. كما يمكنك التبديل بين وضع الدراسة ووضع الراحة ومتابعة عدد جلسات المذاكرة التي أكملتها خلال اليوم، مما يجعل المؤقت مناسبًا للاستخدام اليومي.
-</p>
-
-<p>
-    لا يحتاج استخدام مؤقت بومودورو إلى تسجيل حساب أو تحميل تطبيق إضافي. افتح الصفحة، حدد مدة الدراسة والراحة، ثم شغّل المؤقت وابدأ جلسة المذاكرة. تعمل الأداة مباشرة من المتصفح على الهاتف والكمبيوتر والأجهزة اللوحية، مما يجعلها مناسبة للمذاكرة في المنزل أو المكتبة أو خلال فترات الفراغ القصيرة.
-</p>
-
-<p>
-    من فوائد استخدام تقنية بومودورو بانتظام تنظيم وقت المذاكرة، وتحسين القدرة على التركيز، وتقليل المماطلة، وزيادة الوعي بمرور الوقت. عندما تعرف أن أمامك جلسة تركيز محددة المدة، يصبح من الأسهل تأجيل المشتتات والالتزام بالمهمة الحالية. ومع تكرار الجلسات والاستراحات، يصبح الانتقال بين الدراسة والراحة أكثر تنظيمًا.
-</p>
-
-<p>
-    يُنصح بتجربة التقنية لعدة أيام متتالية ثم اختيار المدة التي تناسب طريقة مذاكرتك. يمكنك البدء بالمدة التقليدية، وهي 25 دقيقة من الدراسة و5 دقائق من الراحة، ثم تعديلها حسب احتياجك. والأهم هو الالتزام بفترات الراحة وعدم تحويل جلسة التركيز إلى وقت مفتوح بلا نهاية. ويمكنك أيضًا الاستفادة من
-    <a href="blog-15.html">استراتيجيات المذاكرة بتركيز أكبر</a>
-    لتحقيق استفادة أفضل من جلسات الدراسة.
-</p>
-
-<p>
-    مؤقت بومودورو هو جزء من مجموعة الأدوات الدراسية في منصة حيز، والتي تشمل أيضًا قائمة المهام وحاسبة المعدل ومتتبع العادات ودفتر الملاحظات و<a href="calculator.html">تقويم الطالب</a>. بعد تحديد مواعيد اختباراتك في تقويم الطالب، يمكنك استخدام مؤقت بومودورو لتنظيم جلسات المذاكرة والتحضير لها بفعالية. ويمكنك
-    <a href="blog-7.html">جمع أدوات حيز في نظام دراسي واحد</a>
-    لتنظيم وقتك ومهامك ومذاكرتك بطريقة بسيطة وواضحة.
-</p>
+            <p>
+                تحول <strong>مؤقت بومودورو في حيز</strong> من مجرد عداد تنازلي إلى <strong>Student Focus Engine</strong> متكامل يوجه تنفيذك الدراسي اليومي. يربط بين <a href="calculator.html">تقويم الطالب</a>، <a href="todo.html">قائمة المهام</a>، والجلسات الفعلية لتضمن أن كل دقيقة تركيز تصب مباشرة في أهدافك الأكاديمية.
+            </p>
+            <p>
+                سواء كنت تراجع لاختبار قريب أو تعمل على مشروع دراسي، يمكنك اختيار سياق التركيز بضغطة زر واحدة والتنفيذ مباشرة، مع تسجيل أوتوماتيكي للدقائق المنجزة وحفظ تقدمك دائمًا حتى في حال إغلاق المتصفح أو انتقالك بين التطبيقات.
+            </p>
         </div>
     </section>
-    <!-- قسم الأسئلة الشائعة -->
-<section class="card content-section" style="margin-top: 2rem;">
-    <div class="section-header">
-        <h2><i class="fa-solid fa-circle-question"></i> الأسئلة الشائعة حول مؤقت بومودورو</h2>
-    </div>
-    <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
 
-        <div class="faq-item" style="margin-bottom: 1.8rem;">
-            <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">ما هي مدة جلسة بومودورو التقليدية؟</h3>
-          <p>
-                المدة التقليدية هي 25 دقيقة من التركيز تليها 5 دقائق من الراحة،
-                 لكن يمكنك تغيير المدة باستخدام مؤقت حيز.
-          </p>
+    <!-- FAQ SECTION -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header">
+            <h2><i class="fa-solid fa-circle-question"></i> الأسئلة الشائعة حول محرك التركيز</h2>
         </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
 
-        <div class="faq-item" style="margin-bottom: 1.8rem;">
-            <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل يمكن تغيير مدة الدراسة والراحة؟</h3>
-            <p>
-                نعم، يمكنك تحديد مدة الدراسة والراحة حسب احتياجاتك مباشرة من المؤقت.
-            </p>
-        </div>
-
-        <div class="faq-item">
-            <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل يحتاج مؤقت حيز إلى تحميل؟</h3>
-            <p>
-                لا، يعمل المؤقت مباشرة من المتصفح دون الحاجة إلى تثبيت تطبيق.
-            </p>
             <div class="faq-item" style="margin-bottom: 1.8rem;">
-    <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل يمكن استخدام مؤقت بومودورو للمذاكرة؟</h3>
-    <p>
-        نعم، صُمم المؤقت لتنظيم جلسات الدراسة والتركيز، ويمكنك تحديد مدة الدراسة والراحة بما يناسبك.
-    </p>
-</div>
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">ماذا يحدث إذا انتقلت إلى تطبيق آخر أو أُغلق المتصفح؟</h3>
+                <p>
+                    يعتمد المؤقت على الطوابع الزمنية الحقيقية (Timestamps)، مما يعني أن الوقت يستمر في الحساب بدقة حتى لو قمت بالانتقال بين التطبيقات أو وضع الجهاز في حالة السكون (Sleep).
+                </p>
+            </div>
 
-<div class="faq-item" style="margin-bottom: 1.8rem;">
-    <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">ما الفرق بين مؤقت بومودورو ومؤقت المذاكرة؟</h3>
-    <p>
-        مؤقت بومودورو يعتمد على تقسيم الدراسة إلى جلسات تركيز وفترات راحة، بينما يمكن استخدام مؤقت المذاكرة لأي مدة تختارها. يمكنك استخدام مؤقت حيز بالطريقتين.
-    </p>
-</div>
+            <div class="faq-item" style="margin-bottom: 1.8rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل يتم احتساب وقت التركيز ضمن المهام تلقائيًا؟</h3>
+                <p>
+                    نعم، عند ربط الجلسة بمهمة أو مادة معينة يتم تسجيل دقائق التركيز والجلسات المكتملة ضمن بيانات المهمة والمادة تلقائيًا.
+                </p>
+            </div>
 
-<div class="faq-item">
-    <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل يعمل مؤقت بومودورو على الجوال؟</h3>
-    <p>
-        نعم، يعمل مباشرة من المتصفح على الهواتف والأجهزة اللوحية وأجهزة الكمبيوتر دون الحاجة إلى تثبيت تطبيق.
-    </p>
-</div>
+            <div class="faq-item">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">ما هو تعريف يوم التركيز في الاستمرارية (Streak)؟</h3>
+                <p>
+                    يُعد يوم التركيز يومًا ناتجًا عن إكمال جلسة تركيز واحدة على الأقل خلال اليوم، ويتم احتساب السلسلة بناءً على الأيام المتتالية.
+                </p>
+            </div>
+
         </div>
-
-    </div>
-</section>
+    </section>
 </main>
+
 <footer class="footer">
     <div class="container footer-container">
         <div class="footer-brand">
