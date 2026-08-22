@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <script>
+        (function(){try{if(localStorage.getItem('hayyiz-theme')==='dark'){document.documentElement.classList.add('theme-dark');}}catch(e){}})();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self';
+                   script-src 'self' https://www.googletagmanager.com 'unsafe-inline';
+                   script-src-elem 'self' https://www.googletagmanager.com 'unsafe-inline';
+                   style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com 'unsafe-inline';
+                   font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:;
+                   connect-src 'self'
+                               https://www.google-analytics.com
+                               https://*.google-analytics.com
+                               https://analytics.google.com
+                               https://*.analytics.google.com
+                               https://www.googletagmanager.com;
+                   img-src 'self'
+                            data:
+                            https://www.google-analytics.com
+                            https://*.google-analytics.com
+                            https://www.googletagmanager.com;
+                   object-src 'none';
+                   frame-ancestors 'none';
+                   base-uri 'self';">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+
+    <!-- SEO Metadata -->
+    <title>حاسبة المعدل التراكمي للثانوية | 20% · 40% · 40% | حيز</title>
+    <meta name="description" content="احسب المعدل التراكمي للثانوية العامة بسهولة وفق أوزان وزارة التعليم السعودية (أول ثانوي 20%، ثاني ثانوي 40%، ثالث ثانوي 40%) مع إمكانية التعديل والشرح.">
+    <meta name="keywords" content="حاسبة المعدل التراكمي, حساب المعدل التراكمي للثانوية, طريقة حساب التراكمي ثانوية, معدل أول ثانوي 20, معدل ثاني وثالث 40, حاسبة التراكمي مسارات">
+    <meta name="author" content="حيز">
+    <meta name="robots" content="index, follow">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://just-c.github.io/adawati/cumulative.html">
+    <meta property="og:title" content="حاسبة المعدل التراكمي للثانوية | حيز">
+    <meta property="og:description" content="احسب المعدل التراكمي النهائي للسنوات الثلاث في المرحلة الثانوية باشتراطات أوزان وزارة التعليم الرسمية.">
+    <meta property="og:image" content="https://just-c.github.io/adawati/android-chrome-512x512.png">
+    <meta property="og:image:width" content="512">
+    <meta property="og:image:height" content="512">
+    <meta property="og:locale" content="ar_SA">
+    <meta property="og:site_name" content="حيز">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="حاسبة المعدل التراكمي للثانوية | حيز">
+    <meta name="twitter:description" content="احسب المعدل التراكمي للثانوية (20% · 40% · 40%) بسهولة ودقة عالية.">
+    <meta name="twitter:image" content="https://just-c.github.io/adawati/android-chrome-512x512.png">
+
+    <link rel="canonical" href="https://just-c.github.io/adawati/cumulative.html">
+
+    <!-- الخطوط والأيقونات -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="icon" type="image/x-icon" href="/adawati/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/adawati/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/adawati/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/adawati/apple-touch-icon.png">
+    <link rel="manifest" href="manifest.webmanifest">
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-F94Z3H2D3S');
+    </script>
+
+    <style>
+      .cumulative-info {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+        font-size: 0.95rem;
+        line-height: 1.7;
+        color: var(--text-muted);
+      }
+      .cumulative-info strong { color: var(--text); }
+      .cum-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .cum-row:last-of-type { border-bottom: none; }
+      .cum-label { flex: 1; }
+      .cum-label strong { display: block; font-size: 1.05rem; margin-bottom: 0.2rem; color: var(--text); }
+      .cum-label span { font-size: 0.85rem; color: var(--text-muted); }
+      .cum-input-wrap { display: flex; align-items: center; gap: 0.4rem; }
+      .cum-input-wrap input {
+        width: 110px;
+        padding: 0.6rem 0.75rem;
+        border: 1.5px solid var(--border);
+        border-radius: var(--radius-sm, 10px);
+        font-size: 1.05rem;
+        text-align: center;
+        font-family: inherit;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .cum-input-wrap input:focus { outline: none; border-color: var(--primary, #4f46e5); }
+      .cum-input-wrap .suffix { color: var(--text-muted); font-size: 0.9rem; }
+      .cum-progress { margin-top: 1rem; font-size: 0.9rem; color: var(--text-muted); text-align: center; }
+    </style>
+
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      "name": "حاسبة المعدل التراكمي للثانوية",
+      "url": "https://just-c.github.io/adawati/cumulative.html",
+      "description": "حاسبة تجميع المعدل التراكمي للسنوات الثلاث بالمرحلة الثانوية وفق نسب وزارة التعليم الرسمية.",
+      "inLanguage": "ar"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "الرئيسية",
+          "item": "https://just-c.github.io/adawati/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "حاسبات المعدل",
+          "item": "https://just-c.github.io/adawati/gpa.html"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "حاسبة المعدل التراكمي",
+          "item": "https://just-c.github.io/adawati/cumulative.html"
+        }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "ما معادلة حساب المعدل التراكمي للثانوية؟",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "المعدل التراكمي = (معدل أول ثانوي × 0.20) + (معدل ثاني ثانوي × 0.40) + (معدل ثالث ثانوي × 0.40)."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "ماذا لو لم أدرس بعد مرحلة الثالث الثانوي وأريد توقع التراكمي؟",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "يمكنك أدخال درجات أول وثاني ثانوي ووضع درجة متوقعة لثالث ثانوي للاطلاع على التراكمي المتوقع واستهداف معدلك المطلوب."
+          }
+        }
+      ]
+    }
+    </script>
+</head>
+<body class="theme-light">
+<header class="navbar">
+    <div class="container nav-container">
+        <a href="index.html" class="logo">
+            <div class="logo-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+            <span class="logo-text">حيز</span>
+        </a>
+        <button class="menu-toggle" id="menu-toggle"><i class="fa-solid fa-bars"></i></button>
+        <nav class="nav-links" id="nav-links">
+            <a href="index.html" class="nav-btn"><i class="fa-solid fa-house"></i> الرئيسية</a>
+            <a href="pomodoro.html" class="nav-btn"><i class="fa-solid fa-clock"></i> المؤقت</a>
+            <a href="todo.html" class="nav-btn"><i class="fa-solid fa-list-check"></i> المهام</a>
+            <a href="gpa.html" class="nav-btn active"><i class="fa-solid fa-calculator"></i> حاسبة المعدل</a>
+            <a href="notes.html" class="nav-btn"><i class="fa-solid fa-note-sticky"></i> الملاحظات</a>
+            <a href="habits.html" class="nav-btn"><i class="fa-solid fa-fire"></i> العادات</a>
+            <a href="calculator.html" class="nav-btn"><i class="fa-solid fa-calendar-days"></i> تقويم الطالب</a>
+            <a href="game.html" class="nav-btn"><i class="fa-solid fa-gamepad"></i> لعبة الحروف</a>
+            <a href="blog.html" class="nav-btn"><i class="fa-solid fa-newspaper"></i> المدونة</a>
+            <a href="about.html" class="nav-btn"><i class="fa-solid fa-circle-info"></i> عن حيز</a>
+        </nav>
+        <div class="nav-actions">
+            <button id="theme-toggle" class="theme-btn"><i class="fa-solid fa-moon"></i></button>
+        </div>
+    </div>
+</header>
+
+<main class="container main-content">
+    <!-- Breadcrumbs -->
+    <nav class="breadcrumbs" aria-label="مسار التصفح" style="margin-bottom: 1.25rem; font-size: 0.9rem; color: var(--text-muted);">
+        <a href="index.html" style="color: var(--text-muted); text-decoration: none;">الرئيسية</a>
+        <span style="margin: 0 0.4rem;">&gt;</span>
+        <a href="gpa.html" style="color: var(--text-muted); text-decoration: none;">حاسبات المعدل</a>
+        <span style="margin: 0 0.4rem;">&gt;</span>
+        <span style="color: var(--text); font-weight: 600;">حاسبة المعدل التراكمي</span>
+    </nav>
+
+    <!-- واجهة حاسبة التراكمي -->
+    <div class="card" data-calc-page="cumulative">
+        <div class="section-header">
+            <h1><i class="fa-solid fa-chart-line" style="color: var(--primary);"></i> حاسبة المعدل التراكمي للثانوية</h1>
+            <p class="section-desc">احسب معدلك التراكمي الإجمالي للسنوات الثلاث باشتراطات ونسب وزارة التعليم الرسمية</p>
+        </div>
+
+        <div class="cumulative-info">
+            أدخل معدلك السنوي من 100 لكل صف دراسي. يتم احتساب المعدل التراكمي وفق النسب الوزارية المعتمدة:
+            <strong>أول ثانوي (20%)</strong> —
+            <strong>ثاني ثانوي (40%)</strong> —
+            <strong>ثالث ثانوي (40%)</strong>.
+        </div>
+
+        <div id="cum-fields">
+            <div class="cum-row">
+                <div class="cum-label">
+                    <strong>أول ثانوي (السنة الأولى المشتركة)</strong>
+                    <span>الوزن التراكمي 20%</span>
+                </div>
+                <div class="cum-input-wrap">
+                    <input type="number" id="cum-y1" min="0" max="100" step="0.01" placeholder="0.00">
+                    <span class="suffix">/100</span>
+                </div>
+            </div>
+            <div class="cum-row">
+                <div class="cum-label">
+                    <strong>ثاني ثانوي (السنة الثانية مسارات)</strong>
+                    <span>الوزن التراكمي 40%</span>
+                </div>
+                <div class="cum-input-wrap">
+                    <input type="number" id="cum-y2" min="0" max="100" step="0.01" placeholder="0.00">
+                    <span class="suffix">/100</span>
+                </div>
+            </div>
+            <div class="cum-row">
+                <div class="cum-label">
+                    <strong>ثالث ثانوي (سنة التخرج)</strong>
+                    <span>الوزن التراكمي 40%</span>
+                </div>
+                <div class="cum-input-wrap">
+                    <input type="number" id="cum-y3" min="0" max="100" step="0.01" placeholder="0.00">
+                    <span class="suffix">/100</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="cum-progress" id="cum-progress">0 من 3 صفوف</div>
+
+        <div class="gpa-result hidden" id="cum-result">
+            <div class="gpa-score" id="cum-score">0.00</div>
+            <div class="gpa-label">المعدل التراكمي النهائي من 100</div>
+            <div style="font-size:0.85rem; color:var(--text-muted); margin-top:0.4rem;">توزيع الأوزان: أول ثانوي 20% · ثاني ثانوي 40% · ثالث ثانوي 40%</div>
+        </div>
+
+        <div class="controls-row" style="margin-top: 24px;">
+            <button class="btn btn-primary" id="cum-calculate-btn"><i class="fa-solid fa-calculator"></i> احسب التراكمي</button>
+            <button class="btn btn-outline" id="cum-reset-btn"><i class="fa-solid fa-rotate-right"></i> إعادة تعيين</button>
+        </div>
+    </div>
+
+    <!-- المحتوى التعليمي -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header" style="text-align: right;">
+            <h2><i class="fa-solid fa-circle-info" style="color:var(--primary);"></i> كيف يُحسب المعدل التراكمي للثانوية العامة؟</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+            <p>
+                **المعدل التراكمي** هو النسبة المئوية المركبة المعبرة عن التحصيل الأكاديمي للطالب طوال فترة دراسته في المرحلة الثانوية بالسعودية (السنوات الثلاث).
+            </p>
+            <h3>معادلة الأوزان الرسمية لوزارة التعليم</h3>
+            <p>اعتمدت وزارة التعليم توزيع النسب التالية لترجيح أثر كل سنة على الشهادة النهائية:</p>
+            <div style="background: var(--bg); padding: 1.2rem; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 1rem;">
+                <strong>المعدل التراكمي = (معدل أول ثانوي × 0.20) + (معدل ثاني ثانوي × 0.40) + (معدل ثالث ثانوي × 0.40)</strong>
+            </div>
+
+            <h3>مثال حسابي تفصيلي للمعدل التراكمي</h3>
+            <p>نفترض أن معدلات طالب في السنوات الثلاث كانت كالتالي:</p>
+            <ul style="margin-right: 1.5rem; margin-bottom: 1rem;">
+                <li>معدل أول ثانوي = 90% ⇐ المساهمة = 90 × 0.20 = <strong>18%</strong></li>
+                <li>معدل ثاني ثانوي = 95% ⇐ المساهمة = 95 × 0.40 = <strong>38%</strong></li>
+                <li>معدل ثالث ثانوي = 98% ⇐ المساهمة = 98 × 0.40 = <strong>39.2%</strong></li>
+                <li>إجمالي المعدل التراكمي = 18 + 38 + 39.2 = <strong>95.20%</strong></li>
+            </ul>
+            <p>
+                الآن يمكنك استخدام الناتج النهائي مباشرة لحساب نتيجتك في <a href="weighted.html">حاسبة النسبة الموزونة للقبول الجامعي</a>.
+            </p>
+        </div>
+    </section>
+
+    <!-- الأسئلة الشائعة -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header" style="text-align: right;">
+            <h2><i class="fa-solid fa-circle-question" style="color:var(--primary);"></i> أسئلة شائعة حول المعدل التراكمي</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+            <div class="faq-item" style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">هل تتساوى مساهمة السنة الأولى والثانية في التراكمي؟</h3>
+                <p>لا، مساهمة السنة الأولى 20% فقط، بينما تمتلك السنة الثانية والثالثة الوزن الأكبر بنسبة 40% لكل منهما، مما يعطيك فرصة كبيرة لرفع معدلك التراكمي حتى لو انخفض في أول ثانوي.</p>
+            </div>
+            <div class="faq-item" style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">كيف أستخدم التراكمي للتقديم على الجامعات؟</h3>
+                <p>تطلب بوابة القبول الموحد بالجامعات المعدل التراكمي النهائي المدون بالشهادة، وتجري عليه النسبة الموزونة بحسب صيغة كل جامعة.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- الروابط الداخلية -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header" style="text-align: right;">
+            <h2><i class="fa-solid fa-link" style="color:var(--primary);"></i> حاسبات مرحلية وموزونة</h2>
+        </div>
+        <div class="tools-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem;">
+            <a href="weighted.html" class="tool-card" style="padding: 1.25rem;">
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-percent"></i> حاسبة النسبة الموزونة</h3>
+                <p style="font-size: 0.85rem;">احسب نسبة القبول الجامعي بحسب أوزان الجامعة.</p>
+            </a>
+            <a href="first-secondary.html" class="tool-card" style="padding: 1.25rem;">
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-graduation-cap"></i> حاسبة معدل أول ثانوي</h3>
+                <p style="font-size: 0.85rem;">حساب معدل مواد السنة الأولى المشتركة.</p>
+            </a>
+            <a href="second-secondary.html" class="tool-card" style="padding: 1.25rem;">
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-graduation-cap"></i> حاسبة معدل ثاني ثانوي</h3>
+                <p style="font-size: 0.85rem;">حساب معدل مواد السنة الثانية مسارات.</p>
+            </a>
+            <a href="third-secondary.html" class="tool-card" style="padding: 1.25rem;">
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-graduation-cap"></i> حاسبة معدل ثالث ثانوي</h3>
+                <p style="font-size: 0.85rem;">حساب معدل مواد سنة التخرج.</p>
+            </a>
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <div class="container footer-container">
+        <div class="footer-brand">
+            <i class="fa-solid fa-graduation-cap"></i>
+            <span>حيز</span>
+        </div>
+        <p class="footer-copy">&copy; 2026 حيز — جميع الحقوق محفوظة</p>
+        <div class="footer-links">
+            <a href="about.html">عن حيز</a>
+            <a href="blog.html">المدونة</a>
+            <a href="privacy.html">سياسة الخصوصية</a>
+            <a href="terms.html">شروط الاستخدام</a>
+            <a href="contact.html">تواصل معنا</a>
+        </div>
+    </div>
+</footer>
+
+<script src="common.js"></script>
+<script src="gpa.js"></script>
+</body>
+</html>

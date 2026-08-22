@@ -1,8 +1,8 @@
-/* gpa.js - حاسبة المعدل مع دعم المتوسطة والثانوية */
+/* gpa.js - محرك منظومة حاسبات المعدل الشامل لمنصة حيز */
 (function () {
   // ===== بيانات المرحلة المتوسطة =====
   const MIDDLE_SUBJECTS = {
-    "1": { // أول متوسط - الفصل الأول والثاني متطابقان
+    "1": { // أول متوسط
       "1": [
         { name: "القرآن الكريم والدراسات الإسلامية", weight: 5 },
         { name: "اللغة العربية", weight: 5 },
@@ -34,7 +34,7 @@
         { name: "النشاط", weight: 1 }
       ]
     },
-    "2": { // ثاني متوسط - نفس أول متوسط
+    "2": { // ثاني متوسط
       "1": [
         { name: "القرآن الكريم والدراسات الإسلامية", weight: 5 },
         { name: "اللغة العربية", weight: 5 },
@@ -102,7 +102,7 @@
     }
   };
 
-  // ===== بيانات المرحلة الثانوية (كما كانت) =====
+  // ===== بيانات المرحلة الثانوية =====
   const SECONDARY_SUBJECTS = {
     "1": {
       "1": [
@@ -457,469 +457,383 @@
     }
   };
 
-  // ===== عناصر DOM =====
-  const stageScreen = document.getElementById("stage-screen");
-  const calculatorScreen = document.getElementById("calculator-screen");
-  const cumulativeScreen = document.getElementById("cumulative-screen");
-  const weightedScreen = document.getElementById("weighted-screen");
-  const backToStageBtn = document.getElementById("back-to-stage");
-  const backToStageCumBtn = document.getElementById("back-to-stage-cum");
-  const backToStageWeightedBtn = document.getElementById("back-to-stage-weighted");
+  // تهيئة المحرك بالاعتماد على الصفحة أو المكون النشط
+  function initEngine() {
+    const calcCard = document.querySelector(".card[data-calc-page]");
+    if (!calcCard) return;
 
-  const yearSelect = document.getElementById("year-select");
-  const termSelect = document.getElementById("term-select");
-  const trackSelect = document.getElementById("track-select");
-  const trackField = document.getElementById("track-field");
-  const subjectsContainer = document.getElementById("subjects-container");
-  const calculateBtn = document.getElementById("calculate-btn");
-  const resetBtn = document.getElementById("reset-gpa-btn");
-  const resultBox = document.getElementById("gpa-result");
-  const scoreEl = document.getElementById("gpa-score");
+    const pageType = calcCard.getAttribute('data-calc-page'); // first-intermediate, second-secondary, cumulative, weighted ...
 
-  // عناصر التراكمي
-  const cumY1 = document.getElementById("cum-y1");
-  const cumY2 = document.getElementById("cum-y2");
-  const cumY3 = document.getElementById("cum-y3");
-  const cumProgress = document.getElementById("cum-progress");
-  const cumResult = document.getElementById("cum-result");
-  const cumScore = document.getElementById("cum-score");
-  const cumCalculateBtn = document.getElementById("cum-calculate-btn");
-  const cumResetBtn = document.getElementById("cum-reset-btn");
-
-  // عناصر النسبة الموزونة
-  const weightedRowsEl = document.getElementById("weighted-rows");
-  const weightedAddBtn = document.getElementById("weighted-add-btn");
-  const weightedRemainingEl = document.getElementById("weighted-remaining");
-  const weightedLeftEl = document.getElementById("weighted-left");
-  const weightedResult = document.getElementById("weighted-result");
-  const weightedScore = document.getElementById("weighted-score");
-  const weightedCalculateBtn = document.getElementById("weighted-calculate-btn");
-  const weightedResetBtn = document.getElementById("weighted-reset-btn");
-  const linkToCumulative = document.getElementById("link-to-cumulative");
-
-  let currentStage = null; // "middle" | "secondary" | "cumulative" | "weighted"
-
-  // بيانات النسبة الموزونة الافتراضية
-  let weightedItems = [
-    { id: 1, name: "الثانوية العامة", percent: 40, score: "" },
-    { id: 2, name: "القدرات", percent: 30, score: "" },
-    { id: 3, name: "التحصيلي", percent: 30, score: "" }
-  ];
-  let nextWeightedId = 4;
-
-  // ===== وظائف =====
-  function hideAllScreens() {
-    stageScreen.style.display = "none";
-    calculatorScreen.style.display = "none";
-    cumulativeScreen.style.display = "none";
-    weightedScreen.style.display = "none";
-  }
-
-  function showStageScreen() {
-    hideAllScreens();
-    stageScreen.style.display = "";
-    currentStage = null;
-    resultBox.classList.add("hidden");
-    scoreEl.textContent = "0.00";
-    cumResult.classList.add("hidden");
-    cumScore.textContent = "0.00";
-    weightedResult.classList.add("hidden");
-    weightedScore.textContent = "0.00";
-  }
-
-  function showCalculator(stage) {
-    currentStage = stage;
-    hideAllScreens();
-    calculatorScreen.style.display = "";
-
-    if (stage === "middle") {
-      yearSelect.innerHTML = `
-        <option value="1">أول متوسط</option>
-        <option value="2">ثاني متوسط</option>
-        <option value="3">ثالث متوسط</option>
-      `;
-      trackField.style.display = "none";
+    if (pageType === "cumulative") {
+      initCumulativePage();
+    } else if (pageType === "weighted") {
+      initWeightedPage();
     } else {
-      yearSelect.innerHTML = `
-        <option value="1">أول ثانوي</option>
-        <option value="2">ثاني ثانوي</option>
-        <option value="3">ثالث ثانوي</option>
-      `;
+      initSubjectPage(calcCard);
+    }
+  }
+
+  // ===== تشغيل صفحة المواد التخصصية =====
+  function initSubjectPage(card) {
+    const stage = card.dataset.stage; // middle | secondary
+    const defaultYear = card.dataset.year || "1";
+
+    const termSelect = document.getElementById("term-select");
+    const trackSelect = document.getElementById("track-select");
+    const subjectsContainer = document.getElementById("subjects-container");
+    const calculateBtn = document.getElementById("calculate-btn");
+    const resetBtn = document.getElementById("reset-gpa-btn");
+    const resultBox = document.getElementById("gpa-result");
+    const scoreEl = document.getElementById("gpa-score");
+
+    function getSubjects() {
+      const term = termSelect ? termSelect.value : "1";
+
+      if (stage === "middle") {
+        return (MIDDLE_SUBJECTS[defaultYear] && MIDDLE_SUBJECTS[defaultYear][term]) || [];
+      }
+
+      // secondary
+      if (defaultYear === "1") {
+        return (SECONDARY_SUBJECTS["1"] && SECONDARY_SUBJECTS["1"][term]) || [];
+      }
+
+      const track = trackSelect ? trackSelect.value : "general";
+      return (SECONDARY_SUBJECTS[defaultYear] &&
+              SECONDARY_SUBJECTS[defaultYear][track] &&
+              SECONDARY_SUBJECTS[defaultYear][track][term]) || [];
     }
 
-    yearSelect.value = "1";
-    termSelect.value = "1";
-    if (trackSelect) trackSelect.value = "general";
+    function renderSubjects() {
+      const subjects = getSubjects();
+      if (!subjects.length) {
+        subjectsContainer.innerHTML = '<p class="section-desc">لا توجد مواد لهذا الاختيار حاليًا.</p>';
+        resultBox.classList.add("hidden");
+        return;
+      }
+
+      subjectsContainer.innerHTML = subjects.map((s, i) => `
+        <div class="subject-row">
+          <label for="grade-${i}">${s.name} <span class="weight-tag">وزن ${s.weight}</span></label>
+          <input type="number" id="grade-${i}" class="grade-input" min="0" max="100" step="0.01" placeholder="الدرجة من 100" data-weight="${s.weight}">
+        </div>
+      `).join("");
+
+      resultBox.classList.add("hidden");
+    }
+
+    function calculate() {
+      const inputs = subjectsContainer.querySelectorAll(".grade-input");
+      const subjectsMeta = getSubjects();
+      const list = [];
+      inputs.forEach((input, i) => {
+        const meta = subjectsMeta[i] || {};
+        const weight = parseFloat(input.dataset.weight);
+        const val = parseFloat(input.value);
+        list.push({
+          name: meta.name || ("مادة " + (i + 1)),
+          weight: weight,
+          grade: !isNaN(val) && val >= 0 && val <= 100 ? val : null,
+          realGrade: val
+        });
+      });
+
+      const filled = list.filter((s) => s.grade !== null).length;
+      if (!filled) {
+        alert("أدخل درجة واحدة على الأقل");
+        return;
+      }
+
+      let gpa = null;
+      if (typeof hayyizComputeWeightedGpa === "function") {
+        gpa = hayyizComputeWeightedGpa(list.filter((s) => s.grade !== null));
+      } else {
+        let totalWeighted = 0, totalWeight = 0;
+        list.forEach((s) => {
+          if (s.grade !== null && !isNaN(s.weight)) {
+            totalWeighted += s.grade * s.weight;
+            totalWeight += s.weight;
+          }
+        });
+        gpa = totalWeight ? totalWeighted / totalWeight : null;
+      }
+
+      if (gpa === null) {
+        alert("أدخل درجة واحدة على الأقل");
+        return;
+      }
+
+      // حفظ snapshot بالبيانات الحقيقية
+      const snapshot = {
+        stage: stage,
+        year: defaultYear,
+        term: termSelect ? termSelect.value : "1",
+        track: trackSelect ? trackSelect.value : null,
+        subjects: list.filter((s) => s.grade !== null),
+        gpa: gpa
+      };
+      if (typeof hayyizSaveGpaSnapshot === "function") {
+        hayyizSaveGpaSnapshot(snapshot);
+      }
+
+      scoreEl.textContent = gpa.toFixed(2);
+      resultBox.classList.remove("hidden");
+      ensureShareButtons(resultBox, gpa.toFixed(2), "المعدل الموزون");
+      renderGoalAndWhatIf(list, gpa, card);
+    }
+
+    function resetAll() {
+      subjectsContainer.querySelectorAll(".grade-input").forEach((i) => (i.value = ""));
+      resultBox.classList.add("hidden");
+      scoreEl.textContent = "0.00";
+      removeShareButtons(resultBox);
+      const panel = document.getElementById("hayyiz-gpa-planning");
+      if (panel) panel.style.display = "none";
+    }
+
+    if (termSelect) termSelect.addEventListener("change", renderSubjects);
+    if (trackSelect) trackSelect.addEventListener("change", renderSubjects);
+    if (calculateBtn) calculateBtn.addEventListener("click", calculate);
+    if (resetBtn) resetBtn.addEventListener("click", resetAll);
 
     renderSubjects();
   }
 
-  function showCumulative() {
-    currentStage = "cumulative";
-    hideAllScreens();
-    cumulativeScreen.style.display = "";
-    updateCumProgress();
-  }
+  // ===== تشغيل صفحة التراكمي =====
+  function initCumulativePage() {
+    const cumY1 = document.getElementById("cum-y1");
+    const cumY2 = document.getElementById("cum-y2");
+    const cumY3 = document.getElementById("cum-y3");
+    const cumProgress = document.getElementById("cum-progress");
+    const cumResult = document.getElementById("cum-result");
+    const cumScore = document.getElementById("cum-score");
+    const cumCalculateBtn = document.getElementById("cum-calculate-btn");
+    const cumResetBtn = document.getElementById("cum-reset-btn");
 
-  function showWeighted() {
-    currentStage = "weighted";
-    hideAllScreens();
-    weightedScreen.style.display = "";
-    renderWeightedRows();
-  }
-
-  function totalWeightedPercent() {
-    return weightedItems.reduce((sum, item) => sum + (parseFloat(item.percent) || 0), 0);
-  }
-
-  function updateWeightedRemaining() {
-    const total = totalWeightedPercent();
-    const left = Math.max(0, 100 - total);
-    weightedLeftEl.textContent = left.toFixed(0) + "%";
-    weightedRemainingEl.classList.remove("warn", "ok");
-    if (total > 100) {
-      weightedRemainingEl.classList.add("warn");
-      weightedRemainingEl.innerHTML = "تجاوزت 100% — مجموع النسب حالياً <strong>" + total.toFixed(0) + "%</strong>";
-    } else if (total === 100) {
-      weightedRemainingEl.classList.add("ok");
-      weightedRemainingEl.innerHTML = "ممتاز — مجموع النسب <strong>100%</strong>";
-    } else {
-      weightedRemainingEl.innerHTML = "لا يمكن تجاوز 100% — النسبة المتبقية <strong id=\"weighted-left\">" + left.toFixed(0) + "%</strong>";
-    }
-  }
-
-  function renderWeightedRows() {
-    weightedRowsEl.innerHTML = weightedItems.map((item) => `
-      <div class="weighted-row" data-id="${item.id}">
-        <input type="text" class="w-name" value="${item.name}" placeholder="اسم الاختبار">
-        <div class="pct-wrap">
-          <input type="number" class="w-percent" min="0" max="100" step="1" value="${item.percent}" placeholder="0">
-          <span>%</span>
-        </div>
-        <div class="score-wrap">
-          <input type="number" class="w-score" min="0" max="100" step="0.01" value="${item.score}" placeholder="الدرجة">
-          <span>/100</span>
-        </div>
-        <button type="button" class="remove-btn" title="حذف" data-id="${item.id}">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-    `).join("");
-
-    // ربط الأحداث
-    weightedRowsEl.querySelectorAll(".w-name").forEach((inp) => {
-      inp.addEventListener("input", (e) => {
-        const id = parseInt(e.target.closest(".weighted-row").dataset.id, 10);
-        const item = weightedItems.find((x) => x.id === id);
-        if (item) item.name = e.target.value;
+    function updateCumProgress() {
+      let filled = 0;
+      [cumY1, cumY2, cumY3].forEach((inp) => {
+        if (!inp) return;
+        const v = parseFloat(inp.value);
+        if (!isNaN(v) && v >= 0 && v <= 100) filled++;
       });
-    });
-    weightedRowsEl.querySelectorAll(".w-percent").forEach((inp) => {
-      inp.addEventListener("input", (e) => {
-        const id = parseInt(e.target.closest(".weighted-row").dataset.id, 10);
-        const item = weightedItems.find((x) => x.id === id);
-        if (item) item.percent = parseFloat(e.target.value) || 0;
-        updateWeightedRemaining();
-      });
-    });
-    weightedRowsEl.querySelectorAll(".w-score").forEach((inp) => {
-      inp.addEventListener("input", (e) => {
-        const id = parseInt(e.target.closest(".weighted-row").dataset.id, 10);
-        const item = weightedItems.find((x) => x.id === id);
-        if (item) item.score = e.target.value;
-      });
-    });
-    weightedRowsEl.querySelectorAll(".remove-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = parseInt(btn.dataset.id, 10);
-        if (weightedItems.length <= 1) {
-          alert("يجب الإبقاء على اختبار واحد على الأقل");
-          return;
-        }
-        weightedItems = weightedItems.filter((x) => x.id !== id);
-        renderWeightedRows();
-      });
-    });
-
-    updateWeightedRemaining();
-  }
-
-  function addWeightedItem() {
-    weightedItems.push({
-      id: nextWeightedId++,
-      name: "اختبار جديد",
-      percent: 0,
-      score: ""
-    });
-    renderWeightedRows();
-  }
-
-  function calculateWeighted() {
-    const totalPct = totalWeightedPercent();
-    if (totalPct > 100) {
-      alert("مجموع النسب يتجاوز 100%. عدّل النسب أولاً.");
-      return;
-    }
-    if (totalPct === 0) {
-      alert("أدخل نسباً صحيحة أولاً");
-      return;
-    }
-
-    let sum = 0;
-    let filled = 0;
-    weightedItems.forEach((item) => {
-      const score = parseFloat(item.score);
-      const pct = parseFloat(item.percent) || 0;
-      if (!isNaN(score) && score >= 0 && score <= 100 && pct > 0) {
-        sum += score * (pct / 100);
-        filled++;
+      if (cumProgress) {
+        cumProgress.textContent = filled + " من 3 صفوف" + (filled === 3 ? " — 100%" : "");
       }
-    });
-
-    if (filled === 0) {
-      alert("أدخل درجة واحدة على الأقل");
-      return;
     }
 
-    weightedScore.textContent = sum.toFixed(2);
-    weightedResult.classList.remove("hidden");
-    ensureShareButtons(weightedResult, sum.toFixed(2), "النسبة الموزونة");
-  }
+    function calculateCumulative() {
+      const y1 = parseFloat(cumY1.value);
+      const y2 = parseFloat(cumY2.value);
+      const y3 = parseFloat(cumY3.value);
 
-  function resetWeightedScores() {
-    weightedItems.forEach((item) => { item.score = ""; });
-    weightedResult.classList.add("hidden");
-    weightedScore.textContent = "0.00";
-    removeShareButtons(weightedResult);
-    renderWeightedRows();
-  }
+      let filled = 0;
+      [y1, y2, y3].forEach((v) => {
+        if (!isNaN(v) && v >= 0 && v <= 100) filled++;
+      });
 
-  function updateCumProgress() {
-    let filled = 0;
+      if (filled < 3) {
+        alert("يرجى إدخال معدلات السنوات الثلاث (أول وثاني وثالث ثانوي)");
+        return;
+      }
+
+      if ([y1, y2, y3].some((v) => isNaN(v) || v < 0 || v > 100)) {
+        alert("تأكد أن جميع المعدلات بين 0 و 100");
+        return;
+      }
+
+      const cumulative = y1 * 0.20 + y2 * 0.40 + y3 * 0.40;
+      cumScore.textContent = cumulative.toFixed(2);
+      cumResult.classList.remove("hidden");
+      ensureShareButtons(cumResult, cumulative.toFixed(2), "المعدل التراكمي");
+    }
+
+    function resetCumulative() {
+      if (cumY1) cumY1.value = "";
+      if (cumY2) cumY2.value = "";
+      if (cumY3) cumY3.value = "";
+      if (cumResult) cumResult.classList.add("hidden");
+      if (cumScore) cumScore.textContent = "0.00";
+      removeShareButtons(cumResult);
+      updateCumProgress();
+    }
+
+    if (cumCalculateBtn) cumCalculateBtn.addEventListener("click", calculateCumulative);
+    if (cumResetBtn) cumResetBtn.addEventListener("click", resetCumulative);
     [cumY1, cumY2, cumY3].forEach((inp) => {
-      const v = parseFloat(inp.value);
-      if (!isNaN(v) && v >= 0 && v <= 100) filled++;
-    });
-    cumProgress.textContent = filled + " من 3 صفوف" + (filled === 3 ? " — 100%" : "");
-  }
-
-  function calculateCumulative() {
-    const y1 = parseFloat(cumY1.value);
-    const y2 = parseFloat(cumY2.value);
-    const y3 = parseFloat(cumY3.value);
-
-    const vals = [y1, y2, y3];
-    let filled = 0;
-    vals.forEach((v) => {
-      if (!isNaN(v) && v >= 0 && v <= 100) filled++;
+      if (inp) inp.addEventListener("input", updateCumProgress);
     });
 
-    if (filled === 0) {
-      alert("أدخل معدل واحد على الأقل");
-      return;
-    }
-
-    // نستخدم فقط القيم المدخلة الصحيحة
-    // الوزن: أول 20% · ثاني 40% · ثالث 40%
-    // إذا نقص صف، نعيد توزيع الأوزان نسبياً على المدخل فقط؟
-    // حسب الوصف: نحسب على الثلاثة، والناقص يُعتبر 0 أو نطلب الثلاثة؟
-    // الأفضل: نحسب فقط إذا الثلاثة موجودة، أو نحسب الموزون على الموجودين مع إعادة توزيع.
-    // حسب طلب المستخدم: يدخل الثلاثة. سأطلب الثلاثة للدقة.
-
-    if (filled < 3) {
-      alert("يرجى إدخال معدلات السنوات الثلاث (أول وثاني وثالث ثانوي)");
-      return;
-    }
-
-    if ([y1, y2, y3].some((v) => isNaN(v) || v < 0 || v > 100)) {
-      alert("تأكد أن جميع المعدلات بين 0 و 100");
-      return;
-    }
-
-    const cumulative = y1 * 0.20 + y2 * 0.40 + y3 * 0.40;
-    cumScore.textContent = cumulative.toFixed(2);
-    cumResult.classList.remove("hidden");
-    ensureShareButtons(cumResult, cumulative.toFixed(2), "المعدل التراكمي");
-  }
-
-  function resetCumulative() {
-    cumY1.value = "";
-    cumY2.value = "";
-    cumY3.value = "";
-    cumResult.classList.add("hidden");
-    cumScore.textContent = "0.00";
-    removeShareButtons(cumResult);
     updateCumProgress();
   }
 
-  function needsTrack(year) {
-    return currentStage === "secondary" && (year === "2" || year === "3");
-  }
+  // ===== تشغيل صفحة النسبة الموزونة =====
+  function initWeightedPage() {
+    const weightedRowsEl = document.getElementById("weighted-rows");
+    const weightedAddBtn = document.getElementById("weighted-add-btn");
+    const weightedRemainingEl = document.getElementById("weighted-remaining");
+    const weightedLeftEl = document.getElementById("weighted-left");
+    const weightedResult = document.getElementById("weighted-result");
+    const weightedScore = document.getElementById("weighted-score");
+    const weightedCalculateBtn = document.getElementById("weighted-calculate-btn");
+    const weightedResetBtn = document.getElementById("weighted-reset-btn");
 
-  function getSubjects() {
-    const year = yearSelect.value;
-    const term = termSelect.value;
+    let weightedItems = [
+      { id: 1, name: "الثانوية العامة", percent: 40, score: "" },
+      { id: 2, name: "القدرات العامة", percent: 30, score: "" },
+      { id: 3, name: "الاختبار التحصيلي", percent: 30, score: "" }
+    ];
+    let nextWeightedId = 4;
 
-    if (currentStage === "middle") {
-      return (MIDDLE_SUBJECTS[year] && MIDDLE_SUBJECTS[year][term]) || [];
+    function totalWeightedPercent() {
+      return weightedItems.reduce((sum, item) => sum + (parseFloat(item.percent) || 0), 0);
     }
 
-    // secondary
-    if (year === "1") {
-      return (SECONDARY_SUBJECTS["1"] && SECONDARY_SUBJECTS["1"][term]) || [];
-    }
-
-    const track = trackSelect.value;
-    return (SECONDARY_SUBJECTS[year] &&
-            SECONDARY_SUBJECTS[year][track] &&
-            SECONDARY_SUBJECTS[year][track][term]) || [];
-  }
-
-  function renderSubjects() {
-    const year = yearSelect.value;
-
-    if (needsTrack(year)) {
-      trackField.style.display = "";
-    } else {
-      trackField.style.display = "none";
-    }
-
-    const subjects = getSubjects();
-    if (!subjects.length) {
-      subjectsContainer.innerHTML = '<p class="section-desc">لا توجد مواد لهذا الاختيار حاليًا.</p>';
-      resultBox.classList.add("hidden");
-      return;
-    }
-
-    subjectsContainer.innerHTML = subjects.map((s, i) => `
-      <div class="subject-row">
-        <label for="grade-${i}">${s.name} <span class="weight-tag">وزن ${s.weight}</span></label>
-        <input type="number" id="grade-${i}" class="grade-input" min="0" max="100" step="0.01" placeholder="الدرجة من 100" data-weight="${s.weight}">
-      </div>
-    `).join("");
-
-    resultBox.classList.add("hidden");
-  }
-
-  function collectSubjectsFromInputs(useWhatIfValues) {
-    const inputs = subjectsContainer.querySelectorAll(".grade-input");
-    const subjectsMeta = getSubjects();
-    const list = [];
-    inputs.forEach((input, i) => {
-      const meta = subjectsMeta[i] || {};
-      const weight = parseFloat(input.dataset.weight);
-      let val;
-      if (useWhatIfValues && input.dataset.whatif !== undefined && input.dataset.whatif !== "") {
-        val = parseFloat(input.dataset.whatif);
+    function updateWeightedRemaining() {
+      if (!weightedRemainingEl || !weightedLeftEl) return;
+      const total = totalWeightedPercent();
+      const left = Math.max(0, 100 - total);
+      weightedLeftEl.textContent = left.toFixed(0) + "%";
+      weightedRemainingEl.classList.remove("warn", "ok");
+      if (total > 100) {
+        weightedRemainingEl.classList.add("warn");
+        weightedRemainingEl.innerHTML = "تجاوزت 100% — مجموع النسب حالياً <strong>" + total.toFixed(0) + "%</strong>";
+      } else if (total === 100) {
+        weightedRemainingEl.classList.add("ok");
+        weightedRemainingEl.innerHTML = "ممتاز — مجموع النسب <strong>100%</strong>";
       } else {
-        val = parseFloat(input.value);
+        weightedRemainingEl.innerHTML = "لا يمكن تجاوز 100% — النسبة المتبقية <strong id=\"weighted-left\">" + left.toFixed(0) + "%</strong>";
       }
-      list.push({
-        name: meta.name || input.previousElementSibling?.textContent?.trim() || ("مادة " + (i + 1)),
-        weight: weight,
-        grade: !isNaN(val) && val >= 0 && val <= 100 ? val : null,
-        realGrade: parseFloat(input.value)
+    }
+
+    function renderWeightedRows() {
+      if (!weightedRowsEl) return;
+      weightedRowsEl.innerHTML = weightedItems.map((item) => `
+        <div class="weighted-row" data-id="${item.id}">
+          <input type="text" class="w-name" value="${item.name}" placeholder="اسم الاختبار">
+          <div class="pct-wrap">
+            <input type="number" class="w-percent" min="0" max="100" step="1" value="${item.percent}" placeholder="0">
+            <span>%</span>
+          </div>
+          <div class="score-wrap">
+            <input type="number" class="w-score" min="0" max="100" step="0.01" value="${item.score}" placeholder="الدرجة">
+            <span>/100</span>
+          </div>
+          <button type="button" class="remove-btn" title="حذف" data-id="${item.id}">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      `).join("");
+
+      weightedRowsEl.querySelectorAll(".w-name").forEach((inp) => {
+        inp.addEventListener("input", (e) => {
+          const id = parseInt(e.target.closest(".weighted-row").dataset.id, 10);
+          const item = weightedItems.find((x) => x.id === id);
+          if (item) item.name = e.target.value;
+        });
       });
-    });
-    return list;
-  }
+      weightedRowsEl.querySelectorAll(".w-percent").forEach((inp) => {
+        inp.addEventListener("input", (e) => {
+          const id = parseInt(e.target.closest(".weighted-row").dataset.id, 10);
+          const item = weightedItems.find((x) => x.id === id);
+          if (item) item.percent = parseFloat(e.target.value) || 0;
+          updateWeightedRemaining();
+        });
+      });
+      weightedRowsEl.querySelectorAll(".w-score").forEach((inp) => {
+        inp.addEventListener("input", (e) => {
+          const id = parseInt(e.target.closest(".weighted-row").dataset.id, 10);
+          const item = weightedItems.find((x) => x.id === id);
+          if (item) item.score = e.target.value;
+        });
+      });
+      weightedRowsEl.querySelectorAll(".remove-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = parseInt(btn.dataset.id, 10);
+          if (weightedItems.length <= 1) {
+            alert("يجب الإبقاء على اختبار واحد على الأقل");
+            return;
+          }
+          weightedItems = weightedItems.filter((x) => x.id !== id);
+          renderWeightedRows();
+        });
+      });
 
-  function computeGpaFromList(list) {
-    if (typeof hayyizComputeWeightedGpa === "function") {
-      const cleaned = list
-        .filter((s) => s.grade !== null && s.grade !== undefined)
-        .map((s) => ({ grade: s.grade, weight: s.weight }));
-      return hayyizComputeWeightedGpa(cleaned);
+      updateWeightedRemaining();
     }
-    let totalWeighted = 0;
-    let totalWeight = 0;
-    list.forEach((s) => {
-      if (s.grade !== null && s.grade !== undefined && !isNaN(s.weight)) {
-        totalWeighted += s.grade * s.weight;
-        totalWeight += s.weight;
+
+    function addWeightedItem() {
+      weightedItems.push({
+        id: nextWeightedId++,
+        name: "اختبار جديد",
+        percent: 0,
+        score: ""
+      });
+      renderWeightedRows();
+    }
+
+    function calculateWeighted() {
+      const totalPct = totalWeightedPercent();
+      if (totalPct > 100) {
+        alert("مجموع النسب يتجاوز 100%. عدّل النسب أولاً.");
+        return;
       }
-    });
-    return totalWeight ? totalWeighted / totalWeight : null;
-  }
+      if (totalPct === 0) {
+        alert("أدخل نسباً صحيحة أولاً");
+        return;
+      }
 
-  function saveRealSnapshot(list, gpa) {
-    const snapshot = {
-      stage: currentStage,
-      year: yearSelect ? yearSelect.value : null,
-      term: termSelect ? termSelect.value : null,
-      track: trackSelect && trackField && trackField.style.display !== "none" ? trackSelect.value : null,
-      subjects: list
-        .filter((s) => s.realGrade !== null && !isNaN(s.realGrade) && s.realGrade >= 0 && s.realGrade <= 100)
-        .map((s) => ({
-          name: s.name,
-          weight: s.weight,
-          grade: s.realGrade
-        })),
-      gpa: gpa
-    };
-    if (typeof hayyizSaveGpaSnapshot === "function") {
-      hayyizSaveGpaSnapshot(snapshot);
-    } else {
-      try {
-        localStorage.setItem("hayyiz-gpa-snapshot", JSON.stringify(Object.assign({ version: 1, updatedAt: Date.now() }, snapshot)));
-      } catch (e) {}
-    }
-  }
+      let sum = 0, filled = 0;
+      weightedItems.forEach((item) => {
+        const score = parseFloat(item.score);
+        const pct = parseFloat(item.percent) || 0;
+        if (!isNaN(score) && score >= 0 && score <= 100 && pct > 0) {
+          sum += score * (pct / 100);
+          filled++;
+        }
+      });
 
-  function calculate() {
-    const list = collectSubjectsFromInputs(false);
-    const filled = list.filter((s) => s.grade !== null).length;
-    if (!filled) {
-      alert("أدخل درجة واحدة على الأقل");
-      return;
+      if (filled === 0) {
+        alert("أدخل درجة واحدة على الأقل");
+        return;
+      }
+
+      weightedScore.textContent = sum.toFixed(2);
+      weightedResult.classList.remove("hidden");
+      ensureShareButtons(weightedResult, sum.toFixed(2), "النسبة الموزونة");
     }
 
-    const gpa = computeGpaFromList(list);
-    if (gpa === null) {
-      alert("أدخل درجة واحدة على الأقل");
-      return;
+    function resetWeightedScores() {
+      weightedItems.forEach((item) => { item.score = ""; });
+      weightedResult.classList.add("hidden");
+      weightedScore.textContent = "0.00";
+      removeShareButtons(weightedResult);
+      renderWeightedRows();
     }
 
-    // حفظ الدرجات الحقيقية فقط (ليس سيناريو ماذا لو)
-    list.forEach((s) => { s.realGrade = s.grade; });
-    saveRealSnapshot(list, gpa);
+    if (weightedAddBtn) weightedAddBtn.addEventListener("click", addWeightedItem);
+    if (weightedCalculateBtn) weightedCalculateBtn.addEventListener("click", calculateWeighted);
+    if (weightedResetBtn) weightedResetBtn.addEventListener("click", resetWeightedScores);
 
-    scoreEl.textContent = gpa.toFixed(2);
-    resultBox.classList.remove("hidden");
-    ensureShareButtons(resultBox, gpa.toFixed(2), "المعدل الموزون");
-    renderGoalAndWhatIf(list, gpa);
+    renderWeightedRows();
   }
 
-  function resetAll() {
-    subjectsContainer.querySelectorAll(".grade-input").forEach((i) => (i.value = ""));
-    resultBox.classList.add("hidden");
-    scoreEl.textContent = "0.00";
-    removeShareButtons(resultBox);
-  }
-
-
-  // ===== الهدف الأكاديمي و«ماذا لو؟» =====
+  // ===== الهدف الأكاديمي و سيناريو "ماذا لو؟" =====
   let whatIfActive = false;
 
-  function ensurePlanningPanel() {
+  function ensurePlanningPanel(parentCard) {
     let panel = document.getElementById("hayyiz-gpa-planning");
     if (panel) return panel;
     panel = document.createElement("div");
     panel.id = "hayyiz-gpa-planning";
     panel.className = "gpa-planning";
     panel.style.cssText = "margin-top:1.5rem;";
-    // إدراج بعد صندوق النتيجة أو أزرار التحكم
-    const controls = document.querySelector("#calculator-screen .controls-row");
-    if (controls && controls.parentNode) {
-      controls.parentNode.insertBefore(panel, controls.nextSibling);
-    } else if (resultBox && resultBox.parentNode) {
-      resultBox.parentNode.appendChild(panel);
-    }
+    parentCard.appendChild(panel);
     return panel;
   }
 
-  function renderGoalAndWhatIf(list, realGpa) {
-    const panel = ensurePlanningPanel();
+  function renderGoalAndWhatIf(list, realGpa, parentCard) {
+    const panel = ensurePlanningPanel(parentCard);
     panel.replaceChildren();
     panel.style.display = "block";
 
@@ -946,7 +860,7 @@
       '<div class="option-field"><label>معدلك الحالي</label>' +
       '<input type="text" id="goal-current-display" readonly value="' + realGpa.toFixed(2) + '%"></div>' +
       '<div class="option-field"><label>معدلك المستهدف</label>' +
-      '<input type="number" id="goal-target-input" min="0" max="100" step="0.01" placeholder="مثال: 92" value="' +
+      '<input type="number" id="goal-target-input" min="0" max="100" step="0.01" placeholder="مثال: 95" value="' +
       (targetVal !== "" ? targetVal : "") + '"></div>';
     goalCard.appendChild(goalForm);
 
@@ -977,30 +891,28 @@
       }
       if (typeof hayyizSaveAcademicGoal === "function") {
         hayyizSaveAcademicGoal({ target: t, updatedAt: Date.now() });
-      } else {
-        localStorage.setItem("hayyiz-academic-goal", JSON.stringify({ target: t, updatedAt: Date.now() }));
       }
       updateGoalGapUI(realGpa, t);
-      alert("تم حفظ هدفك");
+      alert("تم حفظ هدفك الدراسي بنجاح");
     });
     goalCard.appendChild(saveGoalBtn);
     panel.appendChild(goalCard);
 
     updateGoalGapUI(realGpa, targetVal !== "" ? targetVal : null);
 
-    // --- ماذا لو؟ ---
+    // --- سيناريو "ماذا لو؟" ---
     const whatCard = document.createElement("div");
     whatCard.className = "card";
     whatCard.style.cssText = "margin:0; padding:1.1rem 1.25rem; box-shadow:var(--shadow);";
 
     const whatTitle = document.createElement("h3");
     whatTitle.style.cssText = "font-size:1.05rem; margin:0 0 0.5rem;";
-    whatTitle.innerHTML = '<i class="fa-solid fa-flask" aria-hidden="true"></i> ماذا لو؟';
+    whatTitle.innerHTML = '<i class="fa-solid fa-flask" aria-hidden="true"></i> سيناريو ماذا لو؟';
     whatCard.appendChild(whatTitle);
 
     const whatDesc = document.createElement("p");
     whatDesc.style.cssText = "color:var(--text-muted); font-size:0.92rem; margin:0 0 0.85rem;";
-    whatDesc.textContent = "جرّب درجات افتراضية دون تغيير درجاتك الحقيقية. السيناريو منفصل تماماً.";
+    whatDesc.textContent = "جرب درجات مستهدفة مفترضة وشاهد تأثيرها المباشر على المعدل.";
     whatCard.appendChild(whatDesc);
 
     const toggleBtn = document.createElement("button");
@@ -1043,11 +955,11 @@
     }
     const gap = target - current;
     if (gap > 0.009) {
-      gapEl.textContent = "متبقي " + gap.toFixed(1) + " نقطة للوصول إلى هدفك.";
+      gapEl.textContent = "متبقي " + gap.toFixed(1) + " نقطة مئوية للوصول إلى هدفك.";
     } else if (gap < -0.009) {
-      gapEl.textContent = "أنت فوق هدفك بـ " + Math.abs(gap).toFixed(1) + " نقطة.";
+      gapEl.textContent = "أنت تتجاوز هدفك بـ " + Math.abs(gap).toFixed(1) + " نقطة مئوية.";
     } else {
-      gapEl.textContent = "وصلت إلى هدفك.";
+      gapEl.textContent = "حققت هدفك تماماً!";
     }
     if (bar) {
       const pct = target > 0 ? Math.min(100, Math.max(0, (current / target) * 100)) : 0;
@@ -1098,34 +1010,6 @@
     impactBox.style.cssText = "margin-top:0.75rem; color:var(--text-muted); font-size:0.92rem;";
     container.appendChild(impactBox);
 
-    const actions = document.createElement("div");
-    actions.className = "controls-row";
-    actions.style.marginTop = "1rem";
-
-    const resetBtn = document.createElement("button");
-    resetBtn.type = "button";
-    resetBtn.className = "btn btn-outline";
-    resetBtn.innerHTML = '<i class="fa-solid fa-rotate-right" aria-hidden="true"></i> إعادة السيناريو';
-    resetBtn.addEventListener("click", () => {
-      container.querySelectorAll(".whatif-input").forEach((inp) => {
-        const idx = parseInt(inp.dataset.index, 10);
-        if (realList[idx]) inp.value = String(realList[idx].realGrade);
-      });
-      refreshWhatIf(realList, realGpa);
-    });
-
-    const toGoalsBtn = document.createElement("button");
-    toGoalsBtn.type = "button";
-    toGoalsBtn.className = "btn btn-primary";
-    toGoalsBtn.innerHTML = '<i class="fa-solid fa-flag" aria-hidden="true"></i> حوّل هذا السيناريو إلى أهداف';
-    toGoalsBtn.addEventListener("click", () => {
-      convertWhatIfToGoals(realList, container);
-    });
-
-    actions.appendChild(toGoalsBtn);
-    actions.appendChild(resetBtn);
-    container.appendChild(actions);
-
     container.querySelectorAll(".whatif-input").forEach((inp) => {
       inp.addEventListener("input", () => refreshWhatIf(realList, realGpa));
     });
@@ -1144,9 +1028,11 @@
       }
     });
 
-    const hypoGpa = computeGpaFromList(hypo.map((s) => ({ grade: s.grade, weight: s.weight, realGrade: s.grade })));
+    let hypoGpa = null;
+    if (typeof hayyizComputeWeightedGpa === "function") {
+      hypoGpa = hayyizComputeWeightedGpa(hypo.map((s) => ({ grade: s.grade, weight: s.weight })));
+    }
     const summary = document.getElementById("whatif-summary");
-    const impactBox = document.getElementById("whatif-impact");
     if (!summary || hypoGpa === null) return;
 
     const delta = hypoGpa - realGpa;
@@ -1161,134 +1047,6 @@
       '<div><div class="gpa-score" style="font-size:1.6rem;">' + deltaText + '</div>' +
       '<div class="gpa-label">التغيير</div></div>' +
       '</div>';
-
-    // ارتباط بالهدف
-    const goal = typeof hayyizGetAcademicGoal === "function" ? hayyizGetAcademicGoal() : null;
-    let goalLine = "";
-    if (goal && typeof goal.target === "number") {
-      const remain = goal.target - hypoGpa;
-      if (remain > 0.009) {
-        goalLine = "بقي " + remain.toFixed(1) + " نقطة للوصول إلى هدفك في هذا السيناريو.";
-      } else {
-        goalLine = "هذا السيناريو يتجاوز هدفك بـ " + Math.abs(remain).toFixed(1) + " نقطة.";
-      }
-    }
-
-    // أكثر المواد تأثيراً (رفعها للحد الأقصى المنطقي = الدرجة الافتراضية الحالية vs الحقيقية)
-    const impacts = [];
-    realList.forEach((s, i) => {
-      if (s.realGrade === null || isNaN(s.realGrade)) return;
-      const inp = document.querySelector('#whatif-body .whatif-input[data-index="' + i + '"]');
-      const newG = inp ? parseFloat(inp.value) : s.realGrade;
-      if (isNaN(newG) || Math.abs(newG - s.realGrade) < 0.001) return;
-      const baseList = realList.map((x) => ({ grade: x.realGrade, weight: x.weight }));
-      const withChange = baseList.map((x, j) => (j === i ? { grade: newG, weight: x.weight } : x));
-      const g1 = computeGpaFromList(baseList.map((x) => ({ grade: x.grade, weight: x.weight, realGrade: x.grade })));
-      const g2 = computeGpaFromList(withChange.map((x) => ({ grade: x.grade, weight: x.weight, realGrade: x.grade })));
-      if (g1 !== null && g2 !== null) {
-        impacts.push({ name: s.name, delta: g2 - g1, from: s.realGrade, to: newG });
-      }
-    });
-    impacts.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
-
-    let impactHtml = goalLine ? ("<p style='margin:0 0 0.5rem;'>" + goalLine + "</p>") : "";
-    if (impacts.length) {
-      impactHtml += "<p style='margin:0;'><strong>أكثر المواد تأثيراً في هذا السيناريو:</strong> ";
-      impactHtml += impacts.slice(0, 3).map((x) => {
-        const sign = x.delta >= 0 ? "+" : "";
-        return x.name + " (" + sign + x.delta.toFixed(2) + ")";
-      }).join(" · ");
-      impactHtml += "</p>";
-    }
-    if (impactBox) impactBox.innerHTML = impactHtml;
-  }
-
-  function convertWhatIfToGoals(realList, container) {
-    const inputs = container.querySelectorAll(".whatif-input");
-    const goals = [];
-    inputs.forEach((inp) => {
-      const idx = parseInt(inp.dataset.index, 10);
-      const s = realList[idx];
-      if (!s) return;
-      const target = parseFloat(inp.value);
-      if (isNaN(target) || target < 0 || target > 100) return;
-      if (Math.abs(target - s.realGrade) < 0.01) return;
-      goals.push({
-        id: typeof hayyizGenerateId === "function" ? hayyizGenerateId() : ("g" + Date.now() + idx),
-        name: s.name,
-        current: s.realGrade,
-        target: target,
-        weight: s.weight,
-        created: Date.now()
-      });
-    });
-    if (!goals.length) {
-      alert("عدّل درجة مادة واحدة على الأقل في السيناريو قبل التحويل.");
-      return;
-    }
-    if (typeof hayyizSaveSubjectGoals === "function") {
-      const prev = hayyizGetSubjectGoals() || [];
-      // استبدال أهداف نفس اسم المادة
-      const names = new Set(goals.map((g) => g.name));
-      const merged = prev.filter((p) => !names.has(p.name)).concat(goals);
-      hayyizSaveSubjectGoals(merged);
-    } else {
-      localStorage.setItem("hayyiz-subject-goals", JSON.stringify(goals));
-    }
-
-    // مزامنة مواد حيز (subjects) بالاسم وإضافة مهام مقترحة للمتابعة
-    const todos = typeof hayyizGetTodos === "function" ? hayyizGetTodos() : [];
-    goals.forEach((g) => {
-      let subObj = null;
-      if (typeof hayyizAddSubject === "function") {
-        subObj = hayyizAddSubject(g.name);
-      }
-      const taskText = "مراجعة وتمارين مادة " + g.name + " (هدف: " + g.target + "%)";
-      const exists = todos.find(t => t.text === taskText && !t.completed);
-      if (!exists) {
-        todos.unshift({
-          id: typeof hayyizGenerateId === "function" ? hayyizGenerateId() : ("h" + Date.now() + Math.random()),
-          text: taskText,
-          priority: "high",
-          subjectId: subObj ? subObj.id : null,
-          minutes: 45,
-          completed: false,
-          created: Date.now(),
-          focusDone: 0,
-          sessionsDone: 0
-        });
-      }
-    });
-
-    if (typeof hayyizSaveTodos === "function") {
-      hayyizSaveTodos(todos);
-    } else {
-      localStorage.setItem("hayyiz-todos", JSON.stringify(todos));
-    }
-
-    // حفظ معدل السيناريو كهدف أكاديمي
-    const summary = document.getElementById("whatif-summary");
-    if (summary) {
-      const scores = summary.querySelectorAll(".gpa-score");
-      if (scores && scores[1]) {
-        const targetGpa = parseFloat(scores[1].textContent);
-        if (!isNaN(targetGpa) && targetGpa > 0) {
-          if (typeof hayyizSaveAcademicGoal === "function") {
-            hayyizSaveAcademicGoal({ target: targetGpa, updatedAt: Date.now() });
-          } else {
-            localStorage.setItem("hayyiz-academic-goal", JSON.stringify({ target: targetGpa, updatedAt: Date.now() }));
-          }
-        }
-      }
-    }
-
-    alert("تم تحويل السيناريو إلى هدف أكاديمي وأهداف مواد مع إضافة مهام متابعة دراسية لها في قائمة المهام! 🎉");
-  }
-
-  function tryRestoreSnapshot() {
-    const snap = typeof hayyizGetGpaSnapshot === "function" ? hayyizGetGpaSnapshot() : null;
-    if (!snap || !snap.subjects || !snap.subjects.length) return;
-    // لا نسترجع تلقائياً في شاشة الاختيار — فقط إن كان المستخدم في الحاسبة
   }
 
   // ===== مشاركة النتائج =====
@@ -1304,7 +1062,8 @@
     wrap.className = "share-result-wrap";
     wrap.style.cssText = "margin-top:1.25rem; display:flex; justify-content:center; gap:0.75rem; flex-wrap:wrap;";
 
-    const text = `حسبت ${label} في حيز وطلع ${scoreValue} 🎯\n\nجرب حاسبة المعدل مجانًا: https://just-c.github.io/adawati/gpa.html`;
+    const pageUrl = window.location.href;
+    const text = `حسبت ${label} في منصة حيز وكانت النتيجة ${scoreValue} 🎯\n\nجرب حاسبة المعدل من هنا: ${pageUrl}`;
 
     const shareBtn = document.createElement("button");
     shareBtn.type = "button";
@@ -1315,85 +1074,31 @@
         navigator.share({
           title: label + " — حيز",
           text: text,
-          url: "https://just-c.github.io/adawati/gpa.html"
+          url: pageUrl
         }).catch(() => copyShareText(text));
       } else {
         copyShareText(text);
       }
     });
 
-    const twitterBtn = document.createElement("a");
-    twitterBtn.className = "btn btn-outline";
-    twitterBtn.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(`حسبت ${label} في حيز وطلع ${scoreValue} 🎯\n\nجرب حاسبة المعدل مجانًا:`)}&url=${encodeURIComponent("https://just-c.github.io/adawati/gpa.html")}`;
-    twitterBtn.target = "_blank";
-    twitterBtn.rel = "noopener noreferrer";
-    twitterBtn.innerHTML = '<i class="fa-brands fa-x-twitter" aria-hidden="true"></i> تويتر / إكس';
-
     wrap.appendChild(shareBtn);
-    wrap.appendChild(twitterBtn);
     container.appendChild(wrap);
   }
 
   function copyShareText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => {
-        alert("تم نسخ النص! الصقه في تويتر أو واتساب أو أي مكان");
-      }).catch(() => fallbackCopy(text));
+        alert("تم نسخ النص! يمكنك مشاركته الآن.");
+      }).catch(() => prompt("انسخ النص التالي:", text));
     } else {
-      fallbackCopy(text);
-    }
-  }
-
-  function fallbackCopy(text) {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    try {
-      document.execCommand("copy");
-      alert("تم نسخ النص! الصقه في تويتر أو واتساب أو أي مكان");
-    } catch (e) {
       prompt("انسخ النص التالي:", text);
     }
-    document.body.removeChild(ta);
   }
 
-  // ===== أحداث =====
-  document.getElementById("btn-middle").addEventListener("click", () => showCalculator("middle"));
-  document.getElementById("btn-secondary").addEventListener("click", () => showCalculator("secondary"));
-  document.getElementById("btn-cumulative").addEventListener("click", showCumulative);
-  document.getElementById("btn-weighted").addEventListener("click", showWeighted);
-
-  backToStageBtn.addEventListener("click", showStageScreen);
-  backToStageCumBtn.addEventListener("click", showStageScreen);
-  backToStageWeightedBtn.addEventListener("click", showStageScreen);
-
-  yearSelect.addEventListener("change", renderSubjects);
-  termSelect.addEventListener("change", renderSubjects);
-  trackSelect.addEventListener("change", renderSubjects);
-  calculateBtn.addEventListener("click", calculate);
-  resetBtn.addEventListener("click", resetAll);
-
-  // أحداث التراكمي
-  cumCalculateBtn.addEventListener("click", calculateCumulative);
-  cumResetBtn.addEventListener("click", resetCumulative);
-  [cumY1, cumY2, cumY3].forEach((inp) => {
-    inp.addEventListener("input", updateCumProgress);
-  });
-
-  // أحداث النسبة الموزونة
-  weightedAddBtn.addEventListener("click", addWeightedItem);
-  weightedCalculateBtn.addEventListener("click", calculateWeighted);
-  weightedResetBtn.addEventListener("click", resetWeightedScores);
-  if (linkToCumulative) {
-    linkToCumulative.addEventListener("click", (e) => {
-      e.preventDefault();
-      showCumulative();
-    });
+  // التشغيل التدريجي بعد تجهيز DOM
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initEngine);
+  } else {
+    initEngine();
   }
-
-  // البداية: شاشة اختيار المرحلة
-  showStageScreen();
 })();
