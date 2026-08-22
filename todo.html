@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -22,8 +21,9 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <!-- SEO -->
-    <title>قائمة المهام الدراسية | حيز</title>
-    <meta name="description" content="نظم واجباتك ومهامك الدراسية بسهولة مع قائمة المهام من حيز. أضف المهام، حدد الأولوية وتاريخ الاستحقاق والمدة المتوقعة، وتابع المهام المكتملة.">    <meta name="author" content="حيز">
+    <title>محرك مهام الطالب وتنظيم المذاكرة | حيز</title>
+    <meta name="description" content="محرك مهام الطالب الذكي الحتمي من حيز. نظم واجباتك، اربط المهام بالتقويم ومؤقت التركيز والملاحظات، وتابع تقدمك الأكاديمي اليومي بسهولة.">
+    <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://just-c.github.io/adawati/todo.html">
     <!-- الخطوط والأيقونات -->
@@ -51,9 +51,9 @@
 {
   "@context": "https://schema.org",
   "@type": "WebPage",
-  "name": "قائمة المهام الدراسية | حيز",
+  "name": "محرك مهام الطالب | حيز",
   "url": "https://just-c.github.io/adawati/todo.html",
-  "description": "قائمة مهام دراسية مجانية تساعد الطلاب على تنظيم الواجبات والمهام، وتحديد الأولويات وتواريخ الاستحقاق والمدة المتوقعة للإنجاز.",
+  "description": "طبقة التنفيذ والتنظيم اليومية للطالب في حيز التي تربط التقويم والمهام وجلسات التركيز والملاحظات.",
   "inLanguage": "ar",
   "isPartOf": {
     "@type": "WebSite",
@@ -62,7 +62,7 @@
   },
   "about": {
     "@type": "Thing",
-    "name": "تنظيم المهام الدراسية"
+    "name": "تنظيم مهام الطالب"
   }
 }
 </script>
@@ -75,7 +75,7 @@
             <div class="logo-icon"><i class="fa-solid fa-graduation-cap"></i></div>
             <span class="logo-text">حيز</span>
         </a>
-        <button class="menu-toggle" id="menu-toggle"><i class="fa-solid fa-bars"></i></button>
+        <button class="menu-toggle" id="menu-toggle" aria-label="فتح القائمة"><i class="fa-solid fa-bars"></i></button>
 <nav class="nav-links" id="nav-links">
     <a href="index.html" class="nav-btn"><i class="fa-solid fa-house"></i> الرئيسية</a>
     <a href="pomodoro.html" class="nav-btn"><i class="fa-solid fa-clock"></i> المؤقت</a>
@@ -89,153 +89,221 @@
     <a href="about.html" class="nav-btn"><i class="fa-solid fa-circle-info"></i> عن حيز</a>
 </nav>
         <div class="nav-actions">
-            <button id="theme-toggle" class="theme-btn"><i class="fa-solid fa-moon"></i></button>
+            <button id="theme-toggle" class="theme-btn" aria-label="تبديل الوضع الليلي"><i class="fa-solid fa-moon"></i></button>
         </div>
     </div>
 </header>
 <main class="container main-content">
-    <div class="card">
-        <div class="section-header">
-            <h1><i class="fa-solid fa-list-check"></i> قائمة المهام الدراسية</h1>
-            <p class="section-desc">أضف مهامك وحدد أولوياتها وتواريخها</p>
+
+    <!-- ARIA Live Region for Dynamic Updates -->
+    <div id="sr-todo-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- 1. HERO RECOMMENDATION CARD: ماذا أفعل الآن؟ -->
+    <section id="todo-hero-card" class="card todo-hero-card">
+        <!-- Populated dynamically by todo.js -->
+    </section>
+
+    <!-- 2. QUICK TASK CREATION CARD -->
+    <div class="card todo-creation-card">
+        <div class="section-header task-creation-header">
+            <h1><i class="fa-solid fa-list-check" style="color:var(--primary);"></i> محرك عمل الطالب — Student Action Engine</h1>
+            <p class="section-desc">أضف مهامك بسرعة، اربطها بجلسات التركيز، ونظم يومك الدراسي</p>
         </div>
 
         <form id="todo-form" class="todo-form">
-            <div class="input-group">
-                <input type="text" id="todo-input" placeholder="أضف مهمة جديدة..." required>
-                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> إضافة</button>
+            <div class="input-group quick-add-group">
+                <input type="text" id="todo-input" placeholder="ما هي مهمتك التالية؟ (مثال: حل 20 سؤال قدرات)..." required autocomplete="off">
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> إضافة مهمة</button>
+                <button type="button" id="toggle-more-options" class="btn btn-secondary btn-toggle-options" aria-expanded="false">
+                    <i class="fa-solid fa-sliders" aria-hidden="true"></i> <span id="toggle-options-text">تفاصيل أكثر</span>
+                </button>
             </div>
-            <div class="todo-options">
+
+            <!-- COLLAPSIBLE DETAILED OPTIONS -->
+            <div id="todo-extra-options" class="todo-options hidden" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--border);">
                 <div class="option-field">
-                    <label>الأولوية</label>
+                    <label for="todo-priority">الأولوية</label>
                     <select id="todo-priority">
                         <option value="low">منخفضة</option>
-                        <option value="medium" selected>متوسطة</option>
-                        <option value="high">عالية</option>
+                        <option value="medium" selected>عادية</option>
+                        <option value="high">عالية 🔥</option>
                     </select>
                 </div>
                 <div class="option-field">
-                    <label>المادة</label>
+                    <label for="todo-subject">المادة الدراسية</label>
                     <select id="todo-subject">
                         <option value="">بدون مادة</option>
                     </select>
                 </div>
                 <div class="option-field">
-                    <label>الهدف المرتبط</label>
+                    <label for="todo-goal">الهدف المرتبط</label>
                     <select id="todo-goal">
                         <option value="">بدون هدف خاص</option>
                     </select>
                 </div>
                 <div class="option-field">
-                    <label>تاريخ الاستحقاق</label>
+                    <label for="todo-date">تاريخ الاستحقاق</label>
                     <input type="datetime-local" id="todo-date">
                 </div>
                 <div class="option-field">
-                    <label>المدة المتوقعة (دقيقة)</label>
+                    <label for="todo-minutes">المدة التقديرية (دقيقة)</label>
                     <input type="number" id="todo-minutes" min="1" max="1440" placeholder="مثال: 45">
                 </div>
-            </div>
-            <div class="todo-options" style="margin-top: 0.5rem;">
-                <div class="option-field" style="flex: 1;">
-                    <label>مادة جديدة (اختياري)</label>
+                <div class="option-field" style="grid-column: 1 / -1;">
+                    <label for="todo-subject-new">إضافة مادة جديدة (اختياري)</label>
                     <div class="input-group" style="margin: 0;">
-                        <input type="text" id="todo-subject-new" placeholder="مثال: رياضيات" maxlength="40">
+                        <input type="text" id="todo-subject-new" placeholder="مثال: أحياء، قدرات، كيمياء" maxlength="40">
                         <button type="button" id="todo-subject-add" class="btn btn-outline" style="white-space: nowrap;">
-                            <i class="fa-solid fa-plus" aria-hidden="true"></i> إضافة مادة
+                            <i class="fa-solid fa-plus" aria-hidden="true"></i> إضافة المادة
                         </button>
                     </div>
                 </div>
             </div>
         </form>
-        <div class="todo-filters">
-            <button class="filter-btn active" data-filter="all">الكل</button>
-            <button class="filter-btn" data-filter="active">نشطة</button>
-            <button class="filter-btn" data-filter="completed">مكتملة</button>
-            <button class="filter-btn" data-filter="high">عالية الأولوية</button>
+    </div>
+
+    <!-- 3. TASK EXECUTION WORKSPACE & SECTIONS -->
+    <div class="card todo-workspace-card">
+        <!-- BAR: STATS & FILTERS -->
+        <div class="todo-workspace-header">
+            <div id="todo-stats-bar" class="todo-stats-bar">
+                <!-- Populated dynamically -->
+            </div>
+            <div class="todo-filters">
+                <button class="filter-btn active" data-filter="all">الكل</button>
+                <button class="filter-btn" data-filter="today">اليوم والمتأخر</button>
+                <button class="filter-btn" data-filter="upcoming">القادم</button>
+                <button class="filter-btn" data-filter="high">عالية الأولوية</button>
+                <button class="filter-btn" data-filter="completed">المكتملة</button>
+            </div>
         </div>
-        <ul id="todo-list" class="todo-list"></ul>
+
+        <!-- SEARCH BAR (Optional if tasks > 4) -->
+        <div id="todo-search-wrap" class="notes-search hidden" style="margin-bottom: 1.25rem;">
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <input type="text" id="todo-search-input" placeholder="بحث في المهام..." aria-label="بحث في المهام">
+        </div>
+
+        <!-- SECTIONS CONTAINER -->
+        <div id="todo-sections-container">
+            <!-- Rendered dynamically into Today/Overdue, Upcoming, Completed -->
+        </div>
+
+        <!-- EMPTY STATE -->
         <div class="todo-empty hidden" id="todo-empty">
-            <i class="fa-solid fa-clipboard-list"></i>
-            <p>لا توجد مهام بعد</p>
+            <i class="fa-solid fa-clipboard-check" style="font-size: 3rem; color: var(--text-muted); opacity: 0.5;"></i>
+            <h3 style="margin: 0.75rem 0 0.25rem;">لا توجد مهام مطابقة</h3>
+            <p id="todo-empty-text">لا توجد مهام حالية. أضف أول مهمة لتبدأ تنظيم يومك الدراسي.</p>
+            <button type="button" id="empty-add-btn" class="btn btn-primary" style="margin-top: 1rem;">
+                <i class="fa-solid fa-plus"></i> أضف مهمة جديدة
+            </button>
         </div>
     </div>
 
-    <!-- المحتوى النصي التوضيحي -->
+    <!-- TASK DETAILS / EDIT MODAL -->
+    <div id="task-details-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-task-title">
+        <div class="modal-content" style="max-width: 580px;">
+            <button type="button" class="close-modal" id="close-task-modal" aria-label="إغلاق Window">&times;</button>
+            <div class="modal-header" style="margin-bottom: 1.25rem;">
+                <span id="modal-task-badge" class="badge badge-personal" style="margin-bottom: 0.4rem; display: inline-block;">مهمة دراسية</span>
+                <h3 id="modal-task-title" style="font-size: 1.3rem; margin: 0;">تفاصيل المهمة</h3>
+            </div>
+
+            <form id="modal-task-form" style="display: flex; flex-direction: column; gap: 1rem;">
+                <input type="hidden" id="modal-task-id">
+
+                <div class="field">
+                    <label for="modal-input-title">عنوان المهمة</label>
+                    <input type="text" id="modal-input-title" required>
+                </div>
+
+                <div class="todo-options" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.85rem;">
+                    <div class="option-field">
+                        <label for="modal-input-priority">الأولوية</label>
+                        <select id="modal-input-priority">
+                            <option value="low">منخفضة</option>
+                            <option value="medium">عادية</option>
+                            <option value="high">عالية 🔥</option>
+                        </select>
+                    </div>
+                    <div class="option-field">
+                        <label for="modal-input-subject">المادة</label>
+                        <select id="modal-input-subject">
+                            <option value="">بدون مادة</option>
+                        </select>
+                    </div>
+                    <div class="option-field">
+                        <label for="modal-input-date">تاريخ الاستحقاق</label>
+                        <input type="datetime-local" id="modal-input-date">
+                    </div>
+                    <div class="option-field">
+                        <label for="modal-input-minutes">المدة المتوقعة (دقيقة)</label>
+                        <input type="number" id="modal-input-minutes" min="1" max="1440">
+                    </div>
+                </div>
+
+                <!-- METRICS & INTEGRATION SNAPSHOT -->
+                <div id="modal-integration-info" style="background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 0.85rem 1rem; font-size: 0.88rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button type="button" id="modal-btn-focus" class="btn btn-primary"><i class="fa-solid fa-play"></i> ابدأ التركيز</button>
+                        <button type="button" id="modal-btn-note" class="btn btn-secondary"><i class="fa-solid fa-note-sticky"></i> أضف ملاحظة</button>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button type="submit" class="btn btn-primary" style="background: #059669;"><i class="fa-solid fa-check"></i> حفظ التغييرات</button>
+                        <button type="button" id="modal-btn-delete" class="btn btn-outline"><i class="fa-solid fa-trash"></i> حذف</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- EDUCATIONAL CONTENT SECTION -->
     <section class="card content-section" style="margin-top: 2rem;">
         <div class="section-header">
-            <h2><i class="fa-solid fa-info-circle"></i> لماذا تحتاج إلى قائمة مهام دراسية؟</h2>
+            <h2><i class="fa-solid fa-info-circle"></i> لماذا يُعد محرك المهام مركز العمل اليومي للطالب؟</h2>
         </div>
         <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
             <p>
-                تنظيم المهام اليومية من أكبر التحديات التي يواجهها الطلاب. الواجبات، المراجعات، المشاريع، والاختبارات تتراكم بسرعة، وبدون نظام واضح يصبح من السهل نسيان شيء مهم أو تأجيل المهام ذات الأولوية العالية. قائمة المهام في منصة حيز مصممة خصيصًا لمساعدة الطالب على ترتيب أعماله بطريقة بسيطة وواضحة.
+                تحولت قائمة المهام في منصة <strong>حيز</strong> من مجرد قائمة شطب تقليدية إلى <strong>Student Action Engine</strong> يعمل كحلقة اتصال حقيقية تربط بين <a href="calculator.html">تقويم الطالب</a>، <a href="pomodoro.html">مؤقت بومودورو</a>، <a href="notes.html">دفتر الملاحظات</a>، و<a href="index.html">لوحة الملخص اليومي</a>.
             </p>
             <p>
-                الأداة تتيح لك إضافة مهمة جديدة، وتحديد مستوى أولويتها (منخفضة، متوسطة، أو عالية)، واختيار تاريخ الاستحقاق، وحتى تقدير المدة المتوقعة لإنجازها بالدقائق. بعد الإضافة يمكنك تصفية المهام حسب حالتها: الكل، النشطة، المكتملة، أو عالية الأولوية فقط. هذا يساعدك على التركيز على ما هو أهم في الوقت الحالي.
-            </p>
-            <p>
-                من أفضل طرق استخدام قائمة المهام: اكتب في بداية كل يوم أو مساء اليوم السابق المهام المطلوبة، ورتبها حسب الأولوية. ابدأ بالمهام العالية أولًا، ثم انتقل إلى المتوسطة. يمكنك ربط المهمة بجلسة مذاكرة باستخدام <a href="pomodoro.html">مؤقت بومودورو</a>، بحيث تخصص عددًا معينًا من الجلسات لإنجازها.
-            </p>
-            <p>
-                قائمة المهام تعمل مباشرة من المتصفح دون الحاجة إلى تسجيل حساب أو تحميل تطبيق. بياناتك تُحفظ محليًا على جهازك، مما يحافظ على خصوصيتك ويجعل الوصول إليها سريعًا. مناسبة للاستخدام على الجوال والكمبيوتر بنفس السهولة.
-            </p>
-            <p>
-                يمكنك أيضًا دمجها مع باقي أدوات حيز. بعد إنجاز مهمة دراسية، سجلها كمكتملة، ثم أضف ملاحظة سريعة في <a href="notes.html">دفتر الملاحظات</a> إذا لزم الأمر، أو تابع عادة إنجاز المهام اليومية من خلال <a href="habits.html">متتبع العادات</a>. وإذا كان لديك اختبار قادم، يمكنك إضافة موعده في <a href="calculator.html">تقويم الطالب</a> لتتبع الأيام المتبقية له. هذا التكامل البسيط يجعل يومك الدراسي أكثر تنظيمًا.
-            </p>
-            <p>
-                النصيحة الأهم: لا تُكثر من المهام في قائمة واحدة. ركز على عدد معقول يمكن إنجازه فعليًا خلال اليوم. عندما تنهي مهمة وتشطبها، تشعر بإنجاز حقيقي يدفعك للاستمرار. الاستمرارية أهم من الكمال.
-            </p>
-            <p>
-                ابدأ الآن بإضافة مهامك الحالية، وحدد أولوياتها، وستلاحظ فرقًا واضحًا في قدرتك على متابعة دراستك دون الشعور بالفوضى أو النسيان.
+                بناءً على أولوياتك ومواعيد تسليمك وجلسات التركيز التي أديتها، يجيبك النظام فور فتح الأداة عن السؤال الأهم: <strong>"ماذا أفعل الآن؟"</strong> مع إمكانية إطلاق جلسة تركيز موجهة فورية بضغطة زر واحدة بدون إعادة إدخال البيانات.
             </p>
         </div>
     </section>
 
-    <!-- قسم الأسئلة الشائعة -->
+    <!-- FAQ SECTION -->
     <section class="card content-section" style="margin-top: 2rem;">
         <div class="section-header">
-            <h2><i class="fa-solid fa-circle-question"></i> الأسئلة الشائعة حول قائمة المهام</h2>
+            <h2><i class="fa-solid fa-circle-question"></i> الأسئلة الشائعة حول محرك المهام</h2>
         </div>
         <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
-
             <div class="faq-item" style="margin-bottom: 1.8rem;">
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">كيف أضيف مهمة جديدة؟</h3>
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">كيف يختار النظام مهمة "ماذا أفعل الآن؟"؟</h3>
                 <p>
-                    اكتب نص المهمة، اختر الأولوية وتاريخ الاستحقاق إن أردت، ثم اضغط على زر الإضافة. ستظهر المهمة مباشرة في القائمة.
+                    يعتمد المحرك على خوارزمية حتمية ودقيقة تأخذ بالاعتبار: المهام قيد التنفيذ حاليًا، المواعيد المتأخرة، المواعيد المستحقة اليوم، الأولوية العالية، والارتباط باختبارات التقويم القريبة.
                 </p>
             </div>
-
             <div class="faq-item" style="margin-bottom: 1.8rem;">
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">ما فائدة تحديد الأولوية؟</h3>
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل تسجيل جلسات التركيز يغير حالة المهمة؟</h3>
                 <p>
-                    تحديد الأولوية يساعدك على التركيز على المهام الأهم أولًا، ويمكنك تصفية القائمة لعرض المهام عالية الأولوية فقط.
+                    نعم، البدء بجلسة بومودورو يسجل دقائق التركيز والجلسات المنجزة على المهمة ويرفع حالتها إلى "قيد التنفيذ"، ويظل تاريخ الجلسات محفوظًا بشكل دائم حتى بعد اكتمال المهمة.
                 </p>
             </div>
-
-            <div class="faq-item" style="margin-bottom: 1.8rem;">
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل تُحفظ مهامي إذا أغلقت المتصفح؟</h3>
-                <p>
-                    نعم، المهام تُحفظ محليًا في متصفحك، وستجدها عند العودة من نفس الجهاز والمتصفح.
-                </p>
-            </div>
-
-            <div class="faq-item" style="margin-bottom: 1.8rem;">
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل أحتاج إلى تسجيل حساب؟</h3>
-                <p>
-                    لا، قائمة المهام تعمل مباشرة دون أي تسجيل أو تحميل تطبيق، مثل باقي أدوات حيز.
-                </p>
-            </div>
-
             <div class="faq-item">
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل يمكن استخدامها على الجوال؟</h3>
-                  <p>
-                     نعم، الصفحة متجاوبة وتعمل بشكل جيد على الهواتف والأجهزة اللوحية، ويمكنك
-                 <a href="blog-9.html">قراءة المزيد عن تجربة حيز على الأجهزة المحمولة</a>.
-              </p>
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل تضيع مهامي عند حذف حدث تقويم مرتبط بها؟</h3>
+                <p>
+                    لا، تبقى المهمة محفوظة بالكامل في قائمة المهام مع الاحتفاظ بسياقها وتقدمها دون كسر البيانات.
+                </p>
             </div>
-
         </div>
     </section>
 </main>
+
 <footer class="footer">
     <div class="container footer-container">
         <div class="footer-brand">
@@ -252,6 +320,7 @@
         </div>
     </div>
 </footer>
+
 <script src="common.js"></script>
 <script src="todo.js"></script>
 </body>

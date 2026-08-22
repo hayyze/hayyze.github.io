@@ -94,6 +94,26 @@ console.log('=== RUNNING HAYYIZ AUTOMATED TEST SUITE ===\n');
     hayyizApplyFocusResult({ workMin: 25, taskId: todos[0].id, taskText: 'دراسة الفيزياء' });
     const updatedTodos = hayyizGetTodos();
     assert(updatedTodos[0].focusDone === 25 && updatedTodos[0].sessionsDone === 1, 'Focus session applies focus minutes (25) and session count (1) to task');
+
+    // Student Action Engine Helper API Tests
+    const tId = todos[0].id;
+    const fetched = hayyizGetTaskById(tId);
+    assert(fetched && fetched.text === 'دراسة الفيزياء', 'hayyizGetTaskById retrieves task correctly');
+
+    const updated = hayyizUpdateTask(tId, { priority: 'high', minutes: '50' });
+    assert(updated && updated.minutes === '50', 'hayyizUpdateTask updates fields safely');
+
+    const summary = hayyizGetTaskSummary();
+    assert(summary && summary.activeCount === 1 && summary.totalFocusMinutes === 25, 'hayyizGetTaskSummary computes accurate metrics');
+
+    const dueOverdue = hayyizFormatRelativeDueDate('2020-01-01');
+    assert(dueOverdue.isOverdue && dueOverdue.label.includes('متأخرة'), 'hayyizFormatRelativeDueDate calculates relative overdue text');
+
+    const dueToday = hayyizFormatRelativeDueDate(getTodayLocal());
+    assert(!dueToday.isOverdue && dueToday.label === 'اليوم', 'hayyizFormatRelativeDueDate calculates today correctly');
+
+    const deleted = hayyizDeleteTask(tId);
+    assert(deleted && hayyizGetTodos().length === 0, 'hayyizDeleteTask removes task safely');
 }
 
 // 4. Habits Streak Logic Tests
