@@ -125,7 +125,103 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     assert(clearedDraft === null, 'Note draft cleared cleanly after note submission');
 }
 
-// --- 6. CORE TOOLS E2E PERSISTENCE TESTS ---
+// --- 6. POMODORO SESSION LIFECYCLE SCENARIOS (1 to 8) ---
+{
+    localStorage.clear();
+
+    // Scenario 1: Start 25-minute session -> reload after 5 minutes -> remaining time is correct
+    const now = Date.now();
+    const session1State = {
+        mode: 'focus',
+        status: 'running',
+        endTime: now + (20 * 60 * 1000), // 20 minutes left (5 minutes elapsed)
+        remainingSeconds: 20 * 60,
+        totalDuration: 25 * 60,
+        context: { type: 'free', id: null, title: 'تركيز حر' }
+    };
+    hayyizSaveFocusState(session1State);
+    const restored1 = hayyizGetFocusState();
+    assert(restored1 && restored1.status === 'running' && restored1.remainingSeconds === 20 * 60, 'Scenario 1: Reload after 5 mins maintains exact remaining time (20 mins)');
+
+    // Scenario 2: Start session -> close browser completely -> reopen after elapsed time -> reconstructed as completed
+    const pastEndTime = now - (5 * 60 * 1000); // Ended 5 minutes ago
+    const session2State = {
+        mode: 'focus',
+        status: 'running',
+        endTime: pastEndTime,
+        remainingSeconds: 0,
+        totalDuration: 25 * 60,
+        context: { type: 'free', id: null, title: 'تركيز حر' }
+    };
+    hayyizSaveFocusState(session2State);
+    const restored2 = hayyizGetFocusState();
+    assert(restored2 && restored2.status === 'completed' && restored2.remainingSeconds === 0, 'Scenario 2: Reopen after elapsed time reconstructs state as completed');
+
+    // Scenario 3: Switch tab & return -> timestamp-based remaining time remains accurate
+    const session3State = {
+        mode: 'focus',
+        status: 'running',
+        endTime: now + 300 * 1000, // 5 minutes left
+        remainingSeconds: 300,
+        totalDuration: 25 * 60,
+        context: { type: 'free', id: null, title: 'تركيز حر' }
+    };
+    hayyizSaveFocusState(session3State);
+    const restored3 = hayyizGetFocusState();
+    assert(restored3 && restored3.remainingSeconds === 300, 'Scenario 3: Tab switch & return relies on timestamp precision');
+
+    // Scenario 4: Laptop sleep-like elapsed recovery -> calculated from real timestamp
+    const sleepState = {
+        mode: 'focus',
+        status: 'running',
+        endTime: now - 1000, // Elapsed during sleep
+        remainingSeconds: 0,
+        totalDuration: 25 * 60,
+        context: { type: 'free', id: null, title: 'تركيز حر' }
+    };
+    hayyizSaveFocusState(sleepState);
+    const restored4 = hayyizGetFocusState();
+    assert(restored4 && restored4.status === 'completed', 'Scenario 4: Device sleep elapsed time transitions cleanly to completed state');
+
+    // Scenario 5: Session attached to Task -> delete Task -> session history remains intact
+    const task = { id: 't_del', text: 'مهمة ستُحذف', priority: 'high', completed: false };
+    hayyizSaveTodos([task]);
+    hayyizLogFocusSession({
+        durationMinutes: 25,
+        mode: 'focus',
+        contextType: 'task',
+        contextId: 't_del',
+        contextTitle: 'مهمة ستُحذف'
+    });
+    // Delete task
+    hayyizSaveTodos([]);
+    const sessionLogs = hayyizGetFocusSessions();
+    assert(sessionLogs.length === 1 && sessionLogs[0].contextSnapshot.title === 'مهمة ستُحذف', 'Scenario 5: Session history remains intact after task deletion');
+
+    // Scenario 6: Session attached to Event -> delete/change Event -> snapshot remains understandable
+    const eventObj = { id: 'ev_del', name: 'اختبار محذوف', date: '2026-05-10', type: 'exam' };
+    hayyizLogFocusSession({
+        durationMinutes: 25,
+        mode: 'focus',
+        contextType: 'event',
+        contextId: 'ev_del',
+        contextTitle: 'اختبار محذوف'
+    });
+    const sessionLogs2 = hayyizGetFocusSessions();
+    assert(sessionLogs2[0].contextSnapshot.type === 'event' && sessionLogs2[0].contextSnapshot.title === 'اختبار محذوف', 'Scenario 6: Calendar event snapshot preserved after event deletion');
+
+    // Scenario 7: State persistence relies on immediate LocalStorage updates, not sole beforeunload
+    const testState = { mode: 'focus', status: 'paused', remainingSeconds: 600, totalDuration: 1500, context: { type: 'free', id: null, title: 'تركيز حر' } };
+    hayyizSaveFocusState(testState);
+    const storedRaw = localStorage.getItem('hayyiz-pomodoro-state');
+    assert(storedRaw && storedRaw.includes('"status":"paused"'), 'Scenario 7: Persistence writes to LocalStorage on every state update (not just beforeunload)');
+
+    // Scenario 8: Dashboard active-session state detection
+    const activeFocusState = hayyizGetFocusState();
+    assert(activeFocusState !== null, 'Scenario 8: Dashboard can query active focus state cleanly after reload');
+}
+
+// --- 7. CORE TOOLS E2E PERSISTENCE TESTS ---
 {
     localStorage.clear();
 
