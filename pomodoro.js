@@ -419,9 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             switchToBreak(nextBreakIsLong);
 
-            if (!wasAway) {
-                showSessionEndModal(workMin);
-            }
+            showSessionEndModal(workMin);
         } else {
             showNotification(
                 'حيز - بومودورو',

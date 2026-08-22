@@ -137,15 +137,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const acadSummary = typeof hayyizGetAcademicSummary === 'function' ? hayyizGetAcademicSummary() : null;
     if (acadSummary && (acadSummary.current !== null || acadSummary.target !== null)) {
         const goalCard = document.createElement('div');
-        goalCard.className = 'dash-section card';
-        goalCard.style.cssText = 'padding: 1.1rem 1.25rem; margin-bottom: 1.25rem; background: var(--bg-card); border-radius: var(--radius); border: 1px solid var(--border);';
+        goalCard.className = 'dash-card card';
 
         const goalHead = document.createElement('div');
         goalHead.className = 'dash-section-head';
-        goalHead.style.cssText = 'margin-bottom: 0.75rem;';
 
         const goalHeadTitle = document.createElement('h4');
-        goalHeadTitle.style.cssText = 'font-size: 1.05rem; margin: 0;';
         goalHeadTitle.innerHTML = '<i class="fa-solid fa-bullseye" aria-hidden="true" style="color:var(--primary);"></i> وضعك الدراسي وهدفك';
 
         const gpaLink = document.createElement('a');
@@ -157,11 +154,11 @@ document.addEventListener('DOMContentLoaded', () => {
         goalCard.appendChild(goalHead);
 
         const goalGrid = document.createElement('div');
-        goalGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem; text-align: center;';
+        goalGrid.className = 'dash-card-grid';
 
         if (acadSummary.current !== null) {
             const curBox = document.createElement('div');
-            curBox.style.cssText = 'padding: 0.6rem; background: var(--bg); border-radius: 10px; border: 1px solid var(--border);';
+            curBox.className = 'dash-card-box';
             curBox.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted); display:block;">المعدل الحالي</span>' +
                                '<strong style="font-size:1.25rem; color:var(--text);">' + acadSummary.current.toFixed(2) + '%</strong>';
             goalGrid.appendChild(curBox);
@@ -169,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (acadSummary.target !== null) {
             const tgtBox = document.createElement('div');
-            tgtBox.style.cssText = 'padding: 0.6rem; background: var(--bg); border-radius: 10px; border: 1px solid var(--border);';
+            tgtBox.className = 'dash-card-box';
             tgtBox.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted); display:block;">الهدف</span>' +
                                '<strong style="font-size:1.25rem; color:var(--primary);">' + acadSummary.target.toFixed(2) + '%</strong>';
             goalGrid.appendChild(tgtBox);
@@ -178,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (acadSummary.current !== null && acadSummary.target !== null) {
             const pctVal = Math.min(100, Math.max(0, Math.round((acadSummary.current / acadSummary.target) * 100)));
             const pctBox = document.createElement('div');
-            pctBox.style.cssText = 'padding: 0.6rem; background: var(--bg); border-radius: 10px; border: 1px solid var(--border);';
+            pctBox.className = 'dash-card-box';
             pctBox.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted); display:block;">نسبة الاقتراب من الهدف</span>' +
                                '<strong style="font-size:1.25rem; color:var(--success, #10b981);">' + pctVal + '%</strong>';
             goalGrid.appendChild(pctBox);
@@ -190,9 +187,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (acadSummary.current !== null && acadSummary.target !== null) {
             const pctVal = Math.min(100, Math.max(0, (acadSummary.current / acadSummary.target) * 100));
             const progWrap = document.createElement('div');
-            progWrap.style.cssText = 'height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin-bottom: 0.6rem;';
+            progWrap.className = 'dash-progress-track';
             const progBar = document.createElement('div');
-            progBar.style.cssText = 'height: 100%; width: ' + pctVal.toFixed(1) + '%; background: var(--primary); transition: width 0.3s;';
+            progBar.className = 'dash-progress-fill';
+            progBar.style.width = pctVal.toFixed(1) + '%';
             progWrap.appendChild(progBar);
             goalCard.appendChild(progWrap);
 
