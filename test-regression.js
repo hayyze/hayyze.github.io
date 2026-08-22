@@ -125,7 +125,213 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     assert(clearedDraft === null, 'Note draft cleared cleanly after note submission');
 }
 
-// --- 6. POMODORO SESSION LIFECYCLE SCENARIOS (1 to 8) ---
+// --- 6. DETERMINISTIC POMODORO SESSION LIFECYCLE TESTS (1 TO 10) ---
+{
+    localStorage.clear();
+    const realDateNow = Date.now;
+    let mockTime = 1000000000; // T0
+    Date.now = () => mockTime;
+
+    // Test 1: Start -> advance time to expiration -> complete exactly once
+    localStorage.clear();
+    mockTime = 1000000000;
+    const sess1 = {
+        mode: 'focus',
+        status: 'running',
+        sessionId: 'test_sess_1',
+        totalDuration: 1500,
+        remainingSeconds: 1500,
+        endTime: mockTime + 1500 * 1000,
+        context: { type: 'free', id: null, title: 'تركيز حر' }
+    };
+    hayyizSaveFocusState(sess1);
+    mockTime += 1500 * 1000; // T0 + 25 minutes
+    const rec1 = hayyizReconcilePomodoroState();
+    const minToday1 = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
+    assert(rec1.status === 'completed' && minToday1 === 25, 'Test 1: Session completes exactly once on expiration (25 mins logged)');
+
+    // Test 2: Start -> leave page -> advance time -> reopen page -> session is completed and logged
+    localStorage.clear();
+    mockTime = 1000000000;
+    const sess2 = {
+        mode: 'focus',
+        status: 'running',
+        sessionId: 'test_sess_2',
+        totalDuration: 1500,
+        remainingSeconds: 1500,
+        endTime: mockTime + 1500 * 1000,
+        context: { type: 'free', id: null, title: 'تركيز حر' }
+    };
+    hayyizSaveFocusState(sess2);
+    // User leaves pomodoro.html, time advances past end
+    mockTime += 1800 * 1000; // T0 + 30 minutes
+    const rec2 = hayyizGetFocusState(); // Reopen on any page / Dashboard
+    const sessLog2 = hayyizGetFocusSessions();
+    assert(rec2.status === 'completed' && sessLog2.length === 1 && sessLog2[0].id === 'test_sess_2', 'Test 2: Reopening after expiration logs completed session from storage');
+
+    // Test 3: Start -> reload before expiration -> remaining time is correct
+    localStorage.clear();
+    mockTime = 1000000000;
+    const sess3 = {
+        mode: 'focus',
+        status: 'running',
+        sessionId: 'test_sess_3',
+        totalDuration: 1500,
+        remainingSeconds: 1500,
+        endTime: mockTime + 1500 * 1000,
+        context: { type: 'free', id: null, title: 'تركيز حر' }
+    };
+    hayyizSaveFocusState(sess3);
+    mockTime += 600 * 1000; // 10 minutes elapsed
+    const rec3 = hayyizReconcilePomodoroState();
+    assert(rec3.status === 'running' && rec3.remainingSeconds === 900, 'Test 3: Reloading before expiration retains correct remaining time (900s / 15m)');
+
+    // Test 4: Start -> reload after expiration -> session is completed exactly once
+    localStorage.clear();
+    mockTime = 1000000000;
+    const sess4 = {
+        mode: 'focus',
+        status: 'running',
+        sessionId: 'test_sess_4',
+        totalDuration: 1500,
+        remainingSeconds: 1500,
+        endTime: mockTime + 1500 * 1000,
+        context: { type: 'free', id: null, title: 'تركيز حر' }
+    };
+    hayyizSaveFocusState(sess4);
+    mockTime += 2000 * 1000; // Reload long after expiration
+    hayyizReconcilePomodoroState();
+    hayyizReconcilePomodoroState(); // Second call simulate reload
+    const totalSess4 = parseInt(localStorage.getItem('hayyiz-sessions') || '0', 10);
+    assert(totalSess4 === 1, 'Test 4: Reload after expiration completes session exactly once (not duplicated)');
+
+    // Test 5: Start -> hidden tab / delayed timer -> return after expiration -> session completes
+    localStorage.clear();
+    mockTime = 1000000000;
+    const sess5 = {
+        mode: 'focus',
+        status: 'running',
+        sessionId: 'test_sess_5',
+        totalDuration: 1500,
+        remainingSeconds: 1500,
+        endTime: mockTime + 1500 * 1000,
+        context: { type: 'free', id: null, title: 'تركيز حر' }
+    };
+    hayyizSaveFocusState(sess5);
+    mockTime += 1600 * 1000; // Tab hidden while timer expired
+    const rec5 = hayyizReconcilePomodoroState();
+    assert(rec5.status === 'completed', 'Test 5: Returning from hidden tab after expiration completes session');
+
+    // Test 6: Start -> pause -> advance clock -> still paused
+    localStorage.clear();
+    mockTime = 1000000000;
+    const sess6 = {
+        mode: 'focus',
+        status: 'paused',
+        sessionId: 'test_sess_6',
+        totalDuration: 1500,
+        remainingSeconds: 1200,
+        endTime: null,
+        context: { type: 'free', id: null, title: 'تركيز حر' }
+    };
+    hayyizSaveFocusState(sess6);
+    mockTime += 5000 * 1000; // Advance time significantly while paused
+    const rec6 = hayyizReconcilePomodoroState();
+    assert(rec6.status === 'paused' && rec6.remainingSeconds === 1200, 'Test 6: Paused session remains paused and remaining time does not decrease');
+
+    // Test 7: Pause -> resume -> elapsed time excludes pause duration
+    localStorage.clear();
+    mockTime = 1000000000;
+    // 5 mins elapsed out of 25, then paused with 20 mins (1200s) left
+    const sess7 = {
+        mode: 'focus',
+        status: 'paused',
+        sessionId: 'test_sess_7',
+        totalDuration: 1500,
+        remainingSeconds: 1200,
+        endTime: null,
+        context: { type: 'free', id: null, title: 'تركيز حر' }
+    };
+    hayyizSaveFocusState(sess7);
+    mockTime += 3600 * 1000; // Paused for 1 hour
+    // Resume session
+    sess7.status = 'running';
+    sess7.endTime = mockTime + 1200 * 1000;
+    hayyizSaveFocusState(sess7);
+    const rec7 = hayyizReconcilePomodoroState();
+    assert(rec7.remainingSeconds === 1200, 'Test 7: Resuming after pause excludes pause duration from elapsed focus calculation');
+
+    // Test 8 & 9: Complete -> reload / reopen multiple times -> stats increase only once
+    localStorage.clear();
+    mockTime = 1000000000;
+    const sess8 = {
+        mode: 'focus',
+        status: 'running',
+        sessionId: 'test_sess_8',
+        totalDuration: 1500,
+        remainingSeconds: 1500,
+        endTime: mockTime + 1500 * 1000,
+        context: { type: 'free', id: null, title: 'تركيز حر' }
+    };
+    hayyizSaveFocusState(sess8);
+    mockTime += 1500 * 1000;
+    hayyizReconcilePomodoroState();
+    hayyizReconcilePomodoroState();
+    hayyizReconcilePomodoroState();
+    const focusMin8 = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
+    assert(focusMin8 === 25, 'Tests 8 & 9: Reopening/reloading completed session multiple times keeps stats at exactly 25 minutes');
+
+    // Test 10: Task integration completion updates task/focus progress exactly once
+    localStorage.clear();
+    mockTime = 1000000000;
+    hayyizSaveTodos([{ id: 't_int_10', text: 'مهمة الفيزياء', focusDone: 0, sessionsDone: 0, completed: false }]);
+    const sess10 = {
+        mode: 'focus',
+        status: 'running',
+        sessionId: 'test_sess_10',
+        totalDuration: 1500,
+        remainingSeconds: 1500,
+        endTime: mockTime + 1500 * 1000,
+        context: { type: 'task', id: 't_int_10', title: 'مهمة الفيزياء' }
+    };
+    hayyizSaveFocusState(sess10);
+    mockTime += 1500 * 1000;
+    hayyizReconcilePomodoroState();
+    hayyizReconcilePomodoroState(); // Reconcile multiple times
+    const updatedTodo10 = hayyizGetTodoById('t_int_10');
+    assert(updatedTodo10.focusDone === 25 && updatedTodo10.sessionsDone === 1, 'Test 10: Task focus integration updates linked task focus progress exactly once');
+
+    // Specific deterministic scenario requested by user:
+    localStorage.clear();
+    mockTime = 1000000000; // T0
+    const specSess = {
+        mode: 'focus',
+        status: 'running',
+        sessionId: 'spec_sess_25m',
+        totalDuration: 1500, // 25 mins
+        remainingSeconds: 1500,
+        endTime: mockTime + 1500 * 1000,
+        context: { type: 'free', id: null, title: 'تركيز حر' }
+    };
+    hayyizSaveFocusState(specSess); // Start Pomodoro T0
+
+    mockTime += 600 * 1000; // T0 + 10 mins: Leave pomodoro.html
+    mockTime += 900 * 1000; // T0 + 25 mins: Session logically complete
+
+    mockTime += 300 * 1000; // T0 + 30 mins: Open pomodoro.html
+    const specRec1 = hayyizReconcilePomodoroState();
+    const specMin1 = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
+
+    // Reload pomodoro.html
+    const specRec2 = hayyizReconcilePomodoroState();
+    const specMin2 = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
+
+    assert(specRec1.status === 'completed' && specMin1 === 25 && specMin2 === 25, 'Specific Deterministic Scenario: Logically completed while away, stats are exactly 25 mins after reopen and reload');
+
+    Date.now = realDateNow;
+}
+
+// --- 7. POMODORO SESSION LIFECYCLE SCENARIOS (1 to 8) ---
 {
     localStorage.clear();
 
@@ -184,6 +390,7 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     assert(restored4 && restored4.status === 'completed', 'Scenario 4: Device sleep elapsed time transitions cleanly to completed state');
 
     // Scenario 5: Session attached to Task -> delete Task -> session history remains intact
+    localStorage.removeItem('hayyiz-focus-sessions-log');
     const task = { id: 't_del', text: 'مهمة ستُحذف', priority: 'high', completed: false };
     hayyizSaveTodos([task]);
     hayyizLogFocusSession({

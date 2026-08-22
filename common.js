@@ -520,36 +520,43 @@ function hayyizRecommendNext(limit) {
 /* ---------- Focus Engine Data Layer Helpers ---------- */
 
 /**
- * جلب حالة جهاز التركيز الحالية مع دعم للتوافقية القديمة
+ * التأكد من إعادة تهيئة إحصائيات اليوم عند تغير التاريخ
  */
-function hayyizGetFocusState() {
+function hayyizEnsureTodayStats() {
+    const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+    const lastDay = localStorage.getItem('hayyiz-sessions-day');
+    if (lastDay !== today) {
+        localStorage.setItem('hayyiz-sessions-today', '0');
+        localStorage.setItem('hayyiz-focus-minutes-today', '0');
+        localStorage.setItem('hayyiz-sessions-day', today);
+    }
+}
+
+/**
+ * دالة مركزية لمطابقة وتحديث حالة البومودورو بشكل حتمي وidempotent اعتماداً على timestamps
+ */
+function hayyizReconcilePomodoroState() {
+    hayyizEnsureTodayStats();
     const raw = localStorage.getItem('hayyiz-pomodoro-state');
     if (!raw) return null;
+
     try {
         const state = JSON.parse(raw);
         if (!state || typeof state !== 'object') return null;
 
-        // تحويل الصيغة القديمة إلى المخطط الجديد المحسن
         const workMin = parseInt(state.workMinutes || localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
         const breakMin = parseInt(state.breakMinutes || localStorage.getItem('hayyiz-pref-break') || '5', 10) || 5;
         const longBreakMin = parseInt(state.longBreakMinutes || localStorage.getItem('hayyiz-pref-long') || '15', 10) || 15;
 
-        const mode = state.mode || (state.isWorkMode === false ? 'break' : 'focus');
+        let mode = state.mode || (state.isWorkMode === false ? 'break' : 'focus');
         let status = state.status || (state.isRunning ? 'running' : 'idle');
         let endTime = typeof state.endTime === 'number' ? state.endTime : null;
         let totalDuration = typeof state.totalDuration === 'number' ? state.totalDuration : (mode === 'focus' ? workMin : breakMin) * 60;
         let remainingSeconds = typeof state.remainingSeconds === 'number' ? state.remainingSeconds : totalDuration;
-
-        if (status === 'running' && endTime) {
-            const now = Date.now();
-            const rem = Math.round((endTime - now) / 1000);
-            if (rem <= 0) {
-                status = 'completed';
-                remainingSeconds = 0;
-            } else {
-                remainingSeconds = rem;
-            }
-        }
+        let sessionInCycle = typeof state.sessionInCycle === 'number' ? state.sessionInCycle : parseInt(localStorage.getItem('hayyiz-session-in-cycle') || '0', 10);
+        let sessionId = state.sessionId || null;
+        let pendingCompletionModal = state.pendingCompletionModal || null;
+        let pendingNextMode = state.pendingNextMode || null;
 
         let context = state.context || null;
         if (!context) {
@@ -568,7 +575,97 @@ function hayyizGetFocusState() {
             }
         }
 
-        return {
+        // تقييم الجلسة النشطة
+        if (status === 'running' && endTime) {
+            const now = Date.now();
+            const rem = Math.round((endTime - now) / 1000);
+
+            if (rem <= 0) {
+                // انتهى وقت الجلسة
+                remainingSeconds = 0;
+                status = 'completed';
+                endTime = null;
+
+                if (!sessionId) {
+                    sessionId = 's_legacy_' + (state.lastUpdated || Date.now());
+                }
+
+                // التحقق الإلزامي من عدم تكرار التسجيل (Idempotency guarantee)
+                const log = hayyizGetFocusSessions();
+                const alreadyLogged = log.some((entry) => entry && entry.id === sessionId);
+
+                if (!alreadyLogged) {
+                    if (mode === 'focus') {
+                        const workMinJustDone = Math.round(totalDuration / 60) || workMin;
+
+                        // 1. تحديث الإحصائيات العامة والإحصائيات اليومية مرة واحدة فقط
+                        const completedTotal = parseInt(localStorage.getItem('hayyiz-sessions') || '0', 10) + 1;
+                        localStorage.setItem('hayyiz-sessions', String(completedTotal));
+
+                        hayyizEnsureTodayStats();
+                        const todaySess = parseInt(localStorage.getItem('hayyiz-sessions-today') || '0', 10) + 1;
+                        const todayMin = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10) + workMinJustDone;
+                        localStorage.setItem('hayyiz-sessions-today', String(todaySess));
+                        localStorage.setItem('hayyiz-focus-minutes-today', String(todayMin));
+
+                        // 2. تحديث سجل تاريخ التركيز
+                        try {
+                            const hist = JSON.parse(localStorage.getItem('hayyiz-focus-history') || '{}');
+                            const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+                            hist[today] = (parseInt(hist[today], 10) || 0) + workMinJustDone;
+                            localStorage.setItem('hayyiz-focus-history', JSON.stringify(hist));
+                        } catch (e) {}
+
+                        // 3. كتابة السجل غير القابل للتغيير
+                        hayyizLogFocusSession({
+                            id: sessionId,
+                            durationMinutes: workMinJustDone,
+                            mode: 'focus',
+                            contextType: context.type,
+                            contextId: context.id,
+                            contextTitle: context.title,
+                            subjectId: context.subjectId
+                        });
+
+                        // 4. تطبيق نتيجة التركيز على المهمة أو المادة
+                        if (context.type === 'task') {
+                            hayyizApplyFocusResult({
+                                workMin: workMinJustDone,
+                                taskId: context.id,
+                                taskText: context.title
+                            });
+                        } else if (context.subjectId) {
+                            hayyizBumpSubjectProgress(context.subjectId, workMinJustDone);
+                        }
+
+                        // 5. تحديث دورة الجلسات وتجهيز النمط القادم
+                        sessionInCycle++;
+                        let isLong = false;
+                        if (sessionInCycle >= 4) {
+                            sessionInCycle = 0;
+                            isLong = true;
+                        }
+
+                        const nextBreakMin = isLong ? longBreakMin : breakMin;
+                        pendingNextMode = isLong ? 'longBreak' : 'break';
+
+                        pendingCompletionModal = {
+                            workMinJustDone: workMinJustDone,
+                            isLongBreak: isLong,
+                            breakMin: nextBreakMin,
+                            contextTitle: context.title
+                        };
+                    } else {
+                        // انتهت جلسة راحة
+                        pendingNextMode = 'focus';
+                    }
+                }
+            } else {
+                remainingSeconds = rem;
+            }
+        }
+
+        const reconciled = {
             mode,
             status,
             endTime,
@@ -577,13 +674,28 @@ function hayyizGetFocusState() {
             workMinutes: workMin,
             breakMinutes: breakMin,
             longBreakMinutes: longBreakMin,
-            sessionInCycle: typeof state.sessionInCycle === 'number' ? state.sessionInCycle : parseInt(localStorage.getItem('hayyiz-session-in-cycle') || '0', 10),
+            sessionInCycle,
+            sessionId,
             context,
-            lastUpdated: state.lastUpdated || Date.now()
+            pendingCompletionModal,
+            pendingNextMode,
+            lastUpdated: Date.now()
         };
+
+        localStorage.setItem('hayyiz-pomodoro-state', JSON.stringify(reconciled));
+        localStorage.setItem('hayyiz-session-in-cycle', String(sessionInCycle));
+
+        return reconciled;
     } catch (e) {
         return null;
     }
+}
+
+/**
+ * جلب حالة جهاز التركيز الحالية بعد التثبت والمطابقة
+ */
+function hayyizGetFocusState() {
+    return hayyizReconcilePomodoroState();
 }
 
 /**
