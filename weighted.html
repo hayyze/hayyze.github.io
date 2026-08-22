@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <script>
+        (function(){try{if(localStorage.getItem('hayyiz-theme')==='dark'){document.documentElement.classList.add('theme-dark');}}catch(e){}})();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self';
+                   script-src 'self' https://www.googletagmanager.com 'unsafe-inline';
+                   script-src-elem 'self' https://www.googletagmanager.com 'unsafe-inline';
+                   style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com 'unsafe-inline';
+                   font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:;
+                   connect-src 'self'
+                               https://www.google-analytics.com
+                               https://*.google-analytics.com
+                               https://analytics.google.com
+                               https://*.analytics.google.com
+                               https://www.googletagmanager.com;
+                   img-src 'self'
+                            data:
+                            https://www.google-analytics.com
+                            https://*.google-analytics.com
+                            https://www.googletagmanager.com;
+                   object-src 'none';
+                   frame-ancestors 'none';
+                   base-uri 'self';">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+
+    <!-- SEO Metadata -->
+    <title>حاسبة النسبة الموزونة للجامعات | احسب موزونتك للقبول | حيز</title>
+    <meta name="description" content="احسب النسبة الموزونة للقبول الجامعي في السعودية بسهولة، أدخل درجات الثانوية العامة واختبار القدرات والتحصيلي مع تخصيص النسب لأي جامعة.">
+    <meta name="keywords" content="حاسبة النسبة الموزونة, حساب النسبة الموزونة, طريقة حساب النسبة الموزونة, حاسبة موزونة الجامعات, النسبة الموزونة للقبول الجامعي">
+    <meta name="author" content="حيز">
+    <meta name="robots" content="index, follow">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://just-c.github.io/adawati/weighted.html">
+    <meta property="og:title" content="حاسبة النسبة الموزونة | حيز">
+    <meta property="og:description" content="احسب نسبة القبول الموزونة للجامعات السعودية (ثانوية، قدرات، تحصيلي) وفق معايير كل جامعة.">
+    <meta property="og:image" content="https://just-c.github.io/adawati/android-chrome-512x512.png">
+    <meta property="og:image:width" content="512">
+    <meta property="og:image:height" content="512">
+    <meta property="og:locale" content="ar_SA">
+    <meta property="og:site_name" content="حيز">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="حاسبة النسبة الموزونة | حيز">
+    <meta name="twitter:description" content="احسب موزوونتك للقبول بالجامعات السعودية بسهولة وتخصيص كامل للأوزان.">
+    <meta name="twitter:image" content="https://just-c.github.io/adawati/android-chrome-512x512.png">
+
+    <link rel="canonical" href="https://just-c.github.io/adawati/weighted.html">
+
+    <!-- الخطوط والأيقونات -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="icon" type="image/x-icon" href="/adawati/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/adawati/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/adawati/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/adawati/apple-touch-icon.png">
+    <link rel="manifest" href="manifest.webmanifest">
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-F94Z3H2D3S');
+    </script>
+
+    <style>
+      .weighted-info {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.25rem;
+        font-size: 0.95rem;
+        line-height: 1.7;
+        color: var(--text-muted);
+      }
+      .weighted-info strong { color: var(--text); }
+      .weighted-info a {
+        color: var(--primary, #4f46e5);
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .weighted-info a:hover { text-decoration: underline; }
+      .weighted-section-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--text);
+        margin: 1rem 0 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+      }
+      .weighted-row {
+        display: grid;
+        grid-template-columns: 1fr 90px 110px auto;
+        gap: 0.6rem;
+        align-items: center;
+        padding: 0.65rem 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .weighted-row:last-child { border-bottom: none; }
+      @media (max-width: 560px) {
+        .weighted-row {
+          grid-template-columns: 1fr 70px 90px auto;
+          gap: 0.4rem;
+        }
+      }
+      .weighted-row input[type="text"],
+      .weighted-row input[type="number"] {
+        width: 100%;
+        padding: 0.55rem 0.65rem;
+        border: 1.5px solid var(--border);
+        border-radius: var(--radius-sm, 10px);
+        font-size: 0.95rem;
+        font-family: inherit;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .weighted-row input:focus {
+        outline: none;
+        border-color: var(--primary, #4f46e5);
+      }
+      .weighted-row .pct-wrap,
+      .weighted-row .score-wrap {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+      }
+      .weighted-row .pct-wrap span,
+      .weighted-row .score-wrap span {
+        color: var(--text-muted);
+        font-size: 0.85rem;
+      }
+      .weighted-row .remove-btn {
+        background: none;
+        border: none;
+        color: var(--danger, #ef4444);
+        cursor: pointer;
+        font-size: 1.1rem;
+        padding: 0.3rem;
+        opacity: 0.7;
+      }
+      .weighted-row .remove-btn:hover { opacity: 1; }
+      .weighted-actions-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        margin-top: 1rem;
+        align-items: center;
+      }
+      .btn-sm {
+        padding: 0.45rem 0.9rem;
+        font-size: 0.9rem;
+        border-radius: 10px;
+        border: 1.5px solid var(--border);
+        background: var(--bg-card);
+        color: var(--text);
+        cursor: pointer;
+        font-family: inherit;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+      .btn-sm:hover {
+        border-color: var(--primary, #4f46e5);
+        color: var(--primary, #4f46e5);
+      }
+      .weighted-remaining {
+        margin-top: 0.85rem;
+        font-size: 0.9rem;
+        color: var(--text-muted);
+        text-align: center;
+      }
+      .weighted-remaining.warn { color: var(--danger, #ef4444); font-weight: 600; }
+      .weighted-remaining.ok { color: var(--success, #10b981); }
+    </style>
+
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      "name": "حاسبة النسبة الموزونة للجامعات",
+      "url": "https://just-c.github.io/adawati/weighted.html",
+      "description": "حاسبة تخصيص النسبة الموزونة للقبول بالجامعات السعودية للثانوية العامة واختبارات القدرات والتحصيلي.",
+      "inLanguage": "ar"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "الرئيسية",
+          "item": "https://just-c.github.io/adawati/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "حاسبات المعدل",
+          "item": "https://just-c.github.io/adawati/gpa.html"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "حاسبة النسبة الموزونة",
+          "item": "https://just-c.github.io/adawati/weighted.html"
+        }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "ما هي النسبة الموزونة للقبول الجامعي؟",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "هي درجة مرجحة تدمج بين معدل الثانوية العامة واختبار القدرات العامة واختبار التحصيلي بنسب تختلف باختلاف الجامعة والمجلس الأكاديمي والتخصص (علمي أم إنساني)."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "هل يمكن إضافة اختبارات إضافية كاختبار ستيب (STEP) في الحاسبة؟",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "نعم، تتيح حاسبة حيز ميزة إضافة اختيار/اختبار جديد مع تحديد نسبة التكافؤ المئوية الخاصة به بحسب متطلبات الكلية."
+          }
+        }
+      ]
+    }
+    </script>
+</head>
+<body class="theme-light">
+<header class="navbar">
+    <div class="container nav-container">
+        <a href="index.html" class="logo">
+            <div class="logo-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+            <span class="logo-text">حيز</span>
+        </a>
+        <button class="menu-toggle" id="menu-toggle"><i class="fa-solid fa-bars"></i></button>
+        <nav class="nav-links" id="nav-links">
+            <a href="index.html" class="nav-btn"><i class="fa-solid fa-house"></i> الرئيسية</a>
+            <a href="pomodoro.html" class="nav-btn"><i class="fa-solid fa-clock"></i> المؤقت</a>
+            <a href="todo.html" class="nav-btn"><i class="fa-solid fa-list-check"></i> المهام</a>
+            <a href="gpa.html" class="nav-btn active"><i class="fa-solid fa-calculator"></i> حاسبة المعدل</a>
+            <a href="notes.html" class="nav-btn"><i class="fa-solid fa-note-sticky"></i> الملاحظات</a>
+            <a href="habits.html" class="nav-btn"><i class="fa-solid fa-fire"></i> العادات</a>
+            <a href="calculator.html" class="nav-btn"><i class="fa-solid fa-calendar-days"></i> تقويم الطالب</a>
+            <a href="game.html" class="nav-btn"><i class="fa-solid fa-gamepad"></i> لعبة الحروف</a>
+            <a href="blog.html" class="nav-btn"><i class="fa-solid fa-newspaper"></i> المدونة</a>
+            <a href="about.html" class="nav-btn"><i class="fa-solid fa-circle-info"></i> عن حيز</a>
+        </nav>
+        <div class="nav-actions">
+            <button id="theme-toggle" class="theme-btn"><i class="fa-solid fa-moon"></i></button>
+        </div>
+    </div>
+</header>
+
+<main class="container main-content">
+    <!-- Breadcrumbs -->
+    <nav class="breadcrumbs" aria-label="مسار التصفح" style="margin-bottom: 1.25rem; font-size: 0.9rem; color: var(--text-muted);">
+        <a href="index.html" style="color: var(--text-muted); text-decoration: none;">الرئيسية</a>
+        <span style="margin: 0 0.4rem;">&gt;</span>
+        <a href="gpa.html" style="color: var(--text-muted); text-decoration: none;">حاسبات المعدل</a>
+        <span style="margin: 0 0.4rem;">&gt;</span>
+        <span style="color: var(--text); font-weight: 600;">حاسبة النسبة الموزونة</span>
+    </nav>
+
+    <!-- واجهة حاسبة النسبة الموزونة -->
+    <div class="card" data-calc-page="weighted">
+        <div class="section-header">
+            <h1><i class="fa-solid fa-percent" style="color: var(--primary);"></i> حاسبة النسبة الموزونة للقبول الجامعي</h1>
+            <p class="section-desc">احسب موزونتك للقبول في الجامعات السعودية مع إمكانية تخصيص الأوزان وإضافة اختبارات</p>
+        </div>
+
+        <div class="weighted-info">
+            النسبة الموزونة هي المعيار الأساسي للقبول الجامعي في المملكة العربية السعودية.
+            أدخل درجاتك المكتسبة في الثانوية العامة، القدرات العامة، والتحصيلي، مع ضبط النسب المئوية وفق اشتراطات جامعتك.
+            <br>
+            إذا لم تكن على علم بمعدلك التراكمي النهائي، <a href="cumulative.html">احسبه أولاً عبر حاسبة التراكمي</a>.
+        </div>
+
+        <div class="weighted-section-title">
+            <span>الاختبارات والأوزان المئوية</span>
+        </div>
+
+        <div id="weighted-rows">
+            <!-- تُملأ بالجافاسكربت -->
+        </div>
+
+        <div class="weighted-actions-bar">
+            <button type="button" class="btn-sm" id="weighted-add-btn">
+                <i class="fa-solid fa-plus"></i> إضافة اختبار جديد
+            </button>
+        </div>
+
+        <div class="weighted-remaining" id="weighted-remaining">
+            لا يمكن تجاوز 100% — النسبة المتبقية <strong id="weighted-left">100%</strong>
+        </div>
+
+        <div class="gpa-result hidden" id="weighted-result">
+            <div class="gpa-score" id="weighted-score">0.00</div>
+            <div class="gpa-label">النسبة الموزونة للقبول الجامعي</div>
+        </div>
+
+        <div class="controls-row" style="margin-top: 24px;">
+            <button class="btn btn-primary" id="weighted-calculate-btn">
+                <i class="fa-solid fa-calculator"></i> احسب النسبة الموزونة
+            </button>
+            <button class="btn btn-outline" id="weighted-reset-btn">
+                <i class="fa-solid fa-trash"></i> مسح الدرجات
+            </button>
+        </div>
+    </div>
+
+    <!-- المحتوى التعليمي -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header" style="text-align: right;">
+            <h2><i class="fa-solid fa-circle-info" style="color:var(--primary);"></i> طريقة حساب النسبة الموزونة للقبول الجامعي</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+            <p>
+                تُعد **النسبة الموزونة** المعيار العادل الذي تعتمد عليه الجامعات الحكومية والخاصة والكليات العسكرية بالمركز الوطني للقياس وهيئة تقويم التعليم والتدريب للمفاضلة بين المتقدمين على المقاعد الدراسية.
+            </p>
+            <h3>نماذج شائعة لأوزان القبول بالجامعات السعودية</h3>
+            <p>تختلف توزيعات النسبة الموزونة بحسب المسار والجامعة، ومن أبرز الأوزان المستعملة:</p>
+            <ul style="margin-right: 1.5rem; margin-bottom: 1rem;">
+                <li><strong>التخصصات العلمية والصحية والهندسية:</strong> 30% ثانوية + 30% قدرات + 40% تحصيلي (أو 40% ثانوية + 30% قدرات + 30% تحصيلي).</li>
+                <li><strong>التخصصات النظرية والإنسانية:</strong> 50% ثانوية + 50% قدرات (أو 40% ثانوية + 60% قدرات).</li>
+                <li><strong>مسارات المسابقة الكلية المتقدمة:</strong> قد تتضمن وزنًا لاختبارات اللغة كـ STEP أو المقابلات الشخصية.</li>
+            </ul>
+
+            <h3 style="margin-top: 1.5rem;">مثال حسابي للنسبة الموزونة</h3>
+            <p>نفترض أن درجات طالب كالتالي:</p>
+            <div style="background: var(--bg); padding: 1rem; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 1rem;">
+                • المعدل التراكمي للثانوية: 98% (الوزن 30%) ⇐ 98 × 0.30 = 29.4<br>
+                • اختبار القدرات: 85 (الوزن 30%) ⇐ 85 × 0.30 = 25.5<br>
+                • اختبار التحصيلي: 90 (الوزن 40%) ⇐ 90 × 0.40 = 36.0<br>
+                • <strong>النسبة الموزونة النهائية = 29.4 + 25.5 + 36.0 = 90.90%</strong>
+            </div>
+        </div>
+    </section>
+
+    <!-- الأسئلة الشائعة -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header" style="text-align: right;">
+            <h2><i class="fa-solid fa-circle-question" style="color:var(--primary);"></i> الأسئلة الشائعة حول النسبة الموزونة</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+            <div class="faq-item" style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">هل تختلف النسبة الموزونة بين جامعة وأخرى؟</h3>
+                <p>نعم، يحدد كل مجلس جامعة النسب المخصصة للثانوية والقدرات والتحصيلي حسب الطاقة الاستيعابية وحاجة الكليات، وتوفر حاسبتنا حرية ضبط وتغيير هذه النسب بكل سهولة.</p>
+            </div>
+            <div class="faq-item" style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">كيف أرفع نسبتي الموزونة إذا انخفضت درجتي في التحصيلي؟</h3>
+                <p>تستطيع إعادة اختبار القدرات والتحصيلي لرفع الدرجة، حيث تحسب الجامعات السعودية الدرجة الأفضل تلقائياً في بوابة القبول الموحد.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- الروابط الداخلية -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header" style="text-align: right;">
+            <h2><i class="fa-solid fa-link" style="color:var(--primary);"></i> حاسبات مرحلية وموزونة ذات صلة</h2>
+        </div>
+        <div class="tools-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem;">
+            <a href="cumulative.html" class="tool-card" style="padding: 1.25rem;">
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-chart-line"></i> حاسبة المعدل التراكمي</h3>
+                <p style="font-size: 0.85rem;">احسب المعدل التراكمي المدرسي قبل إدخاله في النسبة الموزونة.</p>
+            </a>
+            <a href="third-secondary.html" class="tool-card" style="padding: 1.25rem;">
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-graduation-cap"></i> حاسبة معدل ثالث ثانوي</h3>
+                <p style="font-size: 0.85rem;">حساب معدل الصف الثالث الثانوي.</p>
+            </a>
+            <a href="gpa.html" class="tool-card" style="padding: 1.25rem;">
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-calculator"></i> مركز حاسبات المعدل</h3>
+                <p style="font-size: 0.85rem;">الوصول إلى كافة أدوات حساب المعدل في حيز.</p>
+            </a>
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <div class="container footer-container">
+        <div class="footer-brand">
+            <i class="fa-solid fa-graduation-cap"></i>
+            <span>حيز</span>
+        </div>
+        <p class="footer-copy">&copy; 2026 حيز — جميع الحقوق محفوظة</p>
+        <div class="footer-links">
+            <a href="about.html">عن حيز</a>
+            <a href="blog.html">المدونة</a>
+            <a href="privacy.html">سياسة الخصوصية</a>
+            <a href="terms.html">شروط الاستخدام</a>
+            <a href="contact.html">تواصل معنا</a>
+        </div>
+    </div>
+</footer>
+
+<script src="common.js"></script>
+<script src="gpa.js"></script>
+</body>
+</html>
