@@ -904,9 +904,9 @@ function hayyizGet18Status(birthDateObj, nowObj) {
 }
 
 /**
- * جلب جميع الأحداث القادمة المرتبة بحسب الأقرب زمنيًا (مستبعدًا الأحداث المنتهية)
+ * جلب جميع الأحداث من الذاكرة المحلية (القادمة والسابقة) مع خيارات الفرز والتصنيف
  */
-function hayyizGetSavedCalendarEvents() {
+function hayyizGetAllCalendarEvents() {
     const events = [];
     const STORAGE_KEY_EXAMS = 'hayyiz-student-exams';
     const STORAGE_KEY_EVENTS = 'hayyiz-custom-events';
@@ -923,7 +923,11 @@ function hayyizGetSavedCalendarEvents() {
                         name: item.name,
                         date: item.date,
                         time: item.time || '',
-                        type: item.type || 'exam'
+                        type: item.type || 'exam',
+                        notes: item.notes || '',
+                        subjectId: item.subjectId || null,
+                        priority: item.priority || 'medium',
+                        _storageKey: STORAGE_KEY_EXAMS
                     });
                 }
             });
@@ -942,13 +946,25 @@ function hayyizGetSavedCalendarEvents() {
                         name: item.name,
                         date: item.date,
                         time: item.time || '',
-                        type: item.type || 'personal'
+                        type: item.type || 'personal',
+                        notes: item.notes || '',
+                        subjectId: item.subjectId || null,
+                        priority: item.priority || 'medium',
+                        _storageKey: STORAGE_KEY_EVENTS
                     });
                 }
             });
         }
     } catch (e) { /* تجاهل */ }
 
+    return events;
+}
+
+/**
+ * جلب جميع الأحداث القادمة المرتبة بحسب الأقرب زمنيًا (مستبعدًا الأحداث المنتهية)
+ */
+function hayyizGetSavedCalendarEvents() {
+    const events = hayyizGetAllCalendarEvents();
     const now = new Date();
     const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
 
@@ -980,11 +996,56 @@ function hayyizGetSavedCalendarEvents() {
 }
 
 /**
+ * تحويل حدث تقويم إلى مهمة دراسية في hayyiz-todos
+ */
+function hayyizConvertEventToTodo(eventObj) {
+    if (!eventObj || !eventObj.name || !eventObj.date) return null;
+    const todos = hayyizGetTodos();
+
+    const todoText = (eventObj.type === 'exam' ? 'مراجعة: ' : 'متابعة: ') + eventObj.name;
+
+    // منع التكرار إذا كانت المهمة موجودة بنفس الاسم والتاريخ
+    const exists = todos.find(t => t && t.text === todoText && t.date && String(t.date).slice(0, 10) === eventObj.date);
+    if (exists) return exists;
+
+    let datetimeStr = eventObj.date;
+    if (eventObj.time) {
+        datetimeStr += `T${eventObj.time}`;
+    }
+
+    const newTodo = {
+        id: hayyizGenerateId(),
+        text: todoText,
+        priority: eventObj.type === 'exam' ? 'high' : 'medium',
+        date: datetimeStr,
+        minutes: eventObj.type === 'exam' ? 45 : 30,
+        completed: false,
+        created: Date.now(),
+        eventId: eventObj.id || null
+    };
+
+    todos.push(newTodo);
+    hayyizSaveTodos(todos);
+    return newTodo;
+}
+
+/**
  * ملخص تقويم الطالب جاهز للـ Dashboard والصفحات
  */
 function hayyizGetCalendarSummary() {
     const upcoming = hayyizGetSavedCalendarEvents();
     const nearestEvent = upcoming.length > 0 ? upcoming[0] : null;
+
+    const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+
+    // حساب الأحداث هذا الأسبوع (خلال الأيام الـ 7 القادمة)
+    const t0 = new Date(`${todayStr}T00:00:00`).getTime();
+    const tWeekEnd = t0 + (7 * 24 * 60 * 60 * 1000);
+
+    const thisWeekEvents = upcoming.filter(ev => {
+        const tEv = new Date(`${ev.date}T00:00:00`).getTime();
+        return tEv >= t0 && tEv <= tWeekEnd;
+    });
 
     const birthdate = localStorage.getItem('hayyiz-birthdate') || null;
     const showAgePref = localStorage.getItem('hayyiz-show-age-in-dashboard');
@@ -1013,6 +1074,9 @@ function hayyizGetCalendarSummary() {
     return {
         upcoming,
         nearestEvent,
+        thisWeekCount: thisWeekEvents.length,
+        thisWeekEvents,
+        totalUpcomingCount: upcoming.length,
         birthdate,
         showAgePref,
         ageInfo

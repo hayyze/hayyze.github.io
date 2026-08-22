@@ -73,6 +73,16 @@ console.log('=== RUNNING HAYYIZ AUTOMATED TEST SUITE ===\n');
     assert(!status18.is18OrOlder && status18.years === 3, '18 status correctly calculates remaining years until 18');
 }
 
+{
+    localStorage.clear();
+    const futureYear = new Date().getFullYear() + 1;
+    const examEvent = { id: 'ex_test1', name: 'اختبار الرياضيات النهائي', date: `${futureYear}-05-10`, type: 'exam' };
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([examEvent]));
+
+    const convertedTodo = hayyizConvertEventToTodo(examEvent);
+    assert(convertedTodo && convertedTodo.text.includes('مراجعة: اختبار الرياضيات النهائي') && convertedTodo.priority === 'high', 'Event successfully converted into a high priority Todo task');
+}
+
 // 3. Task & Focus Session Integration Tests
 {
     localStorage.clear();

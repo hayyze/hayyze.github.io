@@ -32,17 +32,17 @@
     <meta name="referrer" content="strict-origin-when-cross-origin">
 
     <!-- SEO -->
-    <title>تقويم الطالب — تابع عمرك واختباراتك ومواعيدك المهمة | حيز</title>
-    <meta name="description" content="تقويم الطالب — تابع عمرك واختباراتك ومواعيدك المهمة في مكان واحد.">
-    <meta name="keywords" content="تقويم الطالب, حاسبة العمر, حساب العمر, كم باقي على القدرات, كم باقي على التحصيلي, عداد الاختبارات, تقويم العمر للطلاب, حيز">
+    <title>تقويم الطالب وخطة المواعيد الدراسية — خط الزمني الدراسي والعمر | حيز</title>
+    <meta name="description" content="تقويم الطالب في حيز — خطك الزمني الدراسي المتكامل لمتابعة العمر، عَدّ تنازلي للاختبارات والقدرات والتحصيلي، وتخطيط أسبوعك الدراسي بسهولة.">
+    <meta name="keywords" content="تقويم الطالب, الخط الزمني الدراسي, حاسبة العمر, كم باقي على القدرات, كم باقي على التحصيلي, جدول الاختبارات, عداد المواعيد, حيز">
     <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
 
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://just-c.github.io/adawati/calculator.html">
-    <meta property="og:title" content="تقويم الطالب — تابع عمرك واختباراتك ومواعيدك المهمة | حيز">
-    <meta property="og:description" content="تقويم الطالب — تابع عمرك واختباراتك ومواعيدك المهمة في مكان واحد.">
+    <meta property="og:title" content="تقويم الطالب وخطة المواعيد الدراسية | حيز">
+    <meta property="og:description" content="تقويم الطالب في حيز — خطك الزمني الدراسي المتكامل لمتابعة العمر والعد التنازلي للاختبارات.">
     <meta property="og:image" content="https://just-c.github.io/adawati/android-chrome-512x512.png">
     <meta property="og:image:width" content="512">
     <meta property="og:image:height" content="512">
@@ -52,7 +52,7 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="تقويم الطالب | حيز">
-    <meta name="twitter:description" content="تقويم الطالب — تابع عمرك واختباراتك ومواعيدك المهمة في مكان واحد.">
+    <meta name="twitter:description" content="تقويم الطالب — خطك الزمني الدراسي ومتابعة اختباراتك ومواعيدك.">
     <meta name="twitter:image" content="https://just-c.github.io/adawati/android-chrome-512x512.png">
 
     <!-- الخطوط والأيقونات -->
@@ -84,7 +84,7 @@
   "@type": "WebApplication",
   "name": "تقويم الطالب — حيز",
   "url": "https://just-c.github.io/adawati/calculator.html",
-  "description": "تقويم الطالب — تابع عمرك واختباراتك ومواعيدك المهمة في مكان واحد.",
+  "description": "تقويم الطالب — خطك الزمني الدراسي المتكامل لمتابعة العمر، عَدّ تنازلي للاختبارات، وتخطيط أسبوعك الدراسي بسهولة.",
   "applicationCategory": "EducationalApplication",
   "operatingSystem": "All",
   "inLanguage": "ar",
@@ -98,13 +98,140 @@
 <link rel="manifest" href="manifest.webmanifest">
 
 <style>
-  /* تنسيقات تقويم الطالب */
+  /* تنسيقات تقويم الطالب والخط الزمني */
   .calc-container {
     display: flex;
     flex-direction: column;
-    gap: 1.75rem;
+    gap: 1.5rem;
   }
 
+  /* hero status bar */
+  .status-hero-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 16px);
+    padding: 1.5rem;
+    box-shadow: var(--shadow, 0 4px 6px -1px rgba(0, 0, 0, 0.05));
+  }
+
+  .status-hero-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .status-hero-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0;
+  }
+
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+
+  @media (max-width: 900px) {
+    .status-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 480px) {
+    .status-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .status-item-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm, 12px);
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 0.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .status-item-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--primary, #4f46e5);
+  }
+
+  .status-item-lbl {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .status-item-val {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .status-item-sub {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  /* Quick action toolbar */
+  .timeline-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm, 12px);
+    padding: 0.85rem 1.15rem;
+  }
+
+  .toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-sm, 8px);
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s ease;
+  }
+
+  /* Form & Collapsible Inputs */
   .calc-form-group {
     display: flex;
     flex-direction: column;
@@ -112,21 +239,12 @@
     margin-bottom: 1rem;
   }
 
-  .calc-form-group label {
-    font-weight: 700;
-    font-size: 1rem;
-    color: var(--text);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
   .calc-input {
     width: 100%;
-    padding: 0.75rem 1rem;
+    padding: 0.7rem 0.9rem;
     border: 1.5px solid var(--border);
     border-radius: var(--radius-sm, 10px);
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-family: inherit;
     background: var(--bg);
     color: var(--text);
@@ -138,340 +256,9 @@
     border-color: var(--primary, #4f46e5);
   }
 
-  .age-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    margin-top: 1.25rem;
-  }
-
-  @media (max-width: 500px) {
-    .age-grid {
-      grid-template-columns: 1fr;
-      gap: 0.75rem;
-    }
-  }
-
-  .age-card {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius, 16px);
-    padding: 1.25rem 1rem;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
-  }
-
-  .age-num {
-    font-size: 2.2rem;
-    font-weight: 800;
-    color: var(--primary, #4f46e5);
-    line-height: 1.2;
-  }
-
-  .age-lbl {
-    font-size: 0.95rem;
-    color: var(--text-muted);
-    margin-top: 0.3rem;
-    font-weight: 600;
-  }
-
-  .age-info-banner {
-    background: color-mix(in srgb, var(--primary, #4f46e5) 8%, var(--bg-card));
-    border: 1px solid color-mix(in srgb, var(--primary, #4f46e5) 20%, transparent);
-    border-radius: var(--radius-sm, 12px);
-    padding: 1rem 1.25rem;
-    margin-top: 1.25rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-
-  .age-info-banner strong {
-    color: var(--text);
-  }
-
-  .until-18-box {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm, 12px);
-    padding: 1rem 1.25rem;
-    margin-top: 1rem;
-    font-size: 0.95rem;
-    color: var(--text);
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-  }
-
-  .until-18-box i {
-    color: #f59e0b;
-    font-size: 1.25rem;
-  }
-
-  .quick-suggestions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
-  }
-
-  .quick-exam-btn {
-    padding: 0.4rem 0.85rem;
-    border: 1px dashed var(--border);
-    border-radius: 20px;
-    background: var(--bg);
-    color: var(--text-muted);
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    font-family: inherit;
-    transition: all 0.2s ease;
-  }
-
-  .quick-exam-btn:hover {
-    border-color: var(--primary, #4f46e5);
-    color: var(--primary, #4f46e5);
-    background: var(--bg-card);
-  }
-
-  .exams-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1.25rem;
-    margin-top: 1.25rem;
-  }
-
-  .exam-card {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 1.25rem;
-    position: relative;
-    border: 1px solid var(--border);
-    border-radius: var(--radius, 16px);
-    background: var(--bg-card);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-
-  .exam-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow);
-  }
-
-  .exam-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-  }
-
-  .exam-title-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .exam-title {
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: var(--text);
-    margin: 0;
-  }
-
-  .exam-date-str {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-  }
-
-  .badge {
-    padding: 0.3rem 0.65rem;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    white-space: nowrap;
-  }
-
-  .badge-upcoming {
-    background: rgba(79, 70, 229, 0.1);
-    color: var(--primary, #4f46e5);
-  }
-
-  .badge-today {
-    background: rgba(245, 158, 11, 0.15);
-    color: #d97706;
-  }
-
-  .badge-passed {
-    background: rgba(100, 116, 139, 0.1);
-    color: var(--text-muted);
-  }
-
-  .countdown-wrap {
-    text-align: center;
-    padding: 1rem 0;
-    background: var(--bg);
-    border-radius: var(--radius-sm, 12px);
-    margin-bottom: 0.75rem;
-  }
-
-  .countdown-num {
-    font-size: 2rem;
-    font-weight: 800;
-    color: var(--text);
-    display: block;
-    line-height: 1.1;
-  }
-
-  .countdown-label {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    font-weight: 600;
-    margin-top: 0.2rem;
-    display: block;
-  }
-
-  .countdown-wrap.today .countdown-num {
-    color: #d97706;
-  }
-
-  .countdown-wrap.passed .countdown-num {
-    color: var(--text-muted);
-  }
-
-  .exam-actions {
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  .btn-delete-exam {
-    background: none;
-    border: none;
-    color: var(--danger, #ef4444);
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    padding: 0.3rem 0.6rem;
-    border-radius: 6px;
-    transition: background 0.2s ease;
-    font-family: inherit;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-  }
-
-  .btn-delete-exam:hover {
-    background: rgba(239, 68, 68, 0.1);
-  }
-
-  /* التواريخ المخصصة */
-  .events-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-top: 1rem;
-  }
-
-  .event-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.85rem 1.1rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm, 12px);
-    background: var(--bg-card);
-  }
-
-  .event-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-  }
-
-  .event-name {
-    font-weight: 700;
-    font-size: 1rem;
-    color: var(--text);
-  }
-
-  .event-date {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-  }
-
-  .event-meta {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  .event-days-tag {
-    font-size: 0.85rem;
-    font-weight: 700;
-    padding: 0.25rem 0.65rem;
-    border-radius: 12px;
-  }
-
-  .event-days-tag.upcoming {
-    background: rgba(16, 185, 129, 0.1);
-    color: #059669;
-  }
-
-  .event-days-tag.today {
-    background: rgba(245, 158, 11, 0.15);
-    color: #d97706;
-  }
-
-  .event-days-tag.passed {
-    background: rgba(100, 116, 139, 0.1);
-    color: var(--text-muted);
-  }
-
-  .btn-delete-event {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    font-size: 1.1rem;
-    cursor: pointer;
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-  }
-
-  .btn-delete-event:hover {
-    color: var(--danger, #ef4444);
-  }
-
-  .empty-state {
-    text-align: center;
-    padding: 2rem 1rem;
-    color: var(--text-muted);
-  }
-
-  .empty-state i {
-    font-size: 2.2rem;
-    margin-bottom: 0.6rem;
-    opacity: 0.6;
-  }
-
-  .error-text {
-    color: var(--danger, #ef4444);
-    font-size: 0.9rem;
-    font-weight: 600;
-    margin-top: 0.4rem;
-  }
-
   .event-form-grid {
     display: grid;
-    grid-template-columns: 2fr 1.2fr 1.2fr 1fr;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
     gap: 0.75rem;
   }
 
@@ -485,6 +272,281 @@
     .event-form-grid {
       grid-template-columns: 1fr;
     }
+  }
+
+  .quick-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+  }
+
+  .quick-exam-btn {
+    padding: 0.35rem 0.75rem;
+    border: 1px dashed var(--border);
+    border-radius: 20px;
+    background: var(--bg);
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s ease;
+  }
+
+  .quick-exam-btn:hover {
+    border-color: var(--primary, #4f46e5);
+    color: var(--primary, #4f46e5);
+    background: var(--bg-card);
+  }
+
+  /* Student Timeline Visual View */
+  .timeline-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .timeline-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .timeline-group-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    padding-bottom: 0.4rem;
+    border-bottom: 2px solid var(--border);
+  }
+
+  .timeline-group-title .group-count {
+    font-size: 0.8rem;
+    background: var(--primary, #4f46e5);
+    color: #ffffff;
+    padding: 0.15rem 0.55rem;
+    border-radius: 12px;
+    font-weight: 700;
+  }
+
+  .timeline-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+  }
+
+  @media (max-width: 500px) {
+    .timeline-cards {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .timeline-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 14px);
+    padding: 1.15rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 0.85rem;
+    position: relative;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .timeline-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow, 0 4px 6px -1px rgba(0, 0, 0, 0.05));
+  }
+
+  .timeline-card.conflict-warning {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 1px #f59e0b;
+  }
+
+  .card-top-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .card-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .card-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0;
+  }
+
+  .card-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .badge {
+    padding: 0.25rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    white-space: nowrap;
+  }
+
+  .badge-exam {
+    background: rgba(79, 70, 229, 0.12);
+    color: var(--primary, #4f46e5);
+  }
+
+  .badge-assignment {
+    background: rgba(16, 185, 129, 0.12);
+    color: #059669;
+  }
+
+  .badge-personal {
+    background: rgba(217, 119, 6, 0.12);
+    color: #d97706;
+  }
+
+  .badge-custom {
+    background: rgba(100, 116, 139, 0.12);
+    color: var(--text-muted);
+  }
+
+  .card-countdown-box {
+    background: var(--bg);
+    border-radius: var(--radius-sm, 10px);
+    padding: 0.75rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card-countdown-main {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.2;
+  }
+
+  .card-countdown-sub {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-top: 0.15rem;
+  }
+
+  .card-conflict-tag {
+    font-size: 0.78rem;
+    color: #b45309;
+    background: rgba(245, 158, 11, 0.15);
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .card-action-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--border);
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .card-quick-links {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .action-btn-mini {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    transition: all 0.2s ease;
+    text-decoration: none;
+  }
+
+  .action-btn-mini:hover {
+    border-color: var(--primary, #4f46e5);
+    color: var(--primary, #4f46e5);
+    background: var(--bg);
+  }
+
+  .action-btn-delete {
+    color: var(--danger, #ef4444);
+    border-color: transparent;
+  }
+
+  .action-btn-delete:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.2);
+    color: var(--danger, #ef4444);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius, 16px);
+  }
+
+  .empty-state i {
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+    opacity: 0.5;
+    color: var(--primary, #4f46e5);
+  }
+
+  .empty-state h3 {
+    font-size: 1.15rem;
+    color: var(--text);
+    margin: 0 0 0.3rem;
+  }
+
+  .empty-state p {
+    font-size: 0.9rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .error-text {
+    color: var(--danger, #ef4444);
+    font-size: 0.88rem;
+    font-weight: 600;
+    margin-top: 0.3rem;
   }
 
   .reset-bar {
@@ -524,69 +586,112 @@
 <main class="container main-content">
     <div class="calc-container">
 
-        <!-- بطاقة معلومات العمر -->
-        <div class="card">
-            <div class="section-header">
-                <h1><i class="fa-solid fa-cake-candles" aria-hidden="true"></i> معلومات العمر</h1>
-                <p class="section-desc">أدخل تاريخ ميلادك لحساب عمرك الحالي بالسنوات والأشهر والأيام وتتبع سن 18 عاماً</p>
-            </div>
-
-            <div class="calc-form-group">
-                <label for="birthdate-input"><i class="fa-regular fa-calendar-check"></i> تاريخ الميلاد:</label>
-                <input type="date" id="birthdate-input" class="calc-input">
-                <div id="birthdate-error" class="error-text" style="display: none;"></div>
-            </div>
-
-            <div id="age-result-wrap" class="hidden">
-                <div class="age-grid">
-                    <div class="age-card">
-                        <span id="age-years" class="age-num">0</span>
-                        <span class="age-lbl">سنة</span>
-                    </div>
-                    <div class="age-card">
-                        <span id="age-months" class="age-num">0</span>
-                        <span class="age-lbl">شهر</span>
-                    </div>
-                    <div class="age-card">
-                        <span id="age-days" class="age-num">0</span>
-                        <span class="age-lbl">يوم</span>
-                    </div>
-                </div>
-
-                <div class="age-info-banner">
-                    <span><i class="fa-solid fa-gift"></i> تاريخ ميلادك: <strong id="formatted-birthdate">--</strong></span>
-                </div>
-
-                <div id="until-18-box" class="until-18-box" style="display: none;">
-                    <i class="fa-solid fa-hourglass-half" id="until-18-icon"></i>
-                    <span id="until-18-text">--</span>
+        <!-- HERO DASHBOARD: حالتي الآن (أول شيء يراه الطالب فوق الطيّة) -->
+        <section class="status-hero-card" aria-label="ملخص حالتي الدراسية والزمنية">
+            <div class="status-hero-header">
+                <h1 class="status-hero-title">
+                    <i class="fa-solid fa-clock-rotate-left" style="color: var(--primary, #4f46e5);" aria-hidden="true"></i>
+                    حالتي الآن
+                </h1>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <button type="button" id="toggle-birthdate-form-btn" class="action-btn-mini" aria-expanded="false">
+                        <i class="fa-solid fa-cake-candles"></i> <span id="birthdate-btn-lbl">تحديد تاريخ الميلاد</span>
+                    </button>
                 </div>
             </div>
-        </div>
 
-        <!-- بطاقة أحداثك القادمة -->
-        <div class="card">
-            <div class="section-header">
-                <h2><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> أحداثك القادمة</h2>
-                <p class="section-desc">تابِع اختباراتك والمواعيد الشخصية والأحداث المخصصة في مكان واحد مرتبة تلقائياً بحسب أقرب تاريخ</p>
+            <!-- نموذج إضافة/تعديل تاريخ الميلاد (مطوي افتراضياً إن وُجد تاريخ) -->
+            <div id="birthdate-form-wrapper" style="display: none; margin-bottom: 1.25rem; padding: 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm, 12px);">
+                <div class="calc-form-group" style="margin-bottom: 0.5rem;">
+                    <label for="birthdate-input"><i class="fa-regular fa-calendar-check"></i> أدخل تاريخ ميلادك للحساب الدقيق:</label>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <input type="date" id="birthdate-input" class="calc-input" style="flex: 1; min-width: 200px;">
+                        <button type="button" id="save-birthdate-btn" class="btn btn-primary" style="padding: 0.5rem 1.25rem;">حفظ</button>
+                        <button type="button" id="cancel-birthdate-btn" class="btn btn-outline" style="padding: 0.5rem 1rem;">إلغاء</button>
+                    </div>
+                    <div id="birthdate-error" class="error-text" style="display: none;"></div>
+                </div>
             </div>
 
-            <form id="add-event-form" class="calc-form-group" style="margin-bottom: 1.25rem;">
+            <!-- شبكة الملخص السريع (حالتي الآن) -->
+            <div class="status-grid">
+                <!-- 1. العمر -->
+                <div class="status-item-card">
+                    <span class="status-item-lbl"><i class="fa-solid fa-cake-candles" style="color:var(--primary);"></i> عمري الآن</span>
+                    <span id="hero-age-val" class="status-item-val">--</span>
+                    <span id="hero-age-sub" class="status-item-sub">أدخل تاريخ ميلادك</span>
+                </div>
+
+                <!-- 2. أقرب استحقاق -->
+                <div class="status-item-card">
+                    <span class="status-item-lbl"><i class="fa-solid fa-bell" style="color:#d97706;"></i> أقرب استحقاق</span>
+                    <span id="hero-nearest-val" class="status-item-val">لا توجد مواعيد</span>
+                    <span id="hero-nearest-sub" class="status-item-sub">أضف اختبارك أو موعدك</span>
+                </div>
+
+                <!-- 3. المتبقي لأقرب موعد -->
+                <div class="status-item-card">
+                    <span class="status-item-lbl"><i class="fa-solid fa-hourglass-half" style="color:#059669;"></i> المتبقي على أقرب موعد</span>
+                    <span id="hero-countdown-val" class="status-item-val">--</span>
+                    <span id="hero-countdown-sub" class="status-item-sub">عَدّ تنازلي آلي</span>
+                </div>
+
+                <!-- 4. أحداث هذا الأسبوع + 18 سنة -->
+                <div class="status-item-card">
+                    <span class="status-item-lbl"><i class="fa-solid fa-calendar-week" style="color:#6366f1;"></i> هذا الأسبوع</span>
+                    <span id="hero-week-val" class="status-item-val">0 أحداث</span>
+                    <span id="hero-18-sub" class="status-item-sub">بلوغ 18: --</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- TOOLBAR: Quick actions & filters -->
+        <section class="timeline-toolbar" aria-label="أدوات الخط الزمني">
+            <div class="toolbar-actions">
+                <button type="button" id="open-add-exam-btn" class="btn btn-primary toolbar-btn">
+                    <i class="fa-solid fa-plus"></i> إضافة اختبار / موعد
+                </button>
+                <div style="display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm, 8px); overflow: hidden;">
+                    <button type="button" class="filter-tab-btn active" data-filter="all" style="padding: 0.45rem 0.85rem; border: none; background: var(--primary); color: white; font-weight: 700; cursor: pointer; font-size: 0.85rem;">الكل</button>
+                    <button type="button" class="filter-tab-btn" data-filter="exam" style="padding: 0.45rem 0.85rem; border: none; background: transparent; color: var(--text); font-weight: 600; cursor: pointer; font-size: 0.85rem;">الاختبارات</button>
+                    <button type="button" class="filter-tab-btn" data-filter="assignment" style="padding: 0.45rem 0.85rem; border: none; background: transparent; color: var(--text); font-weight: 600; cursor: pointer; font-size: 0.85rem;">الواجبات والمشاريع</button>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <button type="button" id="toggle-past-events-btn" class="action-btn-mini">
+                    <i class="fa-solid fa-box-archive"></i> <span id="past-btn-lbl">الأحداث السابقة (0)</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- FORM CONTAINER (إضافة وتعديل الأحداث) -->
+        <div id="event-form-card" class="card" style="display: none; border: 2px solid var(--primary, #4f46e5);">
+            <div class="section-header" style="margin-bottom: 1rem;">
+                <h2 id="form-card-title"><i class="fa-solid fa-calendar-plus" aria-hidden="true"></i> إضافة موعد جديد إلى خطك الزمني</h2>
+                <p class="section-desc">أدخل تفاصيل الاختبار أو الواجب أو الموعد ليُحسب العد التنازلي وترتيبه آلياً</p>
+            </div>
+
+            <form id="add-event-form" class="calc-form-group" style="margin-bottom: 0;">
+                <input type="hidden" id="event-edit-id" value="">
+                <input type="hidden" id="event-storage-key" value="">
+
                 <div class="event-form-grid">
                     <div>
-                        <label for="event-name-input">اسم الحدث أو الموعد:</label>
+                        <label for="event-name-input">اسم الحدث أو الموعد *:</label>
                         <input type="text" id="event-name-input" class="calc-input" placeholder="مثال: اختبار القدرات العامة" required>
                     </div>
                     <div>
-                        <label for="event-type-input">نوع الحدث:</label>
+                        <label for="event-type-input">نوع الحدث *:</label>
                         <select id="event-type-input" class="calc-input">
                             <option value="exam">اختبار</option>
+                            <option value="assignment">واجب / مشروع</option>
                             <option value="personal">موعد شخصي</option>
                             <option value="custom">حدث مخصص</option>
                         </select>
                     </div>
                     <div>
-                        <label for="event-date-input">التاريخ:</label>
+                        <label for="event-date-input">التاريخ *:</label>
                         <input type="date" id="event-date-input" class="calc-input" required>
                     </div>
                     <div>
@@ -597,25 +702,71 @@
 
                 <div class="quick-suggestions">
                     <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600; align-self: center;">اقتراحات سريعة:</span>
-                    <button type="button" class="quick-exam-btn" data-title="القدرات" data-type="exam">القدرات</button>
-                    <button type="button" class="quick-exam-btn" data-title="التحصيلي" data-type="exam">التحصيلي</button>
-                    <button type="button" class="quick-exam-btn" data-title="اختبار مدرسي" data-type="exam">اختبار مدرسي</button>
-                    <button type="button" class="quick-exam-btn" data-title="اختبار" data-type="exam">اختبار</button>
+                    <button type="button" class="quick-exam-btn" data-title="اختبار القدرات" data-type="exam">القدرات</button>
+                    <button type="button" class="quick-exam-btn" data-title="اختبار التحصيلي" data-type="exam">التحصيلي</button>
+                    <button type="button" class="quick-exam-btn" data-title="اختبار نهائي" data-type="exam">اختبار نهائي</button>
+                    <button type="button" class="quick-exam-btn" data-title="تسليم مشروع" data-type="assignment">تسليم مشروع</button>
+                    <button type="button" class="quick-exam-btn" data-title="تسليم واجب" data-type="assignment">تسليم واجب</button>
                     <button type="button" class="quick-exam-btn" data-title="موعد مهم" data-type="personal">موعد مهم</button>
                 </div>
 
-                <div style="margin-top: 1rem;">
-                    <button type="submit" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-plus"></i> إضافة موعد</button>
+                <div style="display: flex; gap: 0.75rem; margin-top: 1.25rem;">
+                    <button type="submit" id="save-event-submit-btn" class="btn btn-primary" style="flex: 2;"><i class="fa-solid fa-check"></i> <span id="save-btn-text">إضافة إلى الخط الزمني</span></button>
+                    <button type="button" id="cancel-event-form-btn" class="btn btn-outline" style="flex: 1;"><i class="fa-solid fa-xmark"></i> إلغاء</button>
                 </div>
             </form>
-
-            <div id="events-list" class="exams-grid"></div>
-
-            <div id="events-empty" class="empty-state">
-                <i class="fa-regular fa-calendar-xmark"></i>
-                <p>لا توجد أحداث أو مواعيد قادمة أُضيفت بعد.</p>
-            </div>
         </div>
+
+        <!-- STUDENT TIMELINE (الخط الزمني المباشر للطالب) -->
+        <main class="timeline-section" aria-label="الخط الزمني الدراسي">
+
+            <!-- قسم 1: اليوم وغداً -->
+            <div id="group-today-tomorrow" class="timeline-group" style="display: none;">
+                <h2 class="timeline-group-title">
+                    <i class="fa-solid fa-fire" style="color: #d97706;" aria-hidden="true"></i> اليوم وغداً
+                    <span id="count-today-tomorrow" class="group-count">0</span>
+                </h2>
+                <div id="cards-today-tomorrow" class="timeline-cards"></div>
+            </div>
+
+            <!-- قسم 2: هذا الأسبوع -->
+            <div id="group-this-week" class="timeline-group" style="display: none;">
+                <h2 class="timeline-group-title">
+                    <i class="fa-solid fa-calendar-day" style="color: var(--primary, #4f46e5);" aria-hidden="true"></i> هذا الأسبوع
+                    <span id="count-this-week" class="group-count">0</span>
+                </h2>
+                <div id="cards-this-week" class="timeline-cards"></div>
+            </div>
+
+            <!-- قسم 3: الأحداث المستقبلية (القادمة) -->
+            <div id="group-future" class="timeline-group" style="display: none;">
+                <h2 class="timeline-group-title">
+                    <i class="fa-solid fa-hourglass-start" style="color: #059669;" aria-hidden="true"></i> الأحداث القادمة
+                    <span id="count-future" class="group-count">0</span>
+                </h2>
+                <div id="cards-future" class="timeline-cards"></div>
+            </div>
+
+            <!-- قسم 4: الأحداث السابقة (أرشيف الأحداث المنتهية) -->
+            <div id="group-past" class="timeline-group" style="display: none;">
+                <h2 class="timeline-group-title" style="color: var(--text-muted); border-bottom-color: var(--border);">
+                    <i class="fa-solid fa-box-archive" aria-hidden="true"></i> الأحداث السابقة
+                    <span id="count-past" class="group-count" style="background: var(--text-muted);">0</span>
+                </h2>
+                <div id="cards-past" class="timeline-cards"></div>
+            </div>
+
+            <!-- Empty State للطالب -->
+            <div id="events-empty" class="empty-state">
+                <i class="fa-solid fa-calendar-plus" aria-hidden="true"></i>
+                <h3>لا توجد مواعيد أو اختبارات في خطك الزمني</h3>
+                <p>أضف أول اختبار أو واجب دراسي ليظهر خطك الزمني المنظم والمتبقي من الوقت مباشرة.</p>
+                <button type="button" id="empty-add-event-btn" class="btn btn-primary">
+                    <i class="fa-solid fa-plus"></i> إضافة اختبار أو موعد
+                </button>
+            </div>
+
+        </main>
 
         <!-- زر إعادة تعيين البيانات -->
         <div class="reset-bar">
@@ -629,20 +780,20 @@
     <!-- المحتوى النصي التوضيحي للـ SEO ودعم المستخدم -->
     <section class="card content-section" style="margin-top: 2rem;">
         <div class="section-header">
-            <h2><i class="fa-solid fa-circle-info"></i> عن تقويم الطالب في حيز</h2>
+            <h2><i class="fa-solid fa-circle-info"></i> عن تقويم الطالب والخط الزمني في حيز</h2>
         </div>
         <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
             <p>
-                يُعد <strong>تقويم الطالب</strong> لوحة شخصية أُنشئت خصيصاً لمساعدة الطلاب على متابعة أعمارهم واختباراتهم ومواعيدهم المهمة في مكان واحد.
+                يُعد <strong>تقويم الطالب</strong> في منصة حيز خطك الزمني التفاعلي الشامل للتخطيط وإدارة الوقت الدراسي. بدلاً من مجرد تسجيل التواريخ في حقول منفصلة، يجمع تقويم الطالب بين <strong>متابعة العمر الدقيقة</strong>، <strong>العد التنازلي الذكي للاختبارات والقدرات والتحصيلي</strong>، و<strong>التكامل المباشر مع المهام ومؤقت البومودورو</strong>.
             </p>
             <p>
-                تتيح لك الأداة معرفة عمرك بالسنوات والأشهر والأيام بناءً على حساب تقويمي دقيق يراعي أطوال الأشهر الحقيقية والسنوات الكبيسة، مع إظهار تاريخ بلوغ سن 18 عاماً أو المدة المتبقية لبلوغه لمساعدتك في التخطيط للمستقبل والقبول الجامعي.
+                يُظهر لك قسم <strong>"حالتي الآن"</strong> في أعلى الصفحة ملخصاً فورياً لعمرك بالسنوات والأشهر والأيام، وأقرب اختبار مستحق، والوقت المتبقي عليه، وعدد استحقاقات هذا الأسبوع في أقل من 5 ثوانٍ.
             </p>
             <p>
-                كما تمكّنك الأداة من تنظيم أحداثك القادمة واختباراتك ومواعيدك الشخصية مع عرض عداد تنازلي تلقائي بالأيام والتوقيتات الدقيقة، مما يساعدك على ترتيب مراجعاتك وتنظيم جدولك بالدمج مع بقية أدوات حيز مثل <a href="pomodoro.html">مؤقت بومودورو</a> و<a href="todo.html">قائمة المهام الدراسية</a>.
+                كما يتيح لك تحويل أي موعد أو اختبار إلى <a href="todo.html">مهمة دراسية</a> بضغطة زر واحدة، أو بدء جلسة تركيز مباشرة من خلال <a href="pomodoro.html">مؤقت البومودورو</a> للاستعداد للاختبار القادم.
             </p>
             <p>
-                جميع بياناتك وتواريخك تُحفظ محلياً وبشكل آمن تماماً داخل متصفحك باستخدام تقنية <code>localStorage</code>، ولا يتم إرسال أي من تواريخك أو بياناتك إلى أي خادم خارجي.
+                تُحفظ كافة التواريخ والبيانات محلياً على متصفحك بشكل دائم وآمن دون أي مشاركة خارجية.
             </p>
         </div>
     </section>
@@ -655,30 +806,30 @@
         <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
 
             <div class="faq-item" style="margin-bottom: 1.8rem;">
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">كيف يحسب تقويم الطالب العمر؟</h3>
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">كيف يساعدني الخط الزمني في تنظيم دراستي؟</h3>
                 <p>
-                    يعتمد التقويم على الفرق التقويمي المباشر بين تاريخ ميلادك وتاريخ اليوم الحاضر، مع خصم الأشهر والأيام بدقة وبشكل يتطابق مع النتيجة التقويمية الحقيقية مع مراعاة السنوات الكبيسة وأيام الشهر.
+                    يقوم الخط الزمني بتصنيف مواعيدك تلقائياً إلى (اليوم وغداً، هذا الأسبوع، والأحداث القادمة)، مما يمنحك رؤية أسبوعية وشاملة لأولوياتك ويمنع تراكم المراجعات.
                 </p>
             </div>
 
             <div class="faq-item" style="margin-bottom: 1.8rem;">
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل تتوفر مواعيد ثابتة للقدرات أو التحصيلي؟</h3>
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل يمكنني تعديل مواعيدي بعد إضافتها؟</h3>
                 <p>
-                    تتيح لك الأداة تحديد تاريخ اختبارك الخاص بك بحرية تامّة لأن المواعيد تختلف حسب فترات تسجيل الطالب ورغباته في هيئة تقويم التعليم والتدريب.
+                    نعم، يتيح لك تقويم الطالب تعديل اسم الموعد، نوعه، وتاريخه أو وقته في أي وقت دون الحاجة لإعادته من الجديد.
                 </p>
             </div>
 
             <div class="faq-item" style="margin-bottom: 1.8rem;">
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل تُحفظ مواعيدي وتاريخ ميلادي عند إغلاق المتصفح؟</h3>
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">كيف أحول الاختبار إلى مهمة أو جلسة تركيز؟</h3>
                 <p>
-                    نعم، تُحفظ بياناتك محلياً في ذاكرة متصفحك مجاناً لتجدها متوفرة في كل مرة تعود فيها إلى الموقع دون الحاجة لإنشاء حساب.
+                    تحت كل بطاقة موعد ستجد زري "تحويل إلى مهمة" و "جلسة تركيز"، حيث يمكنك تحويل الاختبار مباشرة لخطة مذاكرة في قائمة المهام أو البومودورو.
                 </p>
             </div>
 
             <div class="faq-item">
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">هل البيانات محمية؟</h3>
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">كيف يُحسب العمر وبلوغ 18 سنة؟</h3>
                 <p>
-                    نعم، الحاسبة تعمل 100% داخل المتصفح بدون أي إرسال للبيانات إلى خوادم خارجية.
+                    يُحسب العمر بناءً على فروق السنوات والأشهر والسنوات الكبيسة بدقة تقويمية تامّة مع عدّ تنازلي هجري/ميلادي دقيق لبلوغ 18 سنة.
                 </p>
             </div>
 
