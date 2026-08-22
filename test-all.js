@@ -113,6 +113,29 @@ console.log('=== RUNNING HAYYIZ AUTOMATED TEST SUITE ===\n');
     assert(Array.isArray(backupKeys) && backupKeys.includes('hayyiz-todos') && backupKeys.includes('hayyiz-notes') && backupKeys.includes('hayyiz-student-exams'), 'Backup keys cover all essential platform data');
 }
 
+// 6. Focus Engine State & Streak Unit Tests
+{
+    localStorage.clear();
+    const state = {
+        mode: 'focus',
+        status: 'running',
+        endTime: Date.now() + 1500 * 1000,
+        remainingSeconds: 1500,
+        totalDuration: 1500,
+        context: { type: 'free', id: null, title: 'تركيز حر' }
+    };
+    hayyizSaveFocusState(state);
+    const loaded = hayyizGetFocusState();
+    assert(loaded && loaded.status === 'running' && loaded.remainingSeconds > 0, 'Focus Engine state persists and restores running timer state correctly');
+
+    const today = getTodayLocal();
+    const hist = {};
+    hist[today] = 50;
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify(hist));
+    const streak = hayyizCalculateStreak();
+    assert(streak === 1, 'Focus Engine correctly calculates streak count for today');
+}
+
 console.log(`\n===================================`);
 console.log(`TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);

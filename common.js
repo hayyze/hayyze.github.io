@@ -82,6 +82,7 @@ var HAYYIZ_BACKUP_KEYS = [
     'hayyiz-focus-minutes-today',
     'hayyiz-sessions-day',
     'hayyiz-focus-history',
+    'hayyiz-focus-sessions-log',
     'hayyiz-pref-work',
     'hayyiz-pref-break',
     'hayyiz-pref-long',
@@ -92,6 +93,7 @@ var HAYYIZ_BACKUP_KEYS = [
     'hayyiz-current-task-index',
     'hayyiz-current-task-id',
     'hayyiz-task-session',
+    'hayyiz-current-event',
     'hayyiz-pomodoro-state',
     'hayyiz-subjects',
     'hayyiz-exams',
@@ -515,53 +517,236 @@ function hayyizRecommendNext(limit) {
     };
 }
 
+/* ---------- Focus Engine Data Layer Helpers ---------- */
+
+/**
+ * جلب حالة جهاز التركيز الحالية مع دعم للتوافقية القديمة
+ */
+function hayyizGetFocusState() {
+    const raw = localStorage.getItem('hayyiz-pomodoro-state');
+    if (!raw) return null;
+    try {
+        const state = JSON.parse(raw);
+        if (!state || typeof state !== 'object') return null;
+
+        // تحويل الصيغة القديمة إلى المخطط الجديد المحسن
+        const workMin = parseInt(state.workMinutes || localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
+        const breakMin = parseInt(state.breakMinutes || localStorage.getItem('hayyiz-pref-break') || '5', 10) || 5;
+        const longBreakMin = parseInt(state.longBreakMinutes || localStorage.getItem('hayyiz-pref-long') || '15', 10) || 15;
+
+        const mode = state.mode || (state.isWorkMode === false ? 'break' : 'focus');
+        let status = state.status || (state.isRunning ? 'running' : 'idle');
+        let endTime = typeof state.endTime === 'number' ? state.endTime : null;
+        let totalDuration = typeof state.totalDuration === 'number' ? state.totalDuration : (mode === 'focus' ? workMin : breakMin) * 60;
+        let remainingSeconds = typeof state.remainingSeconds === 'number' ? state.remainingSeconds : totalDuration;
+
+        if (status === 'running' && endTime) {
+            const now = Date.now();
+            const rem = Math.round((endTime - now) / 1000);
+            if (rem <= 0) {
+                status = 'completed';
+                remainingSeconds = 0;
+            } else {
+                remainingSeconds = rem;
+            }
+        }
+
+        let context = state.context || null;
+        if (!context) {
+            const taskName = localStorage.getItem('hayyiz-current-task');
+            const taskId = localStorage.getItem('hayyiz-current-task-id');
+            const eventRaw = localStorage.getItem('hayyiz-current-event');
+            let eventObj = null;
+            try { eventObj = eventRaw ? JSON.parse(eventRaw) : null; } catch(e){}
+
+            if (taskName) {
+                context = { type: 'task', id: taskId || null, title: taskName };
+            } else if (eventObj && eventObj.name) {
+                context = { type: 'event', id: eventObj.id || null, title: eventObj.name };
+            } else {
+                context = { type: 'free', id: null, title: 'تركيز حر' };
+            }
+        }
+
+        return {
+            mode,
+            status,
+            endTime,
+            remainingSeconds: Math.max(0, remainingSeconds),
+            totalDuration: Math.max(1, totalDuration),
+            workMinutes: workMin,
+            breakMinutes: breakMin,
+            longBreakMinutes: longBreakMin,
+            sessionInCycle: typeof state.sessionInCycle === 'number' ? state.sessionInCycle : parseInt(localStorage.getItem('hayyiz-session-in-cycle') || '0', 10),
+            context,
+            lastUpdated: state.lastUpdated || Date.now()
+        };
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
+ * حفظ حالة جهاز التركيز
+ */
+function hayyizSaveFocusState(state) {
+    if (!state || typeof state !== 'object') {
+        localStorage.removeItem('hayyiz-pomodoro-state');
+        return;
+    }
+    state.lastUpdated = Date.now();
+    hayyizSaveJSON('hayyiz-pomodoro-state', state);
+}
+
+/**
+ * جلب سجل الجلسات المكتملة
+ */
+function hayyizGetFocusSessions() {
+    return hayyizParseJSON('hayyiz-focus-sessions-log', []);
+}
+
+/**
+ * تسجيل جلسة تركيز مكتملة في السجل غير القابل للتغيير
+ */
+function hayyizLogFocusSession(sessionObj) {
+    if (!sessionObj) return;
+    const log = hayyizGetFocusSessions();
+    const today = getTodayLocal();
+    const entry = {
+        id: sessionObj.id || hayyizGenerateId(),
+        timestamp: new Date().toISOString(),
+        date: today,
+        durationMinutes: parseInt(sessionObj.durationMinutes, 10) || 25,
+        mode: sessionObj.mode || 'focus',
+        contextSnapshot: {
+            type: sessionObj.contextType || 'free',
+            id: sessionObj.contextId || null,
+            title: sessionObj.contextTitle || 'تركيز حر',
+            subjectId: sessionObj.subjectId || null
+        }
+    };
+    log.unshift(entry);
+    // الاحتفاظ بأحدث 200 جلسة لمنع التضخم
+    if (log.length > 200) log.length = 200;
+    hayyizSaveJSON('hayyiz-focus-sessions-log', log);
+    return entry;
+}
+
+/**
+ * حساب أيام الاستمرارية (Streak): عدد الأيام المتتالية التي أُكملت فيها جلسة واحدة على الأقل
+ */
+function hayyizCalculateStreak() {
+    try {
+        const hist = hayyizParseJSON('hayyiz-focus-history', {});
+        const today = getTodayLocal();
+        const yesterday = getYesterdayLocal();
+
+        let streak = 0;
+        let checkDate = new Date();
+
+        // هل توجد جلسة اليوم؟
+        const hasToday = (parseInt(hist[today], 10) || 0) > 0;
+        if (!hasToday) {
+            // نتحقق من الأمس، إذا لم يوجد جلسة بالأمس فالستريك 0
+            const hasYesterday = (parseInt(hist[yesterday], 10) || 0) > 0;
+            if (!hasYesterday) return 0;
+            // تبدأ السلسلة من الأمس
+            checkDate.setDate(checkDate.getDate() - 1);
+        }
+
+        while (true) {
+            const year = checkDate.getFullYear();
+            const month = String(checkDate.getMonth() + 1).padStart(2, '0');
+            const day = String(checkDate.getDate()).padStart(2, '0');
+            const key = `${year}-${month}-${day}`;
+            const minutes = parseInt(hist[key], 10) || 0;
+            if (minutes > 0) {
+                streak++;
+                checkDate.setDate(checkDate.getDate() - 1);
+            } else {
+                break;
+            }
+        }
+        return streak;
+    } catch (e) {
+        return 0;
+    }
+}
+
 /* ---------- إطلاق جلسة تركيز موحّد ---------- */
 
 /**
- * يجهّز التخزين وينتقل إلى صفحة البومودورو مرتبطاً بالمهمة.
- * يستخدم id إن وُجد حتى لا ينكسر الربط عند إعادة ترتيب القائمة.
+ * يجهّز التخزين وينتقل إلى صفحة البومودورو مرتبطاً بمهمة أو حدث تقويم أو تركيز حر.
  */
-function hayyizLaunchPomodoro(task, indexHint) {
-    if (!task || !task.text) {
+function hayyizLaunchPomodoro(target, indexHint) {
+    if (!target) {
         localStorage.removeItem('hayyiz-current-task');
         localStorage.removeItem('hayyiz-current-task-index');
         localStorage.removeItem('hayyiz-current-task-id');
         localStorage.removeItem('hayyiz-task-session');
+        localStorage.removeItem('hayyiz-current-event');
         window.location.href = 'pomodoro.html';
         return;
     }
 
+    // إذا كان الهدف حدث تقويم (يحتوي على date أو type)
+    if (typeof target === 'object' && (target.type || target.date) && !target.text) {
+        const eventSnapshot = {
+            id: target.id || null,
+            name: target.name || target.title || 'حدث تقويم',
+            date: target.date || null,
+            type: target.type || 'exam',
+            subjectId: target.subjectId || null
+        };
+        localStorage.setItem('hayyiz-current-event', JSON.stringify(eventSnapshot));
+        localStorage.removeItem('hayyiz-current-task');
+        localStorage.removeItem('hayyiz-current-task-index');
+        localStorage.removeItem('hayyiz-current-task-id');
+        localStorage.removeItem('hayyiz-task-session');
+        window.location.href = 'pomodoro.html?event=' + encodeURIComponent(eventSnapshot.name);
+        return;
+    }
+
+    // إذا كان الهدف مهمة
+    const taskText = typeof target === 'string' ? target : target.text;
+    if (!taskText) {
+        window.location.href = 'pomodoro.html';
+        return;
+    }
+
+    const taskObj = typeof target === 'object' ? target : { text: taskText };
     const todos = hayyizGetTodos();
     let index = typeof indexHint === 'number' ? indexHint : -1;
-    if (index < 0 || !todos[index] || (task.id && todos[index].id !== task.id)) {
-        index = hayyizFindTodoIndex(todos, task);
+    if (index < 0 || !todos[index] || (taskObj.id && todos[index].id !== taskObj.id)) {
+        index = hayyizFindTodoIndex(todos, taskObj);
     }
-    if (index < 0 && task.id) {
-        index = todos.findIndex((t) => t && t.id === task.id);
+    if (index < 0 && taskObj.id) {
+        index = todos.findIndex((t) => t && t.id === taskObj.id);
     }
 
     const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
-    const totalMinutes = task.minutes ? parseInt(task.minutes, 10) : null;
+    const totalMinutes = taskObj.minutes ? parseInt(taskObj.minutes, 10) : null;
     const plan = {
-        text: task.text,
-        id: task.id || null,
+        text: taskText,
+        id: taskObj.id || null,
         index: index,
-        subjectId: task.subjectId || null,
+        subjectId: taskObj.subjectId || null,
         totalMinutes: totalMinutes && totalMinutes > 0 ? totalMinutes : null,
-        focusDone: task.focusDone ? parseInt(task.focusDone, 10) || 0 : 0,
-        sessionsDone: task.sessionsDone ? parseInt(task.sessionsDone, 10) || 0 : 0,
+        focusDone: taskObj.focusDone ? parseInt(taskObj.focusDone, 10) || 0 : 0,
+        sessionsDone: taskObj.sessionsDone ? parseInt(taskObj.sessionsDone, 10) || 0 : 0,
         sessionsNeeded:
             totalMinutes && totalMinutes > 0
                 ? Math.ceil(totalMinutes / workMin)
                 : null
     };
 
-    localStorage.setItem('hayyiz-current-task', task.text);
-    if (task.id) localStorage.setItem('hayyiz-current-task-id', task.id);
+    localStorage.setItem('hayyiz-current-task', taskText);
+    if (taskObj.id) localStorage.setItem('hayyiz-current-task-id', taskObj.id);
     else localStorage.removeItem('hayyiz-current-task-id');
     localStorage.setItem('hayyiz-current-task-index', String(index >= 0 ? index : -1));
     localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
-    window.location.href = 'pomodoro.html?task=' + encodeURIComponent(task.text);
+    localStorage.removeItem('hayyiz-current-event');
+    window.location.href = 'pomodoro.html?task=' + encodeURIComponent(taskText);
 }
 
 /**
