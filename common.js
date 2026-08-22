@@ -259,7 +259,7 @@ function hayyizEnsureDataShape() {
     }
 }
 
-/** قراءة/حفظ المهام مع ضمان المعرفات */
+/** قراءة/حفظ المهام مع ضمان المعرفات والحالة والملاءمة الكاملة */
 function hayyizGetTodos() {
     hayyizEnsureDataShape();
     return hayyizParseJSON('hayyiz-todos', []);
@@ -268,7 +268,13 @@ function hayyizGetTodos() {
 function hayyizSaveTodos(todos) {
     if (!Array.isArray(todos)) return;
     todos.forEach((t) => {
-        if (t && !t.id) t.id = hayyizGenerateId();
+        if (!t) return;
+        if (!t.id) t.id = hayyizGenerateId();
+        if (t.completed) {
+            t.status = 'completed';
+        } else if (!t.status || t.status === 'completed') {
+            t.status = (parseInt(t.focusDone, 10) || 0) > 0 ? 'in-progress' : 'todo';
+        }
     });
     hayyizSaveJSON('hayyiz-todos', todos);
 }
@@ -292,6 +298,98 @@ function hayyizGetTodoById(id) {
     if (!id) return null;
     const todos = hayyizGetTodos();
     return todos.find((t) => t && t.id === id) || null;
+}
+
+function hayyizGetTaskById(id) {
+    return hayyizGetTodoById(id);
+}
+
+function hayyizUpdateTask(id, patch) {
+    if (!id || !patch || typeof patch !== 'object') return null;
+    const todos = hayyizGetTodos();
+    const idx = todos.findIndex((t) => t && t.id === id);
+    if (idx < 0) return null;
+
+    todos[idx] = Object.assign({}, todos[idx], patch);
+    if (patch.completed !== undefined) {
+        todos[idx].completed = Boolean(patch.completed);
+        if (todos[idx].completed) {
+            todos[idx].status = 'completed';
+            if (!todos[idx].completedAt) todos[idx].completedAt = getTodayLocal();
+        } else {
+            todos[idx].status = (parseInt(todos[idx].focusDone, 10) || 0) > 0 ? 'in-progress' : 'todo';
+            delete todos[idx].completedAt;
+        }
+    } else if (patch.status) {
+        if (patch.status === 'completed') {
+            todos[idx].completed = true;
+            if (!todos[idx].completedAt) todos[idx].completedAt = getTodayLocal();
+        } else {
+            todos[idx].completed = false;
+            delete todos[idx].completedAt;
+        }
+    }
+
+    hayyizSaveTodos(todos);
+    return todos[idx];
+}
+
+function hayyizDeleteTask(id) {
+    if (!id) return false;
+    const todos = hayyizGetTodos();
+    const idx = todos.findIndex((t) => t && t.id === id);
+    if (idx < 0) return false;
+    todos.splice(idx, 1);
+    hayyizSaveTodos(todos);
+    return true;
+}
+
+/** صيغة التواريخ النسبية والسياقية للمهام */
+function hayyizFormatRelativeDueDate(dateStr) {
+    if (!dateStr) return { label: 'بدون موعد', isOverdue: false, days: null, cssClass: 'due-none' };
+    const dateOnly = String(dateStr).slice(0, 10);
+    const days = hayyizDaysUntil(dateOnly);
+    if (days === null) return { label: dateStr, isOverdue: false, days: null, cssClass: 'due-none' };
+
+    if (days < 0) {
+        const abs = Math.abs(days);
+        const label = abs === 1 ? 'متأخرة يوماً واحداً' : (abs === 2 ? 'متأخرة يومين' : `متأخرة ${abs} أيام`);
+        return { label, isOverdue: true, days, cssClass: 'due-overdue' };
+    } else if (days === 0) {
+        return { label: 'اليوم', isOverdue: false, days: 0, cssClass: 'due-today' };
+    } else if (days === 1) {
+        return { label: 'غداً', isOverdue: false, days: 1, cssClass: 'due-tomorrow' };
+    } else if (days <= 7) {
+        return { label: `بعد ${days} أيام`, isOverdue: false, days, cssClass: 'due-week' };
+    } else {
+        return { label: dateOnly, isOverdue: false, days, cssClass: 'due-future' };
+    }
+}
+
+/** ملخص إحصاءات المهام للـ Dashboard وشريط المهام */
+function hayyizGetTaskSummary() {
+    const todos = hayyizGetTodos();
+    const today = getTodayLocal();
+
+    const active = todos.filter((t) => t && !t.completed);
+    const completedToday = todos.filter((t) => t && t.completed && t.completedAt === today).length;
+    const overdue = active.filter((t) => t.date && String(t.date).slice(0, 10) < today);
+    const dueToday = active.filter((t) => t.date && String(t.date).slice(0, 10) === today);
+
+    let totalFocusMin = 0;
+    todos.forEach((t) => {
+        totalFocusMin += (parseInt(t.focusDone, 10) || 0);
+    });
+
+    return {
+        total: todos.length,
+        activeCount: active.length,
+        completedToday,
+        completedTotal: todos.length - active.length,
+        overdueCount: overdue.length,
+        dueTodayCount: dueToday.length,
+        totalFocusMinutes: totalFocusMin
+    };
 }
 
 /* ---------- المواد ---------- */
