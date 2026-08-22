@@ -73,7 +73,7 @@ if ('serviceWorker' in navigator) {
 }
 
 /** مفاتيح بيانات المستخدم التي تُصدَّر */
-const HAYYIZ_BACKUP_KEYS = [
+var HAYYIZ_BACKUP_KEYS = [
     'hayyiz-todos',
     'hayyiz-notes',
     'hayyiz-habits',

@@ -18,9 +18,40 @@ document.addEventListener('DOMContentLoaded', () => {
     if (relatedTask) {
         try { relatedTask = decodeURIComponent(relatedTask); } catch (e) { /* keep */ }
     }
+
+    function saveDraft() {
+        if (editingIndex !== null) return;
+        const titleVal = noteTitle ? noteTitle.value : '';
+        const contentVal = noteContent ? noteContent.value : '';
+        if (titleVal.trim() || contentVal.trim()) {
+            localStorage.setItem('hayyiz-note-draft', JSON.stringify({ title: titleVal, content: contentVal }));
+        } else {
+            localStorage.removeItem('hayyiz-note-draft');
+        }
+    }
+
+    function loadDraft() {
+        if (prefillTitle) return;
+        try {
+            const raw = localStorage.getItem('hayyiz-note-draft');
+            if (raw) {
+                const draft = JSON.parse(raw);
+                if (draft && (draft.title || draft.content)) {
+                    if (noteTitle) noteTitle.value = draft.title || '';
+                    if (noteContent) noteContent.value = draft.content || '';
+                }
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    if (noteTitle) noteTitle.addEventListener('input', saveDraft);
+    if (noteContent) noteContent.addEventListener('input', saveDraft);
+
     if (prefillTitle && noteTitle) {
         noteTitle.value = decodeURIComponent(prefillTitle);
         if (noteContent) noteContent.focus();
+    } else {
+        loadDraft();
     }
 
     function saveNotes() {
@@ -31,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
         editingIndex = null;
         if (noteTitle) noteTitle.value = '';
         if (noteContent) noteContent.value = '';
+        localStorage.removeItem('hayyiz-note-draft');
         if (submitBtn) {
             submitBtn.innerHTML = '<i class="fa-solid fa-plus"></i> حفظ';
         }

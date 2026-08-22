@@ -539,9 +539,16 @@ document.addEventListener('DOMContentLoaded', () => {
     todoForm.addEventListener('submit', e => {
         e.preventDefault();
 
-        const text = todoInput.value.trim();
+        const text = todoInput ? todoInput.value.trim() : '';
 
         if (!text) {
+            if (todoInput) {
+                todoInput.focus();
+                todoInput.style.borderColor = 'var(--danger, #ef4444)';
+                setTimeout(() => {
+                    todoInput.style.borderColor = '';
+                }, 1800);
+            }
             return;
         }
 

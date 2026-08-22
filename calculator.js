@@ -241,7 +241,19 @@
             const date = dateInput.value;
             const time = timeInput ? timeInput.value : '';
 
-            if (!name || !date) return;
+            if (!name) {
+                nameInput.focus();
+                nameInput.style.borderColor = 'var(--danger, #ef4444)';
+                setTimeout(() => { nameInput.style.borderColor = ''; }, 1800);
+                return;
+            }
+
+            if (!date) {
+                dateInput.focus();
+                dateInput.style.borderColor = 'var(--danger, #ef4444)';
+                setTimeout(() => { dateInput.style.borderColor = ''; }, 1800);
+                return;
+            }
 
             addEvent({ name, type, date, time });
 
