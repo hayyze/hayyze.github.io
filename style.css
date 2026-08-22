@@ -431,6 +431,35 @@ button, input, select, textarea {
     letter-spacing: 4px;
     color: var(--primary);
     line-height: 1.1;
+    cursor: pointer;
+    user-select: none;
+}
+
+.timer-inline-input {
+    font-size: 5rem;
+    font-weight: 800;
+    letter-spacing: 4px;
+    color: var(--primary);
+    line-height: 1.1;
+    font-family: inherit;
+    text-align: center;
+    background: transparent;
+    border: 2px dashed var(--primary);
+    border-radius: var(--radius-sm, 12px);
+    width: 180px;
+    outline: none;
+    padding: 0 0.2rem;
+    margin: 0 auto;
+    box-shadow: 0 0 12px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.timer-inline-input::-webkit-inner-spin-button,
+.timer-inline-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.timer-inline-input[type=number] {
+    -moz-appearance: textfield;
 }
 
 .timer-progress {
@@ -1251,6 +1280,11 @@ button, input, select, textarea {
 
     .timer-display {
         font-size: 3.5rem;
+    }
+
+    .timer-inline-input {
+        font-size: 3.5rem;
+        width: 140px;
     }
 }
 

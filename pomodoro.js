@@ -533,7 +533,107 @@ document.addEventListener('DOMContentLoaded', () => {
         saveState();
     }
 
+    // ========== Inline Duration Editing ==========
+    let isInlineEditing = false;
+
+    function startInlineEdit() {
+        if (state.status !== 'idle' || isInlineEditing || !timerDisplay) return;
+
+        isInlineEditing = true;
+        let currentMins = Math.floor(state.remainingSeconds / 60);
+        if (state.mode === 'focus') {
+            currentMins = parseInt(workInput?.value || '25', 10) || 25;
+        } else if (state.mode === 'longBreak') {
+            currentMins = parseInt(longBreakInput?.value || '15', 10) || 15;
+        } else {
+            currentMins = parseInt(breakInput?.value || '5', 10) || 5;
+        }
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'timer-inline-input';
+        input.value = currentMins;
+        input.min = '1';
+        input.max = state.mode === 'focus' ? '180' : '60';
+
+        timerDisplay.innerHTML = '';
+        timerDisplay.appendChild(input);
+        input.focus();
+        input.select();
+
+        let finished = false;
+
+        function commitEdit() {
+            if (finished) return;
+            finished = true;
+            isInlineEditing = false;
+
+            const val = parseInt(input.value, 10);
+            const maxVal = state.mode === 'focus' ? 180 : 60;
+
+            if (!isNaN(val) && val >= 1 && val <= maxVal) {
+                if (state.mode === 'focus') {
+                    if (workInput) workInput.value = val;
+                } else if (state.mode === 'longBreak') {
+                    if (longBreakInput) longBreakInput.value = val;
+                } else {
+                    if (breakInput) breakInput.value = val;
+                }
+                savePreferences();
+                resetTimerToCurrentMode();
+                updateContextUI();
+            } else {
+                updateUI();
+            }
+        }
+
+        function cancelEdit() {
+            if (finished) return;
+            finished = true;
+            isInlineEditing = false;
+            updateUI();
+        }
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                commitEdit();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelEdit();
+            }
+        });
+
+        input.addEventListener('blur', () => {
+            commitEdit();
+        });
+    }
+
+    if (timerDisplay) {
+        timerDisplay.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            startInlineEdit();
+        });
+
+        let touchTimer = null;
+        timerDisplay.addEventListener('touchend', (e) => {
+            if (state.status !== 'idle') return;
+            if (touchTimer) {
+                clearTimeout(touchTimer);
+                touchTimer = null;
+                e.preventDefault();
+                startInlineEdit();
+            } else {
+                touchTimer = setTimeout(() => {
+                    touchTimer = null;
+                }, 300);
+            }
+        });
+    }
+
     function updateUI() {
+        if (isInlineEditing) return;
+
         const remaining = state.remainingSeconds;
         const min = Math.floor(remaining / 60);
         const sec = remaining % 60;
