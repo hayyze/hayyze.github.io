@@ -832,15 +832,35 @@
     const valid = list.filter((s) => s.grade !== null && s.grade !== undefined && !isNaN(s.grade));
     if (!valid.length) return [];
 
-    const totalWeight = valid.reduce((sum, s) => sum + (parseFloat(s.weight) || 0), 0);
-    if (totalWeight <= 0) return [];
+    const baselineGpa = hayyizComputeWeightedGpa(valid);
+    if (baselineGpa === null) return [];
 
     const impacts = valid.map((s, originalIndex) => {
       const grade = parseFloat(s.grade);
       const weight = parseFloat(s.weight);
       const headroom = Math.max(0, 100 - grade);
-      const marginalImpact = weight / totalWeight;
-      const maxGpaGain = headroom * marginalImpact;
+
+      let marginalImpact = 0;
+      if (headroom > 0) {
+        const testGradePlus1 = Math.min(100, grade + 1);
+        const evalPlus1List = valid.map((item, idx) => ({
+          grade: idx === originalIndex ? testGradePlus1 : item.grade,
+          weight: item.weight
+        }));
+        const gpaPlus1 = hayyizComputeWeightedGpa(evalPlus1List);
+        const deltaGrade = testGradePlus1 - grade;
+        marginalImpact = deltaGrade > 0 && gpaPlus1 !== null ? (gpaPlus1 - baselineGpa) / deltaGrade : 0;
+      }
+
+      let maxGpaGain = 0;
+      if (headroom > 0) {
+        const evalMaxList = valid.map((item, idx) => ({
+          grade: idx === originalIndex ? 100 : item.grade,
+          weight: item.weight
+        }));
+        const gpaMax = hayyizComputeWeightedGpa(evalMaxList);
+        maxGpaGain = gpaMax !== null ? Math.max(0, gpaMax - baselineGpa) : 0;
+      }
 
       let priority = "منخفضة";
       if (headroom > 0) {
@@ -960,11 +980,11 @@
     const subjectImpacts = hayyizCalculateSubjectImpacts(valid);
     const impactMap = {};
     subjectImpacts.forEach((imp) => {
-      impactMap[imp.name] = imp;
+      impactMap[imp.index] = imp;
     });
 
     const recommendedGrades = valid.map((s, i) => {
-      const imp = impactMap[s.name] || {};
+      const imp = impactMap[i] || {};
       return {
         name: s.name,
         currentGrade: s.grade,
