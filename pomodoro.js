@@ -345,6 +345,8 @@ document.addEventListener('DOMContentLoaded', () => {
             breakMinutes: breakInput ? breakInput.value : '5',
             longBreakMinutes: longBreakInput ? longBreakInput.value : '15',
             context: state.context,
+            sessionId: state.sessionId || null,
+            loggedSessionId: state.loggedSessionId || null,
             lastUpdated: Date.now()
         };
 
@@ -382,16 +384,22 @@ document.addEventListener('DOMContentLoaded', () => {
         state.endTime = restored.endTime || null;
         state.sessionInCycle = typeof restored.sessionInCycle === 'number' ? restored.sessionInCycle : 0;
         if (restored.context) state.context = restored.context;
+        if (restored.sessionId) state.sessionId = restored.sessionId;
+        if (restored.loggedSessionId) state.loggedSessionId = restored.loggedSessionId;
 
-        // If status was 'running', evaluate true elapsed time using timestamp
+        if (state.status === 'completed' || (state.status === 'running' && state.endTime && Date.now() >= state.endTime)) {
+            // Run idempotent completion helper in common.js to log stats if not already logged
+            if (typeof hayyizCheckAndCompleteSession === 'function') {
+                state = hayyizCheckAndCompleteSession(state);
+            }
+            handleTimerCompletionUI(true);
+            return;
+        }
+
         if (state.status === 'running' && state.endTime) {
             const remaining = Math.round((state.endTime - Date.now()) / 1000);
             if (remaining <= 0) {
-                // Timer completed while page was closed / away / asleep!
-                state.remainingSeconds = 0;
-                state.status = 'idle';
-                state.endTime = null;
-                handleTimerCompletion(true);
+                handleTimerCompletionUI(true);
                 return;
             } else {
                 state.remainingSeconds = remaining;
@@ -432,6 +440,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         state.endTime = Date.now() + rem * 1000;
         state.status = 'running';
+        state.sessionId = 'sess_' + state.endTime;
+        state.loggedSessionId = null;
 
         announceSR('بدأت جلسة ' + (state.mode === 'focus' ? 'التركيز' : 'الراحة'));
 
@@ -570,56 +580,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ========== Completion & Workflow Flow ==========
     function handleTimerCompletion(wasAway) {
+        if (typeof hayyizCheckAndCompleteSession === 'function') {
+            state = hayyizCheckAndCompleteSession(state);
+        }
+
         playNotificationSound();
 
         if (state.mode === 'focus') {
             const workMin = Math.round(state.totalDuration / 60) || 25;
 
-            // 1. Update totals
-            const completedTotal = parseInt(localStorage.getItem('hayyiz-sessions') || '0', 10) + 1;
-            localStorage.setItem('hayyiz-sessions', String(completedTotal));
-
-            ensureTodayStats();
-            const todaySess = parseInt(localStorage.getItem('hayyiz-sessions-today') || '0', 10) + 1;
-            const todayMin = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10) + workMin;
-            localStorage.setItem('hayyiz-sessions-today', String(todaySess));
-            localStorage.setItem('hayyiz-focus-minutes-today', String(todayMin));
-
-            // Focus history map
-            try {
-                const hist = JSON.parse(localStorage.getItem('hayyiz-focus-history') || '{}');
-                const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
-                hist[today] = (parseInt(hist[today], 10) || 0) + workMin;
-                localStorage.setItem('hayyiz-focus-history', JSON.stringify(hist));
-            } catch (e) {}
-
-            // Log immutable focus session entry
-            if (typeof hayyizLogFocusSession === 'function') {
-                hayyizLogFocusSession({
-                    durationMinutes: workMin,
-                    mode: 'focus',
-                    contextType: state.context.type,
-                    contextId: state.context.id,
-                    contextTitle: state.context.title,
-                    subjectId: state.context.subjectId
-                });
-            }
-
-            // Apply focus to Task / Subject if connected
-            if (state.context.type === 'task') {
-                if (typeof hayyizApplyFocusResult === 'function') {
-                    hayyizApplyFocusResult({
-                        workMin: workMin,
-                        taskId: state.context.id,
-                        taskText: state.context.title
-                    });
-                }
-            } else if (state.context.subjectId && typeof hayyizBumpSubjectProgress === 'function') {
-                hayyizBumpSubjectProgress(state.context.subjectId, workMin);
-            }
-
             // Session cycle counter (4 focus sessions -> long break)
-            state.sessionInCycle++;
+            state.sessionInCycle = (state.sessionInCycle || 0) + 1;
             let isLong = false;
             if (state.sessionInCycle >= 4) {
                 state.sessionInCycle = 0;

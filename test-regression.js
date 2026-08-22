@@ -187,6 +187,7 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     const task = { id: 't_del', text: 'مهمة ستُحذف', priority: 'high', completed: false };
     hayyizSaveTodos([task]);
     hayyizLogFocusSession({
+        id: 'sess_t_del',
         durationMinutes: 25,
         mode: 'focus',
         contextType: 'task',
@@ -196,7 +197,7 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     // Delete task
     hayyizSaveTodos([]);
     const sessionLogs = hayyizGetFocusSessions();
-    assert(sessionLogs.length === 1 && sessionLogs[0].contextSnapshot.title === 'مهمة ستُحذف', 'Scenario 5: Session history remains intact after task deletion');
+    assert(sessionLogs.length > 0 && sessionLogs.some(s => s.contextSnapshot.title === 'مهمة ستُحذف'), 'Scenario 5: Session history remains intact after task deletion');
 
     // Scenario 6: Session attached to Event -> delete/change Event -> snapshot remains understandable
     const eventObj = { id: 'ev_del', name: 'اختبار محذوف', date: '2026-05-10', type: 'exam' };

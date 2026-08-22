@@ -611,6 +611,9 @@ function hayyizGetFocusState() {
             if (rem <= 0) {
                 status = 'completed';
                 remainingSeconds = 0;
+                state.status = 'completed';
+                state.remainingSeconds = 0;
+                hayyizCheckAndCompleteSession(state);
             } else {
                 remainingSeconds = rem;
             }
@@ -649,6 +652,91 @@ function hayyizGetFocusState() {
     } catch (e) {
         return null;
     }
+}
+
+/**
+ * فحص الجلسة وإكمالها بشكل idempotent لمنع التكرار بصرف النظر عن صفحة المستخدم أو المتصفح
+ */
+function hayyizCheckAndCompleteSession(stateObj) {
+    if (!stateObj || typeof stateObj !== 'object') return false;
+
+    // شرط الانتهاء: الوضع تركيز والحالة مكتملة أو وصل وقت الانتهاء
+    const now = Date.now();
+    const isExpired = stateObj.endTime && stateObj.endTime <= now;
+    const isCompleted = stateObj.status === 'completed' || isExpired;
+
+    if (!isCompleted || stateObj.mode !== 'focus') return false;
+
+    // معرف جلسة فريد للتأكد من تنفيذ العملية مرة واحدة فقط (Idempotency)
+    const sessionId = stateObj.sessionId || (stateObj.endTime ? ('sess_' + stateObj.endTime) : null);
+    if (!sessionId) return false;
+
+    // فحص ما إذا تم إكمال وتسجيل هذه الجلسة سابقاً
+    const loggedSessionId = localStorage.getItem('hayyiz-last-completed-session-id');
+    if (loggedSessionId === sessionId) {
+        return false; // أُكملت وسُجلت سابقاً بالكامل
+    }
+
+    // الدقائق المنجزة
+    const workMin = Math.round((stateObj.totalDuration || 1500) / 60) || 25;
+
+    // 1. تحديث الإحصائيات العامة
+    const completedTotal = parseInt(localStorage.getItem('hayyiz-sessions') || '0', 10) + 1;
+    localStorage.setItem('hayyiz-sessions', String(completedTotal));
+
+    const today = getTodayLocal();
+    const lastDay = localStorage.getItem('hayyiz-sessions-day');
+    if (lastDay !== today) {
+        localStorage.setItem('hayyiz-sessions-today', '1');
+        localStorage.setItem('hayyiz-focus-minutes-today', String(workMin));
+        localStorage.setItem('hayyiz-sessions-day', today);
+    } else {
+        const todaySess = parseInt(localStorage.getItem('hayyiz-sessions-today') || '0', 10) + 1;
+        const todayMin = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10) + workMin;
+        localStorage.setItem('hayyiz-sessions-today', String(todaySess));
+        localStorage.setItem('hayyiz-focus-minutes-today', String(todayMin));
+    }
+
+    // خريطة سجل التركيز
+    try {
+        const hist = hayyizParseJSON('hayyiz-focus-history', {});
+        hist[today] = (parseInt(hist[today], 10) || 0) + workMin;
+        hayyizSaveJSON('hayyiz-focus-history', hist);
+    } catch (e) {}
+
+    // 2. تسجيل الجلسة في سجل الجلسات المكتملة
+    const ctx = stateObj.context || {};
+    hayyizLogFocusSession({
+        id: sessionId,
+        durationMinutes: workMin,
+        mode: 'focus',
+        contextType: ctx.type || 'free',
+        contextId: ctx.id || null,
+        contextTitle: ctx.title || 'تركيز حر',
+        subjectId: ctx.subjectId || null
+    });
+
+    // 3. تحديث المادة والمهمة المرتبطة إن وجدت
+    if (ctx.type === 'task') {
+        hayyizApplyFocusResult({
+            workMin: workMin,
+            taskId: ctx.id,
+            taskText: ctx.title
+        });
+    } else if (ctx.subjectId) {
+        hayyizBumpSubjectProgress(ctx.subjectId, workMin);
+    }
+
+    // وضع علامة الاكتفاء الجلسة
+    localStorage.setItem('hayyiz-last-completed-session-id', sessionId);
+
+    // تحديث الحالة المحفوظة لتصبح مكتملة
+    stateObj.status = 'completed';
+    stateObj.remainingSeconds = 0;
+    stateObj.loggedSessionId = sessionId;
+    hayyizSaveJSON('hayyiz-pomodoro-state', stateObj);
+
+    return true;
 }
 
 /**

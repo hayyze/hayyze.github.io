@@ -1881,7 +1881,8 @@ button, input, select, textarea {
     align-items: center;
     justify-content: center;
     gap: 0.75rem;
-    margin-top: 1.25rem;
+    margin-top: 0.85rem;
+    margin-bottom: 0.85rem;
     flex-wrap: wrap;
 }
 
@@ -1912,6 +1913,54 @@ button, input, select, textarea {
     background: var(--primary);
     color: white;
     border-color: var(--primary);
+}
+
+.above-fold-duration-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.compact-setting-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.compact-setting-item label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.input-with-unit-sm {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 8px;
+}
+
+.input-with-unit-sm input {
+    width: 48px;
+    border: none;
+    background: transparent;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--text);
+    outline: none;
+}
+
+.input-with-unit-sm span {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 600;
 }
 
 .stats-summary-grid {
