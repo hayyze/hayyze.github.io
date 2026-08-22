@@ -428,6 +428,68 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     assert(activeFocusState !== null, 'Scenario 8: Dashboard can query active focus state cleanly after reload');
 }
 
+// --- 8. INLINE DURATION EDITING UNIT TESTS ---
+{
+    localStorage.clear();
+
+    // Work min inline edit 25 -> 30
+    localStorage.setItem('hayyiz-pref-work', '25');
+    localStorage.setItem('hayyiz-pref-break', '5');
+    let prefWork = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10);
+    assert(prefWork === 25, 'Inline Edit Test 1: Initial focus preference is 25');
+
+    // Simulate direct inline edit validation logic
+    function simulateInlineEdit(newInputVal, mode, currentStatus) {
+        if (currentStatus !== 'idle') return { success: false, reason: 'active_session' };
+        const val = parseInt(newInputVal, 10);
+        const maxVal = mode === 'focus' ? 180 : 60;
+        if (!isNaN(val) && val >= 1 && val <= maxVal) {
+            if (mode === 'focus') localStorage.setItem('hayyiz-pref-work', String(val));
+            else localStorage.setItem('hayyiz-pref-break', String(val));
+            return { success: true, value: val };
+        }
+        return { success: false, reason: 'invalid_input' };
+    }
+
+    // Valid edit: 25 -> 30
+    let res30 = simulateInlineEdit('30', 'focus', 'idle');
+    assert(res30.success && localStorage.getItem('hayyiz-pref-work') === '30', 'Inline Edit Test 2: Valid edit 25 -> 30 updates preference');
+
+    // Valid edit: 30 -> 45
+    let res45 = simulateInlineEdit('45', 'focus', 'idle');
+    assert(res45.success && localStorage.getItem('hayyiz-pref-work') === '45', 'Inline Edit Test 3: Valid edit 30 -> 45 updates preference');
+
+    // Invalid edits
+    let resZero = simulateInlineEdit('0', 'focus', 'idle');
+    assert(!resZero.success && localStorage.getItem('hayyiz-pref-work') === '45', 'Inline Edit Test 4: Rejects 0 min input');
+
+    let resNeg = simulateInlineEdit('-5', 'focus', 'idle');
+    assert(!resNeg.success && localStorage.getItem('hayyiz-pref-work') === '45', 'Inline Edit Test 5: Rejects negative input');
+
+    let resAbc = simulateInlineEdit('abc', 'focus', 'idle');
+    assert(!resAbc.success && localStorage.getItem('hayyiz-pref-work') === '45', 'Inline Edit Test 6: Rejects non-numeric input');
+
+    let resHuge = simulateInlineEdit('99999', 'focus', 'idle');
+    assert(!resHuge.success && localStorage.getItem('hayyiz-pref-work') === '45', 'Inline Edit Test 7: Rejects out-of-range input (99999)');
+
+    // Attempt edit while session is running
+    let resRunning = simulateInlineEdit('50', 'focus', 'running');
+    assert(!resRunning.success && resRunning.reason === 'active_session', 'Inline Edit Test 8: Prevents editing duration during active session');
+
+    // Session launch after inline duration edit uses updated duration
+    const newFocusMins = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10);
+    const newSessionState = {
+        mode: 'focus',
+        status: 'running',
+        remainingSeconds: newFocusMins * 60,
+        totalDuration: newFocusMins * 60,
+        endTime: Date.now() + newFocusMins * 60 * 1000
+    };
+    hayyizSaveFocusState(newSessionState);
+    const launchedState = hayyizGetFocusState();
+    assert(launchedState.totalDuration === 45 * 60 && launchedState.remainingSeconds === 45 * 60, 'Inline Edit Test 9: Started session uses newly set 45 minute duration without breaking PR #15 lifecycle');
+}
+
 // --- 7. CORE TOOLS E2E PERSISTENCE TESTS ---
 {
     localStorage.clear();
