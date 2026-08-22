@@ -1654,6 +1654,141 @@ button, input, select, textarea {
     flex-wrap: wrap;
 }
 
+/* ===================== Student Action Engine Upgraded Styles ===================== */
+.task-action-hero {
+    background: linear-gradient(135deg, var(--bg-card), var(--bg));
+    border: 2px solid var(--primary);
+    border-radius: var(--radius, 16px);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    box-shadow: var(--shadow-lg);
+}
+
+.hero-content-wrap {
+    flex: 1;
+    min-width: 260px;
+}
+
+.hero-badge {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 0.4rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.hero-task-title {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0 0 0.5rem;
+    line-height: 1.3;
+}
+
+.hero-task-sub {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.hero-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+}
+
+.hero-meta-item {
+    font-size: 0.82rem;
+    padding: 0.25rem 0.65rem;
+    border-radius: 20px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.badge-overdue {
+    background: color-mix(in srgb, var(--danger) 15%, var(--bg)) !important;
+    color: var(--danger) !important;
+    border-color: color-mix(in srgb, var(--danger) 30%, transparent) !important;
+    font-weight: 700 !important;
+}
+
+.badge-today {
+    background: color-mix(in srgb, var(--warning) 18%, var(--bg)) !important;
+    color: #d97706 !important;
+    border-color: color-mix(in srgb, var(--warning) 30%, transparent) !important;
+    font-weight: 700 !important;
+}
+
+.badge-upcoming {
+    background: color-mix(in srgb, var(--primary) 12%, var(--bg)) !important;
+    color: var(--primary) !important;
+    border-color: color-mix(in srgb, var(--primary) 25%, transparent) !important;
+}
+
+.task-creation-card {
+    margin-bottom: 1.5rem;
+    padding: 1.25rem;
+}
+
+.task-quick-input-group {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.task-quick-input-group input {
+    flex: 1;
+    min-width: 220px;
+}
+
+.task-toolbar-card {
+    margin-bottom: 1.5rem;
+    padding: 0.85rem 1.15rem;
+}
+
+.task-sections-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.task-group-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 16px);
+    padding: 1.25rem;
+}
+
+.task-group-title {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0 0 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.group-count {
+    font-size: 0.8rem;
+    background: var(--primary);
+    color: white;
+    padding: 0.15rem 0.55rem;
+    border-radius: 12px;
+    font-weight: 700;
+}
+
 /* ===================== Focus Engine Upgraded Styles ===================== */
 .sr-only {
     position: absolute;

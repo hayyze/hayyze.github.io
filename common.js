@@ -294,6 +294,71 @@ function hayyizGetTodoById(id) {
     return todos.find((t) => t && t.id === id) || null;
 }
 
+function hayyizGetAllTasks() {
+    return hayyizGetTodos();
+}
+
+function hayyizSaveTask(task) {
+    if (!task) return null;
+    const todos = hayyizGetTodos();
+    if (!task.id) task.id = hayyizGenerateId();
+    if (!task.created) task.created = Date.now();
+    const idx = todos.findIndex((t) => t && t.id === task.id);
+    if (idx >= 0) {
+        todos[idx] = Object.assign({}, todos[idx], task);
+    } else {
+        todos.unshift(task);
+    }
+    hayyizSaveTodos(todos);
+    return task;
+}
+
+function hayyizUpdateTask(id, patch) {
+    if (!id || !patch || typeof patch !== 'object') return null;
+    const todos = hayyizGetTodos();
+    const idx = todos.findIndex((t) => t && t.id === id);
+    if (idx < 0) return null;
+    todos[idx] = Object.assign({}, todos[idx], patch);
+    hayyizSaveTodos(todos);
+    return todos[idx];
+}
+
+function hayyizDeleteTask(id) {
+    if (!id) return false;
+    const todos = hayyizGetTodos();
+    const filtered = todos.filter((t) => t && t.id !== id);
+    if (filtered.length !== todos.length) {
+        hayyizSaveTodos(filtered);
+        return true;
+    }
+    return false;
+}
+
+function hayyizGetTaskSummary() {
+    const todos = hayyizGetTodos();
+    const today = getTodayLocal();
+    const active = todos.filter((t) => t && !t.completed);
+    const completedToday = todos.filter((t) => t && t.completed && t.completedAt === today).length;
+    const overdue = active.filter((t) => t.date && String(t.date).slice(0, 10) < today);
+    const dueToday = active.filter((t) => t.date && String(t.date).slice(0, 10) === today);
+
+    let totalFocusMinutes = 0;
+    todos.forEach((t) => {
+        if (t && t.focusDone) {
+            totalFocusMinutes += parseInt(t.focusDone, 10) || 0;
+        }
+    });
+
+    return {
+        total: todos.length,
+        activeCount: active.length,
+        completedTodayCount: completedToday,
+        overdueCount: overdue.length,
+        dueTodayCount: dueToday.length,
+        totalFocusMinutes: totalFocusMinutes
+    };
+}
+
 /* ---------- المواد ---------- */
 
 function hayyizGetSubjects() {

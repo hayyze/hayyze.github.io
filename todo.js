@@ -1,29 +1,345 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    function playNotificationSound() {
-        try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
+    // ========== DOM Elements ==========
+    const actionHeroEl = document.getElementById('task-action-hero');
+    const todoForm = document.getElementById('todo-form');
+    const todoInput = document.getElementById('todo-input');
+    const todoPriority = document.getElementById('todo-priority');
+    const todoDate = document.getElementById('todo-date');
+    const todoMinutes = document.getElementById('todo-minutes');
+    const todoSubject = document.getElementById('todo-subject');
+    const todoEvent = document.getElementById('todo-event');
+    const toggleOptionsBtn = document.getElementById('toggle-task-options-btn');
+    const optionsCollapsible = document.getElementById('task-options-collapsible');
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    const srAnnouncer = document.getElementById('sr-task-announcer');
 
-            osc.connect(gain);
-            gain.connect(ctx.destination);
+    // Task Lists & Sections
+    const sectionToday = document.getElementById('section-today');
+    const sectionUpcoming = document.getElementById('section-upcoming');
+    const sectionCompleted = document.getElementById('section-completed');
+    const listToday = document.getElementById('list-today');
+    const listUpcoming = document.getElementById('list-upcoming');
+    const listCompleted = document.getElementById('list-completed');
+    const countToday = document.getElementById('count-today');
+    const countUpcoming = document.getElementById('count-upcoming');
+    const countCompleted = document.getElementById('count-completed');
+    const todoEmpty = document.getElementById('todo-empty');
 
-            osc.type = 'sine';
-            osc.frequency.value = 880;
+    let currentFilter = 'all';
 
-            gain.gain.setValueAtTime(0.3, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
+    // Announcements
+    function announceSR(msg) {
+        if (srAnnouncer) srAnnouncer.textContent = msg;
+    }
 
-            osc.start();
-            osc.stop(ctx.currentTime + 0.6);
-        } catch (e) {
-            // تجاهل أخطاء الصوت
+    // Toggle options
+    if (toggleOptionsBtn && optionsCollapsible) {
+        toggleOptionsBtn.addEventListener('click', () => {
+            const isHidden = optionsCollapsible.style.display === 'none';
+            optionsCollapsible.style.display = isHidden ? 'grid' : 'none';
+            toggleOptionsBtn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+        });
+    }
+
+    // Populate selects
+    function refreshSelects() {
+        if (typeof hayyizFillSubjectSelect === 'function' && todoSubject) {
+            hayyizFillSubjectSelect(todoSubject, '');
+        }
+
+        if (todoEvent && typeof hayyizGetSavedCalendarEvents === 'function') {
+            todoEvent.innerHTML = '<option value="">بدون حدث تقويم</option>';
+            const events = hayyizGetSavedCalendarEvents();
+            events.forEach(ev => {
+                const opt = document.createElement('option');
+                opt.value = ev.id;
+                opt.textContent = `${ev.type === 'exam' ? '📝 اختبار' : '📅 موعد'}: ${ev.name}`;
+                todoEvent.appendChild(opt);
+            });
         }
     }
 
+    refreshSelects();
 
-    function showTaskCreatedModal(taskText, taskIndex) {
+    // Helper: Contextual Due Date Label (e.g. "متأخرة بـ يومين", "اليوم", "غداً")
+    function getContextualDueDateLabel(dateStr) {
+        if (!dateStr) return null;
+        const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+        const day = String(dateStr).slice(0, 10);
+
+        const t0 = new Date(`${todayStr}T00:00:00`).getTime();
+        const t1 = new Date(`${day}T00:00:00`).getTime();
+        const diffDays = Math.round((t1 - t0) / (1000 * 60 * 60 * 24));
+
+        if (diffDays < 0) {
+            const abs = Math.abs(diffDays);
+            return { text: `متأخرة ${abs === 1 ? 'يومًا واحدًا' : `بـ ${abs} أيام`}`, class: 'badge-overdue' };
+        } else if (diffDays === 0) {
+            return { text: 'مستحقة اليوم', class: 'badge-today' };
+        } else if (diffDays === 1) {
+            return { text: 'مستحقة غداً', class: 'badge-upcoming' };
+        } else if (diffDays < 7) {
+            return { text: `بعد ${diffDays} أيام`, class: 'badge-upcoming' };
+        } else {
+            return { text: day, class: 'badge-upcoming' };
+        }
+    }
+
+    // ========== Action Hero Card: ماذا أفعل الآن؟ ==========
+    function renderActionHero() {
+        if (!actionHeroEl) return;
+
+        const activeFocusState = typeof hayyizGetFocusState === 'function' ? hayyizGetFocusState() : null;
+        const rec = typeof hayyizRecommendNext === 'function' ? hayyizRecommendNext(1) : null;
+        const topTask = rec ? rec.next : null;
+
+        actionHeroEl.innerHTML = '';
+
+        if (activeFocusState && activeFocusState.status === 'running' && activeFocusState.remainingSeconds > 0) {
+            // Running session active
+            const remMin = Math.floor(activeFocusState.remainingSeconds / 60);
+            const remSec = activeFocusState.remainingSeconds % 60;
+            const formatted = `${String(remMin).padStart(2, '0')}:${String(remSec).padStart(2, '0')}`;
+            const title = activeFocusState.context ? activeFocusState.context.title : 'جلسة تركيز';
+
+            actionHeroEl.className = 'card task-action-hero hero-focus-running';
+            actionHeroEl.innerHTML = `
+                <div class="hero-content-wrap">
+                    <div class="hero-badge"><i class="fa-solid fa-play"></i> جلسة تركيز نشطة حالياً (${formatted})</div>
+                    <h2 class="hero-task-title">${escapeHtml(title)}</h2>
+                    <p class="hero-task-sub">أكمل جلسة التركيز الحالية للحصول على أفضل إنجاز للوقت.</p>
+                </div>
+                <div class="hero-action-box">
+                    <a href="pomodoro.html" class="btn btn-primary btn-lg"><i class="fa-solid fa-play"></i> متابعة الجلسة</a>
+                </div>
+            `;
+            return;
+        }
+
+        if (topTask) {
+            const dateBadge = getContextualDueDateLabel(topTask.date);
+            const priMap = { high: 'عالية 🔥', medium: 'متوسطة', low: 'منخفضة' };
+
+            actionHeroEl.className = 'card task-action-hero';
+            actionHeroEl.innerHTML = `
+                <div class="hero-content-wrap">
+                    <div class="hero-badge"><i class="fa-solid fa-bullseye"></i> ماذا أفعل الآن؟ (المهمة الموصى بها)</div>
+                    <h2 class="hero-task-title">${escapeHtml(topTask.text)}</h2>
+                    <div class="hero-meta-row">
+                        <span class="hero-meta-item"><i class="fa-solid fa-layer-group"></i> أولوية ${priMap[topTask.priority] || topTask.priority}</span>
+                        ${dateBadge ? `<span class="hero-meta-item ${dateBadge.class}">${dateBadge.text}</span>` : ''}
+                        ${topTask.minutes ? `<span class="hero-meta-item"><i class="fa-solid fa-hourglass-half"></i> ${topTask.focusDone || 0}/${topTask.minutes} دقيقة</span>` : ''}
+                    </div>
+                </div>
+                <div class="hero-action-box">
+                    <button type="button" class="btn btn-primary btn-lg hero-start-focus-btn" data-id="${topTask.id}">
+                        <i class="fa-solid fa-play"></i> ابدأ التركيز الآن
+                    </button>
+                </div>
+            `;
+
+            const btn = actionHeroEl.querySelector('.hero-start-focus-btn');
+            if (btn) {
+                btn.addEventListener('click', () => {
+                    if (typeof hayyizLaunchPomodoro === 'function') {
+                        hayyizLaunchPomodoro(topTask);
+                    } else {
+                        window.location.href = 'pomodoro.html?task=' + encodeURIComponent(topTask.text);
+                    }
+                });
+            }
+        } else {
+            actionHeroEl.className = 'card task-action-hero hero-empty-state';
+            actionHeroEl.innerHTML = `
+                <div class="hero-content-wrap">
+                    <div class="hero-badge"><i class="fa-solid fa-circle-check"></i> لا توجد مهام نشطة حالياً</div>
+                    <h2 class="hero-task-title">جميع مهامك مكتملة أو لم تُضف مهام بعد 🎉</h2>
+                    <p class="hero-task-sub">أضف مهمتك التالية أو ابدأ جلسة تركيز حرة مباشرة.</p>
+                </div>
+                <div class="hero-action-box">
+                    <button type="button" class="btn btn-primary" id="hero-free-focus-btn"><i class="fa-solid fa-play"></i> جلسة تركيز حرة</button>
+                </div>
+            `;
+
+            const freeBtn = document.getElementById('hero-free-focus-btn');
+            if (freeBtn) {
+                freeBtn.addEventListener('click', () => {
+                    if (typeof hayyizLaunchPomodoro === 'function') {
+                        hayyizLaunchPomodoro(null);
+                    } else {
+                        window.location.href = 'pomodoro.html';
+                    }
+                });
+            }
+        }
+    }
+
+    // ========== Render Tasks List ==========
+    function renderTasks() {
+        renderActionHero();
+
+        const todos = typeof hayyizGetTodos === 'function' ? hayyizGetTodos() : [];
+        const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+
+        // Filter active vs completed
+        let filtered = todos;
+        if (currentFilter === 'today') {
+            filtered = todos.filter(t => !t.completed && (t.date && String(t.date).slice(0, 10) <= todayStr));
+        } else if (currentFilter === 'upcoming') {
+            filtered = todos.filter(t => !t.completed && (!t.date || String(t.date).slice(0, 10) > todayStr));
+        } else if (currentFilter === 'high') {
+            filtered = todos.filter(t => !t.completed && t.priority === 'high');
+        } else if (currentFilter === 'completed') {
+            filtered = todos.filter(t => t.completed);
+        }
+
+        const activeList = filtered.filter(t => !t.completed);
+        const completedList = filtered.filter(t => t.completed);
+
+        // Split active list into Today/Overdue vs Upcoming
+        const todayOverdueList = activeList.filter(t => t.date && String(t.date).slice(0, 10) <= todayStr);
+        const upcomingList = activeList.filter(t => !t.date || String(t.date).slice(0, 10) > todayStr);
+
+        if (listToday) listToday.innerHTML = '';
+        if (listUpcoming) listUpcoming.innerHTML = '';
+        if (listCompleted) listCompleted.innerHTML = '';
+
+        if (todos.length === 0) {
+            if (todoEmpty) todoEmpty.classList.remove('hidden');
+            if (sectionToday) sectionToday.style.display = 'none';
+            if (sectionUpcoming) sectionUpcoming.style.display = 'none';
+            if (sectionCompleted) sectionCompleted.style.display = 'none';
+            return;
+        }
+
+        if (todoEmpty) todoEmpty.classList.add('hidden');
+
+        // Render Today & Overdue
+        if (todayOverdueList.length > 0) {
+            if (sectionToday) sectionToday.style.display = 'block';
+            if (countToday) countToday.textContent = todayOverdueList.length;
+            todayOverdueList.forEach(t => listToday.appendChild(createTaskItemDOM(t)));
+        } else {
+            if (sectionToday) sectionToday.style.display = 'none';
+        }
+
+        // Render Upcoming
+        if (upcomingList.length > 0) {
+            if (sectionUpcoming) sectionUpcoming.style.display = 'block';
+            if (countUpcoming) countUpcoming.textContent = upcomingList.length;
+            upcomingList.forEach(t => listUpcoming.appendChild(createTaskItemDOM(t)));
+        } else {
+            if (sectionUpcoming) sectionUpcoming.style.display = 'none';
+        }
+
+        // Render Completed Archive
+        if (completedList.length > 0 && (currentFilter === 'all' || currentFilter === 'completed')) {
+            if (sectionCompleted) sectionCompleted.style.display = 'block';
+            if (countCompleted) countCompleted.textContent = completedList.length;
+            completedList.forEach(t => listCompleted.appendChild(createTaskItemDOM(t)));
+        } else {
+            if (sectionCompleted) sectionCompleted.style.display = 'none';
+        }
+    }
+
+    function createTaskItemDOM(todo) {
+        const li = document.createElement('li');
+        li.className = `todo-item ${todo.completed ? 'completed' : ''}`;
+        li.dataset.id = todo.id;
+
+        const dateBadge = getContextualDueDateLabel(todo.date);
+        const priMap = { high: 'عالية 🔥', medium: 'متوسطة', low: 'منخفضة' };
+
+        // Active Focus session detection for this task
+        const activeFocusState = typeof hayyizGetFocusState === 'function' ? hayyizGetFocusState() : null;
+        const isTaskCurrentlyFocused = activeFocusState && activeFocusState.status === 'running' && activeFocusState.context && activeFocusState.context.id === todo.id;
+
+        let subjectName = '';
+        if (todo.subjectId && typeof hayyizGetSubjectName === 'function') {
+            subjectName = hayyizGetSubjectName(todo.subjectId);
+        }
+
+        li.innerHTML = `
+            <input type="checkbox" class="todo-check" ${todo.completed ? 'checked' : ''} aria-label="تحديد المهمة كمكتملة">
+            <div class="todo-content">
+                <div class="todo-text">${escapeHtml(todo.text)}</div>
+                <div class="todo-meta">
+                    <span class="priority-${todo.priority}">${priMap[todo.priority] || todo.priority}</span>
+                    ${dateBadge ? `<span class="badge ${dateBadge.class}">${dateBadge.text}</span>` : ''}
+                    ${subjectName ? `<span><i class="fa-solid fa-book"></i> ${escapeHtml(subjectName)}</span>` : ''}
+                    ${todo.focusDone ? `<span><i class="fa-solid fa-clock"></i> ${todo.focusDone} د تركيز (${todo.sessionsDone || 0} جلسة)</span>` : ''}
+                </div>
+            </div>
+
+            <div class="todo-actions">
+                ${!todo.completed ? `
+                    <button type="button" class="btn btn-sm ${isTaskCurrentlyFocused ? 'btn-secondary' : 'btn-primary'} btn-start-focus" title="بدء جلسة تركيز عل هذه المهمة">
+                        <i class="fa-solid fa-play"></i> ${isTaskCurrentlyFocused ? 'متابعة الجلسة' : 'ابدأ التركيز'}
+                    </button>
+                    <button type="button" class="action-btn-mini btn-edit-task" title="تعديل المهمة">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                ` : ''}
+                <button type="button" class="action-btn-mini btn-delete-task" title="حذف المهمة">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </div>
+        `;
+
+        // Checkbox Listener
+        const check = li.querySelector('.todo-check');
+        if (check) {
+            check.addEventListener('change', () => {
+                if (typeof hayyizUpdateTask === 'function') {
+                    const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+                    hayyizUpdateTask(todo.id, {
+                        completed: check.checked,
+                        completedAt: check.checked ? todayStr : null
+                    });
+                }
+                announceSR(check.checked ? 'تمت إضافة المهمة إلى الأرشيف المكتمل' : 'تم استرجاع المهمة إلى النشطة');
+                renderTasks();
+            });
+        }
+
+        // Start Focus Listener
+        const focusBtn = li.querySelector('.btn-start-focus');
+        if (focusBtn) {
+            focusBtn.addEventListener('click', () => {
+                if (typeof hayyizLaunchPomodoro === 'function') {
+                    hayyizLaunchPomodoro(todo);
+                } else {
+                    window.location.href = 'pomodoro.html?task=' + encodeURIComponent(todo.text);
+                }
+            });
+        }
+
+        // Edit Task Listener
+        const editBtn = li.querySelector('.btn-edit-task');
+        if (editBtn) {
+            editBtn.addEventListener('click', () => showEditModal(todo));
+        }
+
+        // Delete Task Listener
+        const deleteBtn = li.querySelector('.btn-delete-task');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', () => {
+                if (confirm(`هل أنت متأكد من حذف المهمة "${todo.text}"؟`)) {
+                    if (typeof hayyizDeleteTask === 'function') {
+                        hayyizDeleteTask(todo.id);
+                    }
+                    announceSR('تم حذف المهمة');
+                    renderTasks();
+                }
+            });
+        }
+
+        return li;
+    }
+
+    // Quick Edit Task Modal
+    function showEditModal(todo) {
         document.querySelector('.task-modal-overlay')?.remove();
 
         const overlay = document.createElement('div');
@@ -33,685 +349,118 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const modal = document.createElement('div');
         modal.className = 'task-modal';
+        modal.style.maxWidth = '460px';
 
-        const h3 = document.createElement('h3');
-        h3.textContent = 'تم إنشاء المهمة';
-        modal.appendChild(h3);
+        modal.innerHTML = `
+            <h3 style="margin-bottom:1rem;"><i class="fa-solid fa-pen-to-square"></i> تعديل المهمة</h3>
+            <div style="display:flex; flex-direction:column; gap:0.75rem; text-align:right;">
+                <div>
+                    <label style="font-size:0.85rem; font-weight:700;">عنوان المهمة:</label>
+                    <input type="text" id="edit-task-text" class="calc-input" value="${escapeHtml(todo.text)}" required>
+                </div>
+                <div>
+                    <label style="font-size:0.85rem; font-weight:700;">الأولوية:</label>
+                    <select id="edit-task-priority" class="calc-input">
+                        <option value="low" ${todo.priority === 'low' ? 'selected' : ''}>منخفضة</option>
+                        <option value="medium" ${todo.priority === 'medium' ? 'selected' : ''}>متوسطة</option>
+                        <option value="high" ${todo.priority === 'high' ? 'selected' : ''}>عالية 🔥</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:0.85rem; font-weight:700;">تاريخ الاستحقاق:</label>
+                    <input type="datetime-local" id="edit-task-date" class="calc-input" value="${todo.date || ''}">
+                </div>
+            </div>
+            <div class="modal-actions" style="margin-top:1.25rem;">
+                <button type="button" id="save-edit-task-btn" class="btn btn-primary"><i class="fa-solid fa-check"></i> حفظ التغييرات</button>
+                <button type="button" id="cancel-edit-task-btn" class="btn btn-outline">إلغاء</button>
+            </div>
+        `;
 
-        const nameP = document.createElement('p');
-        nameP.className = 'task-name';
-        nameP.textContent = taskText;
-        modal.appendChild(nameP);
-
-        const q = document.createElement('p');
-        q.textContent = 'هل تريد البدء بجلسة تركيز؟';
-        modal.appendChild(q);
-
-        const actions = document.createElement('div');
-        actions.className = 'modal-actions';
-
-        const startBtn = document.createElement('button');
-        startBtn.type = 'button';
-        startBtn.className = 'btn btn-primary';
-        startBtn.id = 'start-pomodoro-from-modal';
-        startBtn.innerHTML = '<i class="fa-solid fa-play" aria-hidden="true"></i> ابدأ ببومودورو';
-
-        const laterBtn = document.createElement('button');
-        laterBtn.type = 'button';
-        laterBtn.className = 'btn btn-outline';
-        laterBtn.id = 'later-from-modal';
-        laterBtn.textContent = 'لاحقًا';
-
-        actions.appendChild(startBtn);
-        actions.appendChild(laterBtn);
-        modal.appendChild(actions);
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
 
-        startBtn.addEventListener('click', () => {
-            startPomodoroForTask(typeof taskIndex === 'number' ? taskIndex : 0);
-        });
+        const saveBtn = modal.querySelector('#save-edit-task-btn');
+        const cancelBtn = modal.querySelector('#cancel-edit-task-btn');
+        const textInput = modal.querySelector('#edit-task-text');
 
-        laterBtn.addEventListener('click', () => {
-            overlay.remove();
-        });
+        function closeModal() { overlay.remove(); }
 
-        overlay.addEventListener('click', e => {
-            if (e.target === overlay) overlay.remove();
-        });
-    }
+        saveBtn.addEventListener('click', () => {
+            const val = textInput.value.trim();
+            if (!val) return;
 
+            const pri = modal.querySelector('#edit-task-priority').value;
+            const dt = modal.querySelector('#edit-task-date').value;
 
-    function startPomodoroForTask(index) {
-        if (!Number.isInteger(index) || index < 0 || index >= todos.length) return;
-        const task = todos[index];
-        if (typeof hayyizLaunchPomodoro === 'function') {
-            hayyizLaunchPomodoro(task, index);
-            return;
-        }
-        // احتياطي إن لم تُحمّل الطبقة المشتركة
-        const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
-        const totalMinutes = task.minutes ? parseInt(task.minutes, 10) : null;
-        const sessionsNeeded =
-            totalMinutes && totalMinutes > 0
-                ? Math.ceil(totalMinutes / workMin)
-                : null;
-
-        const plan = {
-            text: task.text,
-            id: task.id || null,
-            index: index,
-            subjectId: task.subjectId || null,
-            totalMinutes: totalMinutes && totalMinutes > 0 ? totalMinutes : null,
-            focusDone: task.focusDone ? parseInt(task.focusDone, 10) || 0 : 0,
-            sessionsDone: task.sessionsDone ? parseInt(task.sessionsDone, 10) || 0 : 0,
-            sessionsNeeded: sessionsNeeded
-        };
-
-        localStorage.setItem('hayyiz-current-task', task.text);
-        if (task.id) localStorage.setItem('hayyiz-current-task-id', task.id);
-        localStorage.setItem('hayyiz-current-task-index', String(index));
-        localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
-        window.location.href = 'pomodoro.html?task=' + encodeURIComponent(task.text);
-    }
-
-    let todos = typeof hayyizGetTodos === 'function'
-        ? hayyizGetTodos()
-        : JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
-
-    let currentFilter = 'all';
-    let currentTaskTimer = null;
-
-    const todoForm = document.getElementById('todo-form');
-    const todoInput = document.getElementById('todo-input');
-    const todoPriority = document.getElementById('todo-priority');
-    const todoDate = document.getElementById('todo-date');
-    const todoMinutes = document.getElementById('todo-minutes');
-    const todoSubject = document.getElementById('todo-subject');
-    const todoGoal = document.getElementById('todo-goal');
-    const todoSubjectNew = document.getElementById('todo-subject-new');
-    const todoSubjectAdd = document.getElementById('todo-subject-add');
-    const todoList = document.getElementById('todo-list');
-    const todoEmpty = document.getElementById('todo-empty');
-    const filterBtns = document.querySelectorAll('.filter-btn');
-
-    function saveTodos() {
-        if (typeof hayyizSaveTodos === 'function') {
-            hayyizSaveTodos(todos);
-        } else {
-            localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
-        }
-    }
-
-    function refreshSubjectSelect(selectedId) {
-        if (typeof hayyizFillSubjectSelect === 'function') {
-            hayyizFillSubjectSelect(todoSubject, selectedId || '');
-        }
-    }
-
-    function refreshGoalSelect(selectedId) {
-        if (!todoGoal) return;
-        todoGoal.innerHTML = '';
-        const emptyOpt = document.createElement('option');
-        emptyOpt.value = '';
-        emptyOpt.textContent = 'بدون هدف خاص';
-        todoGoal.appendChild(emptyOpt);
-
-        const acadGoal = typeof hayyizGetAcademicGoal === 'function' ? hayyizGetAcademicGoal() : null;
-        if (acadGoal && typeof acadGoal.target === 'number') {
-            const opt = document.createElement('option');
-            opt.value = 'acad-target';
-            opt.textContent = 'الهدف الأكاديمي الشامل (' + acadGoal.target + '%)';
-            if (selectedId === 'acad-target') opt.selected = true;
-            todoGoal.appendChild(opt);
-        }
-
-        const subjectGoals = typeof hayyizGetSubjectGoals === 'function' ? hayyizGetSubjectGoals() : [];
-        subjectGoals.forEach((sg) => {
-            const opt = document.createElement('option');
-            opt.value = sg.id || ('sg-' + sg.name);
-            opt.textContent = 'هدف مادة: ' + sg.name + ' (' + sg.target + '%)';
-            if (selectedId && (selectedId === sg.id || selectedId === ('sg-' + sg.name))) opt.selected = true;
-            todoGoal.appendChild(opt);
-        });
-    }
-
-    refreshSubjectSelect();
-    refreshGoalSelect();
-
-    if (todoSubjectAdd) {
-        todoSubjectAdd.addEventListener('click', () => {
-            const name = (todoSubjectNew && todoSubjectNew.value || '').trim();
-            if (!name) return;
-            let subject = null;
-            if (typeof hayyizAddSubject === 'function') {
-                subject = hayyizAddSubject(name);
+            if (typeof hayyizUpdateTask === 'function') {
+                hayyizUpdateTask(todo.id, { text: val, priority: pri, date: dt || null });
             }
-            if (todoSubjectNew) todoSubjectNew.value = '';
-            refreshSubjectSelect(subject ? subject.id : '');
-            if (todoSubject && subject) todoSubject.value = subject.id;
+            closeModal();
+            renderTasks();
         });
+
+        cancelBtn.addEventListener('click', closeModal);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
     }
 
-    function formatTime(seconds) {
-        const m = Math.floor(seconds / 60);
-        const s = seconds % 60;
+    // ========== Form Submission ==========
+    if (todoForm) {
+        todoForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const text = todoInput ? todoInput.value.trim() : '';
+            if (!text) return;
 
-        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-    }
+            const newTask = {
+                id: typeof hayyizGenerateId === 'function' ? hayyizGenerateId() : ('h' + Date.now()),
+                text: text,
+                priority: todoPriority ? todoPriority.value : 'medium',
+                date: todoDate ? (todoDate.value || null) : null,
+                minutes: todoMinutes ? (todoMinutes.value || null) : null,
+                subjectId: todoSubject && todoSubject.value ? todoSubject.value : null,
+                calendarEventId: todoEvent && todoEvent.value ? todoEvent.value : null,
+                completed: false,
+                created: Date.now(),
+                focusDone: 0,
+                sessionsDone: 0
+            };
 
-    function startTaskTimer(index) {
-        if (window.taskTimerInterval) {
-            clearInterval(window.taskTimerInterval);
-        }
-
-        const todo = todos[index];
-
-        if (!todo || !todo.minutes) {
-            return;
-        }
-
-        currentTaskTimer = {
-            index,
-            endTime: Date.now() + parseInt(todo.minutes, 10) * 60 * 1000
-        };
-
-        window.taskTimerInterval = setInterval(() => {
-            const remaining = Math.max(
-                0,
-                Math.round(
-                    (currentTaskTimer.endTime - Date.now()) / 1000
-                )
-            );
-
-            const el = document.getElementById(
-                `task-timer-${index}`
-            );
-
-            if (el) {
-                el.textContent = formatTime(remaining);
-            }
-
-            if (remaining <= 0) {
-                clearInterval(window.taskTimerInterval);
-                window.taskTimerInterval = null;
-                currentTaskTimer = null;
-
-                playNotificationSound();
-
-                alert(`انتهى وقت المهمة: ${todo.text}`);
-
-                renderTodos();
-            }
-        }, 200);
-
-        renderTodos();
-    }
-
-    function stopTaskTimer() {
-        if (window.taskTimerInterval) {
-            clearInterval(window.taskTimerInterval);
-        }
-
-        window.taskTimerInterval = null;
-        currentTaskTimer = null;
-
-        renderTodos();
-    }
-
-    function renderTodos() {
-        let filtered = todos;
-
-        if (currentFilter === 'active') {
-            filtered = todos.filter(todo => !todo.completed);
-        }
-
-        if (currentFilter === 'completed') {
-            filtered = todos.filter(todo => todo.completed);
-        }
-
-        if (currentFilter === 'high') {
-            filtered = todos.filter(todo => todo.priority === 'high');
-        }
-
-        todoList.innerHTML = '';
-
-        if (filtered.length === 0) {
-            todoEmpty.classList.remove('hidden');
-            return;
-        }
-
-        todoEmpty.classList.add('hidden');
-
-        filtered.forEach(todo => {
-            const realIndex = todos.indexOf(todo);
-
-            const isRunning =
-                currentTaskTimer &&
-                currentTaskTimer.index === realIndex;
-
-            const li = document.createElement('li');
-
-            li.className = `todo-item ${
-                todo.completed ? 'completed' : ''
-            }`;
-
-            // Checkbox
-            const checkbox = document.createElement('input');
-
-            checkbox.type = 'checkbox';
-            checkbox.className = 'todo-check';
-            checkbox.checked = Boolean(todo.completed);
-            checkbox.dataset.index = realIndex;
-
-            // محتوى المهمة
-            const content = document.createElement('div');
-            content.className = 'todo-content';
-
-            // نص المهمة
-            const text = document.createElement('div');
-            text.className = 'todo-text';
-
-            // مهم: استخدام textContent يمنع تفسير مدخل المستخدم كـ HTML
-            text.textContent = todo.text;
-
-            // معلومات المهمة
-            const meta = document.createElement('div');
-            meta.className = 'todo-meta';
-
-            const priority = document.createElement('span');
-
-            priority.className = `priority-${todo.priority}`;
-
-            if (todo.priority === 'high') {
-                priority.textContent = 'عالية';
-            } else if (todo.priority === 'medium') {
-                priority.textContent = 'متوسطة';
+            if (typeof hayyizSaveTask === 'function') {
+                hayyizSaveTask(newTask);
             } else {
-                priority.textContent = 'منخفضة';
+                const todos = typeof hayyizGetTodos === 'function' ? hayyizGetTodos() : [];
+                todos.unshift(newTask);
+                localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
             }
 
-            meta.appendChild(priority);
+            if (todoInput) todoInput.value = '';
+            if (todoDate) todoDate.value = '';
+            if (todoMinutes) todoMinutes.value = '';
 
-            // المادة
-            if (todo.subjectId && typeof hayyizGetSubjectName === 'function') {
-                const subName = hayyizGetSubjectName(todo.subjectId);
-                if (subName) {
-                    const subSpan = document.createElement('span');
-                    const subIcon = document.createElement('i');
-                    subIcon.className = 'fa-solid fa-book';
-                    subIcon.setAttribute('aria-hidden', 'true');
-                    subSpan.appendChild(subIcon);
-                    subSpan.appendChild(document.createTextNode(' ' + subName));
-                    meta.appendChild(subSpan);
-                }
-            }
-
-            // الهدف المرتبط
-            if (todo.goalId) {
-                const goalSpan = document.createElement('span');
-                const goalIcon = document.createElement('i');
-                goalIcon.className = 'fa-solid fa-bullseye';
-                goalIcon.setAttribute('aria-hidden', 'true');
-                goalSpan.appendChild(goalIcon);
-
-                let goalText = 'هدف';
-                if (todo.goalId === 'acad-target') {
-                    goalText = 'الهدف العام';
-                } else if (todo.goalId.startsWith('sg-')) {
-                    goalText = todo.goalId.replace('sg-', '');
-                } else if (typeof hayyizGetSubjectGoals === 'function') {
-                    const sgList = hayyizGetSubjectGoals();
-                    const foundSg = sgList.find(g => g.id === todo.goalId);
-                    if (foundSg) goalText = foundSg.name;
-                }
-
-                goalSpan.appendChild(document.createTextNode(' ' + goalText));
-                meta.appendChild(goalSpan);
-            }
-
-            // التاريخ
-            if (todo.date) {
-                const dateSpan = document.createElement('span');
-
-                const dateIcon = document.createElement('i');
-                dateIcon.className = 'fa-regular fa-calendar';
-                dateIcon.setAttribute('aria-hidden', 'true');
-
-                dateSpan.appendChild(dateIcon);
-                dateSpan.appendChild(
-                    document.createTextNode(
-                        ` ${new Date(todo.date).toLocaleString('ar-EG')}`
-                    )
-                );
-
-                meta.appendChild(dateSpan);
-            }
-
-            // مدة المهمة + التقدم إن وُجد
-            if (todo.minutes) {
-                const minutesSpan = document.createElement('span');
-
-                const minutesIcon = document.createElement('i');
-                minutesIcon.className =
-                    'fa-solid fa-hourglass-half';
-                minutesIcon.setAttribute('aria-hidden', 'true');
-
-                minutesSpan.appendChild(minutesIcon);
-                const doneMin = todo.focusDone ? parseInt(todo.focusDone, 10) || 0 : 0;
-                const totalMin = parseInt(todo.minutes, 10) || 0;
-                if (doneMin > 0 && totalMin > 0) {
-                    minutesSpan.appendChild(
-                        document.createTextNode(
-                            ` ${doneMin}/${totalMin} د`
-                        )
-                    );
-                } else {
-                    minutesSpan.appendChild(
-                        document.createTextNode(
-                            ` ${todo.minutes} د`
-                        )
-                    );
-                }
-
-                meta.appendChild(minutesSpan);
-            }
-
-            content.appendChild(text);
-            content.appendChild(meta);
-
-            // مؤقت المهمة
-            if (todo.minutes && !todo.completed) {
-
-                const timerBox = document.createElement('div');
-                timerBox.className = 'task-timer-box';
-
-                if (isRunning) {
-
-                    const remaining = Math.max(
-                        0,
-                        Math.round(
-                            (currentTaskTimer.endTime - Date.now()) / 1000
-                        )
-                    );
-
-                    const timer = document.createElement('span');
-                    timer.className = 'task-timer';
-                    timer.id = `task-timer-${realIndex}`;
-                    timer.textContent = formatTime(remaining);
-
-                    const stopBtn = document.createElement('button');
-
-                    stopBtn.className =
-                        'btn btn-outline btn-sm stop-task-timer';
-
-                    stopBtn.dataset.index = realIndex;
-                    stopBtn.type = 'button';
-
-                    const stopIcon = document.createElement('i');
-                    stopIcon.className = 'fa-solid fa-stop';
-                    stopIcon.setAttribute('aria-hidden', 'true');
-
-                    stopBtn.appendChild(stopIcon);
-                    stopBtn.appendChild(
-                        document.createTextNode(' إيقاف')
-                    );
-
-                    timerBox.appendChild(timer);
-                    timerBox.appendChild(stopBtn);
-
-                } else {
-
-                    const duration = document.createElement('span');
-                    duration.className = 'task-duration';
-
-                    duration.textContent =
-                        `${todo.minutes} دقيقة`;
-
-                    const startBtn = document.createElement('button');
-
-                    startBtn.className =
-                        'btn btn-primary btn-sm start-task-timer';
-
-                    startBtn.dataset.index = realIndex;
-                    startBtn.type = 'button';
-
-                    const startIcon = document.createElement('i');
-                    startIcon.className = 'fa-solid fa-play';
-                    startIcon.setAttribute('aria-hidden', 'true');
-
-                    startBtn.appendChild(startIcon);
-                    startBtn.appendChild(
-                        document.createTextNode(' بدء')
-                    );
-
-                    timerBox.appendChild(duration);
-                    timerBox.appendChild(startBtn);
-                }
-
-                content.appendChild(timerBox);
-            }
-
-            // أزرار الإجراءات
-            const actions = document.createElement('div');
-            actions.className = 'todo-actions';
-
-            // زر بدء بومودورو (للمهام غير المكتملة)
-            if (!todo.completed) {
-                const pomoBtn = document.createElement('button');
-                pomoBtn.className = 'todo-pomo-btn';
-                pomoBtn.dataset.index = realIndex;
-                pomoBtn.type = 'button';
-                pomoBtn.title = 'ابدأ جلسة تركيز على هذه المهمة';
-                pomoBtn.setAttribute('aria-label', 'بدء بومودورو');
-                pomoBtn.innerHTML = '<i class="fa-solid fa-clock" aria-hidden="true"></i>';
-                actions.appendChild(pomoBtn);
-
-                const dailyBtn = document.createElement('button');
-                dailyBtn.className = 'todo-daily-btn';
-                dailyBtn.dataset.index = realIndex;
-                dailyBtn.type = 'button';
-                dailyBtn.title = 'اجعلها هدف اليوم';
-                dailyBtn.setAttribute('aria-label', 'هدف اليوم');
-                dailyBtn.innerHTML = '<i class="fa-solid fa-sun" aria-hidden="true"></i>';
-                dailyBtn.style.cssText = 'background:none;border:none;color:var(--warning);cursor:pointer;font-size:1rem;padding:0.25rem;';
-                actions.appendChild(dailyBtn);
-            }
-
-            // زر الحذف
-            const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'todo-delete';
-            deleteBtn.dataset.index = realIndex;
-            deleteBtn.type = 'button';
-            deleteBtn.setAttribute('aria-label', 'حذف المهمة');
-            deleteBtn.innerHTML = '<i class="fa-solid fa-trash" aria-hidden="true"></i>';
-            actions.appendChild(deleteBtn);
-
-            // تجميع العنصر
-            li.appendChild(checkbox);
-            li.appendChild(content);
-            li.appendChild(actions);
-
-            todoList.appendChild(li);
+            announceSR('تمت إضافة المهمة بنجاح');
+            renderTasks();
         });
     }
 
-    todoForm.addEventListener('submit', e => {
-        e.preventDefault();
-
-        const text = todoInput ? todoInput.value.trim() : '';
-
-        if (!text) {
-            if (todoInput) {
-                todoInput.focus();
-                todoInput.style.borderColor = 'var(--danger, #ef4444)';
-                setTimeout(() => {
-                    todoInput.style.borderColor = '';
-                }, 1800);
-            }
-            return;
-        }
-
-        const newTask = {
-            id: typeof hayyizGenerateId === 'function' ? hayyizGenerateId() : ('h' + Date.now()),
-            text,
-            priority: todoPriority.value,
-            date: todoDate.value || null,
-            minutes: todoMinutes.value || null,
-            subjectId: (todoSubject && todoSubject.value) ? todoSubject.value : null,
-            goalId: (todoGoal && todoGoal.value) ? todoGoal.value : null,
-            completed: false,
-            created: Date.now(),
-            focusDone: 0,
-            sessionsDone: 0
-        };
-
-        todos.unshift(newTask);
-
-        saveTodos();
-
-        todoInput.value = '';
-        todoDate.value = '';
-        todoMinutes.value = '';
-
-        renderTodos();
-
-        showTaskCreatedModal(text, 0);
-    });
-
-    todoList.addEventListener('click', e => {
-
-        // بدء بومودورو على المهمة
-        const pomoButton = e.target.closest('.todo-pomo-btn');
-        if (pomoButton) {
-            const index = Number(pomoButton.dataset.index);
-            startPomodoroForTask(index);
-            return;
-        }
-
-        // تعيين هدف اليوم
-        const dailyButton = e.target.closest('.todo-daily-btn');
-        if (dailyButton) {
-            const index = Number(dailyButton.dataset.index);
-            if (Number.isInteger(index) && index >= 0 && index < todos.length) {
-                const t = todos[index];
-                const goal = {
-                    taskId: t.id || null,
-                    text: t.text,
-                    date: typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10),
-                    created: Date.now()
-                };
-                if (typeof hayyizSaveDailyGoal === 'function') {
-                    hayyizSaveDailyGoal(goal);
-                } else {
-                    localStorage.setItem('hayyiz-daily-goal', JSON.stringify(goal));
-                }
-                alert('تم تعيين «' + t.text + '» كهدف لليوم. ستراه في لوحة اليوم.');
-            }
-            return;
-        }
-
-        // بدء المؤقت
-        const startButton = e.target.closest('.start-task-timer');
-
-        if (startButton) {
-            const index = Number(startButton.dataset.index);
-
-            if (
-                Number.isInteger(index) &&
-                index >= 0 &&
-                index < todos.length
-            ) {
-                startTaskTimer(index);
-            }
-
-            return;
-        }
-
-        // إيقاف المؤقت
-        const stopButton = e.target.closest('.stop-task-timer');
-
-        if (stopButton) {
-            stopTaskTimer();
-            return;
-        }
-
-        // حذف المهمة
-        const deleteButton = e.target.closest('.todo-delete');
-
-        if (deleteButton) {
-            const index = Number(deleteButton.dataset.index);
-
-            if (
-                !Number.isInteger(index) ||
-                index < 0 ||
-                index >= todos.length
-            ) {
-                return;
-            }
-
-            if (
-                currentTaskTimer &&
-                currentTaskTimer.index === index
-            ) {
-                stopTaskTimer();
-            }
-
-            todos.splice(index, 1);
-
-            saveTodos();
-            renderTodos();
-
-            return;
-        }
-
-        // تغيير حالة المهمة
-        if (e.target.classList.contains('todo-check')) {
-
-            const index = Number(e.target.dataset.index);
-
-            if (
-                !Number.isInteger(index) ||
-                index < 0 ||
-                index >= todos.length
-            ) {
-                return;
-            }
-
-            todos[index].completed = e.target.checked;
-            if (e.target.checked) {
-                const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : null;
-                if (todayStr) todos[index].completedAt = todayStr;
-            } else {
-                delete todos[index].completedAt;
-            }
-
-            if (
-                currentTaskTimer &&
-                currentTaskTimer.index === index
-            ) {
-                stopTaskTimer();
-            }
-
-            saveTodos();
-            renderTodos();
-        }
-    });
-
+    // Filter tab switching
     filterBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-
-            filterBtns.forEach(b => {
-                b.classList.remove('active');
-            });
-
+            filterBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-
-            currentFilter = btn.dataset.filter;
-
-            renderTodos();
+            currentFilter = btn.dataset.filter || 'all';
+            renderTasks();
         });
     });
 
-    renderTodos();
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    renderTasks();
 });
