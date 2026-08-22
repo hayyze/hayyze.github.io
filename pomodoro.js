@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
         remainingSeconds: 25 * 60,
         totalDuration: 25 * 60,
         sessionInCycle: 0,
+        sessionId: null,
         context: {
             type: 'free', // 'task' | 'event' | 'free'
             id: null,
@@ -333,7 +334,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function saveState() {
-        ensureTodayStats();
+        if (typeof hayyizEnsureTodayStats === 'function') hayyizEnsureTodayStats();
+        else ensureTodayStats();
+
         const payload = {
             mode: state.mode,
             status: state.status,
@@ -341,6 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
             remainingSeconds: state.remainingSeconds,
             totalDuration: state.totalDuration,
             sessionInCycle: state.sessionInCycle,
+            sessionId: state.sessionId,
             workMinutes: workInput ? workInput.value : '25',
             breakMinutes: breakInput ? breakInput.value : '5',
             longBreakMinutes: longBreakInput ? longBreakInput.value : '15',
@@ -357,18 +361,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function loadState() {
-        ensureTodayStats();
+        if (typeof hayyizEnsureTodayStats === 'function') hayyizEnsureTodayStats();
+        else ensureTodayStats();
         loadPreferences();
 
-        let restored = null;
-        if (typeof hayyizGetFocusState === 'function') {
-            restored = hayyizGetFocusState();
-        } else {
-            try {
-                const raw = localStorage.getItem('hayyiz-pomodoro-state');
-                if (raw) restored = JSON.parse(raw);
-            } catch (e) {}
-        }
+        let restored = typeof hayyizReconcilePomodoroState === 'function' ? hayyizReconcilePomodoroState() : null;
 
         if (!restored) {
             resetTimerToCurrentMode();
@@ -381,22 +378,52 @@ document.addEventListener('DOMContentLoaded', () => {
         state.remainingSeconds = typeof restored.remainingSeconds === 'number' ? restored.remainingSeconds : state.totalDuration;
         state.endTime = restored.endTime || null;
         state.sessionInCycle = typeof restored.sessionInCycle === 'number' ? restored.sessionInCycle : 0;
+        state.sessionId = restored.sessionId || null;
         if (restored.context) state.context = restored.context;
 
-        // If status was 'running', evaluate true elapsed time using timestamp
-        if (state.status === 'running' && state.endTime) {
-            const remaining = Math.round((state.endTime - Date.now()) / 1000);
-            if (remaining <= 0) {
-                // Timer completed while page was closed / away / asleep!
-                state.remainingSeconds = 0;
-                state.status = 'idle';
-                state.endTime = null;
-                handleTimerCompletion(true);
-                return;
-            } else {
-                state.remainingSeconds = remaining;
-                resumeTimerInterval();
+        // عرض نافذة الاكتمال إذا حُسب الانتهاء أثناء عدم التواجد بالصفحة
+        if (restored.pendingCompletionModal) {
+            const p = restored.pendingCompletionModal;
+            playNotificationSound();
+            showNotification(
+                'حيز - بومودورو',
+                p.isLongBreak
+                    ? `أنت بطل! أكملت 4 جلسات تركيز. خذ راحة طويلة (${p.breakMin} د).`
+                    : `أحسنت! أتممت جلسة التركيز (${p.workMinJustDone} د). خذ استراحة (${p.breakMin} د).`
+            );
+            announceSR('انتهت جلسة التركيز بنجاح');
+            showCompletionModal(p.workMinJustDone, p.isLongBreak, p.breakMin);
+
+            if (restored.pendingNextMode) {
+                state.mode = restored.pendingNextMode;
             }
+            state.status = 'idle';
+            state.endTime = null;
+
+            // مسح الـ modal من الحالة لتجنب التكرار عند تحديث الصفحة
+            delete restored.pendingCompletionModal;
+            delete restored.pendingNextMode;
+            hayyizSaveFocusState(restored);
+            saveState();
+            updateUI();
+            return;
+        }
+
+        if (restored.pendingNextMode) {
+            if (state.mode !== restored.pendingNextMode) {
+                state.mode = restored.pendingNextMode;
+            }
+            state.status = 'idle';
+            state.endTime = null;
+            delete restored.pendingNextMode;
+            hayyizSaveFocusState(restored);
+            saveState();
+            updateUI();
+            return;
+        }
+
+        if (state.status === 'running' && state.endTime) {
+            resumeTimerInterval();
         } else {
             updateUI();
         }
@@ -432,6 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         state.endTime = Date.now() + rem * 1000;
         state.status = 'running';
+        state.sessionId = 's_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
 
         announceSR('بدأت جلسة ' + (state.mode === 'focus' ? 'التركيز' : 'الراحة'));
 
@@ -469,17 +497,38 @@ document.addEventListener('DOMContentLoaded', () => {
     function tick() {
         if (state.status !== 'running' || !state.endTime) return;
 
-        const rem = Math.max(0, Math.round((state.endTime - Date.now()) / 1000));
-        state.remainingSeconds = rem;
+        // إجراء مطابقة الحالة من مصدر الحقيقة
+        const reconciled = typeof hayyizReconcilePomodoroState === 'function' ? hayyizReconcilePomodoroState() : null;
 
-        if (rem <= 0) {
+        if (reconciled && (reconciled.status === 'completed' || reconciled.status === 'idle')) {
             clearInterval(timerInterval);
             state.status = 'idle';
             state.endTime = null;
-            handleTimerCompletion(false);
+            state.remainingSeconds = reconciled.remainingSeconds;
+            if (reconciled.pendingNextMode) state.mode = reconciled.pendingNextMode;
+
+            if (reconciled.pendingCompletionModal) {
+                const p = reconciled.pendingCompletionModal;
+                playNotificationSound();
+                showNotification(
+                    'حيز - بومودورو',
+                    p.isLongBreak
+                        ? `أنت بطل! أكملت 4 جلسات تركيز. خذ راحة طويلة (${p.breakMin} د).`
+                        : `أحسنت! أتممت جلسة التركيز (${p.workMinJustDone} د). خذ استراحة (${p.breakMin} د).`
+                );
+                announceSR('انتهت جلسة التركيز بنجاح');
+                showCompletionModal(p.workMinJustDone, p.isLongBreak, p.breakMin);
+
+                delete reconciled.pendingCompletionModal;
+                delete reconciled.pendingNextMode;
+                hayyizSaveFocusState(reconciled);
+            }
+            updateUI();
+            saveState();
             return;
         }
 
+        state.remainingSeconds = Math.max(0, Math.round((state.endTime - Date.now()) / 1000));
         updateUI();
         saveState();
     }
@@ -814,22 +863,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (document.visibilityState === 'hidden') {
             saveState();
         } else {
-            // Re-eval remaining time when returning to page
-            if (state.status === 'running' && state.endTime) {
-                const rem = Math.round((state.endTime - Date.now()) / 1000);
-                if (rem <= 0) {
-                    clearInterval(timerInterval);
-                    state.remainingSeconds = 0;
-                    state.status = 'idle';
-                    state.endTime = null;
-                    handleTimerCompletion(true);
-                } else {
-                    state.remainingSeconds = rem;
-                    updateUI();
-                }
-            } else {
-                updateUI();
-            }
+            loadState();
         }
     });
 
