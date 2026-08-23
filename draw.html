@@ -46,7 +46,6 @@
     <link rel="icon" href="favicon.ico">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="pdf.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
@@ -375,9 +374,34 @@
         const STORAGE_KEY = 'hayyiz-free-spaces-v1';
         const PREFS_KEY = 'hayyiz-draw-prefs';
 
-        // تهيئة PDF.js Worker
-        if (window.pdfjsLib) {
-            window.pdfjsLib.GlobalWorkerOptions.workerSrc = './pdf.worker.min.js';
+        // ——— تحميل مكتبة PDF.js ديناميكياً عند الحاجة فقط (Lazy Loading) ———
+        let pdfjsLoadingPromise = null;
+
+        function ensurePdfJsLoaded() {
+            if (window.pdfjsLib) {
+                return Promise.resolve(window.pdfjsLib);
+            }
+            if (pdfjsLoadingPromise) {
+                return pdfjsLoadingPromise;
+            }
+            pdfjsLoadingPromise = new Promise(function (resolve, reject) {
+                const script = document.createElement('script');
+                script.src = './pdf.min.js';
+                script.onload = function () {
+                    if (window.pdfjsLib) {
+                        window.pdfjsLib.GlobalWorkerOptions.workerSrc = './pdf.worker.min.js';
+                        resolve(window.pdfjsLib);
+                    } else {
+                        reject(new Error('تعذر تحميل مكتبة PDF.js.'));
+                    }
+                };
+                script.onerror = function () {
+                    pdfjsLoadingPromise = null;
+                    reject(new Error('فشل تحميل ملفات مكتبة PDF.js. تأكد من اتصال الإنترنت أو صحة الملفات.'));
+                };
+                document.head.appendChild(script);
+            });
+            return pdfjsLoadingPromise;
         }
 
         // ——— IndexedDB engine لتخزين ملفات PDF بشكل آمن وبشكل منفصل عن LocalStorage ———
@@ -552,27 +576,29 @@
                 return Promise.resolve(null);
             }
             return getPdfFromDb(space.id).then(function (buffer) {
-                if (!buffer || !window.pdfjsLib) {
+                if (!buffer) {
                     return null;
                 }
-                const loadingTask = window.pdfjsLib.getDocument({
-                    data: buffer,
-                    isEvalSupported: false,
-                    disableScripting: true,
-                    disableAutoFetch: true,
-                    disableStream: true,
-                    docBaseUrl: ''
-                });
-                return loadingTask.promise.then(function (pdfDoc) {
-                    activePdfDoc = pdfDoc;
-                    while (space.pages.length < pdfDoc.numPages) {
-                        space.pages.push(emptyPage());
-                    }
-                    return pdfDoc;
-                }).catch(function (err) {
-                    console.warn('PDF parsing error:', err);
-                    alert('تعذر قراءة ملف PDF. تأكد من أن الملف صالح وغير تالف.');
-                    return null;
+                return ensurePdfJsLoaded().then(function () {
+                    const loadingTask = window.pdfjsLib.getDocument({
+                        data: buffer,
+                        isEvalSupported: false,
+                        disableScripting: true,
+                        disableAutoFetch: true,
+                        disableStream: true,
+                        docBaseUrl: ''
+                    });
+                    return loadingTask.promise.then(function (pdfDoc) {
+                        activePdfDoc = pdfDoc;
+                        while (space.pages.length < pdfDoc.numPages) {
+                            space.pages.push(emptyPage());
+                        }
+                        return pdfDoc;
+                    }).catch(function (err) {
+                        console.warn('PDF parsing error:', err);
+                        alert('تعذر قراءة ملف PDF. تأكد من أن الملف صالح وغير تالف.');
+                        return null;
+                    });
                 });
             }).catch(function (err) {
                 console.warn('IndexedDB PDF load error:', err);
@@ -1961,61 +1987,59 @@
                 if (!file) return;
 
                 validatePdfFile(file).then(function (buffer) {
-                    if (!window.pdfjsLib) {
-                        alert('مكتبة PDF غير متاحة حالياً.');
-                        return;
-                    }
-                    const loadingTask = window.pdfjsLib.getDocument({
-                        data: buffer.slice(0),
-                        isEvalSupported: false,
-                        disableScripting: true,
-                        disableAutoFetch: true,
-                        disableStream: true,
-                        docBaseUrl: ''
-                    });
-                    return loadingTask.promise.then(function (pdfDoc) {
-                        const numPages = pdfDoc.numPages;
-                        const cleanName = file.name.replace(/\.pdf$/i, '');
+                    return ensurePdfJsLoaded().then(function () {
+                        const loadingTask = window.pdfjsLib.getDocument({
+                            data: buffer.slice(0),
+                            isEvalSupported: false,
+                            disableScripting: true,
+                            disableAutoFetch: true,
+                            disableStream: true,
+                            docBaseUrl: ''
+                        });
+                        return loadingTask.promise.then(function (pdfDoc) {
+                            const numPages = pdfDoc.numPages;
+                            const cleanName = file.name.replace(/\.pdf$/i, '');
 
-                        if (pdfImportTargetMode === 'replace' && activeSpaceId) {
-                            const s = getActiveSpace();
-                            if (s) {
-                                s.metadata.pdf = { fileName: file.name, pageCount: numPages };
-                                s.updated = Date.now();
-                                while (s.pages.length < numPages) {
-                                    s.pages.push(emptyPage());
+                            if (pdfImportTargetMode === 'replace' && activeSpaceId) {
+                                const s = getActiveSpace();
+                                if (s) {
+                                    s.metadata.pdf = { fileName: file.name, pageCount: numPages };
+                                    s.updated = Date.now();
+                                    while (s.pages.length < numPages) {
+                                        s.pages.push(emptyPage());
+                                    }
+                                    savePdfToDb(s.id, buffer, file.name).then(function () {
+                                        activePdfDoc = pdfDoc;
+                                        pdfPageCache.clear();
+                                        pendingRenderPages.clear();
+                                        saveAll();
+                                        fullRedraw();
+                                    });
+                                    return;
                                 }
-                                savePdfToDb(s.id, buffer, file.name).then(function () {
-                                    activePdfDoc = pdfDoc;
-                                    pdfPageCache.clear();
-                                    pendingRenderPages.clear();
-                                    saveAll();
-                                    fullRedraw();
-                                });
-                                return;
                             }
-                        }
 
-                        const newSpaceId = uid();
-                        const pagesArr = [];
-                        for (let i = 0; i < numPages; i++) {
-                            pagesArr.push(emptyPage());
-                        }
-                        const newSpace = {
-                            id: newSpaceId,
-                            name: cleanName || 'ملف PDF',
-                            metadata: {
-                                pdf: { fileName: file.name, pageCount: numPages }
-                            },
-                            pages: pagesArr,
-                            pageIndex: 0,
-                            bgStyle: 'plain',
-                            updated: Date.now()
-                        };
-                        spaces.unshift(newSpace);
-                        savePdfToDb(newSpaceId, buffer, file.name).then(function () {
-                            saveAll();
-                            openSpace(newSpaceId);
+                            const newSpaceId = uid();
+                            const pagesArr = [];
+                            for (let i = 0; i < numPages; i++) {
+                                pagesArr.push(emptyPage());
+                            }
+                            const newSpace = {
+                                id: newSpaceId,
+                                name: cleanName || 'ملف PDF',
+                                metadata: {
+                                    pdf: { fileName: file.name, pageCount: numPages }
+                                },
+                                pages: pagesArr,
+                                pageIndex: 0,
+                                bgStyle: 'plain',
+                                updated: Date.now()
+                            };
+                            spaces.unshift(newSpace);
+                            savePdfToDb(newSpaceId, buffer, file.name).then(function () {
+                                saveAll();
+                                openSpace(newSpaceId);
+                            });
                         });
                     });
                 }).catch(function (err) {
