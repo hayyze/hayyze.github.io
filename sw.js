@@ -1,4 +1,4 @@
-const CACHE_NAME = 'heez-v1.5.0';
+const CACHE_NAME = 'heez-v1.5.1';
 
 const ASSETS = [
   './',
@@ -36,8 +36,6 @@ const ASSETS = [
   './calculator.js',
   './game.js',
   './words.json',
-  './pdf.min.js',
-  './pdf.worker.min.js',
   './manifest.webmanifest',
   './android-chrome-192x192.png',
   './android-chrome-512x512.png',
