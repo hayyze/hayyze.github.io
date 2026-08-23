@@ -105,7 +105,9 @@ var HAYYIZ_BACKUP_KEYS = [
     'hayyiz-daily-goal',
     'hayyiz-birthdate',
     'hayyiz-student-exams',
-    'hayyiz-custom-events'
+    'hayyiz-custom-events',
+    'hayyiz-hide-pomo-prompt-today',
+    'hayyiz-hide-pomo-prompt-hour'
 ];
 
 function exportHayyizData() {

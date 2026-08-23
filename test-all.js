@@ -130,7 +130,15 @@ console.log('=== RUNNING HAYYIZ AUTOMATED TEST SUITE ===\n');
     localStorage.clear();
     localStorage.setItem('hayyiz-todos', JSON.stringify([{ id: 'h1', text: 'اختبار' }]));
     const backupKeys = global.HAYYIZ_BACKUP_KEYS;
-    assert(Array.isArray(backupKeys) && backupKeys.includes('hayyiz-todos') && backupKeys.includes('hayyiz-notes') && backupKeys.includes('hayyiz-student-exams'), 'Backup keys cover all essential platform data');
+    assert(
+        Array.isArray(backupKeys) &&
+        backupKeys.includes('hayyiz-todos') &&
+        backupKeys.includes('hayyiz-notes') &&
+        backupKeys.includes('hayyiz-student-exams') &&
+        backupKeys.includes('hayyiz-hide-pomo-prompt-today') &&
+        backupKeys.includes('hayyiz-hide-pomo-prompt-hour'),
+        'Backup keys cover all essential platform data including Pomodoro prompt suppression preferences'
+    );
 }
 
 // 6. Focus Engine State & Streak Unit Tests
