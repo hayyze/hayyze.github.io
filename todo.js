@@ -38,6 +38,144 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentFilter = 'all';
     let searchQuery = '';
 
+    /* =========================================================
+     * POMODORO PROMPT SUPPRESSION HELPERS
+     * ========================================================= */
+    function isPomodoroPromptSuppressed() {
+        try {
+            const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+            const hiddenToday = localStorage.getItem('hayyiz-hide-pomo-prompt-today');
+            if (hiddenToday === todayStr) {
+                return true;
+            }
+
+            const hiddenUntil = localStorage.getItem('hayyiz-hide-pomo-prompt-hour');
+            if (hiddenUntil) {
+                const expiresAt = parseInt(hiddenUntil, 10);
+                if (!isNaN(expiresAt) && Date.now() < expiresAt) {
+                    return true;
+                } else if (!isNaN(expiresAt) && Date.now() >= expiresAt) {
+                    localStorage.removeItem('hayyiz-hide-pomo-prompt-hour');
+                }
+            }
+        } catch (e) { /* ignore */ }
+        return false;
+    }
+
+    function suppressPomodoroPrompt(type) {
+        try {
+            if (type === 'today') {
+                const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+                localStorage.setItem('hayyiz-hide-pomo-prompt-today', todayStr);
+            } else if (type === 'hour') {
+                const oneHourLater = Date.now() + (60 * 60 * 1000);
+                localStorage.setItem('hayyiz-hide-pomo-prompt-hour', String(oneHourLater));
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    /* =========================================================
+     * POMODORO SUGGESTION MODAL
+     * ========================================================= */
+    function showPomodoroSuggestion(taskObj, taskIndex) {
+        if (!taskObj || isPomodoroPromptSuppressed()) return;
+
+        document.querySelectorAll('.pomo-suggestion-overlay').forEach(el => el.remove());
+
+        const overlay = document.createElement('div');
+        overlay.className = 'task-modal-overlay pomo-suggestion-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'pomo-suggestion-title');
+
+        const modal = document.createElement('div');
+        modal.className = 'task-modal';
+
+        const title = document.createElement('h3');
+        title.id = 'pomo-suggestion-title';
+        title.innerHTML = '<i class="fa-solid fa-stopwatch" style="color: var(--primary);"></i> البدء في المهمة؟';
+        modal.appendChild(title);
+
+        const taskNameEl = document.createElement('div');
+        taskNameEl.className = 'task-name';
+        taskNameEl.textContent = taskObj.text;
+        modal.appendChild(taskNameEl);
+
+        const desc = document.createElement('p');
+        desc.style.fontSize = '0.92rem';
+        desc.style.marginBottom = '1rem';
+        desc.textContent = 'تم حفظ المهمة بنجاح! هل ترغب في الانتقال إلى مؤقت بومودورو لبدء جلسة تركيز عليها الآن؟';
+        modal.appendChild(desc);
+
+        const actions = document.createElement('div');
+        actions.className = 'modal-actions';
+        actions.style.flexDirection = 'column';
+        actions.style.gap = '0.5rem';
+
+        const closeModal = () => overlay.remove();
+
+        // 1. Accept button -> Go to pomodoro
+        const acceptBtn = document.createElement('button');
+        acceptBtn.type = 'button';
+        acceptBtn.className = 'btn btn-primary';
+        acceptBtn.innerHTML = '<i class="fa-solid fa-play"></i> بدء جلسة التركيز';
+        acceptBtn.addEventListener('click', () => {
+            closeModal();
+            startFocusForTask(taskObj, taskIndex);
+        });
+        actions.appendChild(acceptBtn);
+
+        // 2. Reject button -> Stay on tasks
+        const rejectBtn = document.createElement('button');
+        rejectBtn.type = 'button';
+        rejectBtn.className = 'btn btn-outline';
+        rejectBtn.textContent = 'ليس الآن';
+        rejectBtn.addEventListener('click', closeModal);
+        actions.appendChild(rejectBtn);
+
+        // Divider for suppression options
+        const optionsDivider = document.createElement('div');
+        optionsDivider.style.cssText = 'border-top: 1px dashed var(--border); margin: 0.5rem 0 0.25rem; padding-top: 0.5rem; font-size: 0.82rem; color: var(--text-muted);';
+        optionsDivider.textContent = 'خيارات التعطيل المؤقت:';
+        actions.appendChild(optionsDivider);
+
+        const suppressGroup = document.createElement('div');
+        suppressGroup.style.cssText = 'display: flex; gap: 0.4rem; justify-content: center; flex-wrap: wrap;';
+
+        // 3. Hide for an hour button
+        const hideHourBtn = document.createElement('button');
+        hideHourBtn.type = 'button';
+        hideHourBtn.className = 'btn btn-secondary btn-sm';
+        hideHourBtn.style.fontSize = '0.8rem';
+        hideHourBtn.textContent = 'لا تظهر لمدة ساعة';
+        hideHourBtn.addEventListener('click', () => {
+            suppressPomodoroPrompt('hour');
+            closeModal();
+        });
+        suppressGroup.appendChild(hideHourBtn);
+
+        // 4. Hide today button
+        const hideTodayBtn = document.createElement('button');
+        hideTodayBtn.type = 'button';
+        hideTodayBtn.className = 'btn btn-secondary btn-sm';
+        hideTodayBtn.style.fontSize = '0.8rem';
+        hideTodayBtn.textContent = 'لا تظهر اليوم';
+        hideTodayBtn.addEventListener('click', () => {
+            suppressPomodoroPrompt('today');
+            closeModal();
+        });
+        suppressGroup.appendChild(hideTodayBtn);
+
+        actions.appendChild(suppressGroup);
+        modal.appendChild(actions);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeModal();
+        });
+    }
+
     // DOM Elements
     const heroCard = document.getElementById('todo-hero-card');
     const todoForm = document.getElementById('todo-form');
@@ -563,6 +701,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         announceToScreenReader(`تمت إضافة المهمة: ${text}`);
         renderTodos();
+
+        if (!isPomodoroPromptSuppressed()) {
+            showPomodoroSuggestion(newTask, 0);
+        }
     });
 
     // Filter Buttons Click

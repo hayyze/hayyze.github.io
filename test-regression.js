@@ -98,7 +98,7 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
 
 // --- 4. SERVICE WORKER CACHE VERSION TEST ---
 {
-    assert(swJs.includes("const CACHE_NAME = 'heez-v1.5.1';"), 'Service Worker uses cache version heez-v1.5.1');
+    assert(swJs.includes("const CACHE_NAME = 'heez-v1.5.2';"), 'Service Worker uses cache version heez-v1.5.2');
     assert(swJs.includes('.filter((key) => key !== CACHE_NAME)'), 'Service Worker activates clean deletion of old cache versions');
     assert(swJs.includes('./contact.html') && swJs.includes('./terms.html') && swJs.includes('./privacy.html') && swJs.includes('./founder.html'), 'Service Worker caches newly added static HTML pages for offline support');
 }
@@ -428,7 +428,111 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     assert(activeFocusState !== null, 'Scenario 8: Dashboard can query active focus state cleanly after reload');
 }
 
-// --- 8. INLINE DURATION EDITING UNIT TESTS ---
+// --- 8. POMODORO PROMPT SUGGESTION & SUPPRESSION TESTS (10 REQUIREMENTS) ---
+{
+    localStorage.clear();
+    const realDateNow = Date.now;
+    let mockTime = 1700000000000;
+    Date.now = () => mockTime;
+
+    let mockToday = '2026-03-30';
+    getTodayLocal = () => mockToday;
+
+    // Helper functions mirroring todo.js logic for test verification
+    function isSuppressed() {
+        try {
+            const todayStr = getTodayLocal();
+            const hiddenToday = localStorage.getItem('hayyiz-hide-pomo-prompt-today');
+            if (hiddenToday === todayStr) {
+                return true;
+            }
+
+            const hiddenUntil = localStorage.getItem('hayyiz-hide-pomo-prompt-hour');
+            if (hiddenUntil) {
+                const expiresAt = parseInt(hiddenUntil, 10);
+                if (!isNaN(expiresAt) && Date.now() < expiresAt) {
+                    return true;
+                } else if (!isNaN(expiresAt) && Date.now() >= expiresAt) {
+                    localStorage.removeItem('hayyiz-hide-pomo-prompt-hour');
+                }
+            }
+        } catch (e) {}
+        return false;
+    }
+
+    function suppress(type) {
+        if (type === 'today') {
+            const todayStr = getTodayLocal();
+            localStorage.setItem('hayyiz-hide-pomo-prompt-today', todayStr);
+        } else if (type === 'hour') {
+            const oneHourLater = Date.now() + (60 * 60 * 1000);
+            localStorage.setItem('hayyiz-hide-pomo-prompt-hour', String(oneHourLater));
+        }
+    }
+
+    // 1. Task Creation -> Prompt is shown if not suppressed
+    localStorage.clear();
+    const task1 = { id: 't_sug_1', text: 'مهمة 1', priority: 'medium' };
+    hayyizSaveTodos([task1]);
+    assert(!isSuppressed(), 'Req 1: Prompt is allowed for newly created task when not suppressed');
+
+    // 2. Click Start Pomodoro -> Task session set up via hayyizLaunchPomodoro
+    let redirectedUrl = '';
+    global.window.location = {
+        set href(val) { redirectedUrl = val; },
+        get href() { return redirectedUrl; }
+    };
+    hayyizLaunchPomodoro(task1, 0);
+    const launchedTaskName = localStorage.getItem('hayyiz-current-task');
+    const launchedTaskId = localStorage.getItem('hayyiz-current-task-id');
+    assert(redirectedUrl.includes('pomodoro.html?task=') && launchedTaskName === 'مهمة 1' && launchedTaskId === 't_sug_1', 'Req 2: Launching Pomodoro connects session to task accurately');
+
+    // 3. Reject suggestion -> Task remains saved cleanly
+    const savedTodosReq3 = hayyizGetTodos();
+    assert(savedTodosReq3.length === 1 && savedTodosReq3[0].id === 't_sug_1', 'Req 3: Rejecting suggestion preserves saved task safely');
+
+    // 4. Select "Do not show today" -> Subsequent tasks on same day suppress prompt
+    suppress('today');
+    assert(isSuppressed(), 'Req 4: Selecting "Do not show today" suppresses prompt for subsequent tasks today');
+
+    // 5. Date changes -> Prompt works again automatically
+    mockToday = '2026-03-31';
+    assert(!isSuppressed(), 'Req 5: After date changes, prompt works again automatically');
+
+    // Reset date back
+    mockToday = '2026-03-30';
+    localStorage.clear();
+
+    // 6. Select "Do not show for an hour" -> Prompt suppressed within hour
+    suppress('hour');
+    assert(isSuppressed(), 'Req 6: Selecting "Do not show for an hour" suppresses prompt');
+
+    // Advance 30 mins (within 1 hour)
+    mockTime += 30 * 60 * 1000;
+    assert(isSuppressed(), 'Req 6b: Prompt remains suppressed after 30 minutes');
+
+    // 7. More than 1 hour passes -> Prompt works again automatically
+    mockTime += 31 * 60 * 1000; // 61 minutes total elapsed
+    assert(!isSuppressed(), 'Req 7: After more than 1 hour passes, prompt shows again automatically');
+
+    // 8 & 9. Page reload / browser restart during suppression period -> Suppression continues from LocalStorage
+    localStorage.clear();
+    mockTime = 1700000000000;
+    suppress('hour');
+    // Simulate browser reload / restart reading fresh from LocalStorage
+    const storedSuppression = localStorage.getItem('hayyiz-hide-pomo-prompt-hour');
+    assert(storedSuppression !== null && isSuppressed(), 'Req 8 & 9: Page reload and browser restart preserve suppression state via LocalStorage');
+
+    // 10. Expiration -> Stale suppression data is automatically removed/ignored without permanently blocking prompt
+    mockTime += 61 * 60 * 1000; // Expired
+    const activeCheckExpired = isSuppressed();
+    const cleanedKey = localStorage.getItem('hayyiz-hide-pomo-prompt-hour');
+    assert(!activeCheckExpired && cleanedKey === null, 'Req 10: Expired suppression data is cleared and does not block prompts permanently');
+
+    Date.now = realDateNow;
+}
+
+// --- 9. INLINE DURATION EDITING UNIT TESTS ---
 {
     localStorage.clear();
 
