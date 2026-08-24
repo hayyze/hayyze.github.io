@@ -677,16 +677,19 @@ document.addEventListener('DOMContentLoaded', () => {
             footerBtns.appendChild(copyBtn);
             footerBtns.appendChild(deleteBtn);
 
-            footer.appendChild(date);
             footer.appendChild(footerBtns);
 
-            // تجميع العناصر داخل البطاقة
+            // تجميع العناصر داخل البطاقة بالترتيب المحدد:
+            // 1. عنوان ومحتوى الملاحظة
+            // 2. بيانات الملاحظة والحالة (الشارات، الوسوم، المهمة المرتبطة، التاريخ)
+            // 3. شريط أزرار التحكم في أسفل البطاقة (عرض، تعديل، نسخ، حذف)
             card.appendChild(actions);
-            if (badgesRow.children.length > 0) card.appendChild(badgesRow);
             card.appendChild(title);
             card.appendChild(excerpt);
+            if (badgesRow.children.length > 0) card.appendChild(badgesRow);
             if (tagsContainer.children.length > 0) card.appendChild(tagsContainer);
             if (note.relatedTaskId || note.relatedTask) card.appendChild(taskBox);
+            card.appendChild(date);
             card.appendChild(footer);
 
             // فتح الملاحظة بكاملها عند النقر على البطاقة نفسها

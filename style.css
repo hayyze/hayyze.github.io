@@ -774,6 +774,7 @@ button, input, select, textarea {
 .note-card h4 {
     margin-bottom: 8px;
     font-size: 1.1rem;
+    padding-left: 55px;
 }
 
 .note-card p {
@@ -2317,7 +2318,6 @@ html.theme-dark .notes-dropdowns select {
     flex-wrap: wrap;
     gap: 6px;
     margin-bottom: 10px;
-    padding-left: 60px;
 }
 
 .badge {
@@ -2413,16 +2413,18 @@ html.theme-dark .notes-dropdowns select {
 .note-card-footer {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 8px;
-    margin-top: 10px;
-    padding-top: 10px;
+    margin-top: 12px;
+    padding-top: 12px;
     border-top: 1px dashed var(--border);
 }
 
 .note-footer-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
+    width: 100%;
 }
 
 .btn-xs {
