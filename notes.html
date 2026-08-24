@@ -243,11 +243,11 @@
                 <textarea id="note-content" placeholder="اكتب ملاحظتك هنا..." rows="4" required aria-label="محتوى الملاحظة"></textarea>
             </div>
 
-            <!-- خيارات تنظيم إضافية غير إجبارية -->
+            <!-- خيارات تنظيم الملاحظة -->
             <details class="notes-extra-options" id="notes-extra-details">
-                <summary><i class="fa-solid fa-sliders"></i> خيارات تنظيم إضافية (مادة، وسوم، تثبيت...)</summary>
+                <summary><i class="fa-solid fa-sliders"></i> خيارات تنظيم الملاحظة</summary>
 
-                <div class="notes-form-grid" style="margin-top: 14px;">
+                <div class="notes-form-grid">
                     <div class="field">
                         <label for="note-subject-select">المادة الدراسية</label>
                         <select id="note-subject-select" aria-label="اختر المادة الدراسية">
@@ -294,26 +294,26 @@
                 </div>
 
                 <div class="notes-form-toggles">
-                    <label class="toggle-checkbox">
+                    <label class="toggle-card">
                         <input type="checkbox" id="note-pinned">
-                        <span>📌 تثبيت الملاحظة في الأعلى</span>
+                        <span class="toggle-card-box"><i class="fa-solid fa-thumbtack"></i> تثبيت الملاحظة</span>
                     </label>
-                    <label class="toggle-checkbox">
+                    <label class="toggle-card">
                         <input type="checkbox" id="note-favorite">
-                        <span>⭐ إضافة للمفضلة</span>
+                        <span class="toggle-card-box"><i class="fa-solid fa-star"></i> إضافة للمفضلة</span>
                     </label>
-                    <label class="toggle-checkbox">
+                    <label class="toggle-card">
                         <input type="checkbox" id="note-review">
-                        <span>📖 علم للمراجعة الدراسية</span>
+                        <span class="toggle-card-box"><i class="fa-solid fa-book-open"></i> للمراجعة الدراسية</span>
                     </label>
                 </div>
             </details>
 
-            <div class="notes-actions" style="margin-top: 14px;">
+            <div class="notes-actions">
                 <button type="submit" class="btn btn-primary" id="note-submit-btn">
                     <i class="fa-solid fa-plus"></i> حفظ الملاحظة
                 </button>
-                <button type="button" class="btn btn-outline" id="clear-note-btn">مسح</button>
+                <button type="button" class="btn btn-secondary" id="clear-note-btn">مسح</button>
             </div>
         </form>
 
@@ -327,9 +327,9 @@
             <div class="notes-filters-row">
                 <div class="filter-pills" role="tablist" aria-label="تصفية الملاحظات">
                     <button type="button" class="filter-pill active" data-filter="all">الكل</button>
-                    <button type="button" class="filter-pill" data-filter="pinned">📌 المثبتة</button>
-                    <button type="button" class="filter-pill" data-filter="favorite">⭐ المفضلة</button>
-                    <button type="button" class="filter-pill" data-filter="review">📖 للمراجعة</button>
+                    <button type="button" class="filter-pill" data-filter="pinned"><i class="fa-solid fa-thumbtack"></i> المثبتة</button>
+                    <button type="button" class="filter-pill" data-filter="favorite"><i class="fa-solid fa-star"></i> المفضلة</button>
+                    <button type="button" class="filter-pill" data-filter="review"><i class="fa-solid fa-book-open"></i> للمراجعة</button>
                 </div>
 
                 <div class="notes-dropdowns">
