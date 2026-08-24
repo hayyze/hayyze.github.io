@@ -216,11 +216,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalBtnNote = document.getElementById('modal-btn-note');
     const modalBtnDelete = document.getElementById('modal-btn-delete');
 
-    function saveTodos() {
+    function saveTodos(changedTask) {
         if (typeof hayyizSaveTodos === 'function') {
             hayyizSaveTodos(todos);
         } else {
             localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
+        }
+        if (changedTask && changedTask.id && typeof hayyizUploadItem === 'function') {
+            hayyizUploadItem('todos', changedTask.id, changedTask);
         }
     }
 
@@ -537,11 +540,15 @@ document.addEventListener('DOMContentLoaded', () => {
         checkbox.checked = Boolean(todo.completed);
         checkbox.setAttribute('aria-label', `تعديل حالة مهمة ${todo.text}`);
         checkbox.addEventListener('change', () => {
+            todo.updated = Date.now();
             if (typeof hayyizUpdateTask === 'function') {
-                hayyizUpdateTask(todo.id, { completed: checkbox.checked });
+                hayyizUpdateTask(todo.id, { completed: checkbox.checked, updated: todo.updated });
             } else {
                 todo.completed = checkbox.checked;
-                saveTodos();
+                saveTodos(todo);
+            }
+            if (typeof hayyizUploadItem === 'function') {
+                hayyizUploadItem('todos', todo.id, todo);
             }
             announceToScreenReader(checkbox.checked ? `تم إكمال المهمة: ${todo.text}` : `تمت إعادة المهمة: ${todo.text}`);
             renderTodos();
@@ -693,7 +700,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         todos.unshift(newTask);
-        saveTodos();
+        saveTodos(newTask);
 
         todoInput.value = '';
         if (todoDate) todoDate.value = '';
@@ -802,20 +809,30 @@ document.addEventListener('DOMContentLoaded', () => {
             const id = modalTaskId.value;
             if (!id) return;
 
+            const nowMs = Date.now();
             const patch = {
                 text: modalTitle.value.trim(),
                 priority: modalPriority.value,
                 subjectId: modalSubject.value || null,
                 date: modalDate.value || null,
-                minutes: modalMinutes.value || null
+                minutes: modalMinutes.value || null,
+                updated: nowMs
             };
 
+            let updatedTask = null;
             if (typeof hayyizUpdateTask === 'function') {
-                hayyizUpdateTask(id, patch);
+                updatedTask = hayyizUpdateTask(id, patch);
             } else {
                 const target = todos.find(t => t.id === id);
-                if (target) Object.assign(target, patch);
-                saveTodos();
+                if (target) {
+                    Object.assign(target, patch);
+                    updatedTask = target;
+                }
+                saveTodos(updatedTask);
+            }
+
+            if (updatedTask && typeof hayyizUploadItem === 'function') {
+                hayyizUploadItem('todos', updatedTask.id, updatedTask);
             }
 
             detailsModal.classList.add('hidden');
@@ -825,4 +842,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial render
     renderTodos();
+
+    if (typeof hayyizRegisterSyncCallback === 'function') {
+        hayyizRegisterSyncCallback('todos', (merged) => {
+            if (Array.isArray(merged)) {
+                todos = merged;
+                renderTodos();
+            }
+        });
+    }
+
+    if (typeof hayyizSyncTool === 'function') {
+        hayyizSyncTool('todos');
+    }
+    if (typeof initAuthListener === 'function') {
+        initAuthListener();
+    }
 });

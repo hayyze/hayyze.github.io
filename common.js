@@ -343,6 +343,9 @@ function hayyizDeleteTask(id) {
     if (idx < 0) return false;
     todos.splice(idx, 1);
     hayyizSaveTodos(todos);
+    if (typeof hayyizDeleteRemoteItem === 'function') {
+        hayyizDeleteRemoteItem('todos', id);
+    }
     return true;
 }
 
@@ -1102,6 +1105,9 @@ function hayyizSaveGpaSnapshot(snapshot) {
     snapshot.updatedAt = Date.now();
     snapshot.version = 1;
     hayyizSaveJSON('hayyiz-gpa-snapshot', snapshot);
+    if (typeof hayyizUploadItem === 'function') {
+        hayyizUploadItem('gpa-snapshot', 'snapshot', snapshot);
+    }
 }
 
 function hayyizGetAcademicGoal() {
@@ -1111,9 +1117,16 @@ function hayyizGetAcademicGoal() {
 function hayyizSaveAcademicGoal(goal) {
     if (!goal) {
         localStorage.removeItem('hayyiz-academic-goal');
+        if (typeof hayyizDeleteRemoteItem === 'function') {
+            hayyizDeleteRemoteItem('academic-goal', 'goal');
+        }
         return;
     }
+    goal.updatedAt = Date.now();
     hayyizSaveJSON('hayyiz-academic-goal', goal);
+    if (typeof hayyizUploadItem === 'function') {
+        hayyizUploadItem('academic-goal', 'goal', goal);
+    }
 }
 
 function hayyizGetSubjectGoals() {

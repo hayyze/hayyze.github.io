@@ -62,9 +62,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const b = breakInput ? Math.max(1, Math.min(60, parseInt(breakInput.value, 10) || 5)) : 5;
         const lb = longBreakInput ? Math.max(1, Math.min(60, parseInt(longBreakInput.value, 10) || 15)) : 15;
 
+        const nowMs = Date.now();
         localStorage.setItem('hayyiz-pref-work', String(w));
         localStorage.setItem('hayyiz-pref-break', String(b));
         localStorage.setItem('hayyiz-pref-long', String(lb));
+        localStorage.setItem('hayyiz-pomodoro-prefs-updated', String(nowMs));
+
+        if (typeof hayyizUploadItem === 'function') {
+            hayyizUploadItem('pomodoro-prefs', 'prefs', { work: String(w), break: String(b), long: String(lb) });
+        }
     }
 
     [workInput, breakInput, longBreakInput].forEach((inp) => {
@@ -998,4 +1004,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========== Initialization ==========
     initContextFromParamsAndStorage();
     loadState();
+
+    if (typeof hayyizRegisterSyncCallback === 'function') {
+        hayyizRegisterSyncCallback('pomodoro-prefs', (prefs) => {
+            if (prefs && typeof prefs === 'object') {
+                if (workInput && prefs.work) workInput.value = prefs.work;
+                if (breakInput && prefs.break) breakInput.value = prefs.break;
+                if (longBreakInput && prefs.long) longBreakInput.value = prefs.long;
+                if (state.status === 'idle') {
+                    resetTimerToCurrentMode();
+                }
+            }
+        });
+    }
+
+    if (typeof hayyizSyncTool === 'function') {
+        hayyizSyncTool('pomodoro-prefs');
+    }
+    if (typeof initAuthListener === 'function') {
+        initAuthListener();
+    }
 });

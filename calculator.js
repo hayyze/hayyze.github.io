@@ -38,6 +38,24 @@
                 renderStudentTimeline();
             }
         });
+
+        if (typeof hayyizRegisterSyncCallback === 'function') {
+            hayyizRegisterSyncCallback('student-exams', () => renderStudentTimeline());
+            hayyizRegisterSyncCallback('custom-events', () => renderStudentTimeline());
+            hayyizRegisterSyncCallback('birthdate', () => {
+                loadSavedBirthdate();
+                renderStudentTimeline();
+            });
+        }
+
+        if (typeof hayyizSyncTool === 'function') {
+            hayyizSyncTool('student-exams');
+            hayyizSyncTool('custom-events');
+            hayyizSyncTool('birthdate');
+        }
+        if (typeof initAuthListener === 'function') {
+            initAuthListener();
+        }
     }
 
     /* =========================================================
@@ -77,7 +95,12 @@
                 }
 
                 showBirthdateError('');
+                const nowMs = Date.now();
                 localStorage.setItem(STORAGE_KEY_BIRTHDATE, dateVal);
+                localStorage.setItem('hayyiz-birthdate-updated', String(nowMs));
+                if (typeof hayyizUploadItem === 'function') {
+                    hayyizUploadItem('birthdate', 'birthdate', dateVal);
+                }
                 if (formWrapper) formWrapper.style.display = 'none';
                 updateHeroDashboard();
             });
@@ -351,15 +374,21 @@
 
         const targetKey = (type === 'exam') ? STORAGE_KEY_EXAMS : STORAGE_KEY_EVENTS;
 
+        const nowMs = Date.now();
+        const eventObj = { id: editId || ((type === 'exam' ? 'ex_' : 'ev_') + nowMs.toString(36) + Math.random().toString(36).slice(2, 6)), name, type, date, time, updated: nowMs };
+
         if (editId) {
-            // حذف النسخة القديمة إن تحول النوع بين اختبار وحَدَث مخصص
             if (oldStorageKey && oldStorageKey !== targetKey) {
                 deleteEventFromStorage(editId, oldStorageKey);
             }
-            saveEventToStorage({ id: editId, name, type, date, time }, targetKey);
+            saveEventToStorage(eventObj, targetKey);
         } else {
-            const newId = (type === 'exam' ? 'ex_' : 'ev_') + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-            saveEventToStorage({ id: newId, name, type, date, time }, targetKey);
+            saveEventToStorage(eventObj, targetKey);
+        }
+
+        const toolName = targetKey === STORAGE_KEY_EXAMS ? 'student-exams' : 'custom-events';
+        if (typeof hayyizUploadItem === 'function') {
+            hayyizUploadItem(toolName, eventObj.id, eventObj);
         }
 
         const formCard = document.getElementById('event-form-card');
@@ -394,6 +423,10 @@
             if (Array.isArray(list)) {
                 list = list.filter(item => item && item.id !== id);
                 localStorage.setItem(storageKey, JSON.stringify(list));
+            }
+            const toolName = storageKey === STORAGE_KEY_EXAMS ? 'student-exams' : 'custom-events';
+            if (typeof hayyizDeleteRemoteItem === 'function') {
+                hayyizDeleteRemoteItem(toolName, id);
             }
         } catch (e) { /* تجاهل */ }
     }
@@ -845,6 +878,19 @@
         resetBtn.addEventListener('click', () => {
             const ok = confirm('هل أنت متأكد من أتك تريد إعادة تعيين كافة بيانات تقويم الطالب (تاريخ الميلاد، الاختبارات، والمواعيد المحفوظة)؟');
             if (!ok) return;
+
+            const examsList = JSON.parse(localStorage.getItem(STORAGE_KEY_EXAMS) || '[]');
+            const eventsList = JSON.parse(localStorage.getItem(STORAGE_KEY_EVENTS) || '[]');
+
+            if (Array.isArray(examsList) && typeof hayyizDeleteRemoteItem === 'function') {
+                examsList.forEach(e => { if (e && e.id) hayyizDeleteRemoteItem('student-exams', e.id); });
+            }
+            if (Array.isArray(eventsList) && typeof hayyizDeleteRemoteItem === 'function') {
+                eventsList.forEach(e => { if (e && e.id) hayyizDeleteRemoteItem('custom-events', e.id); });
+            }
+            if (typeof hayyizDeleteRemoteItem === 'function') {
+                hayyizDeleteRemoteItem('birthdate', 'birthdate');
+            }
 
             localStorage.removeItem(STORAGE_KEY_BIRTHDATE);
             localStorage.removeItem(STORAGE_KEY_EXAMS);
