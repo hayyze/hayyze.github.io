@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const notesForm = document.getElementById('notes-form');
     const noteTitle = document.getElementById('note-title');
+    const notesExtraDetails = document.getElementById('notes-extra-details');
     const noteSubjectSelect = document.getElementById('note-subject-select');
     const customSubjectField = document.getElementById('custom-subject-field');
     const noteSubjectCustom = document.getElementById('note-subject-custom');
@@ -340,6 +341,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (notePinned) notePinned.checked = Boolean(draft.isPinned);
                     if (noteFavorite) noteFavorite.checked = Boolean(draft.isFavorite);
                     if (noteReview) noteReview.checked = Boolean(draft.isReview);
+
+                    // افتح تفاصيل الخيارات الإضافية تلقائياً إذا كانت تحتوي على بيانات في المسودة
+                    if (draft.subject || draft.category || draft.tags || draft.task || draft.isPinned || draft.isFavorite || draft.isReview) {
+                        if (notesExtraDetails) notesExtraDetails.open = true;
+                    }
                 }
             }
         } catch (e) { /* تجاهل */ }
@@ -378,6 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
             opt.selected = true;
             noteTaskSelect.appendChild(opt);
         }
+        if (notesExtraDetails) notesExtraDetails.open = true;
     }
 
     if (!prefillTitle && !urlTaskName) {
@@ -389,6 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (notesForm) notesForm.reset();
         if (customSubjectField) customSubjectField.classList.add('hidden');
         if (noteSubjectCustom) noteSubjectCustom.value = '';
+        if (notesExtraDetails) notesExtraDetails.open = false;
         try { localStorage.removeItem('hayyiz-note-draft'); } catch (e) {}
 
         if (submitBtn) {
@@ -604,16 +612,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            // المهمة المرتبطة
+            // المهمة المرتبطة - relatedTaskId هو المرجع الحاسم والأصلي
             const taskBox = document.createElement('div');
             taskBox.className = 'note-task-info';
             if (note.relatedTaskId || note.relatedTask) {
                 let matchedTask = null;
                 if (note.relatedTaskId) {
-                    matchedTask = currentTodos.find(t => t && t.id === note.relatedTaskId);
-                }
-                if (!matchedTask && note.relatedTask) {
-                    matchedTask = currentTodos.find(t => t && t.text === note.relatedTask);
+                    // البحث بشكل حاسم ومباشر بالمعرف
+                    matchedTask = currentTodos.find(t => t && t.id === note.relatedTaskId) || null;
+                } else if (note.relatedTask) {
+                    // توافق مع الملاحظات القديمة التي تحتوي فقط على نص المهمة
+                    matchedTask = currentTodos.find(t => t && t.text === note.relatedTask) || null;
                 }
 
                 if (matchedTask) {
@@ -782,6 +791,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (noteFavorite) noteFavorite.checked = Boolean(note.isFavorite);
         if (noteReview) noteReview.checked = Boolean(note.isReview);
 
+        // فتح خيارات التنظيم الإضافية تلقائياً عند التعديل إذا كانت الملاحظة تحتوي خيارات مخصصة
+        if (notesExtraDetails) {
+            notesExtraDetails.open = Boolean(note.subject || note.category || (note.tags && note.tags.length) || note.relatedTaskId || note.relatedTask || note.isPinned || note.isFavorite || note.isReview);
+        }
+
         if (submitBtn) {
             submitBtn.innerHTML = '<i class="fa-solid fa-check"></i> تحديث الملاحظة';
         }
@@ -914,8 +928,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 else { try { currentTodos = JSON.parse(localStorage.getItem('hayyiz-todos') || '[]'); } catch(e){} }
 
                 let matchedTask = null;
-                if (note.relatedTaskId) matchedTask = currentTodos.find(t => t && t.id === note.relatedTaskId);
-                if (!matchedTask && note.relatedTask) matchedTask = currentTodos.find(t => t && t.text === note.relatedTask);
+                if (note.relatedTaskId) matchedTask = currentTodos.find(t => t && t.id === note.relatedTaskId) || null;
+                else if (note.relatedTask) matchedTask = currentTodos.find(t => t && t.text === note.relatedTask) || null;
 
                 if (matchedTask) {
                     viewTask.innerHTML = '<div class="note-task-info task-exists"><i class="fa-solid fa-list-check"></i> مرتبطة بالمهمة: <strong>' + escapeHtml(matchedTask.text) + '</strong> <a href="todo.html" class="btn-open-task">فتح المهمة</a></div>';
@@ -925,7 +939,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // دعم مشاركة المتصفح (Web Share API) إن توفرت
+        // دعم مشاركة المتصفح (Web Share API) إن توفرت مع معالجة الأخطاء غير الملغاة
         if (viewShareBtn) {
             if (navigator.share) {
                 viewShareBtn.classList.remove('hidden');
@@ -964,7 +978,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 navigator.share({
                     title: note.title || 'ملاحظة من حيز',
                     text: (note.title ? (note.title + '\n\n') : '') + (note.content || '')
-                }).catch(() => {/* تجاهل إلغاء المستخدم */});
+                }).catch((err) => {
+                    if (err && (err.name === 'AbortError' || (err.message && err.message.toLowerCase().includes('canceled')))) {
+                        return; // إلغاء المستخدم الطبيعي
+                    }
+                    showToast('تعذر مشاركة الملاحظة');
+                });
             }
         });
     }

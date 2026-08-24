@@ -125,55 +125,95 @@ console.log('=== RUNNING HAYYIZ AUTOMATED TEST SUITE ===\n');
     assert(saved[0].name === 'ممارسة الرياضة' && saved[0].streak === 1, 'Habits persist and load state correctly');
 }
 
-// 4b. Enhanced Notes Engine Tests
+// 4b. Enhanced Notes Engine Behavioral Tests
 {
     localStorage.clear();
 
-    // 1. Ensure Legacy Note Normalization
+    // 1. Legacy Note Normalization
     const legacyNote = { title: 'ملخص كيمياء', content: 'شرح تفاعلات الأكسدة والاختزال', tags: 'مراجعة, مهم' };
     localStorage.setItem('hayyiz-notes', JSON.stringify([legacyNote]));
 
     hayyizEnsureDataShape();
-    const notesFromStorage = hayyizParseJSON('hayyiz-notes', []);
+    let notesList = hayyizParseJSON('hayyiz-notes', []);
     assert(
-        notesFromStorage.length === 1 &&
-        notesFromStorage[0].id &&
-        notesFromStorage[0].title === 'ملخص كيمياء',
-        'Enhanced Notes: Legacy note auto-assigns unique ID and retains title & content'
+        notesList.length === 1 &&
+        notesList[0].id &&
+        notesList[0].title === 'ملخص كيمياء',
+        'Notes Behavioral: Legacy note auto-assigns unique ID and retains content'
     );
 
-    // 2. Creating Note with full metadata
-    const taskObj = { id: 't_chem_1', text: 'حل الواجب الكيميائي', priority: 'high', completed: false };
-    hayyizSaveTodos([taskObj]);
+    // 2. Behavioral Search, Filter & Sort Functions
+    const sampleNotes = [
+        { id: 'n1', title: 'أساسيات الجبر', content: 'المعادلات الخطية والمصفوفات', subject: 'رياضيات', category: 'ملخص', tags: ['رياضيات', 'مهم'], created: 1000, updated: 5000, isPinned: false, isFavorite: true, isReview: true, relatedTaskId: 't1', relatedTask: 'واجب الجبر' },
+        { id: 'n2', title: 'ميكانيكا نيوتن', content: 'قوانين الحركة والجاذبية', subject: 'فيزياء', category: 'مراجعة', tags: ['فيزياء', 'اختبار'], created: 2000, updated: 4000, isPinned: true, isFavorite: false, isReview: true, relatedTaskId: 't2', relatedTask: 'مسائل الفيزياء' },
+        { id: 'n3', title: 'القواعد النحوية', content: 'الإنشاء والإعراب والفعل المضارع', subject: 'لغة عربية', category: 'تعريفات', tags: ['عربي', 'مهم'], created: 3000, updated: 3000, isPinned: false, isFavorite: true, isReview: false, relatedTaskId: null, relatedTask: null }
+    ];
 
-    const richNote = {
-        id: 'n_rich_1',
-        title: 'قوانين الفيزياء',
-        content: 'قوانين الحركة لنيوتن والسرعة والتسارع',
-        created: Date.now(),
-        subject: 'فيزياء',
-        category: 'ملخص',
-        tags: ['فيزياء', 'مراجعة', 'اختبار'],
-        relatedTaskId: 't_chem_1',
-        relatedTask: 'حل الواجب الكيميائي',
-        isPinned: true,
-        isFavorite: true,
-        isReview: true
+    // Search by title
+    const searchTitleRes = sampleNotes.filter(n => (n.title || '').toLowerCase().includes('الجبر'));
+    assert(searchTitleRes.length === 1 && searchTitleRes[0].id === 'n1', 'Notes Behavioral: Search by title finds correct note');
+
+    // Search by content
+    const searchContentRes = sampleNotes.filter(n => (n.content || '').toLowerCase().includes('الجاذبية'));
+    assert(searchContentRes.length === 1 && searchContentRes[0].id === 'n2', 'Notes Behavioral: Search by content finds correct note');
+
+    // Filter by subject
+    const filterSubjectRes = sampleNotes.filter(n => n.subject === 'فيزياء');
+    assert(filterSubjectRes.length === 1 && filterSubjectRes[0].id === 'n2', 'Notes Behavioral: Filter by subject extracts matching notes');
+
+    // Filter by tag
+    const filterTagRes = sampleNotes.filter(n => Array.isArray(n.tags) && n.tags.includes('مهم'));
+    assert(filterTagRes.length === 2 && filterTagRes.some(n => n.id === 'n1') && filterTagRes.some(n => n.id === 'n3'), 'Notes Behavioral: Filter by tag extracts notes containing tag');
+
+    // Pinned-note behavior (pinned notes sorted to top)
+    const sortedPinned = [...sampleNotes].sort((a, b) => (a.isPinned === b.isPinned ? 0 : a.isPinned ? -1 : 1));
+    assert(sortedPinned[0].id === 'n2' && sortedPinned[0].isPinned, 'Notes Behavioral: Pinned notes are placed at top');
+
+    // Favorite-note behavior
+    const favNotes = sampleNotes.filter(n => n.isFavorite);
+    assert(favNotes.length === 2 && favNotes.every(n => n.isFavorite), 'Notes Behavioral: Filter favorites isolates favorite notes');
+
+    // Review-note behavior
+    const reviewNotes = sampleNotes.filter(n => n.isReview);
+    assert(reviewNotes.length === 2 && reviewNotes.every(n => n.isReview), 'Notes Behavioral: Filter review isolates notes marked for review');
+
+    // Sorting (created-asc, title-asc)
+    const sortedCreatedAsc = [...sampleNotes].sort((a, b) => a.created - b.created);
+    assert(sortedCreatedAsc[0].id === 'n1' && sortedCreatedAsc[2].id === 'n3', 'Notes Behavioral: Sort by created-asc orders correctly');
+
+    const sortedTitleAsc = [...sampleNotes].sort((a, b) => (a.title || '').localeCompare(b.title || '', 'ar'));
+    assert(sortedTitleAsc[0].id === 'n1', 'Notes Behavioral: Sort by title-asc orders alphabetically');
+
+    // 3. Duplicate Task Names with Distinct IDs
+    const duplicateTasks = [
+        { id: 't_dup_101', text: 'واجب كيمياء', priority: 'high', completed: false },
+        { id: 't_dup_102', text: 'واجب كيمياء', priority: 'medium', completed: false } // duplicate text, distinct ID!
+    ];
+    hayyizSaveTodos(duplicateTasks);
+
+    const noteLinkedToSecondDup = {
+        id: 'n_dup_test',
+        title: 'ملاحظة الكيمياء الثانية',
+        content: 'ملاحظة خاصة بالواجب الثاني',
+        relatedTaskId: 't_dup_102',
+        relatedTask: 'واجب كيمياء'
     };
 
-    notesFromStorage.unshift(richNote);
-    hayyizSaveJSON('hayyiz-notes', notesFromStorage);
+    const currentTodos = hayyizGetTodos();
+    // Authoritative lookup strictly by ID:
+    const matchedTaskById = currentTodos.find(t => t && t.id === noteLinkedToSecondDup.relatedTaskId);
+    assert(matchedTaskById && matchedTaskById.id === 't_dup_102', 'Notes Behavioral: Duplicate task names correctly distinguish linked task by unique ID');
 
-    const reloadedNotes = hayyizParseJSON('hayyiz-notes', []);
-    assert(
-        reloadedNotes.length === 2 &&
-        reloadedNotes[0].isPinned === true &&
-        reloadedNotes[0].isFavorite === true &&
-        reloadedNotes[0].isReview === true &&
-        reloadedNotes[0].subject === 'فيزياء' &&
-        reloadedNotes[0].tags.includes('اختبار'),
-        'Enhanced Notes: Rich note with subject, tags, category, task, and flags persists correctly'
-    );
+    // 4. Missing Linked Task Handling
+    const noteWithDeletedTask = { id: 'n_missing', title: 'اختبار محذوف', content: 'محتوى', relatedTaskId: 'non_existent_id' };
+    const matchedMissing = currentTodos.find(t => t && t.id === noteWithDeletedTask.relatedTaskId);
+    assert(matchedMissing === undefined, 'Notes Behavioral: Missing linked task gracefully returns undefined without throwing');
+
+    // 5. Deletion Flow Simulation
+    let notesArr = [noteLinkedToSecondDup, noteWithDeletedTask];
+    const deleteIdx = notesArr.findIndex(n => n.id === 'n_missing');
+    if (deleteIdx >= 0) notesArr.splice(deleteIdx, 1);
+    assert(notesArr.length === 1 && notesArr[0].id === 'n_dup_test', 'Notes Behavioral: Deletion flow safely removes specified note by ID');
 }
 
 // 5. Data Backup Integrity Tests

@@ -239,73 +239,77 @@
                 <input type="text" id="note-title" placeholder="عنوان الملاحظة (اختياري)" aria-label="عنوان الملاحظة">
             </div>
 
-            <div class="notes-form-grid">
-                <div class="field">
-                    <label for="note-subject-select">المادة الدراسية</label>
-                    <select id="note-subject-select" aria-label="اختر المادة الدراسية">
-                        <option value="">بدون مادة</option>
-                        <option value="رياضيات">رياضيات</option>
-                        <option value="فيزياء">فيزياء</option>
-                        <option value="كيمياء">كيمياء</option>
-                        <option value="أحياء">أحياء</option>
-                        <option value="لغة عربية">لغة عربية</option>
-                        <option value="لغة إنجليزية">لغة إنجليزية</option>
-                        <option value="اجتماعيات">اجتماعيات</option>
-                        <option value="other">أخرى...</option>
-                    </select>
-                </div>
-
-                <div class="field hidden" id="custom-subject-field">
-                    <label for="note-subject-custom">مادة مخصصة</label>
-                    <input type="text" id="note-subject-custom" placeholder="اسم المادة..." aria-label="اسم المادة المخصصة">
-                </div>
-
-                <div class="field">
-                    <label for="note-category">التصنيف</label>
-                    <select id="note-category" aria-label="اختر التصنيف">
-                        <option value="">بدون تصنيف</option>
-                        <option value="ملخص">ملخص</option>
-                        <option value="مراجعة">مراجعة</option>
-                        <option value="أسئلة">أسئلة</option>
-                        <option value="تعريفات">تعريفات</option>
-                        <option value="غير ذلك">غير ذلك</option>
-                    </select>
-                </div>
-
-                <div class="field">
-                    <label for="note-tags">الوسوم (مفصولة بفاصلة)</label>
-                    <input type="text" id="note-tags" placeholder="مثال: مراجعة, مهم, اختبار" aria-label="الوسوم">
-                </div>
-
-                <div class="field">
-                    <label for="note-task-select">المهمة المرتبطة</label>
-                    <select id="note-task-select" aria-label="المهمة المرتبطة">
-                        <option value="">بدون مهمة مرتبطة</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="field" style="margin-top: 12px;">
-                <label for="note-content">محتوى الملاحظة</label>
+            <div class="field" style="margin-bottom: 12px;">
                 <textarea id="note-content" placeholder="اكتب ملاحظتك هنا..." rows="4" required aria-label="محتوى الملاحظة"></textarea>
             </div>
 
-            <div class="notes-form-toggles">
-                <label class="toggle-checkbox">
-                    <input type="checkbox" id="note-pinned">
-                    <span>📌 تثبيت الملاحظة في الأعلى</span>
-                </label>
-                <label class="toggle-checkbox">
-                    <input type="checkbox" id="note-favorite">
-                    <span>⭐ إضافة للمفضلة</span>
-                </label>
-                <label class="toggle-checkbox">
-                    <input type="checkbox" id="note-review">
-                    <span>📖 علم للمراجعة الدراسية</span>
-                </label>
-            </div>
+            <!-- خيارات تنظيم إضافية غير إجبارية -->
+            <details class="notes-extra-options" id="notes-extra-details">
+                <summary><i class="fa-solid fa-sliders"></i> خيارات تنظيم إضافية (مادة، وسوم، تثبيت...)</summary>
 
-            <div class="notes-actions">
+                <div class="notes-form-grid" style="margin-top: 14px;">
+                    <div class="field">
+                        <label for="note-subject-select">المادة الدراسية</label>
+                        <select id="note-subject-select" aria-label="اختر المادة الدراسية">
+                            <option value="">بدون مادة</option>
+                            <option value="رياضيات">رياضيات</option>
+                            <option value="فيزياء">فيزياء</option>
+                            <option value="كيمياء">كيمياء</option>
+                            <option value="أحياء">أحياء</option>
+                            <option value="لغة عربية">لغة عربية</option>
+                            <option value="لغة إنجليزية">لغة إنجليزية</option>
+                            <option value="اجتماعيات">اجتماعيات</option>
+                            <option value="other">أخرى...</option>
+                        </select>
+                    </div>
+
+                    <div class="field hidden" id="custom-subject-field">
+                        <label for="note-subject-custom">مادة مخصصة</label>
+                        <input type="text" id="note-subject-custom" placeholder="اسم المادة..." aria-label="اسم المادة المخصصة">
+                    </div>
+
+                    <div class="field">
+                        <label for="note-category">التصنيف</label>
+                        <select id="note-category" aria-label="اختر التصنيف">
+                            <option value="">بدون تصنيف</option>
+                            <option value="ملخص">ملخص</option>
+                            <option value="مراجعة">مراجعة</option>
+                            <option value="أسئلة">أسئلة</option>
+                            <option value="تعريفات">تعريفات</option>
+                            <option value="غير ذلك">غير ذلك</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label for="note-tags">الوسوم (مفصولة بفاصلة)</label>
+                        <input type="text" id="note-tags" placeholder="مثال: مراجعة, مهم, اختبار" aria-label="الوسوم">
+                    </div>
+
+                    <div class="field">
+                        <label for="note-task-select">المهمة المرتبطة</label>
+                        <select id="note-task-select" aria-label="المهمة المرتبطة">
+                            <option value="">بدون مهمة مرتبطة</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="notes-form-toggles">
+                    <label class="toggle-checkbox">
+                        <input type="checkbox" id="note-pinned">
+                        <span>📌 تثبيت الملاحظة في الأعلى</span>
+                    </label>
+                    <label class="toggle-checkbox">
+                        <input type="checkbox" id="note-favorite">
+                        <span>⭐ إضافة للمفضلة</span>
+                    </label>
+                    <label class="toggle-checkbox">
+                        <input type="checkbox" id="note-review">
+                        <span>📖 علم للمراجعة الدراسية</span>
+                    </label>
+                </div>
+            </details>
+
+            <div class="notes-actions" style="margin-top: 14px;">
                 <button type="submit" class="btn btn-primary" id="note-submit-btn">
                     <i class="fa-solid fa-plus"></i> حفظ الملاحظة
                 </button>
