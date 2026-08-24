@@ -522,32 +522,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 toggleFavoriteNote(note.id);
             });
 
-            const editBtn = document.createElement('button');
-            editBtn.type = 'button';
-            editBtn.className = 'note-edit';
-            editBtn.setAttribute('aria-label', 'تعديل الملاحظة');
-            editBtn.title = 'تعديل';
-            editBtn.innerHTML = '<i class="fa-solid fa-pen" aria-hidden="true"></i>';
-            editBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                startEditNote(note.id);
-            });
-
-            const deleteBtn = document.createElement('button');
-            deleteBtn.type = 'button';
-            deleteBtn.className = 'note-delete';
-            deleteBtn.setAttribute('aria-label', 'حذف الملاحظة');
-            deleteBtn.title = 'حذف';
-            deleteBtn.innerHTML = '<i class="fa-solid fa-trash" aria-hidden="true"></i>';
-            deleteBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                promptDeleteNote(note.id);
-            });
-
             actions.appendChild(pinBtn);
             actions.appendChild(favBtn);
-            actions.appendChild(editBtn);
-            actions.appendChild(deleteBtn);
 
             // الشارات المشروطة
             const badgesRow = document.createElement('div');
@@ -666,6 +642,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 openNoteViewModal(note.id);
             });
 
+            const editBtn = document.createElement('button');
+            editBtn.type = 'button';
+            editBtn.className = 'btn btn-secondary btn-xs';
+            editBtn.innerHTML = '<i class="fa-solid fa-pen"></i> تعديل';
+            editBtn.title = 'تعديل الملاحظة';
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                startEditNote(note.id);
+            });
+
             const copyBtn = document.createElement('button');
             copyBtn.type = 'button';
             copyBtn.className = 'btn btn-outline btn-xs';
@@ -676,8 +662,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 copyNoteContent(note);
             });
 
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'btn btn-outline btn-xs btn-delete-note';
+            deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i> حذف';
+            deleteBtn.title = 'حذف الملاحظة';
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                promptDeleteNote(note.id);
+            });
+
             footerBtns.appendChild(viewBtn);
+            footerBtns.appendChild(editBtn);
             footerBtns.appendChild(copyBtn);
+            footerBtns.appendChild(deleteBtn);
 
             footer.appendChild(date);
             footer.appendChild(footerBtns);

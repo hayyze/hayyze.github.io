@@ -2316,7 +2316,8 @@ html.theme-dark .notes-dropdowns select {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
+    padding-left: 60px;
 }
 
 .badge {
@@ -2330,8 +2331,8 @@ html.theme-dark .notes-dropdowns select {
 }
 
 .badge-pinned { background: color-mix(in srgb, var(--primary) 15%, var(--bg)); color: var(--primary); }
-.badge-favorite { background: color-mix(in srgb, var(--warning) 18%, var(--bg)); color: #d97706; }
-.badge-review { background: color-mix(in srgb, var(--accent) 18%, var(--bg)); color: #0284c7; }
+.badge-favorite { background: color-mix(in srgb, var(--warning) 18%, var(--bg)); color: var(--warning); }
+.badge-review { background: color-mix(in srgb, var(--accent) 18%, var(--bg)); color: var(--accent); }
 .badge-subject { background: var(--bg-card); border: 1px solid var(--border); color: var(--text); }
 .badge-category { background: var(--border); color: var(--text-muted); }
 
@@ -2430,6 +2431,17 @@ html.theme-dark .notes-dropdowns select {
     border-radius: 6px;
 }
 
+.btn-delete-note {
+    border-color: var(--border);
+    color: var(--text-muted);
+}
+
+.btn-delete-note:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
 .note-action-btn {
     background: transparent;
     border: none;
@@ -2447,8 +2459,8 @@ html.theme-dark .notes-dropdowns select {
 }
 
 .note-action-btn.active-fav {
-    color: #f59e0b;
-    background: color-mix(in srgb, #f59e0b 12%, transparent);
+    color: var(--warning);
+    background: color-mix(in srgb, var(--warning) 12%, transparent);
 }
 
 .notes-toast {
