@@ -164,6 +164,101 @@ console.log('=== RUNNING HAYYIZ AUTOMATED TEST SUITE ===\n');
     assert(streak === 1, 'Focus Engine correctly calculates streak count for today');
 }
 
+// 7. Pomodoro Mode Transition Duration Tests
+{
+    // Test 1: Focus = 25m, Break = 5m
+    localStorage.clear();
+    localStorage.setItem('hayyiz-pref-work', '25');
+    localStorage.setItem('hayyiz-pref-break', '5');
+    localStorage.setItem('hayyiz-pref-long', '15');
+
+    let state = {
+        mode: 'focus',
+        status: 'running',
+        endTime: Date.now() - 1000, // session ended
+        totalDuration: 25 * 60,
+        remainingSeconds: 0,
+        workMinutes: '25',
+        breakMinutes: '5',
+        longBreakMinutes: '15',
+        sessionInCycle: 0,
+        sessionId: 's_test1',
+        context: { type: 'free', id: null, title: 'تركيز حر' }
+    };
+    hayyizSaveFocusState(state);
+    let reconciled = hayyizReconcilePomodoroState();
+    assert(reconciled && reconciled.pendingNextMode === 'break' && reconciled.pendingCompletionModal.breakMin === 5, 'Test 1: 25m Focus / 5m Break triggers break mode transition with 5 minutes');
+
+    // Test 2: Focus = 40m, Break = 10m
+    localStorage.clear();
+    localStorage.setItem('hayyiz-pref-work', '40');
+    localStorage.setItem('hayyiz-pref-break', '10');
+    localStorage.setItem('hayyiz-pref-long', '20');
+
+    state = {
+        mode: 'focus',
+        status: 'running',
+        endTime: Date.now() - 1000,
+        totalDuration: 40 * 60,
+        remainingSeconds: 0,
+        workMinutes: '40',
+        breakMinutes: '10',
+        longBreakMinutes: '20',
+        sessionInCycle: 0,
+        sessionId: 's_test2',
+        context: { type: 'free', id: null, title: 'تركيز حر' }
+    };
+    hayyizSaveFocusState(state);
+    reconciled = hayyizReconcilePomodoroState();
+    assert(reconciled && reconciled.pendingNextMode === 'break' && reconciled.pendingCompletionModal.breakMin === 10, 'Test 2: 40m Focus / 10m Break triggers break mode transition with 10 minutes');
+
+    // Test 3: Focus = 5m, Break = 15m
+    localStorage.clear();
+    localStorage.setItem('hayyiz-pref-work', '5');
+    localStorage.setItem('hayyiz-pref-break', '15');
+    localStorage.setItem('hayyiz-pref-long', '30');
+
+    state = {
+        mode: 'focus',
+        status: 'running',
+        endTime: Date.now() - 1000,
+        totalDuration: 5 * 60,
+        remainingSeconds: 0,
+        workMinutes: '5',
+        breakMinutes: '15',
+        longBreakMinutes: '30',
+        sessionInCycle: 0,
+        sessionId: 's_test3',
+        context: { type: 'free', id: null, title: 'تركيز حر' }
+    };
+    hayyizSaveFocusState(state);
+    reconciled = hayyizReconcilePomodoroState();
+    assert(reconciled && reconciled.pendingNextMode === 'break' && reconciled.pendingCompletionModal.breakMin === 15, 'Test 3: 5m Focus / 15m Break triggers break mode transition with 15 minutes');
+
+    // Test 4 & 5: Cycle 4 -> Long Break
+    localStorage.clear();
+    localStorage.setItem('hayyiz-pref-work', '25');
+    localStorage.setItem('hayyiz-pref-break', '5');
+    localStorage.setItem('hayyiz-pref-long', '20');
+
+    state = {
+        mode: 'focus',
+        status: 'running',
+        endTime: Date.now() - 1000,
+        totalDuration: 25 * 60,
+        remainingSeconds: 0,
+        workMinutes: '25',
+        breakMinutes: '5',
+        longBreakMinutes: '20',
+        sessionInCycle: 3, // 4th session
+        sessionId: 's_test4',
+        context: { type: 'free', id: null, title: 'تركيز حر' }
+    };
+    hayyizSaveFocusState(state);
+    reconciled = hayyizReconcilePomodoroState();
+    assert(reconciled && reconciled.pendingNextMode === 'longBreak' && reconciled.pendingCompletionModal.isLongBreak && reconciled.pendingCompletionModal.breakMin === 20, 'Test 5: 4th focus session triggers long break transition with 20 minutes');
+}
+
 console.log(`\n===================================`);
 console.log(`TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);
