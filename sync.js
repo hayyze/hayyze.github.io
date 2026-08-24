@@ -1,26 +1,36 @@
 /**
- * sync.js — طبقة المزامنة السحابية لملاحظات حيز عبر Supabase
- * للملاحظات فقط، دون المساس بالمستخدم غير المسجل أو الأدوات الأخرى.
+ * sync.js — محرك المزامنة السحابية العام لمنصة حيز عبر Supabase
+ * يوفر مزامنة سحابية غير معطلة لكافة أدوات حيز للمستخدمين المصادق عليهم.
  */
 
 (function (global) {
     'use strict';
 
-    let isSyncing = false;
-    let syncCallback = null;
+    let isSyncingAll = false;
+    const syncingTools = new Set();
+    const syncCallbacks = new Map(); // tool -> Array<Function>
     let authListenerRegistered = false;
 
     /**
-     * تسجيل دالة تنبيه يتم استدعاؤها عند تحديث الملاحظات من السحابة
+     * تسجيل دالة تنبيه عند استلام تحديثات سحابية لأداة معينة
      */
-    function hayyizRegisterNotesSyncCallback(fn) {
-        if (typeof fn === 'function') {
-            syncCallback = fn;
+    function hayyizRegisterSyncCallback(tool, fn) {
+        if (!tool || typeof fn !== 'function') return;
+        if (!syncCallbacks.has(tool)) {
+            syncCallbacks.set(tool, []);
         }
+        syncCallbacks.get(tool).push(fn);
     }
 
     /**
-     * الحصول على المستخدم الحسابي المعتمد بأمان بدون رفع أخطاء
+     * التوافق مع الملاحظات
+     */
+    function hayyizRegisterNotesSyncCallback(fn) {
+        hayyizRegisterSyncCallback('notes', fn);
+    }
+
+    /**
+     * الحصول على المستخدم الحالي بأمان
      */
     async function getAuthenticatedUser() {
         if (typeof supabaseClient === 'undefined' || !supabaseClient || !supabaseClient.auth) {
@@ -38,56 +48,177 @@
     }
 
     /**
-     * قراءة الملاحظات المحلية بأمان
+     * قراءة عنصر من LocalStorage بأمان
      */
-    function getLocalNotes() {
+    function getLocalStorageItem(key, fallback = null) {
         try {
-            const raw = localStorage.getItem('hayyiz-notes');
-            const parsed = raw ? JSON.parse(raw) : [];
-            return Array.isArray(parsed) ? parsed : [];
+            const val = localStorage.getItem(key);
+            if (val === null || val === undefined) return fallback;
+            return JSON.parse(val);
         } catch (e) {
-            return [];
+            return fallback;
         }
     }
 
     /**
-     * حفظ الملاحظات محلياً بأمان
+     * كتابة عنصر في LocalStorage بأمان
      */
-    function setLocalNotes(notes) {
+    function setLocalStorageItem(key, val) {
         try {
-            localStorage.setItem('hayyiz-notes', JSON.stringify(notes));
+            if (val === null || val === undefined) {
+                localStorage.removeItem(key);
+            } else {
+                localStorage.setItem(key, typeof val === 'string' ? val : JSON.stringify(val));
+            }
         } catch (e) {
-            console.warn('[Sync] Failed to set local notes:', e);
+            console.warn('[Sync Engine] LocalStorage write failed:', e);
         }
     }
 
+    /* =========================================================
+     * سجل محولات الأدوات (Tool Adapters Registry)
+     * ========================================================= */
+    const TOOL_ADAPTERS = {
+        'notes': {
+            tool: 'notes',
+            type: 'collection',
+            storageKey: 'hayyiz-notes',
+            getId: item => item && item.id,
+            getTimestamp: item => Number(item && (item.updated || item.created || 0))
+        },
+        'todos': {
+            tool: 'todos',
+            type: 'collection',
+            storageKey: 'hayyiz-todos',
+            getId: item => item && item.id,
+            getTimestamp: item => Number(item && (item.updated || item.created || 0))
+        },
+        'habits': {
+            tool: 'habits',
+            type: 'collection',
+            storageKey: 'hayyiz-habits',
+            getId: item => item && item.id,
+            getTimestamp: item => Number(item && (item.updated || item.created || 0))
+        },
+        'student-exams': {
+            tool: 'student-exams',
+            type: 'collection',
+            storageKey: 'hayyiz-student-exams',
+            getId: item => item && item.id,
+            getTimestamp: item => Number(item && (item.updated || item.created || 0))
+        },
+        'custom-events': {
+            tool: 'custom-events',
+            type: 'collection',
+            storageKey: 'hayyiz-custom-events',
+            getId: item => item && item.id,
+            getTimestamp: item => Number(item && (item.updated || item.created || 0))
+        },
+        'subjects': {
+            tool: 'subjects',
+            type: 'collection',
+            storageKey: 'hayyiz-subjects',
+            getId: item => item && item.id,
+            getTimestamp: item => Number(item && (item.updated || item.created || 0))
+        },
+        'focus-log': {
+            tool: 'focus-log',
+            type: 'collection',
+            storageKey: 'hayyiz-focus-sessions-log',
+            getId: item => item && item.id,
+            getTimestamp: item => Number(item && (item.timestamp ? new Date(item.timestamp).getTime() : (item.created || 0)))
+        },
+        'gpa-snapshot': {
+            tool: 'gpa-snapshot',
+            type: 'single',
+            storageKey: 'hayyiz-gpa-snapshot',
+            itemId: 'snapshot',
+            getTimestamp: item => Number(item && (item.updatedAt || item.created || 0))
+        },
+        'academic-goal': {
+            tool: 'academic-goal',
+            type: 'single',
+            storageKey: 'hayyiz-academic-goal',
+            itemId: 'goal',
+            getTimestamp: item => Number(item && (item.updatedAt || item.created || 0))
+        },
+        'subject-goals': {
+            tool: 'subject-goals',
+            type: 'collection',
+            storageKey: 'hayyiz-subject-goals',
+            getId: item => item && (item.id || item.name),
+            getTimestamp: item => Number(item && (item.updated || item.created || 0))
+        },
+        'daily-goal': {
+            tool: 'daily-goal',
+            type: 'single',
+            storageKey: 'hayyiz-daily-goal',
+            itemId: 'goal',
+            getTimestamp: item => Number(item && (item.updated || item.created || 0))
+        },
+        'birthdate': {
+            tool: 'birthdate',
+            type: 'single',
+            storageKey: 'hayyiz-birthdate',
+            itemId: 'birthdate',
+            getTimestamp: () => Date.now()
+        },
+        'focus-history': {
+            tool: 'focus-history',
+            type: 'single',
+            storageKey: 'hayyiz-focus-history',
+            itemId: 'history',
+            getTimestamp: () => Date.now()
+        },
+        'pomodoro-prefs': {
+            tool: 'pomodoro-prefs',
+            type: 'single',
+            itemId: 'prefs',
+            getLocalStorage: () => ({
+                work: localStorage.getItem('hayyiz-pref-work') || '25',
+                break: localStorage.getItem('hayyiz-pref-break') || '5',
+                long: localStorage.getItem('hayyiz-pref-long') || '15'
+            }),
+            setLocalStorage: (data) => {
+                if (data && typeof data === 'object') {
+                    if (data.work) localStorage.setItem('hayyiz-pref-work', String(data.work));
+                    if (data.break) localStorage.setItem('hayyiz-pref-break', String(data.break));
+                    if (data.long) localStorage.setItem('hayyiz-pref-long', String(data.long));
+                }
+            },
+            getTimestamp: () => Date.now()
+        }
+    };
+
     /**
-     * جلب السجلات البعيدة الخاصة بالملاحظات من Supabase
+     * جلب السجلات السحابية لأداة معينة من Supabase
      */
-    async function loadRemoteNotes(user) {
-        if (!user || !supabaseClient) return [];
+    async function loadRemoteToolRows(user, toolName) {
+        if (!user || !supabaseClient) return null;
         try {
             const { data, error } = await supabaseClient
                 .from('sync_items')
                 .select('*')
-                .eq('tool', 'notes');
+                .eq('tool', toolName);
 
             if (error) {
-                console.warn('[Sync] Fetch remote notes error:', error.message);
-                return null; // إرجاع null لتمييز خطأ الشبكة عن النتيجة الفارغة
+                console.warn(`[Sync Engine] Fetch remote error for tool ${toolName}:`, error.message);
+                return null;
             }
             return data || [];
         } catch (e) {
-            console.warn('[Sync] Load remote exception:', e);
+            console.warn(`[Sync Engine] Fetch remote exception for tool ${toolName}:`, e);
             return null;
         }
     }
 
     /**
-     * دمج ذكي ومحدد بين الملاحظات المحلية وسجلات Supabase
+     * دمج مصفوفات العناصر المجمعة (Collections)
      */
-    function mergeLocalAndRemoteNotes(localNotes, remoteRows) {
+    function mergeCollectionTool(adapter, localItems, remoteRows) {
+        const localList = Array.isArray(localItems) ? localItems : [];
         const remoteMap = new Map();
+
         if (Array.isArray(remoteRows)) {
             remoteRows.forEach(row => {
                 if (row && row.item_id) {
@@ -97,9 +228,10 @@
         }
 
         const localMap = new Map();
-        (localNotes || []).forEach(note => {
-            if (note && note.id) {
-                localMap.set(note.id, note);
+        localList.forEach(item => {
+            const id = adapter.getId(item);
+            if (id) {
+                localMap.set(String(id), item);
             }
         });
 
@@ -107,92 +239,117 @@
         const uploads = [];
 
         // 1. معالجة العناصر المحلية
-        localMap.forEach((localNote, id) => {
+        localMap.forEach((localItem, id) => {
             const remoteRow = remoteMap.get(id);
 
             if (!remoteRow) {
-                // الملاحظة موجودة محلياً وغير موجودة في السحابة -> نحتفظ بها ونرفعها
-                mergedMap.set(id, localNote);
-                uploads.push(localNote);
+                mergedMap.set(id, localItem);
+                uploads.push(localItem);
             } else {
-                const localTime = Number(localNote.updated || localNote.created || 0);
+                const localTime = adapter.getTimestamp(localItem);
 
                 if (remoteRow.deleted_at) {
-                    // الملاحظة محذوفة في السحابة
                     const remoteDeletedTime = new Date(remoteRow.deleted_at).getTime() || 0;
                     if (localTime > remoteDeletedTime) {
-                        // التعديل المحلي أحدث من تاريخ الحذف السحابي -> إعادة إحياء الملاحظة وتحديث السحابة
-                        mergedMap.set(id, localNote);
-                        uploads.push(localNote);
-                    } else {
-                        // الحذف السحابي أحدث أو مساوٍ -> تحذف محلياً (لا تضاف إلى mergedMap)
+                        mergedMap.set(id, localItem);
+                        uploads.push(localItem);
                     }
                 } else {
-                    // الملاحظة موجودة محلياً وسحابياً
                     const remoteData = remoteRow.data;
                     if (!remoteData || typeof remoteData !== 'object') {
-                        mergedMap.set(id, localNote);
-                        uploads.push(localNote);
+                        mergedMap.set(id, localItem);
+                        uploads.push(localItem);
                         return;
                     }
 
                     const remoteTime = Number(
-                        remoteData.updated || remoteData.created || (remoteRow.updated_at ? new Date(remoteRow.updated_at).getTime() : 0)
+                        adapter.getTimestamp(remoteData) || (remoteRow.updated_at ? new Date(remoteRow.updated_at).getTime() : 0)
                     );
 
                     if (localTime > remoteTime) {
-                        // النسخة المحلية أحدث -> نعتمد المحلية ونرفعها
-                        mergedMap.set(id, localNote);
-                        uploads.push(localNote);
+                        mergedMap.set(id, localItem);
+                        uploads.push(localItem);
                     } else if (remoteTime > localTime) {
-                        // النسخة السحابية أحدث -> نعتمد السحابية
                         mergedMap.set(id, remoteData);
                     } else {
-                        // النسختان متطابقتان في التاريخ -> نعتمد المحلية بدون رفع إضافي
-                        mergedMap.set(id, localNote);
+                        mergedMap.set(id, localItem);
                     }
                 }
             }
         });
 
-        // 2. معالجة العناصر السحابية التي ليست موجودة محلياً
+        // 2. معالجة العناصر السحابية التي ليست محلياً
         remoteMap.forEach((remoteRow, itemId) => {
             if (!localMap.has(itemId)) {
-                if (!remoteRow.deleted_at && remoteRow.data && typeof remoteRow.data === 'object') {
-                    // ملاحظة أنشئت على جهاز آخر ولم تحذف -> نعتمدها
+                if (!remoteRow.deleted_at && remoteRow.data) {
                     mergedMap.set(itemId, remoteRow.data);
                 }
             }
         });
 
-        const mergedNotes = Array.from(mergedMap.values());
+        const mergedList = Array.from(mergedMap.values());
 
-        // فرز الملاحظات حسب الأحدث تعديلاً/إنشاءً
-        mergedNotes.sort((a, b) => {
-            const timeA = Number(a.updated || a.created || 0);
-            const timeB = Number(b.updated || b.created || 0);
-            return timeB - timeA;
+        // فرز العناصر حسب الأحدث إن أمكن
+        mergedList.sort((a, b) => {
+            const tA = adapter.getTimestamp(a);
+            const tB = adapter.getTimestamp(b);
+            return tB - tA;
         });
 
-        return { mergedNotes, uploads };
+        return { mergedList, uploads };
     }
 
     /**
-     * رفع ملاحظة واحدة إلى Supabase (Non-blocking)
+     * دمج العناصر الفردية (Single Tools)
      */
-    async function hayyizUploadNote(note) {
-        if (!note || !note.id) return;
+    function mergeSingleTool(adapter, localData, remoteRows) {
+        const remoteRow = Array.isArray(remoteRows) && remoteRows.length > 0 ? remoteRows[0] : null;
+        let finalData = localData;
+        let needsUpload = false;
+
+        if (!remoteRow) {
+            if (localData !== null && localData !== undefined) {
+                needsUpload = true;
+            }
+        } else if (remoteRow.deleted_at) {
+            finalData = null;
+        } else {
+            const remoteData = remoteRow.data;
+            const remoteTime = remoteRow.updated_at ? new Date(remoteRow.updated_at).getTime() : 0;
+            const localTime = adapter.getTimestamp(localData);
+
+            if (localData === null || localData === undefined) {
+                finalData = remoteData;
+            } else if (remoteTime > localTime) {
+                finalData = remoteData;
+            } else if (localTime > remoteTime) {
+                finalData = localData;
+                needsUpload = true;
+            } else {
+                finalData = localData;
+            }
+        }
+
+        return { finalData, needsUpload };
+    }
+
+    /**
+     * رفع عنصر فردي أو مجمع إلى Supabase (Non-blocking)
+     */
+    async function hayyizUploadItem(toolName, itemId, data) {
+        if (!toolName || !itemId) return;
         const user = await getAuthenticatedUser();
         if (!user) return;
 
-        const timestamp = new Date(note.updated || note.created || Date.now()).toISOString();
+        const adapter = TOOL_ADAPTERS[toolName];
+        const timestamp = new Date(adapter ? adapter.getTimestamp(data) || Date.now() : Date.now()).toISOString();
 
         try {
             const payload = {
                 user_id: user.id,
-                tool: 'notes',
-                item_id: note.id,
-                data: note,
+                tool: toolName,
+                item_id: String(itemId),
+                data: data,
                 updated_at: timestamp,
                 deleted_at: null
             };
@@ -202,18 +359,18 @@
                 .upsert(payload, { onConflict: 'user_id,tool,item_id' });
 
             if (error) {
-                console.warn('[Sync] Upload note failed silently:', error.message);
+                console.warn(`[Sync Engine] Upload item failed for tool ${toolName}:`, error.message);
             }
         } catch (e) {
-            console.warn('[Sync] Upload note exception:', e);
+            console.warn(`[Sync Engine] Upload item exception for tool ${toolName}:`, e);
         }
     }
 
     /**
-     * تسجيل حذف ملاحظة في Supabase باستخدام deleted_at (Tombstone)
+     * تسجيل حذف عنصر في Supabase باستعمال Tombstone
      */
-    async function hayyizDeleteRemoteNote(noteId) {
-        if (!noteId) return;
+    async function hayyizDeleteRemoteItem(toolName, itemId) {
+        if (!toolName || !itemId) return;
         const user = await getAuthenticatedUser();
         if (!user) return;
 
@@ -222,8 +379,8 @@
         try {
             const payload = {
                 user_id: user.id,
-                tool: 'notes',
-                item_id: String(noteId),
+                tool: toolName,
+                item_id: String(itemId),
                 updated_at: nowIso,
                 deleted_at: nowIso
             };
@@ -233,89 +390,151 @@
                 .upsert(payload, { onConflict: 'user_id,tool,item_id' });
 
             if (error) {
-                console.warn('[Sync] Delete remote note failed silently:', error.message);
+                console.warn(`[Sync Engine] Delete remote item failed for tool ${toolName}:`, error.message);
             }
         } catch (e) {
-            console.warn('[Sync] Delete remote note exception:', e);
+            console.warn(`[Sync Engine] Delete remote item exception for tool ${toolName}:`, e);
         }
     }
 
     /**
-     * المزامنة الخلفية الشاملة
+     * مزامنة أداة واحدة
      */
-    async function hayyizSyncNotes() {
-        if (isSyncing) return;
+    async function hayyizSyncTool(toolName) {
+        const adapter = TOOL_ADAPTERS[toolName];
+        if (!adapter || syncingTools.has(toolName)) return;
 
         const user = await getAuthenticatedUser();
-        if (!user) return; // المستخدم غير مسجل -> لا نستدعي Supabase ولا نغير السلوك
+        if (!user) return;
 
-        isSyncing = true;
+        syncingTools.add(toolName);
 
         try {
-            const localNotes = getLocalNotes();
-
-            // خذ نسخة احتياطية من hayyiz-notes قبل الدمج لحماية البيانات
-            let localBackup = null;
-            try {
-                localBackup = localStorage.getItem('hayyiz-notes');
-            } catch (e) {}
-
-            const remoteRows = await loadRemoteNotes(user);
-
-            // في حالة انقطاع الشبكة أو تعثر Supabase (إرجاع null)، نحتفظ بالبيانات المحلية كلياً دون تغيير
+            const remoteRows = await loadRemoteToolRows(user, toolName);
             if (remoteRows === null) {
-                isSyncing = false;
-                return;
+                syncingTools.delete(toolName);
+                return; // فشل الشبكة -> نحتفظ بالمحلي كلياً
             }
 
-            const { mergedNotes, uploads } = mergeLocalAndRemoteNotes(localNotes, remoteRows);
+            if (adapter.type === 'collection') {
+                const localItems = getLocalStorageItem(adapter.storageKey, []);
+                const { mergedList, uploads } = mergeCollectionTool(adapter, localItems, remoteRows);
 
-            // تحقق مما إذا كانت الملاحظات المدمجة تختلف عن المحتوى المحلي الحالي
-            const localJson = JSON.stringify(localNotes);
-            const mergedJson = JSON.stringify(mergedNotes);
-            const hasDataChanged = localJson !== mergedJson;
+                const localJson = JSON.stringify(localItems);
+                const mergedJson = JSON.stringify(mergedList);
+                const hasChanged = localJson !== mergedJson;
 
-            if (hasDataChanged) {
-                setLocalNotes(mergedNotes);
-            }
-
-            // رفع العناصر التي تحتاج رفعاً بشكل مجمع/متوازي
-            if (uploads.length > 0) {
-                const uploadPayloads = uploads.map(n => ({
-                    user_id: user.id,
-                    tool: 'notes',
-                    item_id: n.id,
-                    data: n,
-                    updated_at: new Date(n.updated || n.created || Date.now()).toISOString(),
-                    deleted_at: null
-                }));
-
-                try {
-                    await supabaseClient
-                        .from('sync_items')
-                        .upsert(uploadPayloads, { onConflict: 'user_id,tool,item_id' });
-                } catch (errUpload) {
-                    console.warn('[Sync] Batch upload failed silently:', errUpload);
+                if (hasChanged) {
+                    setLocalStorageItem(adapter.storageKey, mergedList);
                 }
-            }
 
-            // إشعار الواجهة بالإنعاش إذا تغيرت البيانات
-            if (hasDataChanged && typeof syncCallback === 'function') {
-                try {
-                    syncCallback(mergedNotes);
-                } catch (e) {
-                    console.warn('[Sync] Callback execution error:', e);
+                if (uploads.length > 0) {
+                    const payloads = uploads.map(item => ({
+                        user_id: user.id,
+                        tool: toolName,
+                        item_id: String(adapter.getId(item)),
+                        data: item,
+                        updated_at: new Date(adapter.getTimestamp(item) || Date.now()).toISOString(),
+                        deleted_at: null
+                    }));
+
+                    try {
+                        await supabaseClient
+                            .from('sync_items')
+                            .upsert(payloads, { onConflict: 'user_id,tool,item_id' });
+                    } catch (eUpload) {
+                        console.warn(`[Sync Engine] Batch upload failed for ${toolName}:`, eUpload);
+                    }
+                }
+
+                if (hasChanged && syncCallbacks.has(toolName)) {
+                    syncCallbacks.get(toolName).forEach(cb => {
+                        try { cb(mergedList); } catch(e){}
+                    });
+                }
+            } else if (adapter.type === 'single') {
+                let localData = null;
+                if (typeof adapter.getLocalStorage === 'function') {
+                    localData = adapter.getLocalStorage();
+                } else {
+                    localData = getLocalStorageItem(adapter.storageKey, null);
+                }
+
+                const { finalData, needsUpload } = mergeSingleTool(adapter, localData, remoteRows);
+
+                const localJson = JSON.stringify(localData);
+                const finalJson = JSON.stringify(finalData);
+                const hasChanged = localJson !== finalJson;
+
+                if (hasChanged) {
+                    if (typeof adapter.setLocalStorage === 'function') {
+                        adapter.setLocalStorage(finalData);
+                    } else {
+                        setLocalStorageItem(adapter.storageKey, finalData);
+                    }
+                }
+
+                if (needsUpload && finalData !== null && finalData !== undefined) {
+                    await hayyizUploadItem(toolName, adapter.itemId, finalData);
+                }
+
+                if (hasChanged && syncCallbacks.has(toolName)) {
+                    syncCallbacks.get(toolName).forEach(cb => {
+                        try { cb(finalData); } catch(e){}
+                    });
                 }
             }
         } catch (e) {
-            console.warn('[Sync] hayyizSyncNotes root exception:', e);
+            console.warn(`[Sync Engine] Error syncing tool ${toolName}:`, e);
         } finally {
-            isSyncing = false;
+            syncingTools.delete(toolName);
         }
     }
 
     /**
-     * تسجيل مستمع حالة التوثيق للمرة الأولى فقط
+     * مزامنة جميع بيانات المستخدم عبر السحابة
+     */
+    async function hayyizSyncAllUserData() {
+        if (isSyncingAll) return;
+        const user = await getAuthenticatedUser();
+        if (!user) return;
+
+        isSyncingAll = true;
+
+        try {
+            // ضمان المعرفات المحلية وتأكيد بنية البيانات أولاً
+            if (typeof hayyizEnsureDataShape === 'function') {
+                hayyizEnsureDataShape();
+            }
+
+            const toolKeys = Object.keys(TOOL_ADAPTERS);
+            await Promise.all(toolKeys.map(t => hayyizSyncTool(t)));
+        } catch (e) {
+            console.warn('[Sync Engine] hayyizSyncAllUserData exception:', e);
+        } finally {
+            isSyncingAll = false;
+        }
+    }
+
+    /**
+     * التوافق مع الملاحظات
+     */
+    async function hayyizSyncNotes() {
+        return await hayyizSyncTool('notes');
+    }
+
+    async function hayyizUploadNote(note) {
+        if (!note || !note.id) return;
+        return await hayyizUploadItem('notes', note.id, note);
+    }
+
+    async function hayyizDeleteRemoteNote(noteId) {
+        if (!noteId) return;
+        return await hayyizDeleteRemoteItem('notes', noteId);
+    }
+
+    /**
+     * تسجيل مستمع التوثيق العام
      */
     function initAuthListener() {
         if (authListenerRegistered) return;
@@ -324,28 +543,37 @@
             try {
                 supabaseClient.auth.onAuthStateChange((event, session) => {
                     if (session && session.user) {
-                        hayyizSyncNotes();
+                        hayyizSyncAllUserData();
                     }
                 });
             } catch (e) {
-                console.warn('[Sync] Auth state change listener error:', e);
+                console.warn('[Sync Engine] Auth state listener error:', e);
             }
         }
     }
 
-    // مستمع لإعادة الاتصال بالإنترنت
+    // مستمع إعادة الاتصال بالإنترنت
     if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
         window.addEventListener('online', () => {
-            hayyizSyncNotes();
+            hayyizSyncAllUserData();
         });
     }
 
-    // تصدير الدوال للاستخدام العام
+    // تصدير واجهات API العامة للمزامنة
+    global.hayyizRegisterSyncCallback = hayyizRegisterSyncCallback;
+    global.hayyizSyncTool = hayyizSyncTool;
+    global.hayyizSyncAllUserData = hayyizSyncAllUserData;
+    global.hayyizUploadItem = hayyizUploadItem;
+    global.hayyizDeleteRemoteItem = hayyizDeleteRemoteItem;
+    global.initAuthListener = initAuthListener;
+
+    // توافقية مسبقة مع الملاحظات
     global.hayyizRegisterNotesSyncCallback = hayyizRegisterNotesSyncCallback;
     global.hayyizSyncNotes = hayyizSyncNotes;
     global.hayyizUploadNote = hayyizUploadNote;
     global.hayyizDeleteRemoteNote = hayyizDeleteRemoteNote;
-    global.hayyizMergeLocalAndRemoteNotes = mergeLocalAndRemoteNotes;
-    global.initAuthListener = initAuthListener;
+    global.hayyizMergeLocalAndRemoteNotes = (localNotes, remoteRows) => {
+        return mergeCollectionTool(TOOL_ADAPTERS['notes'], localNotes, remoteRows);
+    };
 
 })(typeof window !== 'undefined' ? window : global);

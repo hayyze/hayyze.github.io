@@ -216,11 +216,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalBtnNote = document.getElementById('modal-btn-note');
     const modalBtnDelete = document.getElementById('modal-btn-delete');
 
-    function saveTodos() {
+    function saveTodos(changedTask) {
         if (typeof hayyizSaveTodos === 'function') {
             hayyizSaveTodos(todos);
         } else {
             localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
+        }
+        if (changedTask && changedTask.id && typeof hayyizUploadItem === 'function') {
+            hayyizUploadItem('todos', changedTask.id, changedTask);
         }
     }
 
@@ -693,7 +696,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         todos.unshift(newTask);
-        saveTodos();
+        saveTodos(newTask);
 
         todoInput.value = '';
         if (todoDate) todoDate.value = '';
@@ -825,4 +828,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial render
     renderTodos();
+
+    if (typeof hayyizRegisterSyncCallback === 'function') {
+        hayyizRegisterSyncCallback('todos', (merged) => {
+            if (Array.isArray(merged)) {
+                todos = merged;
+                renderTodos();
+            }
+        });
+    }
+
+    if (typeof hayyizSyncTool === 'function') {
+        hayyizSyncTool('todos');
+    }
+    if (typeof initAuthListener === 'function') {
+        initAuthListener();
+    }
 });

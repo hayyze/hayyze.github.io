@@ -21,11 +21,27 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${year}-${month}-${day}`;
     }
 
-    function saveHabits() {
+    function ensureHabitIds() {
+        let changed = false;
+        habits.forEach(h => {
+            if (h && !h.id) {
+                h.id = typeof hayyizGenerateId === 'function' ? hayyizGenerateId() : ('hb_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+                changed = true;
+            }
+        });
+        return changed;
+    }
+
+    function saveHabits(changedHabit) {
+        ensureHabitIds();
         localStorage.setItem(
             'hayyiz-habits',
             JSON.stringify(habits)
         );
+
+        if (changedHabit && changedHabit.id && typeof hayyizUploadItem === 'function') {
+            hayyizUploadItem('habits', changedHabit.id, changedHabit);
+        }
 
         updateHabitStats();
     }
@@ -150,13 +166,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        habits.push({
+        const newHabit = {
+            id: typeof hayyizGenerateId === 'function' ? hayyizGenerateId() : ('hb_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
             name,
             streak: 0,
-            lastCompleted: null
-        });
+            lastCompleted: null,
+            created: Date.now()
+        };
 
-        saveHabits();
+        habits.push(newHabit);
+
+        saveHabits(newHabit);
 
         habitInput.value = '';
 
@@ -212,7 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 habit.lastCompleted = null;
             }
 
-            saveHabits();
+            saveHabits(habit);
             renderHabits();
 
             return;
@@ -235,12 +255,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            const habitToDelete = habits[i];
             habits.splice(i, 1);
 
             saveHabits();
+            if (habitToDelete && habitToDelete.id && typeof hayyizDeleteRemoteItem === 'function') {
+                hayyizDeleteRemoteItem('habits', habitToDelete.id);
+            }
             renderHabits();
         }
     });
 
+    ensureHabitIds();
     renderHabits();
+
+    if (typeof hayyizRegisterSyncCallback === 'function') {
+        hayyizRegisterSyncCallback('habits', (merged) => {
+            if (Array.isArray(merged)) {
+                habits = merged;
+                renderHabits();
+            }
+        });
+    }
+
+    if (typeof hayyizSyncTool === 'function') {
+        hayyizSyncTool('habits');
+    }
+    if (typeof initAuthListener === 'function') {
+        initAuthListener();
+    }
 });

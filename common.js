@@ -343,6 +343,9 @@ function hayyizDeleteTask(id) {
     if (idx < 0) return false;
     todos.splice(idx, 1);
     hayyizSaveTodos(todos);
+    if (typeof hayyizDeleteRemoteItem === 'function') {
+        hayyizDeleteRemoteItem('todos', id);
+    }
     return true;
 }
 
