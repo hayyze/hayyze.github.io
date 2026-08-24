@@ -11,7 +11,7 @@
 * **Public Project / Developer Identity:** `just-C` (Public GitHub username / handle referenced in project documentation and founder story)
 * **Repository Commit Identity:** `Hayiz` (Recorded in Git commit metadata)
 * **Legal Rights Holder:** Not publicly identified in this repository
-* **Public Contact Information:** `adawati.support@gmail.com`
+* **Public Contact Email:** `adawati.support@gmail.com` (Official project contact / support email)
 * **Project Description:** A free Arabic student productivity and academic management web platform containing an integrated suite of study tools: Pomodoro Focus Engine, Todo Action Engine, GPA Calculator ecosystem, Student Timeline & Calendar, Free Writing & Notes Workspace, Habit Tracker, Letter Game, and Educational Blog.
 * **Hosted URL:** `https://just-c.github.io/adawati/`
 * **GitHub Repository:** `just-c/adawati` (URL: `https://github.com/just-c/adawati`)
@@ -49,9 +49,9 @@ The intellectual property associated with original assets created specifically f
 
 ## 4. Brand Identity
 
-* **Arabic Brand Name:** **حيز**
+* **Arabic Brand Identity:** **حيز**
 * **Primary Latin Spelling Currently Used by Project:** `Hayyiz` (Used across meta tags, page titles, PWA web manifest, and technical documentation)
-* **Technical / Repository Variants (Not Official Brand Identities):**
+* **Technical & Repository Variants:**
   * `Hayiz` (Commit author metadata name in repository Git history)
   * `adawati` (Repository directory name and live URL slug)
   * `heez` (Technical namespace prefix used in Service Worker cache versioning strings like `heez-v1.5.2`)
@@ -59,7 +59,7 @@ The intellectual property associated with original assets created specifically f
   * Primary Logo Mark: Graduation cap icon (`fa-solid fa-graduation-cap`).
   * Primary Brand Color: `#4f46e5` (Indigo / primary UI accent color defined in CSS custom properties).
   * Theme Support: Dual light/dark theme system (`theme-light` / `theme-dark`).
-* **Slogans & Taglines Used in Project:**
+* **Slogans / Taglines Observed in Repository:**
   * "حيز — منصة أدوات دراسية للطلاب" (Hayyiz — Student Productivity Tools Platform)
   * "أدوات دراسية مجانية تجمع كل ما يحتاجه الطالب في مكان واحد" (Free study tools bringing together everything a student needs in one place)
   * "حيز واحد للدراسة والتنظيم" (One dedicated space for study and organization)
@@ -77,7 +77,7 @@ The following chronological timeline documents project events and recorded refer
 
 | Date & Time (UTC/Local) | Event Description | Evidence / File Path | Git Commit Hash |
 | :--- | :--- | :--- | :--- |
-| **2026-08-18 17:00:24 UTC** | Earliest verified occurrence currently identified in available repository Git history, establishing the full Hayyiz student ecosystem integration with web manifest and terms. | `index.html`, `manifest.webmanifest`, `terms.html`, `about.html` | `3444247` |
+| **2026-08-18 17:00:24 UTC** | Earliest verified repository record currently identified in the available Git history, establishing the full Hayyiz student ecosystem integration with web manifest and terms. | `index.html`, `manifest.webmanifest`, `terms.html`, `about.html` | `3444247` |
 | **2026-08-18 18:19:39 UTC** | Dashboard and task number calculation refinements across `summary.js`. | `summary.js`, `style.css` | `0b000cf` |
 | **2026-08-18 22:26:31 +0300** | Commit with commit author identity `Hayiz`, recording early maintenance commit. | Git commit metadata | `3272736` |
 | **2026-08-20 01:23:32 UTC** | FOUC (Flash of Unstyled Content) dark theme initialization fix in `<head>`. | HTML page headers | `98c58a9` |
