@@ -392,33 +392,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     : `أحسنت! أتممت جلسة التركيز (${p.workMinJustDone} د). خذ استراحة (${p.breakMin} د).`
             );
             announceSR('انتهت جلسة التركيز بنجاح');
-            showCompletionModal(p.workMinJustDone, p.isLongBreak, p.breakMin);
 
             if (restored.pendingNextMode) {
                 state.mode = restored.pendingNextMode;
+                restored.mode = restored.pendingNextMode;
             }
-            state.status = 'idle';
-            state.endTime = null;
+            resetTimerToCurrentMode();
+
+            showCompletionModal(p.workMinJustDone, p.isLongBreak, p.breakMin);
 
             // مسح الـ modal من الحالة لتجنب التكرار عند تحديث الصفحة
             delete restored.pendingCompletionModal;
             delete restored.pendingNextMode;
-            hayyizSaveFocusState(restored);
             saveState();
-            updateUI();
             return;
         }
 
         if (restored.pendingNextMode) {
             if (state.mode !== restored.pendingNextMode) {
                 state.mode = restored.pendingNextMode;
+                restored.mode = restored.pendingNextMode;
             }
-            state.status = 'idle';
-            state.endTime = null;
+            resetTimerToCurrentMode();
             delete restored.pendingNextMode;
-            hayyizSaveFocusState(restored);
             saveState();
-            updateUI();
             return;
         }
 
@@ -502,10 +499,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (reconciled && (reconciled.status === 'completed' || reconciled.status === 'idle')) {
             clearInterval(timerInterval);
-            state.status = 'idle';
-            state.endTime = null;
-            state.remainingSeconds = reconciled.remainingSeconds;
-            if (reconciled.pendingNextMode) state.mode = reconciled.pendingNextMode;
+            if (reconciled.pendingNextMode) {
+                state.mode = reconciled.pendingNextMode;
+                reconciled.mode = reconciled.pendingNextMode;
+            }
+            resetTimerToCurrentMode();
 
             if (reconciled.pendingCompletionModal) {
                 const p = reconciled.pendingCompletionModal;
@@ -521,9 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 delete reconciled.pendingCompletionModal;
                 delete reconciled.pendingNextMode;
-                hayyizSaveFocusState(reconciled);
             }
-            updateUI();
             saveState();
             return;
         }
