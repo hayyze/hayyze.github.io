@@ -125,6 +125,57 @@ console.log('=== RUNNING HAYYIZ AUTOMATED TEST SUITE ===\n');
     assert(saved[0].name === 'ممارسة الرياضة' && saved[0].streak === 1, 'Habits persist and load state correctly');
 }
 
+// 4b. Enhanced Notes Engine Tests
+{
+    localStorage.clear();
+
+    // 1. Ensure Legacy Note Normalization
+    const legacyNote = { title: 'ملخص كيمياء', content: 'شرح تفاعلات الأكسدة والاختزال', tags: 'مراجعة, مهم' };
+    localStorage.setItem('hayyiz-notes', JSON.stringify([legacyNote]));
+
+    hayyizEnsureDataShape();
+    const notesFromStorage = hayyizParseJSON('hayyiz-notes', []);
+    assert(
+        notesFromStorage.length === 1 &&
+        notesFromStorage[0].id &&
+        notesFromStorage[0].title === 'ملخص كيمياء',
+        'Enhanced Notes: Legacy note auto-assigns unique ID and retains title & content'
+    );
+
+    // 2. Creating Note with full metadata
+    const taskObj = { id: 't_chem_1', text: 'حل الواجب الكيميائي', priority: 'high', completed: false };
+    hayyizSaveTodos([taskObj]);
+
+    const richNote = {
+        id: 'n_rich_1',
+        title: 'قوانين الفيزياء',
+        content: 'قوانين الحركة لنيوتن والسرعة والتسارع',
+        created: Date.now(),
+        subject: 'فيزياء',
+        category: 'ملخص',
+        tags: ['فيزياء', 'مراجعة', 'اختبار'],
+        relatedTaskId: 't_chem_1',
+        relatedTask: 'حل الواجب الكيميائي',
+        isPinned: true,
+        isFavorite: true,
+        isReview: true
+    };
+
+    notesFromStorage.unshift(richNote);
+    hayyizSaveJSON('hayyiz-notes', notesFromStorage);
+
+    const reloadedNotes = hayyizParseJSON('hayyiz-notes', []);
+    assert(
+        reloadedNotes.length === 2 &&
+        reloadedNotes[0].isPinned === true &&
+        reloadedNotes[0].isFavorite === true &&
+        reloadedNotes[0].isReview === true &&
+        reloadedNotes[0].subject === 'فيزياء' &&
+        reloadedNotes[0].tags.includes('اختبار'),
+        'Enhanced Notes: Rich note with subject, tags, category, task, and flags persists correctly'
+    );
+}
+
 // 5. Data Backup Integrity Tests
 {
     localStorage.clear();

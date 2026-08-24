@@ -226,30 +226,182 @@
                 <h1 style="font-size:1.4rem; margin:0;">
                     <i class="fa-solid fa-list"></i> ملاحظات نصية
                 </h1>
-                <p class="section-desc" style="margin:4px 0 0;">اكتب أفكارك وملاحظاتك الدراسية</p>
+                <p class="section-desc" style="margin:4px 0 0;">اكتب أفكارك وملاحظاتك الدراسية ونظمها للمراجعة</p>
             </div>
             <button type="button" class="btn btn-outline btn-sm" id="back-to-modes">
                 ← العودة للاختيار
             </button>
         </div>
+
+        <!-- نموذج إضافة/تعديل ملاحظة -->
         <form id="notes-form" class="notes-form">
-            <input type="text" id="note-title" placeholder="عنوان الملاحظة (اختياري)">
-            <textarea id="note-content" placeholder="اكتب ملاحظتك هنا..." rows="4" required></textarea>
+            <div class="notes-form-title-row">
+                <input type="text" id="note-title" placeholder="عنوان الملاحظة (اختياري)" aria-label="عنوان الملاحظة">
+            </div>
+
+            <div class="notes-form-grid">
+                <div class="field">
+                    <label for="note-subject-select">المادة الدراسية</label>
+                    <select id="note-subject-select" aria-label="اختر المادة الدراسية">
+                        <option value="">بدون مادة</option>
+                        <option value="رياضيات">رياضيات</option>
+                        <option value="فيزياء">فيزياء</option>
+                        <option value="كيمياء">كيمياء</option>
+                        <option value="أحياء">أحياء</option>
+                        <option value="لغة عربية">لغة عربية</option>
+                        <option value="لغة إنجليزية">لغة إنجليزية</option>
+                        <option value="اجتماعيات">اجتماعيات</option>
+                        <option value="other">أخرى...</option>
+                    </select>
+                </div>
+
+                <div class="field hidden" id="custom-subject-field">
+                    <label for="note-subject-custom">مادة مخصصة</label>
+                    <input type="text" id="note-subject-custom" placeholder="اسم المادة..." aria-label="اسم المادة المخصصة">
+                </div>
+
+                <div class="field">
+                    <label for="note-category">التصنيف</label>
+                    <select id="note-category" aria-label="اختر التصنيف">
+                        <option value="">بدون تصنيف</option>
+                        <option value="ملخص">ملخص</option>
+                        <option value="مراجعة">مراجعة</option>
+                        <option value="أسئلة">أسئلة</option>
+                        <option value="تعريفات">تعريفات</option>
+                        <option value="غير ذلك">غير ذلك</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label for="note-tags">الوسوم (مفصولة بفاصلة)</label>
+                    <input type="text" id="note-tags" placeholder="مثال: مراجعة, مهم, اختبار" aria-label="الوسوم">
+                </div>
+
+                <div class="field">
+                    <label for="note-task-select">المهمة المرتبطة</label>
+                    <select id="note-task-select" aria-label="المهمة المرتبطة">
+                        <option value="">بدون مهمة مرتبطة</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="field" style="margin-top: 12px;">
+                <label for="note-content">محتوى الملاحظة</label>
+                <textarea id="note-content" placeholder="اكتب ملاحظتك هنا..." rows="4" required aria-label="محتوى الملاحظة"></textarea>
+            </div>
+
+            <div class="notes-form-toggles">
+                <label class="toggle-checkbox">
+                    <input type="checkbox" id="note-pinned">
+                    <span>📌 تثبيت الملاحظة في الأعلى</span>
+                </label>
+                <label class="toggle-checkbox">
+                    <input type="checkbox" id="note-favorite">
+                    <span>⭐ إضافة للمفضلة</span>
+                </label>
+                <label class="toggle-checkbox">
+                    <input type="checkbox" id="note-review">
+                    <span>📖 علم للمراجعة الدراسية</span>
+                </label>
+            </div>
+
             <div class="notes-actions">
-                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> حفظ</button>
+                <button type="submit" class="btn btn-primary" id="note-submit-btn">
+                    <i class="fa-solid fa-plus"></i> حفظ الملاحظة
+                </button>
                 <button type="button" class="btn btn-outline" id="clear-note-btn">مسح</button>
             </div>
         </form>
-        <div class="notes-search">
-            <i class="fa-solid fa-magnifying-glass"></i>
-            <input type="text" id="notes-search" placeholder="ابحث في ملاحظاتك...">
+
+        <!-- أدوات البحث والتصفية والترتيب -->
+        <div class="notes-toolbar">
+            <div class="notes-search">
+                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                <input type="text" id="notes-search" placeholder="ابحث في العنوان، المحتوى، المادة، الوسوم، أو المهمة..." aria-label="البحث في الملاحظات">
+            </div>
+
+            <div class="notes-filters-row">
+                <div class="filter-pills" role="tablist" aria-label="تصفية الملاحظات">
+                    <button type="button" class="filter-pill active" data-filter="all">الكل</button>
+                    <button type="button" class="filter-pill" data-filter="pinned">📌 المثبتة</button>
+                    <button type="button" class="filter-pill" data-filter="favorite">⭐ المفضلة</button>
+                    <button type="button" class="filter-pill" data-filter="review">📖 للمراجعة</button>
+                </div>
+
+                <div class="notes-dropdowns">
+                    <div class="select-field">
+                        <label for="filter-subject" class="sr-only">المادة</label>
+                        <select id="filter-subject" aria-label="تصفية حسب المادة">
+                            <option value="">جميع المواد</option>
+                        </select>
+                    </div>
+
+                    <div class="select-field">
+                        <label for="filter-tag" class="sr-only">الوسم</label>
+                        <select id="filter-tag" aria-label="تصفية حسب الوسم">
+                            <option value="">جميع الوسوم</option>
+                        </select>
+                    </div>
+
+                    <div class="select-field">
+                        <label for="notes-sort" class="sr-only">الترتيب</label>
+                        <select id="notes-sort" aria-label="ترتيب الملاحظات">
+                            <option value="updated-desc">الأحدث تعديلًا</option>
+                            <option value="created-desc">الأحدث إنشاءً</option>
+                            <option value="created-asc">الأقدم</option>
+                            <option value="title-asc">العنوان (أ - ي)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
         </div>
+
         <div id="notes-list" class="notes-grid"></div>
+
         <div class="notes-empty hidden" id="notes-empty">
-            <i class="fa-solid fa-book-open"></i>
+            <i class="fa-solid fa-book-open" aria-hidden="true"></i>
             <p>لا توجد ملاحظات بعد</p>
         </div>
+
+        <div class="notes-empty hidden" id="notes-search-empty">
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <p>لم نجد أي ملاحظات تطابق البحث أو التصفية الحالية</p>
+        </div>
     </div>
+
+    <!-- مودال عرض الملاحظة كاملة -->
+    <div class="modal hidden" id="note-view-modal" aria-hidden="true" role="dialog" aria-labelledby="view-note-title">
+        <div class="modal-content">
+            <button type="button" class="close-modal" id="close-view-modal" aria-label="إغلاق النافذة">&times;</button>
+            <div id="view-note-badges" class="note-badges-row" style="margin-bottom: 12px;"></div>
+            <h2 id="view-note-title" style="margin-bottom: 12px; font-size: 1.35rem; color: var(--text);"></h2>
+            <div id="view-note-meta" class="note-meta-info" style="margin-bottom: 16px; font-size: 0.88rem; color: var(--text-muted);"></div>
+            <div id="view-note-content" class="note-full-content" style="white-space: pre-wrap; font-size: 1.02rem; line-height: 1.8; margin-bottom: 20px; color: var(--text);"></div>
+            <div id="view-note-tags" class="note-tags-container" style="margin-bottom: 16px;"></div>
+            <div id="view-note-task" class="note-task-link" style="margin-bottom: 20px;"></div>
+            <div class="modal-actions" style="display:flex; gap:10px; flex-wrap:wrap; justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary btn-sm" id="view-copy-btn"><i class="fa-solid fa-copy"></i> نسخ</button>
+                <button type="button" class="btn btn-secondary btn-sm hidden" id="view-share-btn"><i class="fa-solid fa-share-nodes"></i> مشاركة</button>
+                <button type="button" class="btn btn-primary btn-sm" id="view-edit-btn"><i class="fa-solid fa-pen"></i> تعديل</button>
+                <button type="button" class="btn btn-outline btn-sm" id="view-delete-btn" style="border-color:var(--danger); color:var(--danger);"><i class="fa-solid fa-trash"></i> حذف</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- مودال تأكيد الحذف -->
+    <div class="modal hidden" id="note-delete-modal" aria-hidden="true" role="dialog" aria-labelledby="delete-modal-title">
+        <div class="modal-content" style="max-width: 420px; text-align: center;">
+            <h3 id="delete-modal-title" style="margin-bottom: 12px; font-size: 1.2rem;"><i class="fa-solid fa-triangle-exclamation" style="color:var(--danger);"></i> تأكيد الحذف</h3>
+            <p style="margin-bottom: 22px; color: var(--text-muted);">هل تريد حذف هذه الملاحظة؟ لا يمكن التراجع عن هذا الإجراء.</p>
+            <div style="display:flex; gap:12px; justify-content: center;">
+                <button type="button" class="btn btn-secondary" id="cancel-delete-btn">إلغاء</button>
+                <button type="button" class="btn btn-primary" id="confirm-delete-btn" style="background:var(--danger);">حذف</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- إشعار التنبيه السريع Toast -->
+    <div id="notes-toast" class="notes-toast hidden" role="status" aria-live="polite"></div>
 
     <!-- المحتوى النصي التوضيحي -->
     <section class="card content-section" style="margin-top: 2rem;">
