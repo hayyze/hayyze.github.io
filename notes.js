@@ -824,6 +824,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (idx >= 0) {
             notes.splice(idx, 1);
             saveNotes();
+            if (typeof hayyizDeleteRemoteNote === 'function') {
+                hayyizDeleteRemoteNote(id);
+            }
             if (editingId === id) resetForm();
             if (currentViewingNoteId === id) closeViewModalHandler();
             renderNotes();
@@ -1032,6 +1035,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isFavorite = noteFavorite ? noteFavorite.checked : false;
         const isReview = noteReview ? noteReview.checked : false;
 
+        let savedOrUpdatedNote = null;
         if (editingId !== null) {
             const idx = notes.findIndex(n => n.id === editingId);
             if (idx >= 0) {
@@ -1046,6 +1050,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 notes[idx].isFavorite = isFavorite;
                 notes[idx].isReview = isReview;
                 notes[idx].updated = Date.now();
+                savedOrUpdatedNote = notes[idx];
                 showToast('تم تحديث الملاحظة بنجاح');
             }
         } else {
@@ -1064,10 +1069,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 isReview
             };
             notes.unshift(newNote);
+            savedOrUpdatedNote = newNote;
             showToast('تم حفظ الملاحظة بنجاح');
         }
 
         saveNotes();
+        if (savedOrUpdatedNote && typeof hayyizUploadNote === 'function') {
+            hayyizUploadNote(savedOrUpdatedNote);
+        }
         resetForm();
         renderNotes();
     });
@@ -1126,4 +1135,34 @@ document.addEventListener('DOMContentLoaded', () => {
     // التهيئة البدائية
     populateTasksDropdown();
     renderNotes();
+
+    // تهيئة المزامنة السحابية للملاحظات
+    if (typeof hayyizRegisterNotesSyncCallback === 'function') {
+        hayyizRegisterNotesSyncCallback((mergedNotes) => {
+            notes = mergedNotes;
+            renderNotes();
+        });
+    }
+
+    const syncStatusBadge = document.getElementById('sync-status-badge');
+    const syncStatusText = document.getElementById('sync-status-text');
+
+    async function checkSyncStatus() {
+        if (typeof hayyizGetUser === 'function') {
+            const user = await hayyizGetUser();
+            if (user && syncStatusBadge && syncStatusText) {
+                syncStatusBadge.classList.remove('hidden');
+                syncStatusText.textContent = 'المزامنة السحابية نشطة';
+            }
+        }
+    }
+
+    checkSyncStatus();
+
+    if (typeof hayyizSyncNotes === 'function') {
+        hayyizSyncNotes();
+    }
+    if (typeof initAuthListener === 'function') {
+        initAuthListener();
+    }
 });
