@@ -103,26 +103,39 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     assert(swJs.includes('./contact.html') && swJs.includes('./terms.html') && swJs.includes('./privacy.html') && swJs.includes('./founder.html'), 'Service Worker caches newly added static HTML pages for offline support');
 }
 
-// --- 5. NOTES DRAFT LIFECYCLE TEST ---
+// --- 5. NOTES DRAFT & BEHAVIORAL REGRESSION TEST ---
 {
     localStorage.clear();
     // Simulate draft input
-    const draft = { title: 'عنوان مسودة', content: 'محتوى مسودة لم تحفظ بعد' };
+    const draft = { title: 'عنوان مسودة', content: 'محتوى مسودة لم تحفظ بعد', subject: 'رياضيات', tags: 'تفاضل, مراجعة' };
     localStorage.setItem('hayyiz-note-draft', JSON.stringify(draft));
 
     const restoredDraft = JSON.parse(localStorage.getItem('hayyiz-note-draft'));
-    assert(restoredDraft.title === 'عنوان مسودة' && restoredDraft.content === 'محتوى مسودة لم تحفظ بعد', 'Note draft persists across page reload');
+    assert(restoredDraft.title === 'عنوان مسودة' && restoredDraft.content === 'محتوى مسودة لم تحفظ بعد' && restoredDraft.subject === 'رياضيات', 'Note draft persists across page reload');
 
     // Simulate save note
-    const notes = [{ id: 'n1', title: draft.title, content: draft.content, created: Date.now() }];
+    const notes = [{ id: 'n1', title: draft.title, content: draft.content, subject: draft.subject, tags: ['تفاضل', 'مراجعة'], created: Date.now() }];
     localStorage.setItem('hayyiz-notes', JSON.stringify(notes));
     localStorage.removeItem('hayyiz-note-draft');
 
     const savedNotes = JSON.parse(localStorage.getItem('hayyiz-notes'));
     const clearedDraft = localStorage.getItem('hayyiz-note-draft');
 
-    assert(savedNotes.length === 1 && savedNotes[0].title === 'عنوان مسودة', 'Note saved successfully to hayyiz-notes');
+    assert(savedNotes.length === 1 && savedNotes[0].title === 'عنوان مسودة' && savedNotes[0].subject === 'رياضيات', 'Note saved successfully to hayyiz-notes');
     assert(clearedDraft === null, 'Note draft cleared cleanly after note submission');
+
+    // Duplicate Task ID Protection Regression
+    const dupTasks = [
+        { id: 't_dup_A', text: 'مراجعة الأحياء', priority: 'high' },
+        { id: 't_dup_B', text: 'مراجعة الأحياء', priority: 'low' }
+    ];
+    localStorage.setItem('hayyiz-todos', JSON.stringify(dupTasks));
+
+    const noteLinkedToB = { id: 'n_link_B', title: 'ملاحظة الأحياء الفرع B', content: 'محتوى', relatedTaskId: 't_dup_B', relatedTask: 'مراجعة الأحياء' };
+    const todosInStorage = JSON.parse(localStorage.getItem('hayyiz-todos'));
+    const resolvedTaskForB = todosInStorage.find(t => t.id === noteLinkedToB.relatedTaskId);
+
+    assert(resolvedTaskForB && resolvedTaskForB.id === 't_dup_B' && resolvedTaskForB.priority === 'low', 'Task relationship strictly uses ID for duplicate task names');
 }
 
 // --- 6. DETERMINISTIC POMODORO SESSION LIFECYCLE TESTS (1 TO 10) ---
