@@ -161,14 +161,14 @@
             type: 'single',
             storageKey: 'hayyiz-birthdate',
             itemId: 'birthdate',
-            getTimestamp: () => Date.now()
+            getTimestamp: () => Number(localStorage.getItem('hayyiz-birthdate-updated') || 0)
         },
         'focus-history': {
             tool: 'focus-history',
             type: 'single',
             storageKey: 'hayyiz-focus-history',
             itemId: 'history',
-            getTimestamp: () => Date.now()
+            getTimestamp: () => Number(localStorage.getItem('hayyiz-focus-history-updated') || 0)
         },
         'pomodoro-prefs': {
             tool: 'pomodoro-prefs',
@@ -186,7 +186,7 @@
                     if (data.long) localStorage.setItem('hayyiz-pref-long', String(data.long));
                 }
             },
-            getTimestamp: () => Date.now()
+            getTimestamp: () => Number(localStorage.getItem('hayyiz-pomodoro-prefs-updated') || 0)
         }
     };
 

@@ -1105,6 +1105,9 @@ function hayyizSaveGpaSnapshot(snapshot) {
     snapshot.updatedAt = Date.now();
     snapshot.version = 1;
     hayyizSaveJSON('hayyiz-gpa-snapshot', snapshot);
+    if (typeof hayyizUploadItem === 'function') {
+        hayyizUploadItem('gpa-snapshot', 'snapshot', snapshot);
+    }
 }
 
 function hayyizGetAcademicGoal() {
@@ -1114,9 +1117,16 @@ function hayyizGetAcademicGoal() {
 function hayyizSaveAcademicGoal(goal) {
     if (!goal) {
         localStorage.removeItem('hayyiz-academic-goal');
+        if (typeof hayyizDeleteRemoteItem === 'function') {
+            hayyizDeleteRemoteItem('academic-goal', 'goal');
+        }
         return;
     }
+    goal.updatedAt = Date.now();
     hayyizSaveJSON('hayyiz-academic-goal', goal);
+    if (typeof hayyizUploadItem === 'function') {
+        hayyizUploadItem('academic-goal', 'goal', goal);
+    }
 }
 
 function hayyizGetSubjectGoals() {
