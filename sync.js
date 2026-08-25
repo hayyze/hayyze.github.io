@@ -1,15 +1,38 @@
 /**
  * sync.js — محرك المزامنة السحابية العام لمنصة حيز عبر Supabase
  * يوفر مزامنة سحابية غير معطلة لكافة أدوات حيز للمستخدمين المصادق عليهم.
+ * مُحسَّن للمزامنة التزايدية (Incremental Sync) والأمان مع تقليل استهلاك البيانات والـ Egress.
  */
 
 (function (global) {
     'use strict';
 
+    const TOMBSTONE_MAX_AGE_DAYS = 30;
+    const TOMBSTONE_RETENTION_MS = TOMBSTONE_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+    const RECENT_TIMESTAMP_THRESHOLD_MS = 1577836800000; // Jan 1, 2020
+
     let isSyncingAll = false;
     const syncingTools = new Set();
+    const inFlightToolPromises = new Map();
     const syncCallbacks = new Map(); // tool -> Array<Function>
     let authListenerRegistered = false;
+
+    function safeIsoTimestamp(ts) {
+        if (ts === null || ts === undefined || ts === 0) {
+            return new Date().toISOString();
+        }
+        if (typeof ts === 'string') {
+            const parsedMs = Date.parse(ts);
+            if (!isNaN(parsedMs) && parsedMs > RECENT_TIMESTAMP_THRESHOLD_MS) {
+                return new Date(parsedMs).toISOString();
+            }
+        }
+        const num = Number(ts);
+        if (!isNaN(num) && num > RECENT_TIMESTAMP_THRESHOLD_MS) {
+            return new Date(num).toISOString();
+        }
+        return new Date().toISOString();
+    }
 
     /**
      * تسجيل دالة تنبيه عند استلام تحديثات سحابية لأداة معينة
@@ -76,17 +99,37 @@
     }
 
     /* =========================================================
-     * سجل الشواهد والحذف المحلي (Local Deletion Queue & Registry)
+     * سجل الشواهد والحذف المحلي وتنظيف الشواهد القديمة
      * ========================================================= */
     function getDeletedItemsRegistry() {
         return getLocalStorageItem('hayyiz-deleted-items', {}) || {};
+    }
+
+    function hayyizCleanupOldLocalTombstones() {
+        const registry = getDeletedItemsRegistry();
+        const now = Date.now();
+        let changed = false;
+        Object.keys(registry).forEach(key => {
+            const entry = registry[key];
+            const ts = entry && typeof entry === 'object' ? Number(entry.timestamp || 0) : Number(entry || 0);
+            if (ts > 0 && (now - ts) > TOMBSTONE_RETENTION_MS) {
+                delete registry[key];
+                changed = true;
+            }
+        });
+        if (changed) {
+            setLocalStorageItem('hayyiz-deleted-items', registry);
+        }
     }
 
     function hayyizRecordLocalDelete(tool, itemId, timestamp, previousData) {
         if (!tool || !itemId) return;
         const registry = getDeletedItemsRegistry();
         const key = String(tool) + ':' + String(itemId);
-        const ts = Number(timestamp || Date.now());
+        let ts = Number(timestamp || Date.now());
+        if (ts < RECENT_TIMESTAMP_THRESHOLD_MS) {
+            ts = Date.now();
+        }
         if (previousData && typeof previousData === 'object') {
             registry[key] = { timestamp: ts, data: previousData };
         } else if (registry[key] && typeof registry[key] === 'object' && registry[key].data) {
@@ -95,6 +138,7 @@
             registry[key] = ts;
         }
         setLocalStorageItem('hayyiz-deleted-items', registry);
+        hayyizCleanupOldLocalTombstones();
     }
 
     function hayyizClearLocalDelete(tool, itemId) {
@@ -127,6 +171,50 @@
             return entry.data;
         }
         return null;
+    }
+
+    /* =========================================================
+     * طوابع زمنية للمزامنة التزايدية (Incremental Sync Timestamps)
+     * ========================================================= */
+    function getLastSyncTime(toolName) {
+        return localStorage.getItem('hayyiz-sync-last-time-' + toolName) || null;
+    }
+
+    function setLastSyncTime(toolName, isoTimestamp) {
+        if (isoTimestamp) {
+            localStorage.setItem('hayyiz-sync-last-time-' + toolName, isoTimestamp);
+        }
+    }
+
+    /* =========================================================
+     * Exponential Backoff & Retry Control
+     * ========================================================= */
+    async function executeWithBackoff(fn, maxRetries = 2) {
+        let delay = 1000;
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                const res = await fn();
+                if (res && res.error) {
+                    const msg = (res.error.message || '').toLowerCase();
+                    const status = res.error.status || (msg.includes('429') ? 429 : 0);
+                    if (status === 429 || msg.includes('rate limit') || msg.includes('fetch') || msg.includes('network')) {
+                        if (attempt < maxRetries) {
+                            await new Promise(r => setTimeout(r, delay));
+                            delay *= 2;
+                            continue;
+                        }
+                    }
+                }
+                return res;
+            } catch (e) {
+                if (attempt < maxRetries) {
+                    await new Promise(r => setTimeout(r, delay));
+                    delay *= 2;
+                    continue;
+                }
+                return { error: e };
+            }
+        }
     }
 
     /* =========================================================
@@ -245,25 +333,40 @@
     };
 
     /**
-     * جلب السجلات السحابية لأداة معينة من Supabase
+     * جلب السجلات السحابية لأداة معينة من Supabase باختيار الأعمدة المطلوبة والدعم التزايدي
      */
     async function loadRemoteToolRows(user, toolName) {
         if (!user || !supabaseClient) return null;
-        try {
-            const { data, error } = await supabaseClient
+
+        // إذا كان هناك عمليات حذف محلي لم تُرفع بعد، قم بجلب كامل السجلات لضمان عدم حجب أي صف بالخطأ عبر GT
+        const deletedRegistry = getDeletedItemsRegistry();
+        const hasPendingLocalDeletes = Object.keys(deletedRegistry).some(k => k.startsWith(toolName + ':'));
+        const sinceIso = hasPendingLocalDeletes ? null : getLastSyncTime(toolName);
+
+        const fetchOperation = async () => {
+            let query = supabaseClient
                 .from('sync_items')
-                .select('*')
+                .select('tool, item_id, data, updated_at, deleted_at')
                 .eq('tool', toolName);
 
-            if (error) {
-                console.warn(`[Sync Engine] Fetch remote error for tool ${toolName}:`, error.message);
-                return null;
+            if (sinceIso) {
+                const sinceMs = new Date(sinceIso).getTime();
+                if (!isNaN(sinceMs) && sinceMs > 0) {
+                    const overlapIso = new Date(Math.max(0, sinceMs - 1000)).toISOString();
+                    query = query.gt('updated_at', overlapIso);
+                }
             }
-            return data || [];
-        } catch (e) {
-            console.warn(`[Sync Engine] Fetch remote exception for tool ${toolName}:`, e);
+
+            return await query;
+        };
+
+        const res = await executeWithBackoff(fetchOperation);
+        if (!res || res.error) {
+            console.warn(`[Sync Engine] Fetch remote error for tool ${toolName}:`, res ? res.error : 'Network error');
             return null;
         }
+
+        return res.data || [];
     }
 
     /**
@@ -295,6 +398,8 @@
 
         const toolName = adapter.tool;
         const deletedRegistry = getDeletedItemsRegistry();
+        const lastSyncIso = getLastSyncTime(toolName);
+        const lastSyncMs = lastSyncIso ? new Date(lastSyncIso).getTime() : 0;
 
         // 1. معالجة العناصر المحلية
         localMap.forEach((localItem, id) => {
@@ -329,7 +434,10 @@
 
             if (!remoteRow) {
                 mergedMap.set(id, localItem);
-                uploads.push(localItem);
+                // رفع العنصر المحلي إذا لم يتم الجلب الكامل المسبق، أو إذا تم إنشاؤه/تعديله بعد آخر مزامنة
+                if (!lastSyncMs || localTime > lastSyncMs) {
+                    uploads.push(localItem);
+                }
             } else {
                 if (remoteRow.deleted_at) {
                     const remoteDeletedTime = new Date(remoteRow.deleted_at).getTime() || 0;
@@ -434,13 +542,18 @@
         const itemId = adapter.itemId || 'single';
         const localDelTime = getLocalDeleteTime(toolName, itemId);
         const localDelData = getLocalDeleteData(toolName, itemId);
+        const lastSyncIso = getLastSyncTime(toolName);
+        const lastSyncMs = lastSyncIso ? new Date(lastSyncIso).getTime() : 0;
 
         if (!remoteRow) {
             if (localDelTime > 0) {
                 finalData = null;
                 tombstoneToPush = { id: itemId, timestamp: localDelTime, data: localDelData || localData || { id: String(itemId) } };
             } else if (localData !== null && localData !== undefined) {
-                needsUpload = true;
+                const localTime = adapter.getTimestamp(localData);
+                if (!lastSyncMs || localTime > lastSyncMs) {
+                    needsUpload = true;
+                }
             }
         } else if (remoteRow.deleted_at) {
             const remoteDelTime = new Date(remoteRow.deleted_at).getTime() || 0;
@@ -491,7 +604,7 @@
 
         const adapter = TOOL_ADAPTERS[toolName];
         const rawTs = adapter ? adapter.getTimestamp(data) : 0;
-        const timestamp = new Date(rawTs && rawTs > 0 ? rawTs : Date.now()).toISOString();
+        const nowIso = safeIsoTimestamp(rawTs);
 
         try {
             const payload = {
@@ -499,16 +612,20 @@
                 tool: toolName,
                 item_id: String(itemId),
                 data: data,
-                updated_at: timestamp,
+                updated_at: nowIso,
                 deleted_at: null
             };
 
-            const { error } = await supabaseClient
-                .from('sync_items')
-                .upsert(payload, { onConflict: 'user_id,tool,item_id' });
+            const res = await executeWithBackoff(() =>
+                supabaseClient
+                    .from('sync_items')
+                    .upsert(payload, { onConflict: 'user_id,tool,item_id' })
+            );
 
-            if (error) {
-                console.warn(`[Sync Engine] Upload item failed for tool ${toolName}:`, error.message);
+            if (res && res.error) {
+                console.warn(`[Sync Engine] Upload item failed for tool ${toolName}:`, res.error.message);
+            } else {
+                setLastSyncTime(toolName, nowIso);
             }
         } catch (e) {
             console.warn(`[Sync Engine] Upload item exception for tool ${toolName}:`, e);
@@ -552,7 +669,7 @@
         const user = await getAuthenticatedUser();
         if (!user) return;
 
-        const nowIso = new Date(nowMs).toISOString();
+        const nowIso = safeIsoTimestamp(nowMs);
 
         try {
             const payload = {
@@ -564,12 +681,16 @@
                 deleted_at: nowIso
             };
 
-            const { error } = await supabaseClient
-                .from('sync_items')
-                .upsert(payload, { onConflict: 'user_id,tool,item_id' });
+            const res = await executeWithBackoff(() =>
+                supabaseClient
+                    .from('sync_items')
+                    .upsert(payload, { onConflict: 'user_id,tool,item_id' })
+            );
 
-            if (error) {
-                console.warn(`[Sync Engine] Delete remote item failed for tool ${toolName}:`, error.message);
+            if (res && res.error) {
+                console.warn(`[Sync Engine] Delete remote item failed for tool ${toolName}:`, res.error.message);
+            } else {
+                setLastSyncTime(toolName, nowIso);
             }
         } catch (e) {
             console.warn(`[Sync Engine] Delete remote item exception for tool ${toolName}:`, e);
@@ -577,121 +698,140 @@
     }
 
     /**
-     * مزامنة أداة واحدة
+     * مزامنة أداة واحدة مع منع الطلبات المتوازية المكررة (Mutexing)
      */
     async function hayyizSyncTool(toolName) {
         const adapter = TOOL_ADAPTERS[toolName];
-        if (!adapter || syncingTools.has(toolName)) return;
+        if (!adapter) return;
 
-        const user = await getAuthenticatedUser();
-        if (!user) return;
+        // دمج الطلبات المتوازية لنفس الأداة
+        if (inFlightToolPromises.has(toolName)) {
+            return await inFlightToolPromises.get(toolName);
+        }
 
-        syncingTools.add(toolName);
+        const syncPromise = (async () => {
+            const user = await getAuthenticatedUser();
+            if (!user) return;
 
-        try {
-            const remoteRows = await loadRemoteToolRows(user, toolName);
-            if (remoteRows === null) {
-                syncingTools.delete(toolName);
-                return; // فشل الشبكة -> نحتفظ بالمحلي كلياً
-            }
+            syncingTools.add(toolName);
+            const syncStartTimeIso = new Date().toISOString();
 
-            if (adapter.type === 'collection') {
-                const localItems = getLocalStorageItem(adapter.storageKey, []);
-                const { mergedList, uploads, tombstonesToPush } = mergeCollectionTool(adapter, localItems, remoteRows);
+            try {
+                hayyizCleanupOldLocalTombstones();
 
-                const localJson = JSON.stringify(localItems);
-                const mergedJson = JSON.stringify(mergedList);
-                const hasChanged = localJson !== mergedJson;
-
-                if (hasChanged) {
-                    setLocalStorageItem(adapter.storageKey, mergedList);
+                const remoteRows = await loadRemoteToolRows(user, toolName);
+                if (remoteRows === null) {
+                    return; // فشل الشبكة -> نحتفظ بالمحلي كلياً
                 }
 
-                if (uploads.length > 0) {
-                    const payloads = uploads.map(item => {
-                        const rawTs = adapter.getTimestamp(item);
-                        return {
+                if (adapter.type === 'collection') {
+                    const localItems = getLocalStorageItem(adapter.storageKey, []);
+                    const { mergedList, uploads, tombstonesToPush } = mergeCollectionTool(adapter, localItems, remoteRows);
+
+                    const localJson = JSON.stringify(localItems);
+                    const mergedJson = JSON.stringify(mergedList);
+                    const hasChanged = localJson !== mergedJson;
+
+                    if (hasChanged) {
+                        setLocalStorageItem(adapter.storageKey, mergedList);
+                    }
+
+                    if (uploads.length > 0) {
+                        const payloads = uploads.map(item => {
+                            const rawTs = adapter.getTimestamp(item);
+                            return {
+                                user_id: user.id,
+                                tool: toolName,
+                                item_id: String(adapter.getId(item)),
+                                data: item,
+                                updated_at: safeIsoTimestamp(rawTs),
+                                deleted_at: null
+                            };
+                        });
+
+                        await executeWithBackoff(() =>
+                            supabaseClient
+                                .from('sync_items')
+                                .upsert(payloads, { onConflict: 'user_id,tool,item_id' })
+                        );
+                    }
+
+                    if (tombstonesToPush && tombstonesToPush.length > 0) {
+                        const tombstonePayloads = tombstonesToPush.map(t => ({
                             user_id: user.id,
                             tool: toolName,
-                            item_id: String(adapter.getId(item)),
-                            data: item,
-                            updated_at: new Date(rawTs && rawTs > 0 ? rawTs : Date.now()).toISOString(),
-                            deleted_at: null
-                        };
-                    });
+                            item_id: String(t.id),
+                            data: t.data || { id: String(t.id) },
+                            updated_at: safeIsoTimestamp(t.timestamp),
+                            deleted_at: safeIsoTimestamp(t.timestamp)
+                        }));
 
-                    try {
-                        await supabaseClient
-                            .from('sync_items')
-                            .upsert(payloads, { onConflict: 'user_id,tool,item_id' });
-                    } catch (eUpload) {
-                        console.warn(`[Sync Engine] Batch upload failed for ${toolName}:`, eUpload);
+                        const tombRes = await executeWithBackoff(() =>
+                            supabaseClient
+                                .from('sync_items')
+                                .upsert(tombstonePayloads, { onConflict: 'user_id,tool,item_id' })
+                        );
+
+                        if (!tombRes || !tombRes.error) {
+                            tombstonesToPush.forEach(t => {
+                                hayyizClearLocalDelete(toolName, t.id);
+                            });
+                        }
                     }
-                }
 
-                if (tombstonesToPush && tombstonesToPush.length > 0) {
-                    const tombstonePayloads = tombstonesToPush.map(t => ({
-                        user_id: user.id,
-                        tool: toolName,
-                        item_id: String(t.id),
-                        data: t.data || { id: String(t.id) },
-                        updated_at: new Date(t.timestamp || Date.now()).toISOString(),
-                        deleted_at: new Date(t.timestamp || Date.now()).toISOString()
-                    }));
+                    setLastSyncTime(toolName, syncStartTimeIso);
 
-                    try {
-                        await supabaseClient
-                            .from('sync_items')
-                            .upsert(tombstonePayloads, { onConflict: 'user_id,tool,item_id' });
-                    } catch (eTomb) {
-                        console.warn(`[Sync Engine] Batch tombstone upload failed for ${toolName}:`, eTomb);
+                    if (hasChanged && syncCallbacks.has(toolName)) {
+                        syncCallbacks.get(toolName).forEach(cb => {
+                            try { cb(mergedList); } catch(e){}
+                        });
                     }
-                }
-
-                if (hasChanged && syncCallbacks.has(toolName)) {
-                    syncCallbacks.get(toolName).forEach(cb => {
-                        try { cb(mergedList); } catch(e){}
-                    });
-                }
-            } else if (adapter.type === 'single') {
-                let localData = null;
-                if (typeof adapter.getLocalStorage === 'function') {
-                    localData = adapter.getLocalStorage();
-                } else {
-                    localData = getLocalStorageItem(adapter.storageKey, null);
-                }
-
-                const { finalData, needsUpload, tombstoneToPush } = mergeSingleTool(adapter, localData, remoteRows);
-
-                const localJson = JSON.stringify(localData);
-                const finalJson = JSON.stringify(finalData);
-                const hasChanged = localJson !== finalJson;
-
-                if (hasChanged) {
-                    if (typeof adapter.setLocalStorage === 'function') {
-                        adapter.setLocalStorage(finalData);
+                } else if (adapter.type === 'single') {
+                    let localData = null;
+                    if (typeof adapter.getLocalStorage === 'function') {
+                        localData = adapter.getLocalStorage();
                     } else {
-                        setLocalStorageItem(adapter.storageKey, finalData);
+                        localData = getLocalStorageItem(adapter.storageKey, null);
+                    }
+
+                    const { finalData, needsUpload, tombstoneToPush } = mergeSingleTool(adapter, localData, remoteRows);
+
+                    const localJson = JSON.stringify(localData);
+                    const finalJson = JSON.stringify(finalData);
+                    const hasChanged = localJson !== finalJson;
+
+                    if (hasChanged) {
+                        if (typeof adapter.setLocalStorage === 'function') {
+                            adapter.setLocalStorage(finalData);
+                        } else {
+                            setLocalStorageItem(adapter.storageKey, finalData);
+                        }
+                    }
+
+                    if (tombstoneToPush) {
+                        await hayyizDeleteRemoteItem(toolName, tombstoneToPush.id, tombstoneToPush.data);
+                    } else if (needsUpload && finalData !== null && finalData !== undefined) {
+                        await hayyizUploadItem(toolName, adapter.itemId, finalData);
+                    }
+
+                    setLastSyncTime(toolName, syncStartTimeIso);
+
+                    if (hasChanged && syncCallbacks.has(toolName)) {
+                        syncCallbacks.get(toolName).forEach(cb => {
+                            try { cb(finalData); } catch(e){}
+                        });
                     }
                 }
-
-                if (tombstoneToPush) {
-                    await hayyizDeleteRemoteItem(toolName, tombstoneToPush.id, tombstoneToPush.data);
-                } else if (needsUpload && finalData !== null && finalData !== undefined) {
-                    await hayyizUploadItem(toolName, adapter.itemId, finalData);
-                }
-
-                if (hasChanged && syncCallbacks.has(toolName)) {
-                    syncCallbacks.get(toolName).forEach(cb => {
-                        try { cb(finalData); } catch(e){}
-                    });
-                }
+            } catch (e) {
+                console.warn(`[Sync Engine] Error syncing tool ${toolName}:`, e);
+            } finally {
+                syncingTools.delete(toolName);
+                inFlightToolPromises.delete(toolName);
             }
-        } catch (e) {
-            console.warn(`[Sync Engine] Error syncing tool ${toolName}:`, e);
-        } finally {
-            syncingTools.delete(toolName);
-        }
+        })();
+
+        inFlightToolPromises.set(toolName, syncPromise);
+        return await syncPromise;
     }
 
     /**
@@ -763,6 +903,8 @@
     }
 
     // تصدير واجهات API العامة للمزامنة
+    global.TOMBSTONE_MAX_AGE_DAYS = TOMBSTONE_MAX_AGE_DAYS;
+    global.hayyizCleanupOldLocalTombstones = hayyizCleanupOldLocalTombstones;
     global.hayyizRegisterSyncCallback = hayyizRegisterSyncCallback;
     global.hayyizSyncTool = hayyizSyncTool;
     global.hayyizSyncAllUserData = hayyizSyncAllUserData;

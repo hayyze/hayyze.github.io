@@ -20,9 +20,52 @@ global.localStorage = {
     clear() { this._data = {}; }
 };
 
-// Mock Supabase client & sync database
+// Mock Supabase client & sync database with incremental query support
 let currentUser = null;
 let mockDb = [];
+
+function createMockQuery() {
+    return {
+        _toolFilter: null,
+        _gtFilter: null,
+        select() { return this; },
+        eq(col, val) {
+            if (col === 'tool') this._toolFilter = val;
+            return this;
+        },
+        gt(col, val) {
+            if (col === 'updated_at') this._gtFilter = val;
+            return this;
+        },
+        then(resolve) {
+            if (mockDb === null) {
+                resolve({ data: null, error: { message: 'Network Error' } });
+                return;
+            }
+            let res = mockDb;
+            if (this._toolFilter) {
+                res = res.filter(row => row.tool === this._toolFilter);
+            }
+            if (this._gtFilter) {
+                res = res.filter(row => row.updated_at && row.updated_at > this._gtFilter);
+            }
+            resolve({ data: JSON.parse(JSON.stringify(res)), error: null });
+        },
+        async upsert(payloads, options) {
+            if (mockDb === null) return { error: { message: 'Network Error' } };
+            const list = Array.isArray(payloads) ? payloads : [payloads];
+            list.forEach(payload => {
+                const idx = mockDb.findIndex(r => r.user_id === payload.user_id && r.tool === payload.tool && r.item_id === payload.item_id);
+                if (idx >= 0) {
+                    mockDb[idx] = JSON.parse(JSON.stringify(payload));
+                } else {
+                    mockDb.push(JSON.parse(JSON.stringify(payload)));
+                }
+            });
+            return { error: null };
+        }
+    };
+}
 
 global.supabaseClient = {
     auth: {
@@ -35,38 +78,7 @@ global.supabaseClient = {
         }
     },
     from(table) {
-        return {
-            _toolFilter: null,
-            select() { return this; },
-            eq(col, val) {
-                if (col === 'tool') this._toolFilter = val;
-                return this;
-            },
-            then(resolve) {
-                if (mockDb === null) {
-                    resolve({ data: null, error: { message: 'Network Error' } });
-                    return;
-                }
-                let res = mockDb;
-                if (this._toolFilter) {
-                    res = res.filter(row => row.tool === this._toolFilter);
-                }
-                resolve({ data: JSON.parse(JSON.stringify(res)), error: null });
-            },
-            async upsert(payloads, options) {
-                if (mockDb === null) return { error: { message: 'Network Error' } };
-                const list = Array.isArray(payloads) ? payloads : [payloads];
-                list.forEach(payload => {
-                    const idx = mockDb.findIndex(r => r.user_id === payload.user_id && r.tool === payload.tool && r.item_id === payload.item_id);
-                    if (idx >= 0) {
-                        mockDb[idx] = JSON.parse(JSON.stringify(payload));
-                    } else {
-                        mockDb.push(JSON.parse(JSON.stringify(payload)));
-                    }
-                });
-                return { error: null };
-            }
-        };
+        return createMockQuery();
     }
 };
 
@@ -238,7 +250,8 @@ async function runTests() {
     // Reconnect network
     mockDb = networkDbBackup;
 
-    // Run sync on Device A
+    // Run sync on Device A (clear last sync time to simulate offline sync cycle)
+    localStorage.removeItem('hayyiz-sync-last-time-notes');
     await hayyizSyncNotes();
 
     // Verify tombstone sent on reconnect has non-null data

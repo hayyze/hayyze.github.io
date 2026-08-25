@@ -6,7 +6,7 @@ const supabaseClient = window.supabase.createClient(
     SUPABASE_PUBLISHABLE_KEY
 );
 
-// إنشاء حساب جديد
+// إنشاء حساب جديد عبر Supabase Auth مباشرة (الاعتماد على حدود Supabase Auth الأصلية من جهة الخادم)
 async function hayyizSignUp(email, password) {
     return await supabaseClient.auth.signUp({
         email,

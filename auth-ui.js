@@ -1,11 +1,14 @@
 /**
  * auth-ui.js — واجهة المستخدم والمصادقة الخاصة بمنصة حيز عبر Supabase Auth
+ * يتضمن ترجمة وتفسير أخطاء تجاوز الحدود (429 Rate Limiting) والتحكم بتبريد أزرار الواجهة (Cooldown UI)
  */
 
 (function (global) {
     'use strict';
 
     let currentAuthUser = null;
+    let submitCooldownTimer = null;
+    const AUTH_COOLDOWN_SECONDS = 10; // مهلة التبريد لمنع السبام بالنقر المتكرر
 
     /**
      * ترجمة رسائل الخطأ من Supabase إلى اللغة العربية
@@ -14,7 +17,11 @@
         if (!error) return 'حدث خطأ غير متوقع. يرجى المحاولة لاحقاً.';
         const msg = (error.message || '').toLowerCase();
         const code = (error.code || '').toLowerCase();
+        const status = error.status || (msg.includes('429') ? 429 : 0);
 
+        if (status === 429 || msg.includes('rate limit') || msg.includes('too many requests') || msg.includes('over_email_send_rate_limit') || code === 'over_email_send_rate_limit') {
+            return 'تم تجاوز حد الطلبات المسموح به. يرجى الانتظار بضع دقائق قبل المحاولة مرة أخرى.';
+        }
         if (msg.includes('user already registered') || msg.includes('already exists') || code === 'user_already_exists') {
             return 'البريد الإلكتروني مستخدم مسبقاً.';
         }
@@ -34,6 +41,30 @@
             return 'خطأ في الاتصال بالشبكة. يرجى التحقق من اتصالك بالإنترنت.';
         }
         return error.message || 'حدث خطأ أثناء الاتصال بالخادم.';
+    }
+
+    /**
+     * تطبيق فترة تبريد (Cooldown) على الأزرار في الواجهة لتجنب النقر المتكرر والـ Request Flooding
+     */
+    function applyButtonCooldown(buttonEl, originalHtml, seconds = AUTH_COOLDOWN_SECONDS) {
+        if (!buttonEl) return;
+        if (submitCooldownTimer) clearInterval(submitCooldownTimer);
+
+        let remaining = seconds;
+        buttonEl.disabled = true;
+        buttonEl.innerHTML = `<i class="fa-solid fa-clock" aria-hidden="true"></i> يرجى الانتظار (${remaining}s)`;
+
+        submitCooldownTimer = setInterval(() => {
+            remaining--;
+            if (remaining <= 0) {
+                clearInterval(submitCooldownTimer);
+                submitCooldownTimer = null;
+                buttonEl.disabled = false;
+                buttonEl.innerHTML = originalHtml;
+            } else {
+                buttonEl.innerHTML = `<i class="fa-solid fa-clock" aria-hidden="true"></i> يرجى الانتظار (${remaining}s)`;
+            }
+        }, 1000);
     }
 
     /**
@@ -77,6 +108,10 @@
      * إغلاق نافذة التوثيق
      */
     function closeAuthModal() {
+        if (submitCooldownTimer) {
+            clearInterval(submitCooldownTimer);
+            submitCooldownTimer = null;
+        }
         const modal = document.getElementById('hayyiz-auth-modal');
         if (modal) {
             modal.remove();
@@ -218,6 +253,7 @@
                     }
 
                     const submitBtn = form.querySelector('#auth-submit-btn');
+                    const originalBtnHtml = submitBtn.innerHTML;
                     submitBtn.disabled = true;
                     submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري إنشاء الحساب...';
 
@@ -237,8 +273,7 @@
 
                         if (res && res.error) {
                             showAuthAlert(formatAuthError(res.error), 'danger');
-                            submitBtn.disabled = false;
-                            submitBtn.innerHTML = '<i class="fa-solid fa-user-plus" aria-hidden="true"></i> إنشاء الحساب';
+                            applyButtonCooldown(submitBtn, originalBtnHtml);
                         } else {
                             if (res && res.data && res.data.session) {
                                 closeAuthModal();
@@ -248,14 +283,12 @@
                             } else {
                                 showAuthAlert('تم إنشاء الحساب. تحقق من بريدك الإلكتروني لتأكيد الحساب.', 'success');
                                 form.reset();
-                                submitBtn.disabled = false;
-                                submitBtn.innerHTML = '<i class="fa-solid fa-user-plus" aria-hidden="true"></i> إنشاء الحساب';
+                                applyButtonCooldown(submitBtn, originalBtnHtml);
                             }
                         }
                     } catch (err) {
                         showAuthAlert(formatAuthError(err), 'danger');
-                        submitBtn.disabled = false;
-                        submitBtn.innerHTML = '<i class="fa-solid fa-user-plus" aria-hidden="true"></i> إنشاء الحساب';
+                        applyButtonCooldown(submitBtn, originalBtnHtml);
                     }
                 });
 
@@ -308,6 +341,7 @@
                     }
 
                     const submitBtn = form.querySelector('#auth-submit-btn');
+                    const originalBtnHtml = submitBtn.innerHTML;
                     submitBtn.disabled = true;
                     submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري تسجيل الدخول...';
 
@@ -321,8 +355,7 @@
 
                         if (res && res.error) {
                             showAuthAlert(formatAuthError(res.error), 'danger');
-                            submitBtn.disabled = false;
-                            submitBtn.innerHTML = '<i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> تسجيل الدخول';
+                            applyButtonCooldown(submitBtn, originalBtnHtml);
                         } else {
                             closeAuthModal();
                             if (typeof hayyizSyncAllUserData === 'function') {
@@ -331,8 +364,7 @@
                         }
                     } catch (err) {
                         showAuthAlert(formatAuthError(err), 'danger');
-                        submitBtn.disabled = false;
-                        submitBtn.innerHTML = '<i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> تسجيل الدخول';
+                        applyButtonCooldown(submitBtn, originalBtnHtml);
                     }
                 });
             }
@@ -416,5 +448,6 @@
     global.hayyizOpenAuthModal = openAuthModal;
     global.hayyizCloseAuthModal = closeAuthModal;
     global.hayyizUpdateNavAuthButton = updateNavAuthButton;
+    global.formatAuthError = formatAuthError;
 
 })(typeof window !== 'undefined' ? window : global);

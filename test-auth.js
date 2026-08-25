@@ -224,6 +224,9 @@ global.supabaseClient = {
             return { data: { user: mockUser }, error: null };
         },
         async signUp({ email, password }) {
+            if (email === 'ratelimit@example.com') {
+                return { data: { user: null, session: null }, error: { message: 'over_email_send_rate_limit', status: 429, code: 'over_email_send_rate_limit' } };
+            }
             if (email === 'existing@example.com') {
                 return { data: { user: null, session: null }, error: { message: 'User already registered', code: 'user_already_exists' } };
             }
@@ -317,40 +320,48 @@ async function runAuthTests() {
     const alertConfirm = document.getElementById('hayyiz-auth-modal').querySelector('#auth-alert');
     assert(alertConfirm.textContent === 'تم إنشاء الحساب. تحقق من بريدك الإلكتروني لتأكيد الحساب.', 'Test 4: Confirmation email message displayed as success notice');
 
-    // Test 5: Login with wrong password shows translated Arabic error
+    // Test 5: Rate limit 429 error produces friendly Arabic warning
+    signupForm.querySelector('#auth-email').value = 'ratelimit@example.com';
+    signupForm.querySelector('#auth-password').value = '123456';
+    signupForm.querySelector('#auth-confirm-password').value = '123456';
+    await signupForm.listeners['submit'][0](submitEvt);
+    const alertRateLimit = document.getElementById('hayyiz-auth-modal').querySelector('#auth-alert');
+    assert(alertRateLimit.textContent.includes('تم تجاوز حد الطلبات المسموح به'), 'Test 5: Rate limit 429 error produces friendly Arabic message');
+
+    // Test 6: Login with wrong password shows translated Arabic error
     hayyizOpenAuthModal('login');
     const loginForm = document.getElementById('hayyiz-auth-modal').querySelector('#auth-form');
     loginForm.querySelector('#auth-email').value = 'user@example.com';
     loginForm.querySelector('#auth-password').value = 'wrongpass';
     await loginForm.listeners['submit'][0](submitEvt);
     const alertWrong = document.getElementById('hayyiz-auth-modal').querySelector('#auth-alert');
-    assert(alertWrong.textContent === 'البريد الإلكتروني أو كلمة المرور غير صحيحة.', 'Test 5: Wrong password produces friendly Arabic error message');
+    assert(alertWrong.textContent === 'البريد الإلكتروني أو كلمة المرور غير صحيحة.', 'Test 6: Wrong password produces friendly Arabic error message');
 
-    // Test 6: Successful login closes modal and triggers hayyizSyncAllUserData()
+    // Test 7: Successful login closes modal and triggers hayyizSyncAllUserData()
     const syncBefore = syncAllCalledCount;
     loginForm.querySelector('#auth-email').value = 'student@example.com';
     loginForm.querySelector('#auth-password').value = 'valid123';
     await loginForm.listeners['submit'][0](submitEvt);
-    assert(document.getElementById('hayyiz-auth-modal') === null, 'Test 6a: Successful login closes modal');
-    assert(syncAllCalledCount > syncBefore, 'Test 6b: Successful login triggers hayyizSyncAllUserData()');
+    assert(document.getElementById('hayyiz-auth-modal') === null, 'Test 7a: Successful login closes modal');
+    assert(syncAllCalledCount > syncBefore, 'Test 7b: Successful login triggers hayyizSyncAllUserData()');
 
-    // Test 7: Nav button updates to logged-in state ("حسابي")
+    // Test 8: Nav button updates to logged-in state ("حسابي")
     hayyizUpdateNavAuthButton(mockUser);
     const loggedInBtn = document.getElementById('nav-auth-btn');
-    assert(loggedInBtn.innerHTML.includes('حسابي'), 'Test 7: Logged-in nav button displays "حسابي"');
+    assert(loggedInBtn.innerHTML.includes('حسابي'), 'Test 8: Logged-in nav button displays "حسابي"');
 
-    // Test 8: Opening modal while logged in opens profile mode displaying email
+    // Test 9: Opening modal while logged in opens profile mode displaying email
     hayyizOpenAuthModal();
     const profileModal = document.getElementById('hayyiz-auth-modal');
     const emailDisplay = profileModal.querySelector('.auth-email-display');
-    assert(emailDisplay && emailDisplay.textContent === 'student@example.com', 'Test 8: Profile mode shows logged-in user email');
+    assert(emailDisplay && emailDisplay.textContent === 'student@example.com', 'Test 9: Profile mode shows logged-in user email');
 
-    // Test 9: Sign out clears user, closes modal, and preserves LocalStorage data
+    // Test 10: Sign out clears user, closes modal, and preserves LocalStorage data
     localStorage.setItem('hayyiz-notes', JSON.stringify([{ id: 'n1', title: 'ملاحظة' }]));
     const logoutBtn = profileModal.querySelector('#auth-logout-btn');
     await logoutBtn.listeners['click'][0]();
-    assert(mockUser === null, 'Test 9a: Sign out clears current auth user');
-    assert(localStorage.getItem('hayyiz-notes') !== null, 'Test 9b: LocalStorage user data preserved after logout');
+    assert(mockUser === null, 'Test 10a: Sign out clears current auth user');
+    assert(localStorage.getItem('hayyiz-notes') !== null, 'Test 10b: LocalStorage user data preserved after logout');
 
     console.log(`\n===================================`);
     console.log(`AUTH TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
