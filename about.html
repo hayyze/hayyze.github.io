@@ -11,8 +11,8 @@
     <!-- سياسة الأمان (CSP) -->
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'self';
-               script-src 'self' https://www.googletagmanager.com 'unsafe-inline';
-               script-src-elem 'self' https://www.googletagmanager.com 'unsafe-inline';
+               script-src 'self' https://www.googletagmanager.com https://cdn.jsdelivr.net 'unsafe-inline';
+               script-src-elem 'self' https://www.googletagmanager.com https://cdn.jsdelivr.net 'unsafe-inline';
                style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com 'unsafe-inline';
                font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:;
                connect-src 'self'
@@ -166,7 +166,7 @@
 
 <p><strong>الخصوصية:</strong> تعمل معظم الأدوات محليًا داخل متصفحك باستخدام تقنية <code>localStorage</code>.</p>
 
-<p>تُحفظ بيانات مثل المهام والملاحظات والعادات وجلسات المذاكرة ونتائج اللعبة على جهازك، ولا يتم إرسال محتوى هذه البيانات إلى خوادم حيز.</p>
+<p>تُحفظ بياناتك كزائر محليًا على جهازك، وعند تسجيل الدخول حسابيًا يتم مزامنتها سحابيًا بأمان لتتمكن من الوصول إليها من أي جهاز آخر.</p>
 
 
 </div>
@@ -270,7 +270,7 @@
 
 <div class="about-section card backup-section" style="margin-top: 2rem; padding: 1.5rem;">
     <h2>نسخ احتياطي واستعادة</h2>
-    <p>يمكنك تصدير جميع بيانات حيز المحفوظة محليًا (المهام، الملاحظات، العادات، جلسات التركيز، التفضيلات) إلى ملف JSON، أو استيرادها لاحقًا. العملية تتم بالكامل على جهازك دون إرسال أي بيانات إلى خادم.</p>
+    <p>يمكنك تصدير جميع بيانات حيز (المهام، الملاحظات، العادات، جلسات التركيز، التفضيلات) إلى ملف JSON، أو استيرادها لاحقًا. تتم عملية التصدير والاستيراد مباشرة على جهازك بسرعة وأمان.</p>
     <div class="backup-actions">
         <button type="button" id="hayyiz-export-btn" class="btn btn-primary">
             <i class="fa-solid fa-download" aria-hidden="true"></i> تصدير بيانات حيز
