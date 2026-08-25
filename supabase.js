@@ -6,8 +6,44 @@ const supabaseClient = window.supabase.createClient(
     SUPABASE_PUBLISHABLE_KEY
 );
 
+// فحص الخادم للـ IP Rate Limit قبل الحسابات الجديدة والبريد
+async function hayyizCheckIpRateLimit(actionType = 'signup', maxAttempts = 1, windowSeconds = 600) {
+    if (!supabaseClient || !supabaseClient.rpc) {
+        return { allowed: true };
+    }
+    try {
+        const { data, error } = await supabaseClient.rpc('check_ip_rate_limit', {
+            action_type: actionType,
+            max_attempts: maxAttempts,
+            window_seconds: windowSeconds
+        });
+        if (error) {
+            console.warn('[Supabase Security] Rate limit RPC warning:', error.message);
+            return { allowed: true };
+        }
+        return data || { allowed: true };
+    } catch (e) {
+        console.warn('[Supabase Security] Rate limit RPC exception:', e);
+        return { allowed: true };
+    }
+}
+
 // إنشاء حساب جديد
 async function hayyizSignUp(email, password) {
+    // 1. فحص حماية IP من جهة الخادم عبر Database-backed RPC
+    const rateCheck = await hayyizCheckIpRateLimit('signup', 1, 600);
+    if (rateCheck && rateCheck.allowed === false) {
+        return {
+            data: { user: null, session: null },
+            error: {
+                message: 'rate_limit_exceeded',
+                status: 429,
+                code: 'over_email_send_rate_limit'
+            }
+        };
+    }
+
+    // 2. إرسال الطلب الأصلي لـ Supabase Auth
     return await supabaseClient.auth.signUp({
         email,
         password,
