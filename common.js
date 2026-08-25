@@ -107,7 +107,8 @@ var HAYYIZ_BACKUP_KEYS = [
     'hayyiz-student-exams',
     'hayyiz-custom-events',
     'hayyiz-hide-pomo-prompt-today',
-    'hayyiz-hide-pomo-prompt-hour'
+    'hayyiz-hide-pomo-prompt-hour',
+    'hayyiz-deleted-items'
 ];
 
 function exportHayyizData() {
@@ -414,15 +415,20 @@ function hayyizAddSubject(name) {
     const list = hayyizGetSubjects();
     const exists = list.find((s) => s.name === trimmed);
     if (exists) return exists;
+    const nowMs = Date.now();
     const subject = {
         id: hayyizGenerateId(),
         name: trimmed,
-        created: Date.now(),
+        created: nowMs,
+        updated: nowMs,
         focusMinutes: 0,
         sessions: 0
     };
     list.push(subject);
     hayyizSaveSubjects(list);
+    if (typeof hayyizUploadItem === 'function') {
+        hayyizUploadItem('subjects', subject.id, subject);
+    }
     return subject;
 }
 
@@ -442,10 +448,16 @@ function hayyizBumpSubjectProgress(subjectId, minutes) {
     const list = hayyizGetSubjects();
     const idx = list.findIndex((s) => s.id === subjectId);
     if (idx < 0) return;
+    const nowMs = Date.now();
     list[idx].focusMinutes = (parseInt(list[idx].focusMinutes, 10) || 0) + minutes;
     list[idx].sessions = (parseInt(list[idx].sessions, 10) || 0) + 1;
     list[idx].lastFocused = getTodayLocal();
+    list[idx].updated = nowMs;
     hayyizSaveSubjects(list);
+
+    if (typeof hayyizUploadItem === 'function') {
+        hayyizUploadItem('subjects', list[idx].id, list[idx]);
+    }
 
     const progress = hayyizParseJSON('hayyiz-subject-progress', {});
     const day = getTodayLocal();
@@ -715,8 +727,13 @@ function hayyizReconcilePomodoroState() {
                         try {
                             const hist = JSON.parse(localStorage.getItem('hayyiz-focus-history') || '{}');
                             const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+                            const nowMs = Date.now();
                             hist[today] = (parseInt(hist[today], 10) || 0) + workMinJustDone;
                             localStorage.setItem('hayyiz-focus-history', JSON.stringify(hist));
+                            localStorage.setItem('hayyiz-focus-history-updated', String(nowMs));
+                            if (typeof hayyizUploadItem === 'function') {
+                                hayyizUploadItem('focus-history', 'history', hist);
+                            }
                         } catch (e) {}
 
                         // 3. كتابة السجل غير القابل للتغيير
@@ -844,6 +861,9 @@ function hayyizLogFocusSession(sessionObj) {
     // الاحتفاظ بأحدث 200 جلسة لمنع التضخم
     if (log.length > 200) log.length = 200;
     hayyizSaveJSON('hayyiz-focus-sessions-log', log);
+    if (typeof hayyizUploadItem === 'function') {
+        hayyizUploadItem('focus-log', entry.id, entry);
+    }
     return entry;
 }
 
@@ -992,12 +1012,18 @@ function hayyizApplyFocusResult(opts) {
     }
 
     if (idx >= 0 && todos[idx]) {
+        const nowMs = Date.now();
         const focusDone = (parseInt(todos[idx].focusDone, 10) || 0) + workMin;
         const sessionsDone = (parseInt(todos[idx].sessionsDone, 10) || 0) + 1;
         todos[idx].focusDone = focusDone;
         todos[idx].sessionsDone = sessionsDone;
         todos[idx].lastFocused = getTodayLocal();
+        todos[idx].updated = nowMs;
         hayyizSaveTodos(todos);
+
+        if (typeof hayyizUploadItem === 'function') {
+            hayyizUploadItem('todos', todos[idx].id, todos[idx]);
+        }
 
         if (plan) {
             plan.focusDone = focusDone;
@@ -1040,9 +1066,15 @@ function hayyizCompleteTask(taskId, taskText, indexHint) {
     }
     if (idx < 0) return false;
 
+    const nowMs = Date.now();
     todos[idx].completed = true;
     todos[idx].completedAt = getTodayLocal();
+    todos[idx].updated = nowMs;
     hayyizSaveTodos(todos);
+
+    if (typeof hayyizUploadItem === 'function') {
+        hayyizUploadItem('todos', todos[idx].id, todos[idx]);
+    }
     return true;
 }
 
@@ -1134,7 +1166,29 @@ function hayyizGetSubjectGoals() {
 }
 
 function hayyizSaveSubjectGoals(list) {
-    hayyizSaveJSON('hayyiz-subject-goals', Array.isArray(list) ? list : []);
+    const oldList = hayyizGetSubjectGoals();
+    const newList = Array.isArray(list) ? list : [];
+    const nowMs = Date.now();
+
+    newList.forEach(item => {
+        if (item) {
+            if (!item.id) item.id = item.name || hayyizGenerateId();
+            item.updated = nowMs;
+            if (typeof hayyizUploadItem === 'function') {
+                hayyizUploadItem('subject-goals', item.id, item);
+            }
+        }
+    });
+
+    oldList.forEach(oldItem => {
+        if (oldItem && oldItem.id && !newList.some(n => n && n.id === oldItem.id)) {
+            if (typeof hayyizDeleteRemoteItem === 'function') {
+                hayyizDeleteRemoteItem('subject-goals', oldItem.id);
+            }
+        }
+    });
+
+    hayyizSaveJSON('hayyiz-subject-goals', newList);
 }
 
 function hayyizGetDailyGoal() {
@@ -1151,10 +1205,17 @@ function hayyizGetDailyGoal() {
 function hayyizSaveDailyGoal(goal) {
     if (!goal) {
         localStorage.removeItem('hayyiz-daily-goal');
+        if (typeof hayyizDeleteRemoteItem === 'function') {
+            hayyizDeleteRemoteItem('daily-goal', 'goal');
+        }
         return;
     }
     if (!goal.date) goal.date = getTodayLocal();
+    goal.updated = Date.now();
     hayyizSaveJSON('hayyiz-daily-goal', goal);
+    if (typeof hayyizUploadItem === 'function') {
+        hayyizUploadItem('daily-goal', 'goal', goal);
+    }
 }
 
 /**
