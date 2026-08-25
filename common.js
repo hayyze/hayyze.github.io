@@ -72,8 +72,8 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-/** مفاتيح بيانات المستخدم التي تُصدَّر */
-var HAYYIZ_BACKUP_KEYS = [
+/** قائمة السماح الصريحة (Allowlist) بمفاتيح البيانات الشخصية المسموح بتصديرها واستيرادها */
+var HAYYIZ_ALLOWED_BACKUP_KEYS = [
     'hayyiz-todos',
     'hayyiz-notes',
     'hayyiz-habits',
@@ -111,6 +111,147 @@ var HAYYIZ_BACKUP_KEYS = [
     'hayyiz-deleted-items'
 ];
 
+/** التوافقية الكاملة مع التسمية السابقة */
+var HAYYIZ_BACKUP_KEYS = HAYYIZ_ALLOWED_BACKUP_KEYS;
+
+/** الحقول الممنوعة/الموثوقة التي يجب تجريدها واستبعادها تماماً من أي ملف استيراد أو تصدير */
+var HAYYIZ_FORBIDDEN_PROPERTIES = new Set([
+    'user_id',
+    'owner_id',
+    'user',
+    'account',
+    'auth_id',
+    'points',
+    'score_points',
+    'premium',
+    'is_premium',
+    'subscription',
+    'subscription_status',
+    'granted_focus_sessions',
+    'granted_sessions',
+    'credits',
+    'limits',
+    'badges',
+    'badge',
+    'role',
+    'roles',
+    'permissions',
+    'permission',
+    'admin',
+    'is_admin'
+]);
+
+/**
+ * تنقية كائن بشكل عودي لتجريد أي حقول إدارية أو موثوقة أو معرفات هوية
+ */
+function hayyizSanitizeObject(val) {
+    if (val === null || val === undefined) return val;
+    if (Array.isArray(val)) {
+        return val.map((item) => hayyizSanitizeObject(item));
+    }
+    if (typeof val === 'object') {
+        const cleanObj = {};
+        Object.keys(val).forEach((k) => {
+            const lowerK = k.toLowerCase();
+            if (HAYYIZ_FORBIDDEN_PROPERTIES.has(lowerK) || lowerK.startsWith('_storagekey')) {
+                return; // تجريد الحقل الممنوع
+            }
+            cleanObj[k] = hayyizSanitizeObject(val[k]);
+        });
+        return cleanObj;
+    }
+    return val;
+}
+
+/**
+ * دالة التحقق والتنقية لقيم المفاتيح حسب نوعها وقائمة السماح الصريحة
+ * @returns {string|null} تعيد النص النظيف الجاهز للتخزين، أو null إذا كانت البيانات غير صالحة.
+ */
+function hayyizSanitizeValue(key, rawVal) {
+    const allowedSet = new Set(HAYYIZ_ALLOWED_BACKUP_KEYS);
+    if (!allowedSet.has(key)) return null;
+    if (rawVal === null || rawVal === undefined) return null;
+
+    // المفاتيح ذات مصفوفات البيانات (Collections)
+    const arrayCollectionKeys = new Set([
+        'hayyiz-todos',
+        'hayyiz-notes',
+        'hayyiz-habits',
+        'hayyiz-focus-sessions-log',
+        'hayyiz-subjects',
+        'hayyiz-exams',
+        'hayyiz-goals',
+        'hayyiz-subject-goals',
+        'hayyiz-student-exams',
+        'hayyiz-custom-events'
+    ]);
+
+    // المفاتيح ذات الكائنات الهيكلية (Objects)
+    const objectKeys = new Set([
+        'hayyiz-focus-history',
+        'hayyiz-task-session',
+        'hayyiz-current-event',
+        'hayyiz-pomodoro-state',
+        'hayyiz-subject-progress',
+        'hayyiz-gpa-snapshot',
+        'hayyiz-academic-goal',
+        'hayyiz-daily-goal',
+        'hayyiz-deleted-items'
+    ]);
+
+    // المفاتيح العددية النصية
+    const numericKeys = new Set([
+        'hayyiz-sessions',
+        'hayyiz-sessions-today',
+        'hayyiz-focus-minutes-today',
+        'hayyiz-pref-work',
+        'hayyiz-pref-break',
+        'hayyiz-pref-long',
+        'hayyiz-session-in-cycle',
+        'hayyiz-highscore',
+        'hayyiz-current-task-index',
+        'hayyiz-hide-pomo-prompt-hour'
+    ]);
+
+    let valStr = typeof rawVal === 'string' ? rawVal : String(rawVal);
+
+    if (arrayCollectionKeys.has(key)) {
+        try {
+            const parsed = JSON.parse(valStr);
+            if (!Array.isArray(parsed)) return JSON.stringify([]);
+            const clean = hayyizSanitizeObject(parsed).filter((item) => item && typeof item === 'object');
+            return JSON.stringify(clean);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    if (objectKeys.has(key)) {
+        try {
+            const parsed = JSON.parse(valStr);
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+            const clean = hayyizSanitizeObject(parsed);
+            return JSON.stringify(clean);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    if (numericKeys.has(key)) {
+        const num = Number(valStr);
+        if (isNaN(num)) return null;
+        return String(num);
+    }
+
+    // مفاتيح النصوص البسيطة
+    if (typeof valStr === 'string') {
+        // حماية إضافية في حالة تم تمرير JSON نصي يحتوي حقول حظر في سلاسل نصية
+        return valStr;
+    }
+
+    return null;
+}
+
 function exportHayyizData() {
     const data = {
         version: 2,
@@ -118,9 +259,14 @@ function exportHayyizData() {
         app: 'حيز',
         keys: {}
     };
-    HAYYIZ_BACKUP_KEYS.forEach((key) => {
+    HAYYIZ_ALLOWED_BACKUP_KEYS.forEach((key) => {
         const val = localStorage.getItem(key);
-        if (val !== null) data.keys[key] = val;
+        if (val !== null) {
+            const sanitized = hayyizSanitizeValue(key, val);
+            if (sanitized !== null) {
+                data.keys[key] = sanitized;
+            }
+        }
     });
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -144,17 +290,23 @@ function importHayyizData(file) {
                 alert('الملف غير صالح. تأكد أنه نسخة احتياطية من حيز.');
                 return;
             }
-            const allowed = new Set(HAYYIZ_BACKUP_KEYS);
+            const allowedSet = new Set(HAYYIZ_ALLOWED_BACKUP_KEYS);
             const toImport = {};
             let count = 0;
+
             Object.keys(data.keys).forEach((key) => {
-                if (allowed.has(key) && typeof data.keys[key] === 'string') {
-                    toImport[key] = data.keys[key];
-                    count++;
+                if (allowedSet.has(key)) {
+                    const rawVal = data.keys[key];
+                    const sanitizedVal = hayyizSanitizeValue(key, rawVal);
+                    if (sanitizedVal !== null) {
+                        toImport[key] = sanitizedVal;
+                        count++;
+                    }
                 }
             });
+
             if (count === 0) {
-                alert('لم يُعثر على بيانات صالحة في الملف.');
+                alert('لم يُعثر على بيانات شخصية صالحة ومسموح بها في الملف.');
                 return;
             }
             const ok = confirm(
