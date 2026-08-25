@@ -342,10 +342,11 @@ function hayyizDeleteTask(id) {
     const todos = hayyizGetTodos();
     const idx = todos.findIndex((t) => t && t.id === id);
     if (idx < 0) return false;
+    const taskToDelete = todos[idx];
     todos.splice(idx, 1);
     hayyizSaveTodos(todos);
     if (typeof hayyizDeleteRemoteItem === 'function') {
-        hayyizDeleteRemoteItem('todos', id);
+        hayyizDeleteRemoteItem('todos', id, taskToDelete);
     }
     return true;
 }
@@ -1148,9 +1149,10 @@ function hayyizGetAcademicGoal() {
 
 function hayyizSaveAcademicGoal(goal) {
     if (!goal) {
+        const oldGoal = hayyizGetAcademicGoal();
         localStorage.removeItem('hayyiz-academic-goal');
         if (typeof hayyizDeleteRemoteItem === 'function') {
-            hayyizDeleteRemoteItem('academic-goal', 'goal');
+            hayyizDeleteRemoteItem('academic-goal', 'goal', oldGoal);
         }
         return;
     }
@@ -1183,7 +1185,7 @@ function hayyizSaveSubjectGoals(list) {
     oldList.forEach(oldItem => {
         if (oldItem && oldItem.id && !newList.some(n => n && n.id === oldItem.id)) {
             if (typeof hayyizDeleteRemoteItem === 'function') {
-                hayyizDeleteRemoteItem('subject-goals', oldItem.id);
+                hayyizDeleteRemoteItem('subject-goals', oldItem.id, oldItem);
             }
         }
     });
@@ -1204,9 +1206,10 @@ function hayyizGetDailyGoal() {
 
 function hayyizSaveDailyGoal(goal) {
     if (!goal) {
+        const oldGoal = hayyizGetDailyGoal();
         localStorage.removeItem('hayyiz-daily-goal');
         if (typeof hayyizDeleteRemoteItem === 'function') {
-            hayyizDeleteRemoteItem('daily-goal', 'goal');
+            hayyizDeleteRemoteItem('daily-goal', 'goal', oldGoal);
         }
         return;
     }

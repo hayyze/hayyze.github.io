@@ -263,7 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             saveHabits();
             if (habitToDelete && habitToDelete.id && typeof hayyizDeleteRemoteItem === 'function') {
-                hayyizDeleteRemoteItem('habits', habitToDelete.id);
+                hayyizDeleteRemoteItem('habits', habitToDelete.id, habitToDelete);
             }
             renderHabits();
         }
