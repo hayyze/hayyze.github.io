@@ -166,12 +166,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const nowMs = Date.now();
         const newHabit = {
-            id: typeof hayyizGenerateId === 'function' ? hayyizGenerateId() : ('hb_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
+            id: typeof hayyizGenerateId === 'function' ? hayyizGenerateId() : ('hb_' + nowMs.toString(36) + Math.random().toString(36).slice(2, 6)),
             name,
             streak: 0,
             lastCompleted: null,
-            created: Date.now()
+            created: nowMs,
+            updated: nowMs
         };
 
         habits.push(newHabit);
@@ -232,6 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 habit.lastCompleted = null;
             }
 
+            habit.updated = Date.now();
             saveHabits(habit);
             renderHabits();
 

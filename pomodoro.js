@@ -740,8 +740,13 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const hist = JSON.parse(localStorage.getItem('hayyiz-focus-history') || '{}');
                 const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+                const nowMs = Date.now();
                 hist[today] = (parseInt(hist[today], 10) || 0) + workMin;
                 localStorage.setItem('hayyiz-focus-history', JSON.stringify(hist));
+                localStorage.setItem('hayyiz-focus-history-updated', String(nowMs));
+                if (typeof hayyizUploadItem === 'function') {
+                    hayyizUploadItem('focus-history', 'history', hist);
+                }
             } catch (e) {}
 
             // Log immutable focus session entry

@@ -540,15 +540,18 @@ document.addEventListener('DOMContentLoaded', () => {
         checkbox.checked = Boolean(todo.completed);
         checkbox.setAttribute('aria-label', `تعديل حالة مهمة ${todo.text}`);
         checkbox.addEventListener('change', () => {
-            todo.updated = Date.now();
+            const nowMs = Date.now();
+            let updatedTask = null;
             if (typeof hayyizUpdateTask === 'function') {
-                hayyizUpdateTask(todo.id, { completed: checkbox.checked, updated: todo.updated });
+                updatedTask = hayyizUpdateTask(todo.id, { completed: checkbox.checked, updated: nowMs });
             } else {
                 todo.completed = checkbox.checked;
+                todo.updated = nowMs;
                 saveTodos(todo);
+                updatedTask = todo;
             }
-            if (typeof hayyizUploadItem === 'function') {
-                hayyizUploadItem('todos', todo.id, todo);
+            if (updatedTask && typeof hayyizUploadItem === 'function') {
+                hayyizUploadItem('todos', updatedTask.id, updatedTask);
             }
             announceToScreenReader(checkbox.checked ? `تم إكمال المهمة: ${todo.text}` : `تمت إعادة المهمة: ${todo.text}`);
             renderTodos();
@@ -684,8 +687,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const text = todoInput ? todoInput.value.trim() : '';
         if (!text) return;
 
+        const nowMs = Date.now();
         const newTask = {
-            id: typeof hayyizGenerateId === 'function' ? hayyizGenerateId() : ('h' + Date.now()),
+            id: typeof hayyizGenerateId === 'function' ? hayyizGenerateId() : ('h' + nowMs),
             text,
             priority: todoPriority ? todoPriority.value : 'medium',
             date: (todoDate && todoDate.value) ? todoDate.value : null,
@@ -694,7 +698,8 @@ document.addEventListener('DOMContentLoaded', () => {
             goalId: (todoGoal && todoGoal.value) ? todoGoal.value : null,
             completed: false,
             status: 'todo',
-            created: Date.now(),
+            created: nowMs,
+            updated: nowMs,
             focusDone: 0,
             sessionsDone: 0
         };

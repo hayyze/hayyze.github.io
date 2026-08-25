@@ -710,7 +710,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const idx = notes.findIndex(n => n.id === id);
         if (idx < 0) return;
         notes[idx].isPinned = !notes[idx].isPinned;
+        notes[idx].updated = Date.now();
         saveNotes();
+        if (typeof hayyizUploadNote === 'function') {
+            hayyizUploadNote(notes[idx]);
+        }
         renderNotes();
         showToast(notes[idx].isPinned ? 'تم تثبيت الملاحظة في الأعلى' : 'تم إلغاء تثبيت الملاحظة');
     }
@@ -719,7 +723,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const idx = notes.findIndex(n => n.id === id);
         if (idx < 0) return;
         notes[idx].isFavorite = !notes[idx].isFavorite;
+        notes[idx].updated = Date.now();
         saveNotes();
+        if (typeof hayyizUploadNote === 'function') {
+            hayyizUploadNote(notes[idx]);
+        }
         renderNotes();
         showToast(notes[idx].isFavorite ? 'تمت إضافة الملاحظة للمفضلة' : 'تمت إزالة الملاحظة من المفضلة');
     }
@@ -1054,11 +1062,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 showToast('تم تحديث الملاحظة بنجاح');
             }
         } else {
+            const nowMs = Date.now();
             const newNote = {
                 id: generateUniqueId(),
                 title,
                 content,
-                created: Date.now(),
+                created: nowMs,
+                updated: nowMs,
                 subject,
                 category,
                 tags,
