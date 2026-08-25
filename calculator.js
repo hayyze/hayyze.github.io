@@ -420,13 +420,15 @@
         try {
             const raw = localStorage.getItem(storageKey);
             let list = raw ? JSON.parse(raw) : [];
+            let eventToDelete = null;
             if (Array.isArray(list)) {
+                eventToDelete = list.find(item => item && item.id === id) || null;
                 list = list.filter(item => item && item.id !== id);
                 localStorage.setItem(storageKey, JSON.stringify(list));
             }
             const toolName = storageKey === STORAGE_KEY_EXAMS ? 'student-exams' : 'custom-events';
             if (typeof hayyizDeleteRemoteItem === 'function') {
-                hayyizDeleteRemoteItem(toolName, id);
+                hayyizDeleteRemoteItem(toolName, id, eventToDelete);
             }
         } catch (e) { /* تجاهل */ }
     }
@@ -883,13 +885,14 @@
             const eventsList = JSON.parse(localStorage.getItem(STORAGE_KEY_EVENTS) || '[]');
 
             if (Array.isArray(examsList) && typeof hayyizDeleteRemoteItem === 'function') {
-                examsList.forEach(e => { if (e && e.id) hayyizDeleteRemoteItem('student-exams', e.id); });
+                examsList.forEach(e => { if (e && e.id) hayyizDeleteRemoteItem('student-exams', e.id, e); });
             }
             if (Array.isArray(eventsList) && typeof hayyizDeleteRemoteItem === 'function') {
-                eventsList.forEach(e => { if (e && e.id) hayyizDeleteRemoteItem('custom-events', e.id); });
+                eventsList.forEach(e => { if (e && e.id) hayyizDeleteRemoteItem('custom-events', e.id, e); });
             }
+            const birthdateVal = localStorage.getItem(STORAGE_KEY_BIRTHDATE);
             if (typeof hayyizDeleteRemoteItem === 'function') {
-                hayyizDeleteRemoteItem('birthdate', 'birthdate');
+                hayyizDeleteRemoteItem('birthdate', 'birthdate', birthdateVal);
             }
 
             localStorage.removeItem(STORAGE_KEY_BIRTHDATE);

@@ -105,7 +105,11 @@ async function runTests() {
 
     // User deletes note1 locally
     localStorage.setItem('hayyiz-notes', JSON.stringify([]));
-    await hayyizDeleteRemoteNote('n1');
+    await hayyizDeleteRemoteNote('n1', note1);
+
+    // Verify remote tombstone payload has non-null data and deleted_at
+    const tombstoneRow1 = mockDb.find(r => r.tool === 'notes' && r.item_id === 'n1');
+    assert(tombstoneRow1 && tombstoneRow1.data !== null && typeof tombstoneRow1.data === 'object' && tombstoneRow1.deleted_at !== null, 'Scenario 1: Tombstone payload contains data != null and deleted_at != null');
 
     // Refresh / Sync simulation
     await hayyizSyncNotes();
@@ -227,15 +231,19 @@ async function runTests() {
     let networkDbBackup = mockDb;
     mockDb = null; // network down
 
-    // Delete offline
+    // Delete offline with previous note data
     localStorage.setItem('hayyiz-notes', JSON.stringify([]));
-    hayyizRecordLocalDelete('notes', 'n_off', 5000);
+    hayyizRecordLocalDelete('notes', 'n_off', 5000, noteOffline);
 
     // Reconnect network
     mockDb = networkDbBackup;
 
     // Run sync on Device A
     await hayyizSyncNotes();
+
+    // Verify tombstone sent on reconnect has non-null data
+    const tombstoneOffline = mockDb.find(r => r.tool === 'notes' && r.item_id === 'n_off');
+    assert(tombstoneOffline && tombstoneOffline.data !== null && tombstoneOffline.deleted_at !== null, 'Scenario 7: Reconnected tombstone has non-null data and deleted_at');
 
     // Device B syncs
     localStorage.clear();

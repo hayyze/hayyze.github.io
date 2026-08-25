@@ -830,10 +830,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function executeDeleteNote(id) {
         const idx = notes.findIndex(n => n.id === id);
         if (idx >= 0) {
+            const noteToDelete = notes[idx];
             notes.splice(idx, 1);
             saveNotes();
             if (typeof hayyizDeleteRemoteNote === 'function') {
-                hayyizDeleteRemoteNote(id);
+                hayyizDeleteRemoteNote(id, noteToDelete);
             }
             if (editingId === id) resetForm();
             if (currentViewingNoteId === id) closeViewModalHandler();

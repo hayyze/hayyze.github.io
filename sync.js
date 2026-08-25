@@ -82,11 +82,18 @@
         return getLocalStorageItem('hayyiz-deleted-items', {}) || {};
     }
 
-    function hayyizRecordLocalDelete(tool, itemId, timestamp) {
+    function hayyizRecordLocalDelete(tool, itemId, timestamp, previousData) {
         if (!tool || !itemId) return;
         const registry = getDeletedItemsRegistry();
         const key = String(tool) + ':' + String(itemId);
-        registry[key] = Number(timestamp || Date.now());
+        const ts = Number(timestamp || Date.now());
+        if (previousData && typeof previousData === 'object') {
+            registry[key] = { timestamp: ts, data: previousData };
+        } else if (registry[key] && typeof registry[key] === 'object' && registry[key].data) {
+            registry[key] = { timestamp: ts, data: registry[key].data };
+        } else {
+            registry[key] = ts;
+        }
         setLocalStorageItem('hayyiz-deleted-items', registry);
     }
 
@@ -104,7 +111,22 @@
         if (!tool || !itemId) return 0;
         const registry = getDeletedItemsRegistry();
         const key = String(tool) + ':' + String(itemId);
-        return Number(registry[key] || 0);
+        const entry = registry[key];
+        if (entry && typeof entry === 'object') {
+            return Number(entry.timestamp || 0);
+        }
+        return Number(entry || 0);
+    }
+
+    function getLocalDeleteData(tool, itemId) {
+        if (!tool || !itemId) return null;
+        const registry = getDeletedItemsRegistry();
+        const key = String(tool) + ':' + String(itemId);
+        const entry = registry[key];
+        if (entry && typeof entry === 'object' && entry.data) {
+            return entry.data;
+        }
+        return null;
     }
 
     /* =========================================================
@@ -277,13 +299,15 @@
         // 1. معالجة العناصر المحلية
         localMap.forEach((localItem, id) => {
             const localDelTime = getLocalDeleteTime(toolName, id);
+            const localDelData = getLocalDeleteData(toolName, id);
             const localTime = adapter.getTimestamp(localItem);
 
             // إذا كان هناك سجل حذف محلي أحدث من أو يساوي آخر تعديل للمستند
             if (localDelTime > 0 && localDelTime >= localTime) {
                 const remoteRow = remoteMap.get(id);
+                const tombData = localDelData || localItem || (remoteRow && remoteRow.data) || { id: String(id) };
                 if (!remoteRow) {
-                    tombstonesToPush.push({ id, timestamp: localDelTime });
+                    tombstonesToPush.push({ id, timestamp: localDelTime, data: tombData });
                 } else {
                     const remoteTime = remoteRow.updated_at ? new Date(remoteRow.updated_at).getTime() : 0;
                     if (remoteRow.deleted_at) {
@@ -294,7 +318,7 @@
                         mergedMap.set(id, remoteRow.data);
                     } else {
                         // الحذف المحلي أحدث من التعديل البعيد -> احترام الحذف ورفع Tombstone
-                        tombstonesToPush.push({ id, timestamp: localDelTime });
+                        tombstonesToPush.push({ id, timestamp: localDelTime, data: tombData });
                     }
                 }
                 return;
@@ -315,7 +339,7 @@
                         uploads.push(localItem);
                     } else {
                         // الحذف البعيد أحدث أو يطابق المحلي -> تسجيل الحذف محلياً وعدم إعادته
-                        hayyizRecordLocalDelete(toolName, id, remoteDeletedTime);
+                        hayyizRecordLocalDelete(toolName, id, remoteDeletedTime, remoteRow.data);
                     }
                 } else {
                     const remoteData = remoteRow.data;
@@ -346,15 +370,17 @@
         remoteMap.forEach((remoteRow, itemId) => {
             if (!localMap.has(itemId)) {
                 const localDelTime = getLocalDeleteTime(toolName, itemId);
+                const localDelData = getLocalDeleteData(toolName, itemId);
 
                 if (remoteRow.deleted_at) {
-                    hayyizRecordLocalDelete(toolName, itemId, new Date(remoteRow.deleted_at).getTime() || Date.now());
+                    hayyizRecordLocalDelete(toolName, itemId, new Date(remoteRow.deleted_at).getTime() || Date.now(), remoteRow.data);
                 } else if (localDelTime > 0) {
                     const remoteTime = Number(
                         adapter.getTimestamp(remoteRow.data) || (remoteRow.updated_at ? new Date(remoteRow.updated_at).getTime() : 0)
                     );
                     if (localDelTime >= remoteTime) {
-                        tombstonesToPush.push({ id: itemId, timestamp: localDelTime });
+                        const tombData = localDelData || remoteRow.data || { id: String(itemId) };
+                        tombstonesToPush.push({ id: itemId, timestamp: localDelTime, data: tombData });
                     } else {
                         hayyizClearLocalDelete(toolName, itemId);
                         if (remoteRow.data) {
@@ -375,8 +401,10 @@
             if (key.startsWith(prefix)) {
                 const itemId = key.slice(prefix.length);
                 if (!localMap.has(itemId) && !remoteMap.has(itemId)) {
-                    const ts = Number(deletedRegistry[key] || Date.now());
-                    tombstonesToPush.push({ id: itemId, timestamp: ts });
+                    const entry = deletedRegistry[key];
+                    const ts = entry && typeof entry === 'object' ? Number(entry.timestamp || Date.now()) : Number(entry || Date.now());
+                    const data = (entry && typeof entry === 'object' && entry.data) || { id: String(itemId) };
+                    tombstonesToPush.push({ id: itemId, timestamp: ts, data: data });
                 }
             }
         });
@@ -405,11 +433,12 @@
         const toolName = adapter.tool;
         const itemId = adapter.itemId || 'single';
         const localDelTime = getLocalDeleteTime(toolName, itemId);
+        const localDelData = getLocalDeleteData(toolName, itemId);
 
         if (!remoteRow) {
             if (localDelTime > 0) {
                 finalData = null;
-                tombstoneToPush = { id: itemId, timestamp: localDelTime };
+                tombstoneToPush = { id: itemId, timestamp: localDelTime, data: localDelData || localData || { id: String(itemId) } };
             } else if (localData !== null && localData !== undefined) {
                 needsUpload = true;
             }
@@ -422,7 +451,7 @@
                 needsUpload = true;
             } else {
                 finalData = null;
-                hayyizRecordLocalDelete(toolName, itemId, remoteDelTime);
+                hayyizRecordLocalDelete(toolName, itemId, remoteDelTime, remoteRow.data);
             }
         } else {
             const remoteData = remoteRow.data;
@@ -431,7 +460,7 @@
 
             if (localDelTime > 0 && localDelTime >= localTime && localDelTime >= remoteTime) {
                 finalData = null;
-                tombstoneToPush = { id: itemId, timestamp: localDelTime };
+                tombstoneToPush = { id: itemId, timestamp: localDelTime, data: localDelData || remoteData || localData || { id: String(itemId) } };
             } else if (localData === null || localData === undefined) {
                 finalData = remoteData;
                 hayyizClearLocalDelete(toolName, itemId);
@@ -489,10 +518,36 @@
     /**
      * تسجيل حذف عنصر في Supabase باستعمال Tombstone
      */
-    async function hayyizDeleteRemoteItem(toolName, itemId) {
+    async function hayyizDeleteRemoteItem(toolName, itemId, previousData) {
         if (!toolName || !itemId) return;
         const nowMs = Date.now();
-        hayyizRecordLocalDelete(toolName, itemId, nowMs);
+
+        let itemData = previousData;
+        if (!itemData || typeof itemData !== 'object') {
+            itemData = getLocalDeleteData(toolName, itemId);
+        }
+        if (!itemData || typeof itemData !== 'object') {
+            const adapter = TOOL_ADAPTERS[toolName];
+            if (adapter) {
+                if (adapter.type === 'collection') {
+                    const localItems = getLocalStorageItem(adapter.storageKey, []);
+                    if (Array.isArray(localItems)) {
+                        itemData = localItems.find(item => String(adapter.getId(item)) === String(itemId)) || null;
+                    }
+                } else if (adapter.type === 'single') {
+                    if (typeof adapter.getLocalStorage === 'function') {
+                        itemData = adapter.getLocalStorage();
+                    } else {
+                        itemData = getLocalStorageItem(adapter.storageKey, null);
+                    }
+                }
+            }
+        }
+        if (!itemData || typeof itemData !== 'object') {
+            itemData = { id: String(itemId) };
+        }
+
+        hayyizRecordLocalDelete(toolName, itemId, nowMs, itemData);
 
         const user = await getAuthenticatedUser();
         if (!user) return;
@@ -504,6 +559,7 @@
                 user_id: user.id,
                 tool: toolName,
                 item_id: String(itemId),
+                data: itemData,
                 updated_at: nowIso,
                 deleted_at: nowIso
             };
@@ -578,7 +634,7 @@
                         user_id: user.id,
                         tool: toolName,
                         item_id: String(t.id),
-                        data: null,
+                        data: t.data || { id: String(t.id) },
                         updated_at: new Date(t.timestamp || Date.now()).toISOString(),
                         deleted_at: new Date(t.timestamp || Date.now()).toISOString()
                     }));
@@ -620,7 +676,7 @@
                 }
 
                 if (tombstoneToPush) {
-                    await hayyizDeleteRemoteItem(toolName, tombstoneToPush.id);
+                    await hayyizDeleteRemoteItem(toolName, tombstoneToPush.id, tombstoneToPush.data);
                 } else if (needsUpload && finalData !== null && finalData !== undefined) {
                     await hayyizUploadItem(toolName, adapter.itemId, finalData);
                 }
@@ -675,9 +731,9 @@
         return await hayyizUploadItem('notes', note.id, note);
     }
 
-    async function hayyizDeleteRemoteNote(noteId) {
+    async function hayyizDeleteRemoteNote(noteId, previousData) {
         if (!noteId) return;
-        return await hayyizDeleteRemoteItem('notes', noteId);
+        return await hayyizDeleteRemoteItem('notes', noteId, previousData);
     }
 
     /**
