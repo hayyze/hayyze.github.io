@@ -490,6 +490,25 @@
             return pdfjsLoadingPromise;
         }
 
+        function isWorkerLoadingError(err) {
+            if (!err) return false;
+            // PDF document parsing / invalid PDF errors should NOT trigger worker fallback
+            if (err.name === 'InvalidPDFException' || err.name === 'MissingPDFException' || err.name === 'UnexpectedResponseException') {
+                return false;
+            }
+            const msg = (err.message || err.toString() || '').toLowerCase();
+            if (msg.indexOf('invalid pdf') !== -1 || msg.indexOf('missing pdf') !== -1 || msg.indexOf('pdf header') !== -1) {
+                return false;
+            }
+            // Check for worker network / initialization / CORS errors
+            return err.name === 'WorkerError' ||
+                   msg.indexOf('worker') !== -1 ||
+                   msg.indexOf('importscripts') !== -1 ||
+                   msg.indexOf('failed to fetch') !== -1 ||
+                   msg.indexOf('networkerror') !== -1 ||
+                   msg.indexOf('script error') !== -1;
+        }
+
         function loadPdfjsDocument(buffer, options) {
             return ensurePdfJsLoaded().then(function () {
                 const getDocParams = Object.assign({}, options || {}, {
@@ -503,7 +522,7 @@
 
                 let loadingTask = window.pdfjsLib.getDocument(getDocParams);
                 return loadingTask.promise.catch(function (err) {
-                    if (window.pdfjsLib.GlobalWorkerOptions.workerSrc === PDFJS_CDN_WORKER) {
+                    if (window.pdfjsLib.GlobalWorkerOptions.workerSrc === PDFJS_CDN_WORKER && isWorkerLoadingError(err)) {
                         console.warn('CDN worker failed, falling back to local worker:', err);
                         window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_LOCAL_WORKER;
                         const retryParams = Object.assign({}, getDocParams, { data: buffer.slice(0) });
