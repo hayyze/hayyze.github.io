@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pctBox = document.createElement('div');
             pctBox.className = 'dash-card-box';
             pctBox.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted); display:block;">نسبة الاقتراب من الهدف</span>' +
-                               '<strong style="font-size:1.25rem; color:var(--success, #10b981);">' + pctVal + '%</strong>';
+                               '<strong style="font-size:1.25rem; color:var(--color-success);">' + pctVal + '%</strong>';
             goalGrid.appendChild(pctBox);
         }
 
@@ -487,7 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     statusBadge = '<span style="background: rgba(79, 70, 229, 0.1); color: var(--primary); font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">قادم</span>';
                 } else {
                     countdownStr = 'اليوم';
-                    statusBadge = '<span style="background: rgba(245, 158, 11, 0.15); color: #d97706; font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">اليوم</span>';
+                    statusBadge = '<span style="background: color-mix(in srgb, var(--color-warning) 15%, var(--color-surface)); color: var(--color-warning); font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">اليوم</span>';
                 }
             } else {
                 const t0 = new Date(`${todayStr}T00:00:00`).getTime();
@@ -499,7 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     statusBadge = '<span style="background: rgba(79, 70, 229, 0.1); color: var(--primary); font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">قادم</span>';
                 } else {
                     countdownStr = 'اليوم';
-                    statusBadge = '<span style="background: rgba(245, 158, 11, 0.15); color: #d97706; font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">اليوم</span>';
+                    statusBadge = '<span style="background: color-mix(in srgb, var(--color-warning) 15%, var(--color-surface)); color: var(--color-warning); font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">اليوم</span>';
                 }
             }
 

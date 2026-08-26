@@ -500,7 +500,7 @@ input[type="radio"] {
 
 .pomodoro-icon { color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface)); }
 .todo-icon { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface)); }
-.notes-icon { color: #B87333; background: color-mix(in srgb, #B87333 10%, var(--color-surface)); }
+.notes-icon { color: var(--color-warning); background: color-mix(in srgb, var(--color-warning) 10%, var(--color-surface)); }
 .habits-icon { color: var(--color-danger); background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface)); }
 .game-icon { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface)); }
 
