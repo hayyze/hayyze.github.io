@@ -141,13 +141,11 @@ BEGIN
     req_headers_json := NULLIF(current_setting('request.headers', TRUE), '');
     current_uid := auth.uid();
 
-    -- Extract client IP securely from PostgREST request.headers JSON
-    -- Prioritize cf-connecting-ip provided by Supabase Cloudflare edge proxy (which overwrites spoofed client headers)
+    -- Extract client IP securely from PostgREST request.headers JSON via standard x-forwarded-for header
     IF req_headers_json IS NOT NULL THEN
         BEGIN
             headers_jsonb := req_headers_json::jsonb;
             client_ip := COALESCE(
-                NULLIF(trim(headers_jsonb->>'cf-connecting-ip'), ''),
                 NULLIF(trim(split_part(headers_jsonb->>'x-forwarded-for', ',', 1)), ''),
                 'unknown'
             );
@@ -174,11 +172,14 @@ BEGIN
         END IF;
 
         IF NOT user_rate_allowed OR NOT ip_rate_allowed THEN
-            -- Set session-level (is_local = FALSE) GUC status so PostgREST retains status 429 despite exception rollback
+            -- Set GUC session configuration for PostgREST status and headers
             PERFORM set_config('response.status', '429', FALSE);
             PERFORM set_config('response.headers', '[{"Retry-After": "60"}]', FALSE);
+
+            -- Raise PostgREST error using ERRCODE = 'PGRST' and JSON DETAIL payload for HTTP 429 status retention
             RAISE EXCEPTION 'Rate limit exceeded: Too many write requests to sync_items. Please wait before retrying.'
-                USING ERRCODE = 'P0001',
+                USING ERRCODE = 'PGRST',
+                      DETAIL = '{"status": 429, "status_text": "Too Many Requests", "headers": [{"Retry-After": "60"}]}',
                       HINT = 'HTTP 429 Too Many Requests';
         END IF;
     END IF;

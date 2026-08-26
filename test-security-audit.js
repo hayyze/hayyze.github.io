@@ -24,12 +24,18 @@ function runTest(name, fn) {
 }
 
 // 1. Audit SQL Migration File for Security Standards
-runTest('SQL Security: db-pre-request function set_config response.status 429 with session scope and NOTIFY reload', () => {
+runTest('SQL Security: db-pre-request function ERRCODE PGRST with status 429 DETAIL and NOTIFY reload', () => {
     const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema-and-security.sql'), 'utf8');
     assert.ok(sql.includes("PERFORM set_config('response.status', '429', FALSE);"),
-        'db-pre-request must set HTTP status 429 with is_local=FALSE for PostgREST exception retention');
-    assert.ok(sql.includes("headers_jsonb->>'cf-connecting-ip'"),
-        'IP extraction must prioritize cf-connecting-ip header');
+        'db-pre-request must set HTTP status 429 with is_local=FALSE');
+    assert.ok(sql.includes("ERRCODE = 'PGRST'"),
+        'db-pre-request exception must use ERRCODE = \'PGRST\'');
+    assert.ok(sql.includes('"status": 429'),
+        'db-pre-request DETAIL payload must specify status: 429');
+    assert.ok(sql.includes('"status_text": "Too Many Requests"'),
+        'db-pre-request DETAIL payload must specify Too Many Requests status text');
+    assert.ok(sql.includes("headers_jsonb->>'x-forwarded-for'"),
+        'IP extraction must parse x-forwarded-for header from request.headers');
     assert.ok(sql.includes("pgrst.db_pre_request = 'private.pre_request'"),
         'PostgREST db-pre-request setting must register private.pre_request');
     assert.ok(sql.includes("NOTIFY pgrst, 'reload config';"),
