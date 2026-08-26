@@ -266,7 +266,7 @@
                                 email,
                                 password,
                                 options: {
-                                    emailRedirectTo: 'https://just-c.github.io/adawati/'
+                                    emailRedirectTo: 'https://hayyze.github.io/'
                                 }
                             });
                         }
