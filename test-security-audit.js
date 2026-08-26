@@ -28,6 +28,8 @@ runTest('SQL Security: db-pre-request function set_config response.status 429 wi
     const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema-and-security.sql'), 'utf8');
     assert.ok(sql.includes("PERFORM set_config('response.status', '429', FALSE);"),
         'db-pre-request must set HTTP status 429 with is_local=FALSE for PostgREST exception retention');
+    assert.ok(sql.includes("headers_jsonb->>'cf-connecting-ip'"),
+        'IP extraction must prioritize cf-connecting-ip header');
     assert.ok(sql.includes("pgrst.db_pre_request = 'private.pre_request'"),
         'PostgREST db-pre-request setting must register private.pre_request');
     assert.ok(sql.includes("NOTIFY pgrst, 'reload config';"),

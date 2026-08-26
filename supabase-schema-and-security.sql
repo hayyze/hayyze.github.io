@@ -141,13 +141,14 @@ BEGIN
     req_headers_json := NULLIF(current_setting('request.headers', TRUE), '');
     current_uid := auth.uid();
 
-    -- Extract client IP securely from PostgREST request.headers JSON (x-forwarded-for header provided by gateway proxy)
+    -- Extract client IP securely from PostgREST request.headers JSON
+    -- Prioritize cf-connecting-ip provided by Supabase Cloudflare edge proxy (which overwrites spoofed client headers)
     IF req_headers_json IS NOT NULL THEN
         BEGIN
             headers_jsonb := req_headers_json::jsonb;
             client_ip := COALESCE(
+                NULLIF(trim(headers_jsonb->>'cf-connecting-ip'), ''),
                 NULLIF(trim(split_part(headers_jsonb->>'x-forwarded-for', ',', 1)), ''),
-                NULLIF(headers_jsonb->>'cf-connecting-ip', ''),
                 'unknown'
             );
         EXCEPTION WHEN OTHERS THEN
