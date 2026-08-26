@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pctBox = document.createElement('div');
             pctBox.className = 'dash-card-box';
             pctBox.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted); display:block;">نسبة الاقتراب من الهدف</span>' +
-                               '<strong style="font-size:1.25rem; color:var(--success, #10b981);">' + pctVal + '%</strong>';
+                               '<strong style="font-size:1.25rem; color:var(--color-success);">' + pctVal + '%</strong>';
             goalGrid.appendChild(pctBox);
         }
 
@@ -273,7 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const activeFocusState = typeof hayyizGetFocusState === 'function' ? hayyizGetFocusState() : null;
     if (activeFocusState && activeFocusState.status === 'running' && activeFocusState.remainingSeconds > 0) {
         const activeFocusBanner = document.createElement('div');
-        activeFocusBanner.style.cssText = 'padding: 1rem 1.25rem; margin-bottom: 1.25rem; background: linear-gradient(135deg, var(--primary), #6366f1); color: white; border-radius: var(--radius-sm, 14px); display: flex; align-items: center; justify-content: space-between; gap: 0.85rem; flex-wrap: wrap; box-shadow: var(--shadow);';
+        activeFocusBanner.style.cssText = 'padding: 1rem 1.25rem; margin-bottom: 1.25rem; background: var(--color-primary); color: var(--color-primary-text); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between; gap: 0.85rem; flex-wrap: wrap; box-shadow: var(--shadow);';
 
         const remMin = Math.floor(activeFocusState.remainingSeconds / 60);
         const remSec = activeFocusState.remainingSeconds % 60;
@@ -285,7 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <strong style="font-size: 1.05rem; display: block; margin-bottom: 0.2rem;"><i class="fa-solid fa-play"></i> لديك جلسة تركيز جارية الآن (${timeFormatted})</strong>
                 <span style="font-size: 0.88rem; opacity: 0.9;">السياق: ${escapeHtml(ctxTitle)}</span>
             </div>
-            <a href="pomodoro.html" class="btn btn-secondary" style="background: white; color: var(--primary); border: none; font-weight: 700; text-decoration: none;">متابعة الجلسة</a>
+            <a href="pomodoro.html" class="btn btn-accent" style="font-weight: 700; text-decoration: none;">متابعة الجلسة</a>
         `;
         content.appendChild(activeFocusBanner);
     }
@@ -487,7 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     statusBadge = '<span style="background: rgba(79, 70, 229, 0.1); color: var(--primary); font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">قادم</span>';
                 } else {
                     countdownStr = 'اليوم';
-                    statusBadge = '<span style="background: rgba(245, 158, 11, 0.15); color: #d97706; font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">اليوم</span>';
+                    statusBadge = '<span style="background: color-mix(in srgb, var(--color-warning) 15%, var(--color-surface)); color: var(--color-warning); font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">اليوم</span>';
                 }
             } else {
                 const t0 = new Date(`${todayStr}T00:00:00`).getTime();
@@ -499,7 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     statusBadge = '<span style="background: rgba(79, 70, 229, 0.1); color: var(--primary); font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">قادم</span>';
                 } else {
                     countdownStr = 'اليوم';
-                    statusBadge = '<span style="background: rgba(245, 158, 11, 0.15); color: #d97706; font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">اليوم</span>';
+                    statusBadge = '<span style="background: color-mix(in srgb, var(--color-warning) 15%, var(--color-surface)); color: var(--color-warning); font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">اليوم</span>';
                 }
             }
 
