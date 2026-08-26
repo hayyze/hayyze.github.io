@@ -116,6 +116,9 @@ var HAYYIZ_BACKUP_KEYS = HAYYIZ_ALLOWED_BACKUP_KEYS;
 
 /** الحقول الممنوعة/الموثوقة التي يجب تجريدها واستبعادها تماماً من أي ملف استيراد أو تصدير */
 var HAYYIZ_FORBIDDEN_PROPERTIES = new Set([
+    '__proto__',
+    'constructor',
+    'prototype',
     'user_id',
     'owner_id',
     'user',
@@ -142,7 +145,7 @@ var HAYYIZ_FORBIDDEN_PROPERTIES = new Set([
 ]);
 
 /**
- * تنقية كائن بشكل عودي لتجريد أي حقول إدارية أو موثوقة أو معرفات هوية
+ * تنقية كائن بشكل عودي لتجريد أي حقول إدارية أو موثوقة أو معرفات هوية أو محاولات prototype pollution
  */
 function hayyizSanitizeObject(val) {
     if (val === null || val === undefined) return val;
@@ -150,7 +153,7 @@ function hayyizSanitizeObject(val) {
         return val.map((item) => hayyizSanitizeObject(item));
     }
     if (typeof val === 'object') {
-        const cleanObj = {};
+        const cleanObj = Object.create(null);
         Object.keys(val).forEach((k) => {
             const lowerK = k.toLowerCase();
             if (HAYYIZ_FORBIDDEN_PROPERTIES.has(lowerK) || lowerK.startsWith('_storagekey')) {
@@ -239,7 +242,7 @@ function hayyizSanitizeValue(key, rawVal) {
 
     if (numericKeys.has(key)) {
         const num = Number(valStr);
-        if (isNaN(num)) return null;
+        if (!Number.isFinite(num)) return null;
         return String(num);
     }
 

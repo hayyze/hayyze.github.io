@@ -213,6 +213,58 @@ function testTamperedUserId() {
         assert(todos[0].user_id === undefined, 'Import strips user_id property from item payload');
         assert(todos[0].owner_id === undefined, 'Import strips owner_id property from item payload');
 
+        testPrototypePollutionAndNonFiniteNumbers();
+    }, 10);
+}
+
+function testPrototypePollutionAndNonFiniteNumbers() {
+    localStorage.clear();
+
+    // 1. Prototype Pollution Payload
+    const protoPollutionPayload = {
+        version: 2,
+        app: 'حيز',
+        keys: {
+            'hayyiz-todos': JSON.stringify([
+                {
+                    id: 't_proto_1',
+                    text: 'مهمة اختبار الـ pollution',
+                    "__proto__": { "isAdmin": true },
+                    "constructor": { "prototype": { "isAdmin": true } },
+                    "prototype": { "isAdmin": true }
+                }
+            ]),
+            'hayyiz-pref-work': '25',
+            'hayyiz-sessions': '0',
+            'hayyiz-sessions-today': '120',
+            'hayyiz-focus-minutes-today': 'Infinity',
+            'hayyiz-pref-break': '-Infinity',
+            'hayyiz-pref-long': 'NaN'
+        }
+    };
+
+    const file = { _content: JSON.stringify(protoPollutionPayload) };
+    importHayyizData(file);
+
+    setTimeout(() => {
+        const todos = JSON.parse(localStorage.getItem('hayyiz-todos'));
+
+        // Verify Prototype Pollution Prevention
+        assert(todos[0].id === 't_proto_1' && todos[0].text === 'مهمة اختبار الـ pollution', 'Import restores valid item data cleanly');
+        assert(({}).isAdmin === undefined, 'Import does NOT cause prototype pollution via Object.prototype');
+        assert(todos[0].__proto__ === undefined || Object.getPrototypeOf(todos[0]) === Object.prototype, 'Object prototype remains standard and unpolluted');
+        assert(todos[0].constructor === undefined || todos[0].constructor === Object, 'Constructor property pollution prevented');
+        assert(todos[0].prototype === undefined, 'Prototype property pollution stripped');
+
+        // Verify Strict Finite Number Checking
+        assert(localStorage.getItem('hayyiz-pref-work') === '25', 'Valid numeric value 25 imported successfully');
+        assert(localStorage.getItem('hayyiz-sessions') === '0', 'Valid numeric value 0 imported successfully');
+        assert(localStorage.getItem('hayyiz-sessions-today') === '120', 'Valid numeric value 120 imported successfully');
+
+        assert(localStorage.getItem('hayyiz-focus-minutes-today') === null, 'Non-finite numeric value Infinity rejected');
+        assert(localStorage.getItem('hayyiz-pref-break') === null, 'Non-finite numeric value -Infinity rejected');
+        assert(localStorage.getItem('hayyiz-pref-long') === null, 'Non-finite numeric value NaN rejected');
+
         console.log(`\n===================================`);
         console.log(`SECURITY TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
         console.log(`===================================\n`);
