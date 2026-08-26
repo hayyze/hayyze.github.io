@@ -128,28 +128,51 @@ AS $$
 DECLARE
     req_method TEXT;
     req_path TEXT;
+    req_headers_json TEXT;
+    client_ip TEXT := 'unknown';
     current_uid UUID;
-    rate_allowed BOOLEAN := TRUE;
-    rate_key TEXT;
+    user_rate_allowed BOOLEAN := TRUE;
+    ip_rate_allowed BOOLEAN := TRUE;
+    headers_jsonb JSONB;
 BEGIN
     -- Read GUC claims provided by PostgREST
     req_method := NULLIF(current_setting('request.method', TRUE), '');
     req_path   := NULLIF(current_setting('request.path', TRUE), '');
+    req_headers_json := NULLIF(current_setting('request.headers', TRUE), '');
     current_uid := auth.uid();
+
+    -- Extract client IP securely from PostgREST request.headers JSON (x-forwarded-for header provided by gateway proxy)
+    IF req_headers_json IS NOT NULL THEN
+        BEGIN
+            headers_jsonb := req_headers_json::jsonb;
+            client_ip := COALESCE(
+                NULLIF(trim(split_part(headers_jsonb->>'x-forwarded-for', ',', 1)), ''),
+                NULLIF(headers_jsonb->>'cf-connecting-ip', ''),
+                'unknown'
+            );
+        EXCEPTION WHEN OTHERS THEN
+            client_ip := 'unknown';
+        END;
+    END IF;
 
     -- Intercept write HTTP operations (POST, PATCH, PUT, DELETE) targeting /sync_items
     IF req_method IN ('POST', 'PATCH', 'PUT', 'DELETE') AND (req_path IS NULL OR req_path LIKE '%sync_items%') THEN
+        -- 1. Per-User Rate Limit: max 120 writes per 60s
         IF current_uid IS NOT NULL THEN
-            -- User-based rate limit: max 120 writes per 60 seconds per user
-            rate_key := 'sync_write_user:' || current_uid::text;
-            rate_allowed := private.check_rate_limit(rate_key, 120, 60);
-        ELSE
-            -- Global unauthenticated write flood protection: max 60 unauthenticated attempts per 60 seconds
-            rate_key := 'sync_write_anon_global';
-            rate_allowed := private.check_rate_limit(rate_key, 60, 60);
+            user_rate_allowed := private.check_rate_limit('sync_write_user:' || current_uid::text, 120, 60);
         END IF;
 
-        IF NOT rate_allowed THEN
+        -- 2. Per-IP Rate Limit (Generous NAT-safe ceiling): max 300 writes per 60s per IP
+        IF client_ip <> 'unknown' THEN
+            ip_rate_allowed := private.check_rate_limit('sync_write_ip:' || client_ip, 300, 60);
+        ELSE
+            -- Fallback global unauthenticated flood limit if IP is unknown
+            IF current_uid IS NULL THEN
+                user_rate_allowed := private.check_rate_limit('sync_write_anon_global', 60, 60);
+            END IF;
+        END IF;
+
+        IF NOT user_rate_allowed OR NOT ip_rate_allowed THEN
             -- Set session-level (is_local = FALSE) GUC status so PostgREST retains status 429 despite exception rollback
             PERFORM set_config('response.status', '429', FALSE);
             PERFORM set_config('response.headers', '[{"Retry-After": "60"}]', FALSE);
@@ -161,8 +184,9 @@ BEGIN
 END;
 $$;
 
--- Register pre-request function in PostgREST configuration
+-- Register pre-request function in PostgREST configuration and reload config immediately
 ALTER ROLE authenticator SET pgrst.db_pre_request = 'private.pre_request';
+NOTIFY pgrst, 'reload config';
 
 -- Lock down private schema permissions and grant required execution rights to authenticator role
 REVOKE ALL ON ALL TABLES IN SCHEMA private FROM PUBLIC, anon, authenticated;

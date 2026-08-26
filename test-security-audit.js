@@ -24,14 +24,77 @@ function runTest(name, fn) {
 }
 
 // 1. Audit SQL Migration File for Security Standards
-runTest('SQL Security: db-pre-request function set_config response.status 429 with session scope', () => {
+runTest('SQL Security: db-pre-request function set_config response.status 429 with session scope and NOTIFY reload', () => {
     const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema-and-security.sql'), 'utf8');
     assert.ok(sql.includes("PERFORM set_config('response.status', '429', FALSE);"),
         'db-pre-request must set HTTP status 429 with is_local=FALSE for PostgREST exception retention');
     assert.ok(sql.includes("pgrst.db_pre_request = 'private.pre_request'"),
         'PostgREST db-pre-request setting must register private.pre_request');
+    assert.ok(sql.includes("NOTIFY pgrst, 'reload config';"),
+        'Must issue NOTIFY pgrst, \'reload config\' after setting db_pre_request');
     assert.ok(sql.includes("GRANT EXECUTE ON FUNCTION private.pre_request() TO authenticator;"),
         'private.pre_request must grant EXECUTE to authenticator role');
+});
+
+// 4. PostgREST db-pre-request Integration Logic Simulator
+runTest('PostgREST Pre-Request Functional Simulation: 2xx normal vs 429 rate-limited responses', () => {
+    // Simulated PostgREST GUC state and rate limit table
+    const rateLimitsStore = new Map();
+    let gucStatus = '200';
+    let gucHeaders = [];
+
+    function checkRateLimitSim(key, maxAttempts, windowSec) {
+        const now = Date.now();
+        const entry = rateLimitsStore.get(key);
+        if (!entry || entry.expiresAt < now) {
+            rateLimitsStore.set(key, { attempts: 1, expiresAt: now + windowSec * 1000 });
+            return true;
+        }
+        if (entry.attempts < maxAttempts) {
+            entry.attempts++;
+            return true;
+        }
+        return false;
+    }
+
+    function preRequestSim(reqMethod, reqPath, headersJson, userUid) {
+        if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(reqMethod) && (!reqPath || reqPath.includes('sync_items'))) {
+            let userAllowed = true;
+            let ipAllowed = true;
+            let clientIp = 'unknown';
+
+            if (headersJson && headersJson['x-forwarded-for']) {
+                clientIp = headersJson['x-forwarded-for'].split(',')[0].trim();
+            }
+
+            if (userUid) {
+                userAllowed = checkRateLimitSim(`sync_write_user:${userUid}`, 2, 60); // Max 2 for testing
+            }
+            if (clientIp !== 'unknown') {
+                ipAllowed = checkRateLimitSim(`sync_write_ip:${clientIp}`, 3, 60); // Max 3 for testing
+            }
+
+            if (!userAllowed || !ipAllowed) {
+                gucStatus = '429';
+                gucHeaders = [{ 'Retry-After': '60' }];
+                throw new Error('P0001: Rate limit exceeded');
+            }
+        }
+        gucStatus = '200';
+        return true;
+    }
+
+    // Attempt 1 & 2: Normal write requests for user_123 -> Status 200
+    assert.doesNotThrow(() => preRequestSim('POST', '/sync_items', { 'x-forwarded-for': '192.168.1.1' }, 'user_123'));
+    assert.strictEqual(gucStatus, '200');
+
+    assert.doesNotThrow(() => preRequestSim('POST', '/sync_items', { 'x-forwarded-for': '192.168.1.1' }, 'user_123'));
+    assert.strictEqual(gucStatus, '200');
+
+    // Attempt 3: User limit breached -> Throws exception & sets HTTP 429 + Retry-After header
+    assert.throws(() => preRequestSim('POST', '/sync_items', { 'x-forwarded-for': '192.168.1.1' }, 'user_123'), /P0001/);
+    assert.strictEqual(gucStatus, '429');
+    assert.deepStrictEqual(gucHeaders, [{ 'Retry-After': '60' }]);
 });
 
 runTest('SQL Security: Trigger returns OLD on DELETE operations', () => {
