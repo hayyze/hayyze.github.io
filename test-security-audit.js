@@ -24,6 +24,16 @@ function runTest(name, fn) {
 }
 
 // 1. Audit SQL Migration File for Security Standards
+runTest('SQL Security: db-pre-request function set_config response.status 429 with session scope', () => {
+    const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema-and-security.sql'), 'utf8');
+    assert.ok(sql.includes("PERFORM set_config('response.status', '429', FALSE);"),
+        'db-pre-request must set HTTP status 429 with is_local=FALSE for PostgREST exception retention');
+    assert.ok(sql.includes("pgrst.db_pre_request = 'private.pre_request'"),
+        'PostgREST db-pre-request setting must register private.pre_request');
+    assert.ok(sql.includes("GRANT EXECUTE ON FUNCTION private.pre_request() TO authenticator;"),
+        'private.pre_request must grant EXECUTE to authenticator role');
+});
+
 runTest('SQL Security: Trigger returns OLD on DELETE operations', () => {
     const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema-and-security.sql'), 'utf8');
     assert.ok(sql.includes("IF TG_OP = 'DELETE' THEN"), 'Trigger missing TG_OP = DELETE handling');

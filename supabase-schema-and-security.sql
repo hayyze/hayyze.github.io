@@ -68,6 +68,7 @@ TO authenticated
 USING (auth.uid() = user_id);
 
 -- 4. PRIVATE RATE-LIMITING SCHEMA FOR DATA API WRITE FLOOD PROTECTION
+-- 4. PRIVATE RATE-LIMITING SCHEMA FOR POSTGREST DB-PRE-REQUEST PROTECTION
 CREATE TABLE IF NOT EXISTS private.rate_limits (
     key TEXT PRIMARY KEY,
     attempts INT NOT NULL DEFAULT 1,
@@ -116,11 +117,62 @@ BEGIN
 END;
 $$;
 
--- Revoke permissions on private rate limiting from public/anon/authenticated
+-- Server-Side PostgREST db-pre-request Interceptor Function
+-- Evaluates HTTP requests before query execution and sets response.status = '429' on limit breach
+CREATE OR REPLACE FUNCTION private.pre_request()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    req_method TEXT;
+    req_path TEXT;
+    current_uid UUID;
+    rate_allowed BOOLEAN := TRUE;
+    rate_key TEXT;
+BEGIN
+    -- Read GUC claims provided by PostgREST
+    req_method := NULLIF(current_setting('request.method', TRUE), '');
+    req_path   := NULLIF(current_setting('request.path', TRUE), '');
+    current_uid := auth.uid();
+
+    -- Intercept write HTTP operations (POST, PATCH, PUT, DELETE) targeting /sync_items
+    IF req_method IN ('POST', 'PATCH', 'PUT', 'DELETE') AND (req_path IS NULL OR req_path LIKE '%sync_items%') THEN
+        IF current_uid IS NOT NULL THEN
+            -- User-based rate limit: max 120 writes per 60 seconds per user
+            rate_key := 'sync_write_user:' || current_uid::text;
+            rate_allowed := private.check_rate_limit(rate_key, 120, 60);
+        ELSE
+            -- Global unauthenticated write flood protection: max 60 unauthenticated attempts per 60 seconds
+            rate_key := 'sync_write_anon_global';
+            rate_allowed := private.check_rate_limit(rate_key, 60, 60);
+        END IF;
+
+        IF NOT rate_allowed THEN
+            -- Set session-level (is_local = FALSE) GUC status so PostgREST retains status 429 despite exception rollback
+            PERFORM set_config('response.status', '429', FALSE);
+            PERFORM set_config('response.headers', '[{"Retry-After": "60"}]', FALSE);
+            RAISE EXCEPTION 'Rate limit exceeded: Too many write requests to sync_items. Please wait before retrying.'
+                USING ERRCODE = 'P0001',
+                      HINT = 'HTTP 429 Too Many Requests';
+        END IF;
+    END IF;
+END;
+$$;
+
+-- Register pre-request function in PostgREST configuration
+ALTER ROLE authenticator SET pgrst.db_pre_request = 'private.pre_request';
+
+-- Lock down private schema permissions and grant required execution rights to authenticator role
 REVOKE ALL ON ALL TABLES IN SCHEMA private FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA private FROM PUBLIC, anon, authenticated;
 
--- 5. PAYLOAD, QUOTA & WRITE RATE ENFORCEMENT TRIGGER (Data Swelling & Flood Prevention)
+GRANT USAGE ON SCHEMA private TO authenticator;
+GRANT EXECUTE ON FUNCTION private.pre_request() TO authenticator;
+GRANT EXECUTE ON FUNCTION private.check_rate_limit(TEXT, INT, INT) TO authenticator;
+
+-- 5. PAYLOAD, QUOTA & AUTHORIZATION TRIGGER (Data Invariants & Quota Enforcement)
 CREATE OR REPLACE FUNCTION public.check_sync_item_limits()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -136,26 +188,15 @@ DECLARE
     tool_val TEXT;
     item_id_val TEXT;
     data_val JSONB;
-    rate_allowed BOOLEAN;
-    rate_key TEXT;
 BEGIN
     user_id_val := COALESCE(NEW.user_id, OLD.user_id);
     tool_val := COALESCE(NEW.tool, OLD.tool);
     item_id_val := COALESCE(NEW.item_id, OLD.item_id);
 
-    -- Force user_id to match authenticated user identity
+    -- 1. Force user_id to match authenticated user identity
     IF user_id_val IS NULL OR user_id_val <> auth.uid() THEN
         RAISE EXCEPTION 'Unauthorized: user_id must match authenticated user identity.'
             USING ERRCODE = '42501';
-    END IF;
-
-    -- 1. Server-Side Write Rate-Limiting Enforced directly on Data API (120 writes / 60s per user)
-    rate_key := 'sync_write:' || user_id_val::text;
-    rate_allowed := private.check_rate_limit(rate_key, 120, 60);
-
-    IF NOT rate_allowed THEN
-        RAISE EXCEPTION 'Rate limit exceeded: Too many write requests to sync_items. Please wait before syncing again.'
-            USING ERRCODE = 'P0001'; -- PostgREST translates P0001 or custom error into 429 / HTTP Error
     END IF;
 
     -- 2. Payload size validation for INSERT / UPDATE (100KB limit)
