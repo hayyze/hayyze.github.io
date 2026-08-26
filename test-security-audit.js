@@ -85,7 +85,7 @@ runTest('PostgREST Pre-Request Functional Simulation: 2xx normal vs 429 rate-lim
             if (!userAllowed || !ipAllowed) {
                 gucStatus = '429';
                 gucHeaders = [{ 'Retry-After': '60' }];
-                throw new Error('P0001: Rate limit exceeded');
+                throw new Error('PGRST: Rate limit exceeded {"status": 429, "status_text": "Too Many Requests"}');
             }
         }
         gucStatus = '200';
@@ -100,7 +100,7 @@ runTest('PostgREST Pre-Request Functional Simulation: 2xx normal vs 429 rate-lim
     assert.strictEqual(gucStatus, '200');
 
     // Attempt 3: User limit breached -> Throws exception & sets HTTP 429 + Retry-After header
-    assert.throws(() => preRequestSim('POST', '/sync_items', { 'x-forwarded-for': '192.168.1.1' }, 'user_123'), /P0001/);
+    assert.throws(() => preRequestSim('POST', '/sync_items', { 'x-forwarded-for': '192.168.1.1' }, 'user_123'), /PGRST/);
     assert.strictEqual(gucStatus, '429');
     assert.deepStrictEqual(gucHeaders, [{ 'Retry-After': '60' }]);
 });
