@@ -429,12 +429,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         shareBtn.className = 'btn btn-primary';
         shareBtn.innerHTML = '<i class="fa-solid fa-share-nodes" aria-hidden="true"></i> شارك نتيجتك';
         shareBtn.addEventListener('click', () => {
-            const text = `لعبت جماد حيوان نبات في حيز وسجلت ${score}/100 🔥\nالحرف كان: ${currentLetter}\n\nجربها أنت كمان: https://just-c.github.io/adawati/game.html`;
+            const text = `لعبت جماد حيوان نبات في حيز وسجلت ${score}/100 🔥\nالحرف كان: ${currentLetter}\n\nجربها أنت كمان: https://hayyze.github.io/game.html`;
             if (navigator.share) {
                 navigator.share({
                     title: 'نتيجتي في لعبة الحروف — حيز',
                     text: text,
-                    url: 'https://just-c.github.io/adawati/game.html'
+                    url: 'https://hayyze.github.io/game.html'
                 }).catch(() => copyShareText(text));
             } else {
                 copyShareText(text);
@@ -443,7 +443,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const twitterBtn = document.createElement('a');
         twitterBtn.className = 'btn btn-outline';
-        twitterBtn.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(`لعبت جماد حيوان نبات في حيز وسجلت ${score}/100 🔥\nالحرف كان: ${currentLetter}\n\nجربها أنت كمان:`)}&url=${encodeURIComponent('https://just-c.github.io/adawati/game.html')}`;
+        twitterBtn.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(`لعبت جماد حيوان نبات في حيز وسجلت ${score}/100 🔥\nالحرف كان: ${currentLetter}\n\nجربها أنت كمان:`)}&url=${encodeURIComponent('https://hayyze.github.io/game.html')}`;
         twitterBtn.target = '_blank';
         twitterBtn.rel = 'noopener noreferrer';
         twitterBtn.innerHTML = '<i class="fa-brands fa-x-twitter" aria-hidden="true"></i> تويتر / إكس';
