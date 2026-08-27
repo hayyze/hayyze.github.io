@@ -481,6 +481,86 @@ class TestMockElement {
   assert(res.status === "impossible" && todos.length === 0, "Case 24: Impossible target analysis creates 0 tasks cleanly");
 }
 
+// Case 25: Typing target in input without clicking button creates ZERO tasks
+{
+  localStorage.setItem('hayyiz-todos', JSON.stringify([]));
+
+  const mockContainer = new TestMockElement('div', 'whatneed-body');
+  const mockTargetInput = new TestMockElement('input', 'goal-target-input');
+  mockTargetInput.value = '95';
+
+  global.alert = () => {};
+  global.document = {
+    createElement: (tag) => new TestMockElement(tag),
+    getElementById: (id) => {
+      if (id === 'whatneed-body') return mockContainer;
+      if (id === 'goal-target-input') return mockTargetInput;
+      return null;
+    }
+  };
+
+  const subjectList = [{ name: "الرياضيات", weight: 5, grade: 80 }];
+
+  // Simulate typing input: call refreshWhatNeedUI without clicking button
+  global.refreshWhatNeedUI(subjectList, 80.0, 95.0);
+
+  const todos = global.hayyizGetTodos();
+  assert(todos.length === 0, "Case 25: Typing target or rendering analysis without clicking button creates 0 tasks");
+}
+
+// Case 26: Clicking "احسب المطلوب" explicitly creates tasks with source: "gpa-target-analysis"
+{
+  localStorage.setItem('hayyiz-todos', JSON.stringify([]));
+
+  const mockContainer = new TestMockElement('div', 'whatneed-body');
+  const mockTargetInput = new TestMockElement('input', 'goal-target-input');
+  mockTargetInput.value = '95';
+
+  global.alert = () => {};
+  global.document = {
+    createElement: (tag) => new TestMockElement(tag),
+    getElementById: (id) => {
+      if (id === 'whatneed-body') return mockContainer;
+      if (id === 'goal-target-input') return mockTargetInput;
+      return null;
+    }
+  };
+
+  const subjectList = [{ name: "الرياضيات", weight: 5, grade: 80 }];
+  global.refreshWhatNeedUI(subjectList, 80.0, 95.0);
+
+  const calcBtn = mockContainer.querySelectorAll('button').find(b => b.textContent.includes('احسب المطلوب'));
+  calcBtn.click();
+
+  const todos = global.hayyizGetTodos();
+  assert(todos.length === 1 && todos[0].source === "gpa-target-analysis", "Case 26: Clicking 'احسب المطلوب' explicitly creates task marked with source: 'gpa-target-analysis'");
+}
+
+// Case 27: Manual user tasks with matching name are protected and NOT modified or overwritten
+{
+  localStorage.setItem('hayyiz-todos', JSON.stringify([
+    {
+      id: "manual_1",
+      text: "رفع درجة مادة الرياضيات",
+      notes: "ملاحظتي الشخصية اليدوية",
+      priority: "high",
+      completed: false,
+      created: Date.now() - 100000
+    }
+  ]));
+
+  const recommendedGrades = [
+    { name: "الرياضيات", currentGrade: 80, requiredGrade: 95, impactPriority: "عالية" }
+  ];
+
+  global.hayyizSyncGpaTargetTasks(recommendedGrades, 95.0);
+
+  const todos = global.hayyizGetTodos();
+  assert(todos.length === 2, "Case 27: Manual task preserved and separate GPA task created (total 2 tasks)");
+  const manualTask = todos.find(t => t.id === "manual_1");
+  assert(manualTask && manualTask.notes === "ملاحظتي الشخصية اليدوية" && manualTask.source !== "gpa-target-analysis", "Case 27: Manual user task details and notes remain completely untouched");
+}
+
 console.log(`\nTests Summary: ${passed} Passed, ${failed} Failed`);
 if (failed > 0) {
   process.exit(1);

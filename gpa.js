@@ -1095,9 +1095,10 @@
       const taskTitle = "رفع درجة مادة " + rg.name;
       const notesText = "الدرجة الحالية: " + rg.currentGrade.toFixed(2) + " | المطلوبة: " + rg.requiredGrade.toFixed(2) + " للوصول إلى هدف " + targetGpa.toFixed(2) + "%";
 
-      // 3. البحث عن مهمة قائمة لنفس المادة
+      // 3. البحث فقط عن مهمة منشأة سابقاً من أداة تحليل الهدف (source === "gpa-target-analysis")
       const existingIdx = todos.findIndex((t) => {
         if (!t) return false;
+        if (t.source !== "gpa-target-analysis") return false;
         if (t.gpaSubject && t.gpaSubject === rg.name) return true;
         if (t.text && t.text.trim() === taskTitle) return true;
         return false;
@@ -1116,7 +1117,7 @@
           createdOrUpdatedCount++;
         }
       } else {
-        // إنشاء مهمة جديدة
+        // إنشاء مهمة جديدة مع وسم المصدر الصريح للحماية من تعديل المهام اليدوية
         const newTodo = {
           id: typeof hayyizGenerateId === 'function' ? hayyizGenerateId() : 'h_' + Date.now() + Math.random().toString(36).slice(2, 6),
           text: taskTitle,
@@ -1125,6 +1126,7 @@
           completed: false,
           status: "todo",
           created: Date.now(),
+          source: "gpa-target-analysis",
           gpaSubject: rg.name,
           gpaTarget: targetGpa,
           gpaRequiredGrade: rg.requiredGrade
@@ -1333,35 +1335,45 @@
   function refreshWhatNeedUI(list, realGpa, targetGpa) {
     const container = document.getElementById("whatneed-body");
     if (!container) return;
-    container.replaceChildren();
 
-    const calcBtnWrap = document.createElement("div");
-    calcBtnWrap.style.marginBottom = "0.75rem";
-    const calcBtn = document.createElement("button");
-    calcBtn.type = "button";
-    calcBtn.className = "btn btn-primary btn-sm";
-    calcBtn.innerHTML = '<i class="fa-solid fa-calculator" aria-hidden="true"></i> احسب المطلوب';
+    let calcBtnWrap = container.querySelector(".whatneed-calc-wrap");
+    if (!calcBtnWrap) {
+      container.replaceChildren();
+      calcBtnWrap = document.createElement("div");
+      calcBtnWrap.className = "whatneed-calc-wrap";
+      calcBtnWrap.style.marginBottom = "0.75rem";
+      const calcBtn = document.createElement("button");
+      calcBtn.type = "button";
+      calcBtn.className = "btn btn-primary btn-sm";
+      calcBtn.innerHTML = '<i class="fa-solid fa-calculator" aria-hidden="true"></i> احسب المطلوب';
 
-    const handleCalculateNeeded = () => {
-      const targetInput = document.getElementById("goal-target-input");
-      const rawVal = targetInput ? targetInput.value.trim() : "";
-      const val = parseFloat(rawVal);
-      if (rawVal === "" || isNaN(val) || val < 0 || val > 100) {
-        alert("يرجى إدخال معدل مستهدف صحيح بين 0 و 100 لحساب الدرجات المطلوبة.");
-        if (targetInput) targetInput.focus();
-        return;
-      }
-      updateGoalGapUI(realGpa, val);
-      renderTargetAnalysisDetails(container, list, realGpa, val);
-    };
+      const handleCalculateNeeded = () => {
+        const targetInput = document.getElementById("goal-target-input");
+        const rawVal = targetInput ? targetInput.value.trim() : "";
+        const val = parseFloat(rawVal);
+        if (rawVal === "" || isNaN(val) || val < 0 || val > 100) {
+          alert("يرجى إدخال معدل مستهدف صحيح بين 0 و 100 لحساب الدرجات المطلوبة.");
+          if (targetInput) targetInput.focus();
+          return;
+        }
+        updateGoalGapUI(realGpa, val);
+        const analysisResult = renderTargetAnalysisDetails(container, list, realGpa, val);
+        if (analysisResult && analysisResult.status === "reachable") {
+          hayyizSyncGpaTargetTasks(analysisResult.recommendedGrades, val);
+        }
+      };
 
-    calcBtn.addEventListener("click", handleCalculateNeeded);
-    calcBtnWrap.appendChild(calcBtn);
-    container.appendChild(calcBtnWrap);
+      calcBtn.addEventListener("click", handleCalculateNeeded);
+      calcBtnWrap.appendChild(calcBtn);
+      container.appendChild(calcBtnWrap);
+    }
 
     if (targetGpa !== null && targetGpa !== undefined && !isNaN(targetGpa) && targetGpa >= 0 && targetGpa <= 100) {
       renderTargetAnalysisDetails(container, list, realGpa, targetGpa);
     } else {
+      const oldDetails = container.querySelector(".whatneed-details");
+      if (oldDetails) oldDetails.remove();
+
       const details = document.createElement("div");
       details.className = "whatneed-details";
 
@@ -1393,7 +1405,7 @@
 
     if (!result) {
       container.appendChild(details);
-      return;
+      return null;
     }
 
     if (result.status === "achieved") {
@@ -1453,12 +1465,9 @@
       tableWrap.appendChild(table);
       details.appendChild(tableWrap);
 
-      // مزامنة المواد المطلوبة مع نظام المهام (استثناء المواظبة والسلوك والحد من التكرار)
-      hayyizSyncGpaTargetTasks(result.recommendedGrades, targetGpa);
-
       const taskNotice = document.createElement("p");
       taskNotice.style.cssText = "font-size:0.88rem; color:var(--text-muted); margin-bottom:1rem;";
-      taskNotice.innerHTML = '<i class="fa-solid fa-square-check" style="color:var(--success);" aria-hidden="true"></i> تم إضافة وتحديث المواد المحددة تلقائيًا كمهام في <a href="todo.html" style="color:var(--primary); font-weight:600;">قائمة المهام</a>.';
+      taskNotice.innerHTML = '<i class="fa-solid fa-square-check" style="color:var(--success);" aria-hidden="true"></i> يمكنك إضافة هذه المواد كمهام دراسية بالضغط على «احسب المطلوب».';
       details.appendChild(taskNotice);
 
       // زر نقل الخطة إلى ماذا لو
@@ -1498,6 +1507,7 @@
 
     renderSubjectImpactsSection(details, list);
     container.appendChild(details);
+    return result;
   }
 
   function renderSubjectImpactsSection(container, list) {
