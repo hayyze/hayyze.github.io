@@ -706,24 +706,77 @@
       }
     }
 
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     function renderWeightedRows() {
       if (!weightedRowsEl) return;
-      weightedRowsEl.innerHTML = weightedItems.map((item) => `
-        <div class="weighted-row" data-id="${item.id}">
-          <input type="text" class="w-name" value="${item.name}" placeholder="اسم الاختبار">
-          <div class="pct-wrap">
-            <input type="number" class="w-percent" min="0" max="100" step="1" value="${item.percent}" placeholder="0">
-            <span>%</span>
-          </div>
-          <div class="score-wrap">
-            <input type="number" class="w-score" min="0" max="100" step="0.01" value="${item.score}" placeholder="الدرجة">
-            <span>/100</span>
-          </div>
-          <button type="button" class="remove-btn" title="حذف" data-id="${item.id}">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-      `).join("");
+      weightedRowsEl.replaceChildren();
+
+      weightedItems.forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "weighted-row";
+        row.dataset.id = String(item.id);
+
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.className = "w-name";
+        nameInput.value = item.name;
+        nameInput.placeholder = "اسم الاختبار";
+
+        const pctWrap = document.createElement("div");
+        pctWrap.className = "pct-wrap";
+        const pctInput = document.createElement("input");
+        pctInput.type = "number";
+        pctInput.className = "w-percent";
+        pctInput.min = "0";
+        pctInput.max = "100";
+        pctInput.step = "1";
+        pctInput.value = item.percent;
+        pctInput.placeholder = "0";
+        const pctSpan = document.createElement("span");
+        pctSpan.textContent = "%";
+        pctWrap.appendChild(pctInput);
+        pctWrap.appendChild(pctSpan);
+
+        const scoreWrap = document.createElement("div");
+        scoreWrap.className = "score-wrap";
+        const scoreInput = document.createElement("input");
+        scoreInput.type = "number";
+        scoreInput.className = "w-score";
+        scoreInput.min = "0";
+        scoreInput.max = "100";
+        scoreInput.step = "0.01";
+        scoreInput.value = item.score;
+        scoreInput.placeholder = "الدرجة";
+        const scoreSpan = document.createElement("span");
+        scoreSpan.textContent = "/100";
+        scoreWrap.appendChild(scoreInput);
+        scoreWrap.appendChild(scoreSpan);
+
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "remove-btn";
+        removeBtn.title = "حذف";
+        removeBtn.dataset.id = String(item.id);
+        const icon = document.createElement("i");
+        icon.className = "fa-solid fa-xmark";
+        removeBtn.appendChild(icon);
+
+        row.appendChild(nameInput);
+        row.appendChild(pctWrap);
+        row.appendChild(scoreWrap);
+        row.appendChild(removeBtn);
+
+        weightedRowsEl.appendChild(row);
+      });
 
       weightedRowsEl.querySelectorAll(".w-name").forEach((inp) => {
         inp.addEventListener("input", (e) => {
@@ -1277,7 +1330,7 @@
         <tbody>
           ${result.recommendedGrades.map((rg) => `
             <tr style="border-bottom:1px solid var(--border);">
-              <td style="padding:8px 10px; font-weight:600;">${rg.name}</td>
+              <td style="padding:8px 10px; font-weight:600;">${escapeHtml(rg.name)}</td>
               <td style="padding:8px 10px; text-align:center;">${rg.currentGrade.toFixed(2)}</td>
               <td style="padding:8px 10px; text-align:center; font-weight:700; color:var(--primary);">${rg.requiredGrade.toFixed(2)}</td>
               <td style="padding:8px 10px; text-align:center;">${rg.weight}</td>
@@ -1366,7 +1419,7 @@
 
       const subInfo = document.createElement("div");
       subInfo.innerHTML =
-        `<strong style="font-size:0.92rem; color:var(--text);">${imp.name}</strong> ` +
+        `<strong style="font-size:0.92rem; color:var(--text);">${escapeHtml(imp.name)}</strong> ` +
         `<span style="font-size:0.8rem; color:var(--text-muted);">(الدرجة: ${imp.grade.toFixed(2)} / 100 · الوزن: ${imp.weight})</span>`;
 
       left.appendChild(rankBadge);
