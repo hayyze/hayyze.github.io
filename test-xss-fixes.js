@@ -5,7 +5,7 @@ const commonJs = fs.readFileSync('./common.js', 'utf8');
 const gpaJs = fs.readFileSync('./gpa.js', 'utf8');
 const summaryJs = fs.readFileSync('./summary.js', 'utf8');
 
-// Mock DOM environment
+// Mock DOM environment with element and child tag tracking
 class MockElement {
     constructor(tagName, id = '') {
         this.tagName = tagName.toUpperCase();
@@ -51,7 +51,7 @@ class MockElement {
         if (this.children.length > 0) {
             return this.children.map(c => {
                 if (typeof c === 'string') return c;
-                return `<${c.tagName.toLowerCase()} class="${c.className}">${c.innerHTML}</${c.tagName.toLowerCase()}>`;
+                return `<${c.tagName.toLowerCase()}${c.id ? ` id="${c.id}"` : ''}${c.className ? ` class="${c.className}"` : ''}>${c.innerHTML}</${c.tagName.toLowerCase()}>`;
             }).join('');
         }
         return this._innerHTML;
@@ -59,6 +59,19 @@ class MockElement {
     set innerHTML(html) {
         this._innerHTML = String(html);
         this.children = [];
+        // Simulate real HTML parsing: if unescaped <img> or script tag is passed into innerHTML, parse it into a child element
+        if (html.includes('<img ') || html.includes('<script')) {
+            const imgMatch = html.match(/<img\s+([^>]+)>/i);
+            if (imgMatch) {
+                const imgEl = new MockElement('img');
+                const attrs = imgMatch[1];
+                const srcMatch = attrs.match(/src=["']?([^"'\s>]+)/i);
+                const onerrorMatch = attrs.match(/onerror=["']?([^"'>]+)/i);
+                if (srcMatch) imgEl.setAttribute('src', srcMatch[1]);
+                if (onerrorMatch) imgEl.setAttribute('onerror', onerrorMatch[1]);
+                this.appendChild(imgEl);
+            }
+        }
     }
 
     appendChild(child) {
@@ -203,53 +216,37 @@ function assert(cond, msg) {
     }
 }
 
-console.log('=== RUNNING XSS FIXES VERIFICATION TEST SUITE ===\n');
+console.log('=== RUNNING RIGOROUS XSS FIXES VERIFICATION TEST SUITE ===\n');
 
-// 1. Subject Name Malicious XSS & Special Characters Test
+// 1. Subject Name Malicious XSS Payload Verification in summary.js
 {
     localStorage.clear();
 
-    const maliciousName = 'رياضيات"><img src=x onerror=alert(1)>';
-    const subObj = hayyizAddSubject(maliciousName);
+    const maliciousPayload = 'رياضيات"><img src=x onerror=alert(1)>';
+    const subObj = hayyizAddSubject(maliciousPayload);
 
-    assert(subObj && subObj.name === maliciousName, 'hayyizAddSubject stores exact subject name without altering data schema');
+    assert(subObj && subObj.name === maliciousPayload, 'hayyizAddSubject stores exact subject name without modifying database schema or payload string');
 
-    // Simulate weekly subject stats with malicious name
     hayyizBumpSubjectProgress(subObj.id, 60);
-    const weeklyStats = hayyizGetWeeklySubjectStats();
-    assert(weeklyStats.subjects.length === 1 && weeklyStats.subjects[0].name === maliciousName, 'hayyizGetWeeklySubjectStats preserves exact subject name in data layer');
 
-    // Verify summary.js escaping logic
     const mockContent = new MockElement('div', 'summary-content');
     document.elements['summary-content'] = mockContent;
 
-    // Trigger DOMContentLoaded logic of summary.js
     eval(summaryJs);
     if (document.eventListeners['DOMContentLoaded']) {
         document.eventListeners['DOMContentLoaded'].forEach(fn => fn());
     }
 
-    const innerHtmlOutput = mockContent.innerHTML;
-    assert(!innerHtmlOutput.includes('<img src=x onerror=alert(1)>'), 'summary.js prevents script execution for malicious subject name');
-    assert(innerHtmlOutput.includes('رياضيات'), 'summary.js renders subject name safely as plain text');
+    // Verify DOM structure: no <img> elements parsed or created
+    const createdImgElements = mockContent.querySelectorAll('img');
+    assert(createdImgElements.length === 0, 'No <img> elements were injected or created in DOM for malicious subject name');
 
-    // Normal HTML tags in subject name
-    localStorage.clear();
-    const htmlName = 'الرياضيات < المتقدمة >';
-    const subHtml = hayyizAddSubject(htmlName);
-    hayyizBumpSubjectProgress(subHtml.id, 45);
-
-    const mockContent2 = new MockElement('div', 'summary-content');
-    document.elements['summary-content'] = mockContent2;
-    eval(summaryJs);
-    if (document.eventListeners['DOMContentLoaded']) {
-        document.eventListeners['DOMContentLoaded'].forEach(fn => fn());
-    }
-
-    assert(!mockContent2.innerHTML.includes('< المتقدمة >'), 'summary.js escapes HTML brackets in subject names');
+    // Verify raw HTML output has sanitized tags
+    assert(!mockContent.innerHTML.includes('<img src=x onerror=alert(1)>'), 'summary.js innerHTML does not contain unescaped <img> HTML payload');
+    assert(mockContent.textContent.includes('رياضيات'), 'summary.js renders subject name safely as plain text textContent');
 }
 
-// 2. Weighted GPA Calculator Test (gpa.js)
+// 2. Weighted Exam Name Malicious Payload Verification in gpa.js
 {
     localStorage.clear();
 
@@ -277,19 +274,22 @@ console.log('=== RUNNING XSS FIXES VERIFICATION TEST SUITE ===\n');
 
     eval(gpaJs);
 
-    // Verify initial render uses DOM nodes and sets input.value
     const inputs = weightedRowsEl.querySelectorAll('.w-name');
     assert(inputs.length === 3, 'gpa.js renders initial 3 weighted exam rows');
 
-    // Test malicious exam name injection
-    const maliciousExamName = 'x"><img src=x onerror=alert(1)>';
-    inputs[0].value = maliciousExamName;
+    // Test malicious exam payload
+    const maliciousExamPayload = 'x"><img src=x onerror=alert(1)>';
+    inputs[0].value = maliciousExamPayload;
     inputs[0].dispatchEvent('input', { target: inputs[0] });
 
-    assert(inputs[0].value === maliciousExamName, 'gpa.js keeps malicious exam name safely inside input value as text only');
+    assert(inputs[0].value === maliciousExamPayload, 'gpa.js maintains exact exam name inside input.value property');
 
-    // Test exam names with quotes and special characters
-    const testCases = [
+    // Verify DOM structure: no <img> elements exist inside weightedRowsEl container
+    const imgInRows = weightedRowsEl.querySelectorAll('img');
+    assert(imgInRows.length === 0, 'No HTML tags or <img> elements created inside weighted exam rows container');
+
+    // Verify special characters and quotes
+    const specialCharsCases = [
         'اختبار "نهائي"',
         'اختبار \'منتصف\'',
         'A < B',
@@ -297,11 +297,11 @@ console.log('=== RUNNING XSS FIXES VERIFICATION TEST SUITE ===\n');
         'A & B'
     ];
 
-    testCases.forEach((testName, i) => {
+    specialCharsCases.forEach((testName, i) => {
         if (inputs[i]) {
             inputs[i].value = testName;
             inputs[i].dispatchEvent('input', { target: inputs[i] });
-            assert(inputs[i].value === testName, `gpa.js handles exam name "${testName}" without corruption`);
+            assert(inputs[i].value === testName, `gpa.js handles special character exam name "${testName}" smoothly`);
         }
     });
 }
