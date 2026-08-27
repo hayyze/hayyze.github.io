@@ -1059,6 +1059,95 @@
     };
   }
 
+  function isBehaviorOrAttendance(name) {
+    if (!name || typeof name !== 'string') return false;
+    const normalized = name.trim().toLowerCase();
+    return (
+      normalized.includes("سلوك") ||
+      normalized.includes("مواظب")
+    );
+  }
+
+  function hayyizSyncGpaTargetTasks(recommendedGrades, targetGpa) {
+    if (!Array.isArray(recommendedGrades) || typeof hayyizGetTodos !== 'function') return 0;
+
+    const todos = hayyizGetTodos();
+    let createdOrUpdatedCount = 0;
+    let todosChanged = false;
+
+    const priorityMap = {
+      "عالية جدًا": "high",
+      "عالية": "high",
+      "متوسطة": "medium",
+      "منخفضة": "low"
+    };
+
+    recommendedGrades.forEach((rg) => {
+      if (!rg || !rg.name) return;
+
+      // 1. استثناء المواظبة والسلوك
+      if (isBehaviorOrAttendance(rg.name)) return;
+
+      // 2. التحقق من حاجة المادة للتحسين
+      const diff = (rg.requiredGrade || 0) - (rg.currentGrade || 0);
+      if (diff <= 0.001) return;
+
+      const taskTitle = "رفع درجة مادة " + rg.name;
+      const notesText = "الدرجة الحالية: " + rg.currentGrade.toFixed(2) + " | المطلوبة: " + rg.requiredGrade.toFixed(2) + " للوصول إلى هدف " + targetGpa.toFixed(2) + "%";
+
+      // 3. البحث عن مهمة قائمة لنفس المادة
+      const existingIdx = todos.findIndex((t) => {
+        if (!t) return false;
+        if (t.gpaSubject && t.gpaSubject === rg.name) return true;
+        if (t.text && t.text.trim() === taskTitle) return true;
+        return false;
+      });
+
+      if (existingIdx >= 0) {
+        // تحديث المهمة الموجودة ببيانات الهدف الجديدة إن اختلفت
+        const existingTask = todos[existingIdx];
+        if (existingTask.gpaRequiredGrade !== rg.requiredGrade || existingTask.gpaTarget !== targetGpa) {
+          existingTask.notes = notesText;
+          existingTask.gpaTarget = targetGpa;
+          existingTask.gpaRequiredGrade = rg.requiredGrade;
+          existingTask.priority = priorityMap[rg.impactPriority] || existingTask.priority || "medium";
+          existingTask.updated = Date.now();
+          todosChanged = true;
+          createdOrUpdatedCount++;
+        }
+      } else {
+        // إنشاء مهمة جديدة
+        const newTodo = {
+          id: typeof hayyizGenerateId === 'function' ? hayyizGenerateId() : 'h_' + Date.now() + Math.random().toString(36).slice(2, 6),
+          text: taskTitle,
+          notes: notesText,
+          priority: priorityMap[rg.impactPriority] || "medium",
+          completed: false,
+          status: "todo",
+          created: Date.now(),
+          gpaSubject: rg.name,
+          gpaTarget: targetGpa,
+          gpaRequiredGrade: rg.requiredGrade
+        };
+        todos.push(newTodo);
+        todosChanged = true;
+        createdOrUpdatedCount++;
+      }
+    });
+
+    if (todosChanged) {
+      if (typeof hayyizSaveTodos === 'function') {
+        hayyizSaveTodos(todos);
+      } else if (typeof hayyizSaveJSON === 'function') {
+        hayyizSaveJSON('hayyiz-todos', todos);
+      } else {
+        localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
+      }
+    }
+
+    return createdOrUpdatedCount;
+  }
+
   // تصدير الدوال للمحيط العام للاستخدام والاختبار
   if (typeof window !== "undefined") {
     window.hayyizCalculateMaxPossibleGpa = hayyizCalculateMaxPossibleGpa;
@@ -1066,6 +1155,8 @@
     window.hayyizAnalyzeAcademicTarget = hayyizAnalyzeAcademicTarget;
     window.refreshWhatNeedUI = refreshWhatNeedUI;
     window.renderGoalAndWhatIf = renderGoalAndWhatIf;
+    window.isBehaviorOrAttendance = isBehaviorOrAttendance;
+    window.hayyizSyncGpaTargetTasks = hayyizSyncGpaTargetTasks;
   }
 
   // ===== الهدف الأكاديمي و سيناريو "ماذا لو؟" =====
@@ -1361,6 +1452,14 @@
       `;
       tableWrap.appendChild(table);
       details.appendChild(tableWrap);
+
+      // مزامنة المواد المطلوبة مع نظام المهام (استثناء المواظبة والسلوك والحد من التكرار)
+      hayyizSyncGpaTargetTasks(result.recommendedGrades, targetGpa);
+
+      const taskNotice = document.createElement("p");
+      taskNotice.style.cssText = "font-size:0.88rem; color:var(--text-muted); margin-bottom:1rem;";
+      taskNotice.innerHTML = '<i class="fa-solid fa-square-check" style="color:var(--success);" aria-hidden="true"></i> تم إضافة وتحديث المواد المحددة تلقائيًا كمهام في <a href="todo.html" style="color:var(--primary); font-weight:600;">قائمة المهام</a>.';
+      details.appendChild(taskNotice);
 
       // زر نقل الخطة إلى ماذا لو
       const tryPlanBtn = document.createElement("button");

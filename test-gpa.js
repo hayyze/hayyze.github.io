@@ -9,9 +9,17 @@ global.document = {
   querySelectorAll: () => [],
   addEventListener: () => {}
 };
+global.localStorage = {
+  _data: {},
+  getItem(k) { return this._data[k] !== undefined ? this._data[k] : null; },
+  setItem(k, v) { this._data[k] = String(v); },
+  removeItem(k) { delete this._data[k]; },
+  clear() { this._data = {}; }
+};
 
 eval(commonJs);
 global.hayyizComputeWeightedGpa = hayyizComputeWeightedGpa;
+global.hayyizGetTodos = hayyizGetTodos;
 eval(gpaJs);
 
 let passed = 0;
@@ -367,6 +375,110 @@ class TestMockElement {
   calcBtn.click();
   details = mockContainer.querySelector('.whatneed-details');
   assert(details.textContent.includes("98.00"), "Case 18: Second click dynamically recalculates and renders target 98.00");
+}
+
+// Case 19: Task creation for improvable academic subjects
+{
+  localStorage.setItem('hayyiz-todos', JSON.stringify([]));
+
+  const recommendedGrades = [
+    { name: "الرياضيات", currentGrade: 80, requiredGrade: 95, impactPriority: "عالية" },
+    { name: "العلوم", currentGrade: 85, requiredGrade: 90, impactPriority: "متوسطة" }
+  ];
+
+  global.hayyizSyncGpaTargetTasks(recommendedGrades, 95.0);
+
+  const todos = global.hayyizGetTodos();
+  assert(todos.length === 2, "Case 19: Tasks created for 2 improvable academic subjects");
+  assert(todos[0].text === "رفع درجة مادة الرياضيات" && todos[0].gpaRequiredGrade === 95, "Case 19: Task title and required grade set accurately for Mathematics");
+}
+
+// Case 20: Strict exclusion - No task created for المواظبة or السلوك
+{
+  localStorage.setItem('hayyiz-todos', JSON.stringify([]));
+
+  const recommendedGrades = [
+    { name: "الرياضيات", currentGrade: 80, requiredGrade: 95, impactPriority: "عالية" },
+    { name: "المواظبة", currentGrade: 90, requiredGrade: 100, impactPriority: "متوسطة" },
+    { name: "السلوك", currentGrade: 90, requiredGrade: 100, impactPriority: "متوسطة" },
+    { name: "مواظبة وسلوك", currentGrade: 90, requiredGrade: 100, impactPriority: "متوسطة" }
+  ];
+
+  assert(global.isBehaviorOrAttendance("المواظبة") === true, "Case 20: isBehaviorOrAttendance recognizes 'المواظبة'");
+  assert(global.isBehaviorOrAttendance("السلوك") === true, "Case 20: isBehaviorOrAttendance recognizes 'السلوك'");
+  assert(global.isBehaviorOrAttendance("العلوم") === false, "Case 20: isBehaviorOrAttendance returns false for 'العلوم'");
+
+  global.hayyizSyncGpaTargetTasks(recommendedGrades, 95.0);
+
+  const todos = global.hayyizGetTodos();
+  assert(todos.length === 1 && todos[0].gpaSubject === "الرياضيات", "Case 20: Behavior and Attendance subjects strictly excluded from task creation");
+}
+
+// Case 21: Deduplication - Repeated clicks do NOT duplicate tasks
+{
+  localStorage.setItem('hayyiz-todos', JSON.stringify([]));
+
+  const recommendedGrades = [
+    { name: "الفيزياء", currentGrade: 75, requiredGrade: 92, impactPriority: "عالية" }
+  ];
+
+  // First sync
+  global.hayyizSyncGpaTargetTasks(recommendedGrades, 92.0);
+  const todos1 = global.hayyizGetTodos();
+
+  // Second sync (repeated click)
+  global.hayyizSyncGpaTargetTasks(recommendedGrades, 92.0);
+  const todos2 = global.hayyizGetTodos();
+
+  assert(todos1.length === 1 && todos2.length === 1, "Case 21: Repeated sync calls do NOT create duplicate tasks");
+}
+
+// Case 22: Target changes update existing tasks in place without duplicates
+{
+  localStorage.setItem('hayyiz-todos', JSON.stringify([]));
+
+  const recommendedGradesV1 = [
+    { name: "الكيمياء", currentGrade: 80, requiredGrade: 90, impactPriority: "متوسطة" }
+  ];
+  global.hayyizSyncGpaTargetTasks(recommendedGradesV1, 90.0);
+
+  const recommendedGradesV2 = [
+    { name: "الكيمياء", currentGrade: 80, requiredGrade: 98, impactPriority: "عالية" }
+  ];
+  global.hayyizSyncGpaTargetTasks(recommendedGradesV2, 98.0);
+
+  const todos = global.hayyizGetTodos();
+  assert(todos.length === 1, "Case 22: Task list length remains 1 after target update (no duplicates)");
+  assert(todos[0].gpaRequiredGrade === 98 && todos[0].notes.includes("98.00"), "Case 22: Existing task updated with new required grade (98.00)");
+}
+
+// Case 23: No improvable subjects (achieved state) creates 0 tasks
+{
+  localStorage.setItem('hayyiz-todos', JSON.stringify([]));
+
+  const recommendedGrades = [
+    { name: "اللغة العربية", currentGrade: 95, requiredGrade: 95, impactPriority: "منخفضة" }
+  ];
+
+  global.hayyizSyncGpaTargetTasks(recommendedGrades, 95.0);
+  const todos = global.hayyizGetTodos();
+
+  assert(todos.length === 0, "Case 23: Target already achieved produces 0 tasks");
+}
+
+// Case 24: Impossible target analysis returns 0 tasks cleanly
+{
+  localStorage.setItem('hayyiz-todos', JSON.stringify([]));
+
+  const list = [
+    { name: "الرياضيات", weight: 5, grade: 50 }
+  ];
+  const res = global.hayyizAnalyzeAcademicTarget(list, 105);
+
+  global.hayyizSyncGpaTargetTasks(res ? res.recommendedGrades : [], 105.0);
+  const todos = global.hayyizGetTodos();
+
+  assert(res.status === "impossible" && todos.length === 0, "Case 24: Impossible target analysis creates 0 tasks cleanly");
 }
 
 console.log(`\nTests Summary: ${passed} Passed, ${failed} Failed`);
