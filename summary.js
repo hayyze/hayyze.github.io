@@ -230,9 +230,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const relCompleted = relTodos.filter((t) => t && t.completed).length;
                 const relFocusMin = relSubject ? (parseInt(relSubject.focusMinutes, 10) || 0) : 0;
 
-                const leftText = sg.name + ' (هدف: ' + sg.target + '%)';
                 const leftSpan = document.createElement('span');
-                leftSpan.innerHTML = '<i class="fa-solid fa-flag" style="color:var(--primary); font-size:0.75rem;"></i> ' + leftText;
+                const flagIcon = document.createElement('i');
+                flagIcon.className = 'fa-solid fa-flag';
+                flagIcon.style.cssText = 'color:var(--primary); font-size:0.75rem;';
+                leftSpan.appendChild(flagIcon);
+                leftSpan.appendChild(document.createTextNode(' ' + sg.name + ' (هدف: ' + sg.target + '%)'));
 
                 const rightSpan = document.createElement('span');
                 rightSpan.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; flex-wrap: wrap;';
@@ -302,7 +305,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (overdueTodos.length > 0) {
         statusMsg = `لديك ${overdueTodos.length} مهام متأخرة عن موعدها اليوم. ابدأ بالمهام المتأخرة ذات الأولوية العالية.`;
     } else if (isTaskInProgress && nextTask) {
-        statusMsg = `لديك مهمة قيد التنفيذ ("${nextTask.text.length > 25 ? nextTask.text.slice(0, 25) + '…' : nextTask.text}"). أكمل الجلسة القائمة أولاً.`;
+        const truncatedText = nextTask.text.length > 25 ? nextTask.text.slice(0, 25) + '…' : nextTask.text;
+        statusMsg = `لديك مهمة قيد التنفيذ ("${escapeHtml(truncatedText)}"). أكمل الجلسة القائمة أولاً.`;
     } else if (dueTodayTodos.length > 0) {
         statusMsg = `لديك ${dueTodayTodos.length} مهام مستحقة اليوم و${activeCount} مهام نشطة إجمالاً. ابدأ بالمهمة الأكثر أولوية.`;
     } else if (hour < 12) {
@@ -364,7 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const reasonEl = document.createElement('p');
             reasonEl.className = 'dash-now-reason';
             reasonEl.style.cssText = 'margin: 0.4rem 0 0; font-size: 0.88rem; color: var(--text-muted);';
-            reasonEl.innerHTML = `<strong style="color:var(--text);">لماذا هذه المهمة؟</strong> ${nextReason}`;
+            reasonEl.innerHTML = `<strong style="color:var(--text);">لماذا هذه المهمة؟</strong> ${escapeHtml(nextReason)}`;
             nowCard.appendChild(reasonEl);
         }
 
@@ -965,7 +969,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const topSub = subStats.subjects[0];
                     const insightP = document.createElement('p');
                     insightP.style.cssText = 'margin: 0 0 0.6rem; font-size: 0.88rem; color: var(--text-muted);';
-                    insightP.innerHTML = `قضيت <strong>${topSub.percentage}%</strong> من وقت مذاكرتك الموزّع على المواد هذا الأسبوع على <strong>${topSub.name}</strong> (${topSub.minutes} دقيقة).`;
+                    insightP.innerHTML = `قضيت <strong>${topSub.percentage}%</strong> من وقت مذاكرتك الموزّع على المواد هذا الأسبوع على <strong>${escapeHtml(topSub.name)}</strong> (${topSub.minutes} دقيقة).`;
                     subBox.appendChild(insightP);
 
                     const subList = document.createElement('div');
