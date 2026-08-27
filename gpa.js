@@ -1,5 +1,15 @@
 /* gpa.js - محرك منظومة حاسبات المعدل الشامل لمنصة حيز */
 (function () {
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   // ===== بيانات المرحلة المتوسطة =====
   const MIDDLE_SUBJECTS = {
     "1": { // أول متوسط
@@ -706,16 +716,6 @@
       }
     }
 
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
     function renderWeightedRows() {
       if (!weightedRowsEl) return;
       weightedRowsEl.replaceChildren();
@@ -1064,6 +1064,8 @@
     window.hayyizCalculateMaxPossibleGpa = hayyizCalculateMaxPossibleGpa;
     window.hayyizCalculateSubjectImpacts = hayyizCalculateSubjectImpacts;
     window.hayyizAnalyzeAcademicTarget = hayyizAnalyzeAcademicTarget;
+    window.refreshWhatNeedUI = refreshWhatNeedUI;
+    window.renderGoalAndWhatIf = renderGoalAndWhatIf;
   }
 
   // ===== الهدف الأكاديمي و سيناريو "ماذا لو؟" =====
@@ -1242,28 +1244,44 @@
     if (!container) return;
     container.replaceChildren();
 
-    if (targetGpa === null || targetGpa === undefined || isNaN(targetGpa)) {
-      const promptText = document.createElement("p");
-      promptText.style.cssText = "color:var(--text-muted); font-size:0.95rem; margin:0 0 0.75rem;";
-      promptText.textContent = "يرجى تحديد وملاحظة هدفك الأكاديمي أولاً لحساب الدرجات المطلوبة.";
-      container.appendChild(promptText);
-      renderSubjectImpactsSection(container, list);
-      return;
-    }
-
     const calcBtnWrap = document.createElement("div");
     calcBtnWrap.style.marginBottom = "0.75rem";
     const calcBtn = document.createElement("button");
     calcBtn.type = "button";
     calcBtn.className = "btn btn-primary btn-sm";
     calcBtn.innerHTML = '<i class="fa-solid fa-calculator" aria-hidden="true"></i> احسب المطلوب';
-    calcBtn.addEventListener("click", () => {
-      renderTargetAnalysisDetails(container, list, realGpa, targetGpa);
-    });
+
+    const handleCalculateNeeded = () => {
+      const targetInput = document.getElementById("goal-target-input");
+      const rawVal = targetInput ? targetInput.value.trim() : "";
+      const val = parseFloat(rawVal);
+      if (rawVal === "" || isNaN(val) || val < 0 || val > 100) {
+        alert("يرجى إدخال معدل مستهدف صحيح بين 0 و 100 لحساب الدرجات المطلوبة.");
+        if (targetInput) targetInput.focus();
+        return;
+      }
+      updateGoalGapUI(realGpa, val);
+      renderTargetAnalysisDetails(container, list, realGpa, val);
+    };
+
+    calcBtn.addEventListener("click", handleCalculateNeeded);
     calcBtnWrap.appendChild(calcBtn);
     container.appendChild(calcBtnWrap);
 
-    renderTargetAnalysisDetails(container, list, realGpa, targetGpa);
+    if (targetGpa !== null && targetGpa !== undefined && !isNaN(targetGpa) && targetGpa >= 0 && targetGpa <= 100) {
+      renderTargetAnalysisDetails(container, list, realGpa, targetGpa);
+    } else {
+      const details = document.createElement("div");
+      details.className = "whatneed-details";
+
+      const promptText = document.createElement("p");
+      promptText.style.cssText = "color:var(--text-muted); font-size:0.95rem; margin:0 0 0.75rem;";
+      promptText.textContent = "أدخل معدلك المستهدف أعلاه ثم اضغط على «احسب المطلوب» لحساب الدرجات المطلوبة.";
+      details.appendChild(promptText);
+
+      renderSubjectImpactsSection(details, list);
+      container.appendChild(details);
+    }
   }
 
   function renderTargetAnalysisDetails(container, list, realGpa, targetGpa) {

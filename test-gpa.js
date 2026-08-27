@@ -162,6 +162,213 @@ function assert(condition, message) {
   assert(impacts[0].index === 0 && impacts[0].grade === 75, "Case 14: Duplicate subject names tracked stably by index");
 }
 
+// Mock DOM elements for testing UI button click interactions
+class TestMockElement {
+  constructor(tagName, id = '') {
+    this.tagName = tagName.toUpperCase();
+    this.id = id;
+    this.className = '';
+    this.style = {};
+    this.children = [];
+    this.parentNode = null;
+    this._value = '';
+    this.eventListeners = {};
+  }
+  get value() { return this._value; }
+  set value(v) { this._value = String(v); }
+  get innerHTML() { return this._innerHTML || ''; }
+  set innerHTML(h) {
+    this._innerHTML = String(h);
+    this._textContent = String(h).replace(/<[^>]*>/g, '');
+  }
+  get textContent() {
+    if (this.children.length > 0) {
+      return this.children.map(c => typeof c === 'string' ? c : c.textContent).join('');
+    }
+    return this._textContent || '';
+  }
+  set textContent(t) {
+    this._textContent = String(t);
+    this._innerHTML = String(t);
+    this.children = [];
+  }
+  appendChild(child) {
+    if (typeof child === 'string') {
+      this.children.push(child);
+    } else {
+      child.parentNode = this;
+      this.children.push(child);
+    }
+    return child;
+  }
+  replaceChildren(...newChildren) {
+    this.children = [];
+    newChildren.forEach(c => this.appendChild(c));
+  }
+  querySelector(selector) {
+    if (selector.startsWith('.')) {
+      const cls = selector.slice(1);
+      return this.children.find(c => c.className && c.className.includes(cls)) || null;
+    }
+    return null;
+  }
+  querySelectorAll(selector) {
+    const results = [];
+    const search = (node) => {
+      if (!node || typeof node === 'string') return;
+      if (selector.startsWith('.')) {
+        const cls = selector.slice(1);
+        if (node.className && node.className.split(' ').includes(cls)) results.push(node);
+      } else if (node.tagName && node.tagName.toLowerCase() === selector.toLowerCase()) {
+        results.push(node);
+      }
+      if (node.children) node.children.forEach(search);
+    };
+    search(this);
+    return results;
+  }
+  addEventListener(event, fn) {
+    if (!this.eventListeners[event]) this.eventListeners[event] = [];
+    this.eventListeners[event].push(fn);
+  }
+  click() {
+    if (this.eventListeners['click']) {
+      this.eventListeners['click'].forEach(fn => fn({ preventDefault: () => {} }));
+    }
+  }
+  remove() {
+    if (this.parentNode) {
+      const idx = this.parentNode.children.indexOf(this);
+      if (idx !== -1) this.parentNode.children.splice(idx, 1);
+    }
+  }
+  focus() { this._focused = true; }
+}
+
+// Case 15: "احسب المطلوب" button DOM flow with valid target
+{
+  const mockContainer = new TestMockElement('div', 'whatneed-body');
+  const mockTargetInput = new TestMockElement('input', 'goal-target-input');
+  mockTargetInput.value = '95';
+
+  let alertMessage = null;
+  global.alert = (msg) => { alertMessage = msg; };
+  global.document = {
+    createElement: (tag) => new TestMockElement(tag),
+    getElementById: (id) => {
+      if (id === 'whatneed-body') return mockContainer;
+      if (id === 'goal-target-input') return mockTargetInput;
+      return null;
+    }
+  };
+
+  const subjectList = [
+    { name: "الرياضيات", weight: 5, grade: 80 },
+    { name: "الفيزياء", weight: 5, grade: 90 }
+  ];
+  const realGpa = 85.0;
+
+  // Initialize UI with initial null target
+  global.refreshWhatNeedUI(subjectList, realGpa, null);
+
+  // Locate the "احسب المطلوب" button in mockContainer
+  const calcBtn = mockContainer.querySelectorAll('button').find(b => b.textContent.includes('احسب المطلوب'));
+  assert(calcBtn !== null, "Case 15: 'احسب المطلوب' button is rendered even when initial target is empty");
+
+  // Click the button with target 95
+  calcBtn.click();
+
+  assert(alertMessage === null, "Case 15: No alert triggered for valid target");
+  const details = mockContainer.querySelector('.whatneed-details');
+  assert(details !== null, "Case 15: .whatneed-details container created in DOM on button click");
+  assert(details.textContent.includes("95.00"), "Case 15: DOM target analysis reflects target 95.00");
+}
+
+// Case 16: "احسب المطلوب" button click with empty target triggers Arabic validation alert
+{
+  const mockContainer = new TestMockElement('div', 'whatneed-body');
+  const mockTargetInput = new TestMockElement('input', 'goal-target-input');
+  mockTargetInput.value = '';
+
+  let alertMessage = null;
+  global.alert = (msg) => { alertMessage = msg; };
+  global.document = {
+    createElement: (tag) => new TestMockElement(tag),
+    getElementById: (id) => {
+      if (id === 'whatneed-body') return mockContainer;
+      if (id === 'goal-target-input') return mockTargetInput;
+      return null;
+    }
+  };
+
+  const subjectList = [{ name: "الرياضيات", weight: 5, grade: 80 }];
+  global.refreshWhatNeedUI(subjectList, 80.0, null);
+
+  const calcBtn = mockContainer.querySelectorAll('button').find(b => b.textContent.includes('احسب المطلوب'));
+  calcBtn.click();
+
+  assert(alertMessage !== null && alertMessage.includes("يرجى إدخال معدل مستهدف صحيح"), "Case 16: Empty target input triggers friendly Arabic alert");
+}
+
+// Case 17: "احسب المطلوب" button click with out-of-range target (e.g. 150) triggers validation alert
+{
+  const mockContainer = new TestMockElement('div', 'whatneed-body');
+  const mockTargetInput = new TestMockElement('input', 'goal-target-input');
+  mockTargetInput.value = '150';
+
+  let alertMessage = null;
+  global.alert = (msg) => { alertMessage = msg; };
+  global.document = {
+    createElement: (tag) => new TestMockElement(tag),
+    getElementById: (id) => {
+      if (id === 'whatneed-body') return mockContainer;
+      if (id === 'goal-target-input') return mockTargetInput;
+      return null;
+    }
+  };
+
+  const subjectList = [{ name: "الرياضيات", weight: 5, grade: 80 }];
+  global.refreshWhatNeedUI(subjectList, 80.0, null);
+
+  const calcBtn = mockContainer.querySelectorAll('button').find(b => b.textContent.includes('احسب المطلوب'));
+  calcBtn.click();
+
+  assert(alertMessage !== null && alertMessage.includes("يرجى إدخال معدل مستهدف صحيح"), "Case 17: Out-of-range target (150) triggers validation alert");
+}
+
+// Case 18: Repeated button clicks after changing target input dynamically updates DOM
+{
+  const mockContainer = new TestMockElement('div', 'whatneed-body');
+  const mockTargetInput = new TestMockElement('input', 'goal-target-input');
+  mockTargetInput.value = '90';
+
+  global.alert = () => {};
+  global.document = {
+    createElement: (tag) => new TestMockElement(tag),
+    getElementById: (id) => {
+      if (id === 'whatneed-body') return mockContainer;
+      if (id === 'goal-target-input') return mockTargetInput;
+      return null;
+    }
+  };
+
+  const subjectList = [{ name: "الرياضيات", weight: 5, grade: 80 }];
+  global.refreshWhatNeedUI(subjectList, 80.0, 90);
+
+  const calcBtn = mockContainer.querySelectorAll('button').find(b => b.textContent.includes('احسب المطلوب'));
+
+  // First click with 90
+  calcBtn.click();
+  let details = mockContainer.querySelector('.whatneed-details');
+  assert(details.textContent.includes("90.00"), "Case 18: First click renders target 90.00");
+
+  // Change input to 98 and click again
+  mockTargetInput.value = '98';
+  calcBtn.click();
+  details = mockContainer.querySelector('.whatneed-details');
+  assert(details.textContent.includes("98.00"), "Case 18: Second click dynamically recalculates and renders target 98.00");
+}
+
 console.log(`\nTests Summary: ${passed} Passed, ${failed} Failed`);
 if (failed > 0) {
   process.exit(1);
