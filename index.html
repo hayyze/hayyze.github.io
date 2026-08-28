@@ -57,8 +57,11 @@
     <meta name="twitter:image" content="https://hayyze.github.io/android-chrome-512x512.png">
 
     <!-- الخطوط والأيقونات -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
     <!-- ملف التنسيقات -->
     <link rel="stylesheet" href="style.css">
     <!-- الأيقونات (Favicon) -->
@@ -70,12 +73,26 @@
     <meta name="google-site-verification" content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw">
     <meta name="msvalidate.01" content="21A3AAB7205E4F7DE4A93876DD8633A6" />
     <!-- Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
         gtag('config', 'G-F94Z3H2D3S');
+        (function() {
+            var loadGtag = function() {
+                if (window.__gtagScriptLoaded) return;
+                window.__gtagScriptLoaded = true;
+                var s = document.createElement('script');
+                s.async = true;
+                s.src = 'https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S';
+                document.head.appendChild(s);
+            };
+            if (document.readyState === 'complete') {
+                setTimeout(loadGtag, 800);
+            } else {
+                window.addEventListener('load', function() { setTimeout(loadGtag, 800); });
+            }
+        })();
     </script>
 <!-- Structured Data -->
 <script type="application/ld+json">
@@ -124,7 +141,37 @@
 
     <!-- لوحة اليوم -->
     <section id="daily-summary" class="card daily-summary" style="margin-top: 1.5rem;">
-        <div id="summary-content"></div>
+        <div id="summary-content">
+            <div class="dash-greeting">
+                <h3>مرحباً 👋</h3>
+                <p>جاري تحميل ملخصك اليومي...</p>
+            </div>
+            <div class="dash-section" style="padding: 0.9rem 1.15rem; margin-bottom: 1.25rem; background: var(--bg); border-radius: var(--radius-sm, 12px); border-right: 4px solid var(--primary); display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+                <div>
+                    <strong style="display:block; font-size:0.92rem; color:var(--text); margin-bottom:0.2rem;">حالتك الدراسية الآن</strong>
+                    <span style="font-size:0.88rem; color:var(--text-muted);">جاري إعداد التوصيات الدراسية...</span>
+                </div>
+            </div>
+            <div class="dash-now">
+                <div class="dash-now-label"><i class="fa-solid fa-bullseye" aria-hidden="true"></i> ما المهمة التالية؟</div>
+                <div class="dash-now-name">جاري تنظيم خطتك اليومية...</div>
+                <div class="dash-now-meta">...</div>
+            </div>
+            <div class="dash-stats">
+                <div class="dash-stat"><i class="fa-solid fa-clock" aria-hidden="true"></i><strong>0</strong><span>جلسات اليوم</span></div>
+                <div class="dash-stat"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i><strong>0 د</strong><span>تركيز اليوم</span></div>
+                <div class="dash-stat"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><strong>0</strong><span>أنجزت اليوم</span></div>
+                <div class="dash-stat"><i class="fa-solid fa-list-check" aria-hidden="true"></i><strong>0</strong><span>المهام المتبقية</span></div>
+            </div>
+            <div class="dash-quick">
+                <a href="pomodoro.html" class="dash-quick-item"><i class="fa-solid fa-clock" aria-hidden="true"></i><span>مؤقت</span></a>
+                <a href="todo.html" class="dash-quick-item"><i class="fa-solid fa-list-check" aria-hidden="true"></i><span>مهام</span></a>
+                <a href="notes.html" class="dash-quick-item"><i class="fa-solid fa-note-sticky" aria-hidden="true"></i><span>ملاحظات</span></a>
+                <a href="gpa.html" class="dash-quick-item"><i class="fa-solid fa-calculator" aria-hidden="true"></i><span>معدل</span></a>
+                <a href="habits.html" class="dash-quick-item"><i class="fa-solid fa-fire" aria-hidden="true"></i><span>عادات</span></a>
+                <a href="game.html" class="dash-quick-item"><i class="fa-solid fa-gamepad" aria-hidden="true"></i><span>لعبة</span></a>
+            </div>
+        </div>
         <div class="dash-focus-wrap">
             <button type="button" id="start-focus-session-btn" class="btn btn-primary dash-focus-btn">
                 <i class="fa-solid fa-play" aria-hidden="true"></i> ابدأ جلسة تركيز
@@ -344,12 +391,11 @@
         </div>
     </div>
 </footer>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase.js"></script>
-<script src="common.js"></script>
-<script src="summary.js"></script>
-
-<script src="sync.js"></script>
-<script src="auth-ui.js"></script>
+<script src="common.js" defer></script>
+<script src="summary.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+<script src="supabase.js" defer></script>
+<script src="sync.js" defer></script>
+<script src="auth-ui.js" defer></script>
 </body>
 </html>

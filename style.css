@@ -1492,6 +1492,17 @@ input[type="radio"] {
 /* ===================== لوحة اليوم ===================== */
 .daily-summary {
     padding: 1.5rem;
+    min-height: 480px;
+    contain: layout style;
+}
+
+@keyframes skeletonPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+.skeleton-text {
+    animation: skeletonPulse 1.8s ease-in-out infinite;
 }
 
 .dash-greeting {
