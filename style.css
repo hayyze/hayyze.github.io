@@ -1494,6 +1494,30 @@ input[type="radio"] {
     padding: 1.5rem;
 }
 
+@keyframes skeletonPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+.skeleton-text {
+    animation: skeletonPulse 1.8s ease-in-out infinite;
+}
+
+.dash-skeleton-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 0.85rem;
+    margin-bottom: 1rem;
+}
+
+.dash-skeleton-card {
+    background: var(--color-surface-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    animation: skeletonPulse 1.8s ease-in-out infinite;
+}
+
 .dash-greeting {
     margin-bottom: 1.1rem;
 }

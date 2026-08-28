@@ -56,14 +56,14 @@
      * الحصول على المستخدم الحالي بأمان
      */
     async function getAuthenticatedUser() {
-        if (typeof supabaseClient === 'undefined' || !supabaseClient || !supabaseClient.auth) {
-            return null;
+        let client = typeof supabaseClient !== 'undefined' ? supabaseClient : null;
+        if (!client && typeof ensureSupabaseLoaded === 'function') {
+            try { client = await ensureSupabaseLoaded(); } catch(e){}
         }
+        if (!client || !client.auth) return null;
         try {
-            const { data, error } = await supabaseClient.auth.getUser();
-            if (error || !data || !data.user) {
-                return null;
-            }
+            const { data, error } = await client.auth.getUser();
+            if (error || !data || !data.user) return null;
             return data.user;
         } catch (e) {
             return null;
@@ -881,10 +881,12 @@
      */
     function initAuthListener() {
         if (authListenerRegistered) return;
-        if (typeof supabaseClient !== 'undefined' && supabaseClient && supabaseClient.auth) {
+
+        const attachListener = (client) => {
+            if (authListenerRegistered || !client || !client.auth) return;
             authListenerRegistered = true;
             try {
-                supabaseClient.auth.onAuthStateChange((event, session) => {
+                client.auth.onAuthStateChange((event, session) => {
                     if (session && session.user) {
                         hayyizSyncAllUserData();
                     }
@@ -892,6 +894,14 @@
             } catch (e) {
                 console.warn('[Sync Engine] Auth state listener error:', e);
             }
+        };
+
+        if (typeof hasSavedSupabaseSession === 'function' && hasSavedSupabaseSession()) {
+            if (typeof ensureSupabaseLoaded === 'function') {
+                ensureSupabaseLoaded().then(attachListener).catch(() => {});
+            }
+        } else if (typeof supabaseClient !== 'undefined' && supabaseClient && supabaseClient.auth) {
+            attachListener(supabaseClient);
         }
     }
 
