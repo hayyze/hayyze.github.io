@@ -412,9 +412,9 @@
     function setupAuth() {
         updateNavAuthButton(null);
 
-        if (typeof supabaseClient !== 'undefined' && supabaseClient && supabaseClient.auth) {
-            // جلب المستخدم الحالي أولاً عند بدء التشغيل
-            supabaseClient.auth.getUser().then(({ data, error }) => {
+        const applyClientAuth = (client) => {
+            if (!client || !client.auth) return;
+            client.auth.getUser().then(({ data, error }) => {
                 if (!error && data && data.user) {
                     updateNavAuthButton(data.user);
                 } else {
@@ -424,10 +424,9 @@
                 updateNavAuthButton(null);
             });
 
-            // تسجيل مستمع تغيير حالة التوثيق مرة واحدة لكل صفحة
             if (!window.__hayyizAuthUIListenerRegistered) {
                 window.__hayyizAuthUIListenerRegistered = true;
-                supabaseClient.auth.onAuthStateChange((event, session) => {
+                client.auth.onAuthStateChange((event, session) => {
                     const user = session ? session.user : null;
                     updateNavAuthButton(user);
 
@@ -438,6 +437,12 @@
                     }
                 });
             }
+        };
+
+        if (typeof ensureSupabaseLoaded === 'function') {
+            ensureSupabaseLoaded().then(applyClientAuth).catch(() => updateNavAuthButton(null));
+        } else if (typeof supabaseClient !== 'undefined' && supabaseClient && supabaseClient.auth) {
+            applyClientAuth(supabaseClient);
         }
     }
 

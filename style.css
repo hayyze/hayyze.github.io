@@ -1492,8 +1492,6 @@ input[type="radio"] {
 /* ===================== لوحة اليوم ===================== */
 .daily-summary {
     padding: 1.5rem;
-    min-height: 480px;
-    contain: layout style;
 }
 
 @keyframes skeletonPulse {
