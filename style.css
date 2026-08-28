@@ -1003,6 +1003,22 @@ input[type="radio"] {
     background: var(--color-surface-alt);
     border-radius: var(--radius-sm);
     border: 1px solid var(--color-border);
+    transition: var(--transition);
+}
+
+.habit-item.is-completed {
+    background: color-mix(in srgb, var(--color-success) 10%, var(--color-surface-alt));
+    border-color: color-mix(in srgb, var(--color-success) 35%, var(--color-border));
+}
+
+.habit-item.is-completed .habit-name {
+    color: var(--color-success);
+}
+
+.habit-item.is-completed .habit-streak::before {
+    content: 'مكتملة اليوم · ';
+    font-weight: 700;
+    color: var(--color-success);
 }
 
 .habit-check {
@@ -1711,6 +1727,41 @@ input[type="radio"] {
     height: 18px;
     accent-color: var(--color-primary);
     cursor: pointer;
+}
+
+.dash-habits-card {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    transition: var(--transition);
+}
+
+.dash-habits-card:hover {
+    border-color: var(--color-primary);
+}
+
+.dash-habits-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.65rem;
+}
+
+.dash-habits-row strong {
+    font-size: 1.25rem;
+    color: var(--color-text);
+}
+
+.dash-habits-row span {
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+}
+
+.dash-habits-note {
+    margin: 0.55rem 0 0;
+    color: var(--color-text-secondary);
+    font-size: 0.88rem;
 }
 
 .dash-quick {

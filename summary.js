@@ -26,7 +26,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const todos = typeof hayyizGetTodos === 'function'
         ? hayyizGetTodos()
         : JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
-    const habits = JSON.parse(localStorage.getItem('hayyiz-habits') || '[]');
+    const habits = typeof hayyizGetHabits === 'function'
+        ? hayyizGetHabits()
+        : JSON.parse(localStorage.getItem('hayyiz-habits') || '[]');
     const sessionsToday = parseInt(localStorage.getItem('hayyiz-sessions-today') || '0', 10);
     const focusMinutes = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
 
@@ -38,7 +40,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const completedAll = todos.filter((t) => t && t.completed).length;
     const overdueTodos = activeTodos.filter((t) => t.date && String(t.date).slice(0, 10) < today);
     const dueTodayTodos = activeTodos.filter((t) => t.date && String(t.date).slice(0, 10) === today);
-    const habitsDoneToday = habits.filter((h) => h && h.lastCompleted === today).length;
+    const habitTodaySummary = typeof hayyizGetHabitTodaySummary === 'function'
+        ? hayyizGetHabitTodaySummary(habits)
+        : (() => {
+            const completed = habits.filter((h) => h && h.lastCompleted === today).length;
+            const total = habits.length;
+            return {
+                total,
+                completed,
+                remaining: Math.max(0, total - completed),
+                percent: total > 0 ? Math.round((completed / total) * 100) : 0
+            };
+        })();
+    const habitsDoneToday = habitTodaySummary.completed;
 
     const hours = Math.floor(focusMinutes / 60);
     const mins = focusMinutes % 60;
@@ -806,93 +820,46 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     // قسم 6: عادات اليوم
     // ==========================================
-    if (habits.length > 0) {
-        const habitsSection = document.createElement('div');
-        habitsSection.className = 'dash-section';
+    const habitsCard = document.createElement('a');
+    habitsCard.className = 'dash-card dash-habits-card';
+    habitsCard.href = 'habits.html';
 
-        const habitsHead = document.createElement('div');
-        habitsHead.className = 'dash-section-head';
-        const habitsTitle = document.createElement('h4');
-        habitsTitle.textContent =
-            'عادات اليوم · ' + habitsDoneToday + '/' + habits.length;
-        const habitsAll = document.createElement('a');
-        habitsAll.href = 'habits.html';
-        habitsAll.textContent = 'الكل';
-        habitsHead.appendChild(habitsTitle);
-        habitsHead.appendChild(habitsAll);
-        habitsSection.appendChild(habitsHead);
+    const habitsHead = document.createElement('div');
+    habitsHead.className = 'dash-section-head';
+    const habitsTitle = document.createElement('h4');
+    habitsTitle.innerHTML = '<i class="fa-solid fa-fire" aria-hidden="true" style="color:var(--primary);"></i> العادات';
+    const habitsAction = document.createElement('span');
+    habitsAction.textContent = habits.length > 0 ? 'عرض العادات' : 'أضف عادة';
+    habitsHead.appendChild(habitsTitle);
+    habitsHead.appendChild(habitsAction);
+    habitsCard.appendChild(habitsHead);
 
-        const habitsList = document.createElement('ul');
-        habitsList.className = 'dash-habit-list';
+    const habitsRow = document.createElement('div');
+    habitsRow.className = 'dash-habits-row';
+    const habitsCount = document.createElement('strong');
+    habitsCount.textContent = habitTodaySummary.completed + ' / ' + habitTodaySummary.total + ' مكتملة';
+    const habitsPct = document.createElement('span');
+    habitsPct.textContent = habitTodaySummary.percent + '% من أهداف اليوم';
+    habitsRow.appendChild(habitsCount);
+    habitsRow.appendChild(habitsPct);
+    habitsCard.appendChild(habitsRow);
 
-        habits.slice(0, 5).forEach((habit, i) => {
-            const li = document.createElement('li');
-            li.className = 'dash-habit-item';
+    const habitsProgWrap = document.createElement('div');
+    habitsProgWrap.className = 'dash-progress-track';
+    const habitsProg = document.createElement('div');
+    habitsProg.className = 'dash-progress-fill';
+    habitsProg.style.width = habitTodaySummary.percent + '%';
+    habitsProgWrap.appendChild(habitsProg);
+    habitsCard.appendChild(habitsProgWrap);
 
-            const check = document.createElement('input');
-            check.type = 'checkbox';
-            check.checked = habit.lastCompleted === today;
-            check.title = 'تسجيل لليوم';
-            check.setAttribute('aria-label', 'تسجيل عادة ' + (habit.name || ''));
+    const habitsNote = document.createElement('p');
+    habitsNote.className = 'dash-habits-note';
+    habitsNote.textContent = habits.length > 0
+        ? 'المتبقي اليوم: ' + habitTodaySummary.remaining + ' عادة'
+        : 'لا توجد عادات بعد. ابدأ بعادة دراسية واحدة بسيطة.';
+    habitsCard.appendChild(habitsNote);
 
-            check.addEventListener('change', () => {
-                const all = JSON.parse(localStorage.getItem('hayyiz-habits') || '[]');
-                const idx = all.findIndex(
-                    (h, j) => h.name === habit.name && (j === i || h.created === habit.created)
-                );
-                const target = idx >= 0 ? idx : i;
-                if (!all[target]) return;
-
-                if (check.checked) {
-                    const last = all[target].lastCompleted;
-                    const yStr =
-                        typeof getYesterdayLocal === 'function'
-                            ? getYesterdayLocal()
-                            : (() => {
-                                  const y = new Date();
-                                  y.setDate(y.getDate() - 1);
-                                  return (
-                                      y.getFullYear() +
-                                      '-' +
-                                      String(y.getMonth() + 1).padStart(2, '0') +
-                                      '-' +
-                                      String(y.getDate()).padStart(2, '0')
-                                  );
-                              })();
-                    if (last === yStr) {
-                        all[target].streak = (all[target].streak || 0) + 1;
-                    } else if (last !== today) {
-                        all[target].streak = 1;
-                    }
-                    all[target].lastCompleted = today;
-                } else {
-                    if (all[target].lastCompleted === today) {
-                        all[target].lastCompleted = null;
-                        all[target].streak = Math.max(0, (all[target].streak || 1) - 1);
-                    }
-                }
-                localStorage.setItem('hayyiz-habits', JSON.stringify(all));
-                const done = all.filter((h) => h.lastCompleted === today).length;
-                habitsTitle.textContent = 'عادات اليوم · ' + done + '/' + all.length;
-                const labelSpan = li.querySelector('span');
-                if (labelSpan) {
-                    labelSpan.textContent =
-                        all[target].name +
-                        (all[target].streak ? ' · ' + all[target].streak + '🔥' : '');
-                }
-            });
-
-            const label = document.createElement('span');
-            label.textContent = habit.name + (habit.streak ? ` · ${habit.streak}🔥` : '');
-
-            li.appendChild(check);
-            li.appendChild(label);
-            habitsList.appendChild(li);
-        });
-
-        habitsSection.appendChild(habitsList);
-        content.appendChild(habitsSection);
-    }
+    content.appendChild(habitsCard);
 
     // ==========================================
     // قسم 7: «كيف وزعت وقتي؟» — Weekly Focus Statistics
