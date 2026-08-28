@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
-    let habits = JSON.parse(
-        localStorage.getItem('hayyiz-habits') || '[]'
-    );
+    let habits = typeof hayyizGetHabits === 'function'
+        ? hayyizGetHabits()
+        : JSON.parse(localStorage.getItem('hayyiz-habits') || '[]');
 
     const habitForm = document.getElementById('habit-form');
     const habitInput = document.getElementById('habit-input');
@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const totalHabitsEl = document.getElementById('total-habits');
     const bestStreakEl = document.getElementById('best-streak');
     const todayCompletedEl = document.getElementById('today-completed');
+    const todayRemainingEl = document.getElementById('today-remaining');
+    const todayPercentEl = document.getElementById('today-percent');
 
     function getToday() {
         // استخدام التاريخ المحلي لتجنب خطأ UTC عند منتصف الليل
@@ -50,22 +52,29 @@ document.addEventListener('DOMContentLoaded', () => {
         totalHabitsEl.textContent = habits.length;
 
         let best = 0;
-        let todayCount = 0;
-
-        const today = getToday();
-
         habits.forEach(habit => {
             if (habit.streak > best) {
                 best = habit.streak;
             }
-
-            if (habit.lastCompleted === today) {
-                todayCount++;
-            }
         });
 
+        const todaySummary = typeof hayyizGetHabitTodaySummary === 'function'
+            ? hayyizGetHabitTodaySummary(habits)
+            : (() => {
+                const today = getToday();
+                const completed = habits.filter(habit => habit && habit.lastCompleted === today).length;
+                const total = habits.length;
+                return {
+                    completed,
+                    remaining: Math.max(0, total - completed),
+                    percent: total > 0 ? Math.round((completed / total) * 100) : 0
+                };
+            })();
+
         bestStreakEl.textContent = best;
-        todayCompletedEl.textContent = todayCount;
+        todayCompletedEl.textContent = todaySummary.completed;
+        if (todayRemainingEl) todayRemainingEl.textContent = todaySummary.remaining;
+        if (todayPercentEl) todayPercentEl.textContent = todaySummary.percent + '%';
     }
 
     function renderHabits() {
@@ -86,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const doneToday = habit.lastCompleted === today;
 
             const div = document.createElement('div');
-            div.className = 'habit-item';
+            div.className = 'habit-item' + (doneToday ? ' is-completed' : '');
 
             // Checkbox
             const checkbox = document.createElement('input');
@@ -95,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
             checkbox.className = 'habit-check';
             checkbox.checked = doneToday;
             checkbox.dataset.index = i;
+            checkbox.setAttribute('aria-label', (doneToday ? 'إلغاء إنجاز عادة ' : 'تسجيل إنجاز عادة ') + (habit.name || ''));
 
             // معلومات العادة
             const info = document.createElement('div');

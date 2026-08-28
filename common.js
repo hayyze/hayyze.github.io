@@ -375,6 +375,30 @@ function hayyizSaveJSON(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
 }
 
+
+function hayyizGetHabits() {
+    const habits = hayyizParseJSON('hayyiz-habits', []);
+    return Array.isArray(habits) ? habits : [];
+}
+
+function hayyizGetHabitTodaySummary(list) {
+    const habits = Array.isArray(list) ? list : hayyizGetHabits();
+    const today = typeof getTodayLocal === 'function'
+        ? getTodayLocal()
+        : (() => {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        })();
+    const total = habits.length;
+    const completed = habits.filter((h) => h && h.lastCompleted === today).length;
+    const remaining = Math.max(0, total - completed);
+    const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+    return { total, completed, remaining, percent, today };
+}
+
 /** يضمن وجود id لكل مهمة وملاحظة، ويحفظ إن لزم */
 function hayyizEnsureDataShape() {
     let changed = false;
