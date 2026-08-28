@@ -1068,6 +1068,68 @@
     );
   }
 
+  function hayyizShowGpaTasksPrompt(recommendedGrades, targetGpa) {
+    if (!Array.isArray(recommendedGrades) || !recommendedGrades.length) return;
+
+    const oldModal = document.getElementById("gpa-tasks-confirm-modal");
+    if (oldModal) oldModal.remove();
+
+    const modal = document.createElement("div");
+    modal.id = "gpa-tasks-confirm-modal";
+    modal.className = "modal";
+    if (typeof modal.setAttribute === "function") {
+      modal.setAttribute("role", "dialog");
+      modal.setAttribute("aria-modal", "true");
+      modal.setAttribute("aria-labelledby", "gpa-tasks-confirm-title");
+    }
+
+    const content = document.createElement("div");
+    content.className = "modal-content";
+    content.style.cssText = "max-width:420px; text-align:center;";
+
+    const title = document.createElement("h3");
+    title.id = "gpa-tasks-confirm-title";
+    title.style.cssText = "margin:0 0 0.75rem; font-size:1.2rem;";
+    title.textContent = "هل تريد إنشاء المهام تلقائيًا؟";
+
+    const desc = document.createElement("p");
+    desc.style.cssText = "color:var(--text-muted); margin:0 0 1.25rem; line-height:1.8;";
+    desc.textContent = "سيتم إنشاء مهمة لكل مادة موجودة في خطة المعدل الأكاديمي.";
+
+    const actions = document.createElement("div");
+    actions.className = "modal-actions";
+    actions.style.cssText = "display:flex; gap:0.75rem; justify-content:center; flex-wrap:wrap;";
+
+    const createBtn = document.createElement("button");
+    createBtn.type = "button";
+    createBtn.className = "btn btn-primary";
+    createBtn.textContent = "إنشاء المهام";
+
+    const skipBtn = document.createElement("button");
+    skipBtn.type = "button";
+    skipBtn.className = "btn btn-outline";
+    skipBtn.textContent = "ليس الآن";
+
+    const closeModal = () => modal.remove();
+
+    createBtn.addEventListener("click", () => {
+      hayyizSyncGpaTargetTasks(recommendedGrades, targetGpa);
+      closeModal();
+    });
+    skipBtn.addEventListener("click", closeModal);
+
+    actions.appendChild(createBtn);
+    actions.appendChild(skipBtn);
+    content.appendChild(title);
+    content.appendChild(desc);
+    content.appendChild(actions);
+    modal.appendChild(content);
+    if (document.body && typeof document.body.appendChild === "function") {
+      document.body.appendChild(modal);
+      if (typeof createBtn.focus === "function") createBtn.focus();
+    }
+  }
+
   function hayyizSyncGpaTargetTasks(recommendedGrades, targetGpa) {
     if (!Array.isArray(recommendedGrades) || typeof hayyizGetTodos !== 'function') return 0;
 
@@ -1158,6 +1220,7 @@
     window.refreshWhatNeedUI = refreshWhatNeedUI;
     window.renderGoalAndWhatIf = renderGoalAndWhatIf;
     window.isBehaviorOrAttendance = isBehaviorOrAttendance;
+    window.hayyizShowGpaTasksPrompt = hayyizShowGpaTasksPrompt;
     window.hayyizSyncGpaTargetTasks = hayyizSyncGpaTargetTasks;
   }
 
@@ -1359,7 +1422,7 @@
         updateGoalGapUI(realGpa, val);
         const analysisResult = renderTargetAnalysisDetails(container, list, realGpa, val);
         if (analysisResult && analysisResult.status === "reachable") {
-          hayyizSyncGpaTargetTasks(analysisResult.recommendedGrades, val);
+          hayyizShowGpaTasksPrompt(analysisResult.recommendedGrades, val);
         }
       };
 
@@ -1467,7 +1530,7 @@
 
       const taskNotice = document.createElement("p");
       taskNotice.style.cssText = "font-size:0.88rem; color:var(--text-muted); margin-bottom:1rem;";
-      taskNotice.innerHTML = '<i class="fa-solid fa-square-check" style="color:var(--success);" aria-hidden="true"></i> يمكنك إضافة هذه المواد كمهام دراسية بالضغط على «احسب المطلوب».';
+      taskNotice.innerHTML = '<i class="fa-solid fa-square-check" style="color:var(--success);" aria-hidden="true"></i> يمكنك إنشاء مهام دراسية لهذه المواد بعد تأكيدك في النافذة المنبثقة.';
       details.appendChild(taskNotice);
 
       // زر نقل الخطة إلى ماذا لو
