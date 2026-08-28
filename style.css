@@ -1503,6 +1503,21 @@ input[type="radio"] {
     animation: skeletonPulse 1.8s ease-in-out infinite;
 }
 
+.dash-skeleton-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 0.85rem;
+    margin-bottom: 1rem;
+}
+
+.dash-skeleton-card {
+    background: var(--color-surface-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    animation: skeletonPulse 1.8s ease-in-out infinite;
+}
+
 .dash-greeting {
     margin-bottom: 1.1rem;
 }

@@ -896,8 +896,10 @@
             }
         };
 
-        if (typeof ensureSupabaseLoaded === 'function') {
-            ensureSupabaseLoaded().then(attachListener).catch(() => {});
+        if (typeof hasSavedSupabaseSession === 'function' && hasSavedSupabaseSession()) {
+            if (typeof ensureSupabaseLoaded === 'function') {
+                ensureSupabaseLoaded().then(attachListener).catch(() => {});
+            }
         } else if (typeof supabaseClient !== 'undefined' && supabaseClient && supabaseClient.auth) {
             attachListener(supabaseClient);
         }

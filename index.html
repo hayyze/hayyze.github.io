@@ -60,7 +60,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        (function(){
+            var fa = document.createElement('link');
+            fa.rel = 'stylesheet';
+            fa.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
+            document.head.appendChild(fa);
+        })();
+    </script>
     <!-- ملف التنسيقات -->
     <link rel="stylesheet" href="style.css">
     <!-- الأيقونات (Favicon) -->
@@ -144,6 +151,12 @@
             <div class="dash-greeting">
                 <h3>مرحباً 👋</h3>
                 <p class="skeleton-text">جاري تحميل ملخصك اليومي...</p>
+            </div>
+            <div class="dash-skeleton-grid">
+                <div class="dash-skeleton-card" style="height: 60px;"></div>
+                <div class="dash-skeleton-card" style="height: 160px;"></div>
+                <div class="dash-skeleton-card" style="height: 120px;"></div>
+                <div class="dash-skeleton-card" style="height: 70px;"></div>
             </div>
         </div>
         <div class="dash-focus-wrap">
@@ -367,7 +380,6 @@
 </footer>
 <script src="common.js" defer></script>
 <script src="summary.js" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 <script src="supabase.js" defer></script>
 <script src="sync.js" defer></script>
 <script src="auth-ui.js" defer></script>

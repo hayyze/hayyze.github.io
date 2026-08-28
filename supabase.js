@@ -83,6 +83,23 @@ async function hayyizGetUser() {
     }
 }
 
+function hasSavedSupabaseSession() {
+    try {
+        if (typeof localStorage === 'undefined') return false;
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+                const val = localStorage.getItem(key);
+                if (val && val.includes('access_token')) {
+                    return true;
+                }
+            }
+        }
+    } catch (e) {}
+    return false;
+}
+
 if (typeof window !== 'undefined') {
     window.ensureSupabaseLoaded = ensureSupabaseLoaded;
+    window.hasSavedSupabaseSession = hasSavedSupabaseSession;
 }
