@@ -508,20 +508,23 @@ class TestMockElement {
   assert(todos.length === 0, "Case 25: Typing target or rendering analysis without clicking button creates 0 tasks");
 }
 
-// Case 26: Clicking "احسب المطلوب" explicitly creates tasks with source: "gpa-target-analysis"
+// Case 26: Clicking "احسب المطلوب" shows confirmation before creating tasks
 {
   localStorage.setItem('hayyiz-todos', JSON.stringify([]));
 
   const mockContainer = new TestMockElement('div', 'whatneed-body');
   const mockTargetInput = new TestMockElement('input', 'goal-target-input');
+  const mockBody = new TestMockElement('body');
   mockTargetInput.value = '95';
 
   global.alert = () => {};
   global.document = {
+    body: mockBody,
     createElement: (tag) => new TestMockElement(tag),
     getElementById: (id) => {
       if (id === 'whatneed-body') return mockContainer;
       if (id === 'goal-target-input') return mockTargetInput;
+      if (id === 'gpa-tasks-confirm-modal') return mockBody.querySelector('#gpa-tasks-confirm-modal');
       return null;
     }
   };
@@ -532,8 +535,15 @@ class TestMockElement {
   const calcBtn = mockContainer.querySelectorAll('button').find(b => b.textContent.includes('احسب المطلوب'));
   calcBtn.click();
 
-  const todos = global.hayyizGetTodos();
-  assert(todos.length === 1 && todos[0].source === "gpa-target-analysis", "Case 26: Clicking 'احسب المطلوب' explicitly creates task marked with source: 'gpa-target-analysis'");
+  let todos = global.hayyizGetTodos();
+  assert(todos.length === 0, "Case 26: Clicking 'احسب المطلوب' alone does not create tasks before confirmation");
+
+  const createTasksBtn = mockBody.querySelectorAll('button').find(b => b.textContent.includes('إنشاء المهام'));
+  assert(createTasksBtn !== null, "Case 26: Task creation confirmation modal is shown");
+  createTasksBtn.click();
+
+  todos = global.hayyizGetTodos();
+  assert(todos.length === 1 && todos[0].source === "gpa-target-analysis", "Case 26: Confirming modal creates task marked with source: 'gpa-target-analysis'");
 }
 
 // Case 27: Manual user tasks with matching name are protected and NOT modified or overwritten
