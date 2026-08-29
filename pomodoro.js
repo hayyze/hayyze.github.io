@@ -779,7 +779,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ensureSupabaseLoaded().then(async (client) => {
                         const { data: userData } = await client.auth.getUser();
                         if (userData && userData.user) {
-                            await client.from('focus_sessions').insert({
+                            const { error: fsError } = await client.from('focus_sessions').insert({
                                 user_id: userData.user.id,
                                 task_id: state.context.id || null,
                                 workspace_id: state.context.workspaceId || null,
@@ -787,8 +787,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                 started_at: new Date(Date.now() - workMin * 60 * 1000).toISOString(),
                                 ended_at: new Date().toISOString()
                             });
+                            if (fsError) {
+                                console.error('Failed to log focus session to Supabase:', fsError);
+                            }
                         }
-                    }).catch(() => {});
+                    }).catch((err) => {
+                        console.error('Error connecting to Supabase for focus session:', err);
+                    });
                 }
             }
 

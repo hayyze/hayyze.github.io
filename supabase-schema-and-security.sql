@@ -552,6 +552,98 @@ BEGIN
 END;
 $$;
 
+-- Helper function to recalculate task completion for collaborative tasks
+CREATE OR REPLACE FUNCTION public.recalculate_collaborative_task(p_task_id UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_task RECORD;
+    v_total_required INT := 0;
+    v_completed_count INT := 0;
+    v_is_fully_completed BOOLEAN := FALSE;
+    v_now_iso TIMESTAMPTZ := NOW();
+BEGIN
+    SELECT * INTO v_task FROM public.tasks WHERE id = p_task_id FOR UPDATE;
+    IF NOT FOUND THEN RETURN FALSE; END IF;
+
+    IF v_task.completion_mode <> 'collaborative' THEN
+        RETURN v_task.completed;
+    END IF;
+
+    IF v_task.scope IN ('specific_users', 'me') THEN
+        SELECT COUNT(DISTINCT user_id) INTO v_total_required
+        FROM public.task_members WHERE task_id = p_task_id;
+    ELSIF v_task.scope = 'workspace' AND v_task.workspace_id IS NOT NULL THEN
+        SELECT COUNT(DISTINCT user_id) INTO v_total_required
+        FROM public.workspace_members WHERE workspace_id = v_task.workspace_id;
+    ELSE
+        v_total_required := 1;
+    END IF;
+
+    IF v_total_required < 1 THEN v_total_required := 1; END IF;
+
+    IF v_task.scope IN ('specific_users', 'me') THEN
+        SELECT COUNT(DISTINCT tp.user_id) INTO v_completed_count
+        FROM public.task_progress tp
+        JOIN public.task_members tm ON tp.task_id = tm.task_id AND tp.user_id = tm.user_id
+        WHERE tp.task_id = p_task_id AND tp.completed = TRUE;
+    ELSIF v_task.scope = 'workspace' AND v_task.workspace_id IS NOT NULL THEN
+        SELECT COUNT(DISTINCT tp.user_id) INTO v_completed_count
+        FROM public.task_progress tp
+        JOIN public.workspace_members wm ON v_task.workspace_id = wm.workspace_id AND tp.user_id = wm.user_id
+        WHERE tp.task_id = p_task_id AND tp.completed = TRUE;
+    ELSE
+        SELECT COUNT(DISTINCT user_id) INTO v_completed_count
+        FROM public.task_progress
+        WHERE task_id = p_task_id AND completed = TRUE;
+    END IF;
+
+    v_is_fully_completed := (v_completed_count >= v_total_required);
+
+    UPDATE public.tasks
+    SET completed = v_is_fully_completed,
+        completed_at = CASE WHEN v_is_fully_completed THEN v_now_iso ELSE NULL END,
+        updated_at = v_now_iso
+    WHERE id = p_task_id;
+
+    RETURN v_is_fully_completed;
+END;
+$$;
+
+-- Trigger when member is removed from workspace or task_members to auto-recalculate collaborative tasks
+CREATE OR REPLACE FUNCTION public.handle_member_removal_recalculate()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    r_task RECORD;
+BEGIN
+    IF TG_TABLE_NAME = 'task_members' THEN
+        PERFORM public.recalculate_collaborative_task(OLD.task_id);
+    ELSIF TG_TABLE_NAME = 'workspace_members' THEN
+        FOR r_task IN SELECT id FROM public.tasks WHERE workspace_id = OLD.workspace_id AND completion_mode = 'collaborative' LOOP
+            PERFORM public.recalculate_collaborative_task(r_task.id);
+        END LOOP;
+    END IF;
+    RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_recalculate_on_task_member_delete ON public.task_members;
+CREATE TRIGGER trg_recalculate_on_task_member_delete
+AFTER DELETE ON public.task_members
+FOR EACH ROW EXECUTE FUNCTION public.handle_member_removal_recalculate();
+
+DROP TRIGGER IF EXISTS trg_recalculate_on_workspace_member_delete ON public.workspace_members;
+CREATE TRIGGER trg_recalculate_on_workspace_member_delete
+AFTER DELETE ON public.workspace_members
+FOR EACH ROW EXECUTE FUNCTION public.handle_member_removal_recalculate();
+
 -- Atomic RPC Function: set_task_progress_and_recalculate
 -- Updates user progress and recalculates collaborative group completion atomically in PostgreSQL
 CREATE OR REPLACE FUNCTION public.set_task_progress_and_recalculate(
@@ -567,8 +659,6 @@ DECLARE
     v_caller_id UUID := auth.uid();
     v_task RECORD;
     v_now_iso TIMESTAMPTZ := NOW();
-    v_total_required INT := 0;
-    v_completed_count INT := 0;
     v_is_fully_completed BOOLEAN := FALSE;
 BEGIN
     IF v_caller_id IS NULL THEN
@@ -592,43 +682,9 @@ BEGIN
 
     -- 2. If collaborative mode, calculate exact group completion
     IF v_task.completion_mode = 'collaborative' THEN
-        IF v_task.scope IN ('specific_users', 'me') THEN
-            SELECT COUNT(DISTINCT user_id) INTO v_total_required
-            FROM public.task_members WHERE task_id = p_task_id;
-        ELSIF v_task.scope = 'workspace' AND v_task.workspace_id IS NOT NULL THEN
-            SELECT COUNT(DISTINCT user_id) INTO v_total_required
-            FROM public.workspace_members WHERE workspace_id = v_task.workspace_id;
-        ELSE
-            v_total_required := 1;
-        END IF;
-
-        IF v_total_required < 1 THEN v_total_required := 1; END IF;
-
-        -- Count completed progress entries among required members
-        IF v_task.scope IN ('specific_users', 'me') THEN
-            SELECT COUNT(DISTINCT tp.user_id) INTO v_completed_count
-            FROM public.task_progress tp
-            JOIN public.task_members tm ON tp.task_id = tm.task_id AND tp.user_id = tm.user_id
-            WHERE tp.task_id = p_task_id AND tp.completed = TRUE;
-        ELSIF v_task.scope = 'workspace' AND v_task.workspace_id IS NOT NULL THEN
-            SELECT COUNT(DISTINCT tp.user_id) INTO v_completed_count
-            FROM public.task_progress tp
-            JOIN public.workspace_members wm ON v_task.workspace_id = wm.workspace_id AND tp.user_id = wm.user_id
-            WHERE tp.task_id = p_task_id AND tp.completed = TRUE;
-        ELSE
-            SELECT COUNT(DISTINCT user_id) INTO v_completed_count
-            FROM public.task_progress
-            WHERE task_id = p_task_id AND completed = TRUE;
-        END IF;
-
-        v_is_fully_completed := (v_completed_count >= v_total_required);
-
-        -- Update tasks table atomically
-        UPDATE public.tasks
-        SET completed = v_is_fully_completed,
-            completed_at = CASE WHEN v_is_fully_completed THEN v_now_iso ELSE NULL END,
-            updated_at = v_now_iso
-        WHERE id = p_task_id;
+        v_is_fully_completed := public.recalculate_collaborative_task(p_task_id);
+    ELSE
+        v_is_fully_completed := p_completed;
     END IF;
 
     RETURN jsonb_build_object(
@@ -636,8 +692,6 @@ BEGIN
         'task_id', p_task_id,
         'user_completed', p_completed,
         'collaborative', (v_task.completion_mode = 'collaborative'),
-        'completed_count', v_completed_count,
-        'total_required', v_total_required,
         'is_fully_completed', v_is_fully_completed
     );
 END;
@@ -714,6 +768,7 @@ ALTER TABLE public.task_progress ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view permitted tasks" ON public.tasks;
 DROP POLICY IF EXISTS "Users can create tasks" ON public.tasks;
 DROP POLICY IF EXISTS "Authorized users can update tasks" ON public.tasks;
+DROP POLICY IF EXISTS "Creators or workspace owners can update tasks" ON public.tasks;
 DROP POLICY IF EXISTS "Creators or workspace owners can delete tasks" ON public.tasks;
 
 CREATE POLICY "Users can view permitted tasks"
@@ -729,10 +784,11 @@ WITH CHECK (
     (workspace_id IS NULL OR public.is_workspace_member(workspace_id, auth.uid()))
 );
 
-CREATE POLICY "Authorized users can update tasks"
+CREATE POLICY "Creators or workspace owners can update tasks"
 ON public.tasks FOR UPDATE TO authenticated
 USING (
-    public.can_view_task(id, auth.uid())
+    creator_id = auth.uid() OR
+    (workspace_id IS NOT NULL AND public.is_workspace_owner(workspace_id, auth.uid()))
 );
 
 CREATE POLICY "Creators or workspace owners can delete tasks"
@@ -742,6 +798,36 @@ USING (
     (workspace_id IS NOT NULL AND public.is_workspace_owner(workspace_id, auth.uid()))
 );
 
+
+-- Trigger to enforce task_members workspace membership constraints
+CREATE OR REPLACE FUNCTION public.validate_task_member_insert()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_task RECORD;
+BEGIN
+    SELECT creator_id, workspace_id, scope INTO v_task FROM public.tasks WHERE id = NEW.task_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Task not found.' USING ERRCODE = '22000';
+    END IF;
+
+    -- If workspace task or specific_users task linked to workspace, assigned member must belong to workspace
+    IF v_task.workspace_id IS NOT NULL AND NOT public.is_workspace_member(v_task.workspace_id, NEW.user_id) THEN
+        RAISE EXCEPTION 'Invalid task member: User % is not a member of workspace %.', NEW.user_id, v_task.workspace_id
+            USING ERRCODE = '42501';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_validate_task_member ON public.task_members;
+CREATE TRIGGER trg_validate_task_member
+BEFORE INSERT OR UPDATE ON public.task_members
+FOR EACH ROW EXECUTE FUNCTION public.validate_task_member_insert();
 
 -- 7.10 TASK MEMBERS RLS POLICIES
 DROP POLICY IF EXISTS "Task viewers can read task members" ON public.task_members;
@@ -803,11 +889,67 @@ CREATE TABLE IF NOT EXISTS public.focus_sessions (
     workspace_id UUID NULL REFERENCES public.workspaces(id) ON DELETE SET NULL,
     started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     ended_at TIMESTAMPTZ NULL,
-    duration_seconds INT NOT NULL DEFAULT 0,
+    duration_seconds INT NOT NULL DEFAULT 0 CHECK (duration_seconds >= 0 AND duration_seconds <= 86400),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 ALTER TABLE public.focus_sessions ENABLE ROW LEVEL SECURITY;
+
+-- Trigger to validate focus_sessions task & workspace permissions & consistency
+CREATE OR REPLACE FUNCTION public.validate_focus_session()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_task_ws_id UUID;
+BEGIN
+    -- 1. Ensure user_id matches authenticated user identity
+    IF NEW.user_id IS NULL OR NEW.user_id <> auth.uid() THEN
+        RAISE EXCEPTION 'Unauthorized: user_id must match authenticated user identity.'
+            USING ERRCODE = '42501';
+    END IF;
+
+    -- 2. Validate duration_seconds upper bound
+    IF NEW.duration_seconds < 0 OR NEW.duration_seconds > 86400 THEN
+        RAISE EXCEPTION 'Invalid duration_seconds: must be between 0 and 86400 seconds.'
+            USING ERRCODE = '22023';
+    END IF;
+
+    -- 3. If task_id is specified, verify permission to view task
+    IF NEW.task_id IS NOT NULL THEN
+        IF NOT public.can_view_task(NEW.task_id, NEW.user_id) THEN
+            RAISE EXCEPTION 'Unauthorized: User does not have access to specified task.'
+                USING ERRCODE = '42501';
+        END IF;
+
+        -- Fetch task's workspace_id
+        SELECT workspace_id INTO v_task_ws_id FROM public.tasks WHERE id = NEW.task_id;
+
+        -- If task belongs to a workspace, ensure focus session workspace_id matches if provided
+        IF NEW.workspace_id IS NOT NULL AND v_task_ws_id IS NOT NULL AND NEW.workspace_id <> v_task_ws_id THEN
+            RAISE EXCEPTION 'Mismatch: task_id does not belong to specified workspace_id.'
+                USING ERRCODE = '22000';
+        END IF;
+    END IF;
+
+    -- 4. If workspace_id is specified, verify membership
+    IF NEW.workspace_id IS NOT NULL THEN
+        IF NOT public.is_workspace_member(NEW.workspace_id, NEW.user_id) THEN
+            RAISE EXCEPTION 'Unauthorized: User is not a member of specified workspace.'
+                USING ERRCODE = '42501';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_validate_focus_session ON public.focus_sessions;
+CREATE TRIGGER trg_validate_focus_session
+BEFORE INSERT OR UPDATE ON public.focus_sessions
+FOR EACH ROW EXECUTE FUNCTION public.validate_focus_session();
 
 DROP POLICY IF EXISTS "Users can view permitted focus sessions" ON public.focus_sessions;
 DROP POLICY IF EXISTS "Users can insert own focus sessions" ON public.focus_sessions;

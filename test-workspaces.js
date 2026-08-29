@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-console.log('=== RUNNING RIGOROUS HAYYIZ WORKSPACES & SYNCHRONIZED TASKS TEST SUITE (20 SCENARIOS) ===\n');
+console.log('=== RUNNING RIGOROUS HAYYIZ WORKSPACES & SYNCHRONIZED TASKS TEST SUITE (22 SCENARIOS) ===\n');
 
 let passed = 0;
 let failed = 0;
@@ -126,6 +126,12 @@ class SupabaseDbMock {
         if (scope === 'specific_users') {
             recipientUserIds.forEach(uId => {
                 if (uId !== currentUser.id) {
+                    if (workspace_id) {
+                        const isMember = this.workspace_members.some(wm => wm.workspace_id === workspace_id && wm.user_id === uId);
+                        if (!isMember) {
+                            throw new Error('42501: Invalid task member: User is not a member of workspace');
+                        }
+                    }
                     this.task_members.push({ task_id: taskId, user_id: uId, role: 'assignee' });
                 }
             });
@@ -133,6 +139,52 @@ class SupabaseDbMock {
 
         this.notifyRealtime('tasks', 'INSERT', task);
         return task;
+    }
+
+    // Update Task Metadata (Creator / Owner only)
+    updateTask(currentUser, taskId, newMeta) {
+        const task = this.tasks.find(t => t.id === taskId);
+        if (!task) throw new Error('42501: Task not found');
+
+        const isCreator = (task.creator_id === currentUser.id);
+        const isWsOwner = task.workspace_id ? this.workspace_members.some(wm => wm.workspace_id === task.workspace_id && wm.user_id === currentUser.id && wm.role === 'owner') : false;
+
+        if (!isCreator && !isWsOwner) {
+            throw new Error('42501: RLS policy violation: Only creators or workspace owners can update task metadata');
+        }
+
+        Object.assign(task, newMeta);
+        this.notifyRealtime('tasks', 'UPDATE', task);
+        return task;
+    }
+
+    // Member removal auto-recalculation
+    removeWorkspaceMember(currentUser, workspaceId, targetUserId) {
+        const isOwner = this.workspace_members.some(wm => wm.workspace_id === workspaceId && wm.user_id === currentUser.id && wm.role === 'owner');
+        const isSelf = (currentUser.id === targetUserId);
+        if (!isOwner && !isSelf) throw new Error('42501: Unauthorized');
+
+        this.workspace_members = this.workspace_members.filter(wm => !(wm.workspace_id === workspaceId && wm.user_id === targetUserId));
+
+        // Trigger collaborative recalculation for tasks in workspace
+        const wsTasks = this.tasks.filter(t => t.workspace_id === workspaceId && t.completion_mode === 'collaborative');
+        wsTasks.forEach(t => this.recalculateCollaborativeTask(t.id));
+    }
+
+    recalculateCollaborativeTask(taskId) {
+        const task = this.tasks.find(t => t.id === taskId);
+        if (!task || task.completion_mode !== 'collaborative') return;
+
+        let requiredMemberIds = [];
+        if (task.scope === 'specific_users' || task.scope === 'me') {
+            requiredMemberIds = this.task_members.filter(tm => tm.task_id === taskId).map(tm => tm.user_id);
+        } else if (task.scope === 'workspace' && task.workspace_id) {
+            requiredMemberIds = this.workspace_members.filter(wm => wm.workspace_id === task.workspace_id).map(wm => wm.user_id);
+        }
+
+        const allProgress = this.task_progress.filter(p => p.task_id === taskId);
+        const completedCount = allProgress.filter(p => p.completed && requiredMemberIds.includes(p.user_id)).length;
+        task.completed = (completedCount >= requiredMemberIds.length && requiredMemberIds.length > 0);
     }
 
     canViewTask(currentUser, taskId) {
@@ -210,10 +262,27 @@ class SupabaseDbMock {
         return { completedCount, totalRequired: requiredMemberIds.length };
     }
 
-    // Log Focus Session with Permission Check
+    // Log Focus Session with Permission & Mismatch Checks
     logFocusSession(currentUser, taskId, workspaceId, durationSeconds) {
-        if (taskId && !this.canViewTask(currentUser, taskId)) {
-            throw new Error('42501: RLS policy violation: Cannot log focus session for unpermitted task');
+        if (!currentUser) throw new Error('42501: Unauthorized');
+
+        if (durationSeconds < 0 || durationSeconds > 86400) {
+            throw new Error('22023: Invalid duration_seconds: must be between 0 and 86400 seconds');
+        }
+
+        if (taskId) {
+            if (!this.canViewTask(currentUser, taskId)) {
+                throw new Error('42501: RLS policy violation: Cannot log focus session for unpermitted task');
+            }
+            const task = this.tasks.find(t => t.id === taskId);
+            if (workspaceId && task.workspace_id && workspaceId !== task.workspace_id) {
+                throw new Error('22000: Mismatch: task_id does not belong to specified workspace_id');
+            }
+        }
+
+        if (workspaceId) {
+            const isWsMember = this.workspace_members.some(wm => wm.workspace_id === workspaceId && wm.user_id === currentUser.id);
+            if (!isWsMember) throw new Error('42501: Unauthorized workspace access');
         }
 
         const session = {
@@ -389,7 +458,7 @@ let ws = null;
 
 // Scenario 18: Focus session links to permitted task
 {
-    const session = db.logFocusSession(user1, collabTask.id, ws.id, 1500);
+    const session = db.logFocusSession(user1, collabTask.id, null, 1500);
     assert(session && session.task_id === collabTask.id, '18. Focus session successfully links to permitted shared task');
 }
 
@@ -411,8 +480,41 @@ let ws = null;
     assert(!sub1.duplicate && sub2.duplicate, '20. Realtime channel prevents duplicate subscriptions on same page');
 }
 
+// Scenario 21: Non-creator/owner cannot update task metadata (title/scope)
+{
+    let rejected = false;
+    try {
+        db.updateTask(user2, specTask.id, { title: 'عنوان ممتلئ بالتعديلات غير المصرح بها' });
+    } catch (e) {
+        rejected = true;
+    }
+    assert(rejected, '21. Non-creator/non-owner attempt to UPDATE task metadata is strictly blocked');
+}
+
+// Scenario 22: Focus session validation rejects invalid duration & mismatched task/workspace
+{
+    let durationRejected = false;
+    try {
+        db.logFocusSession(user1, specTask.id, null, 9999999);
+    } catch (e) {
+        durationRejected = true;
+    }
+
+    let mismatchRejected = false;
+    const wsTask = db.createTask(user1, { title: 'مهمة مساحة', scope: 'workspace', workspace_id: ws.id });
+    const ws2 = db.createWorkspace(user1, 'مساحة ثانية', '');
+    try {
+        // wsTask belongs to ws, trying to log under ws2
+        db.logFocusSession(user1, wsTask.id, ws2.id, 1800);
+    } catch (e) {
+        mismatchRejected = true;
+    }
+
+    assert(durationRejected && mismatchRejected, '22. Focus session validation enforces duration caps (<=86400s) and task/workspace consistency');
+}
+
 console.log(`\n===================================`);
-console.log(`WORKSPACES 20-SCENARIO TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
+console.log(`WORKSPACES 22-SCENARIO TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);
 
 if (failed > 0) process.exit(1);

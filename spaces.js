@@ -197,6 +197,25 @@
     }
 
     /**
+     * Clears all in-memory caches upon logout or user switch
+     */
+    function clearWorkspacesMemoryCache() {
+        workspacesCache = [];
+        workspaceMembersCache = {};
+        tasksCache = [];
+        taskMembersCache = {};
+        taskProgressCache = {};
+        focusSessionsCache = [];
+
+        if (realtimeSubscription) {
+            getSupabase().then(client => {
+                if (client && realtimeSubscription) client.removeChannel(realtimeSubscription);
+            }).catch(() => {});
+            realtimeSubscription = null;
+        }
+    }
+
+    /**
      * Initializer for Workspaces Module
      */
     async function initWorkspacesModule() {
@@ -211,11 +230,34 @@
 
         const guestBanner = $('workspace-guest-banner');
         if (!currentUser) {
+            clearWorkspacesMemoryCache();
             if (guestBanner) guestBanner.classList.remove('hidden');
             renderTasksList();
             return;
         } else {
             if (guestBanner) guestBanner.classList.add('hidden');
+        }
+
+        // Setup auth state change listener to reset cache on logout/user switch
+        if (typeof window !== 'undefined' && window.supabaseClient && window.supabaseClient.auth) {
+            window.supabaseClient.auth.onAuthStateChange((event, session) => {
+                const newUser = session ? session.user : null;
+                if (!newUser || (currentUser && newUser.id !== currentUser.id)) {
+                    clearWorkspacesMemoryCache();
+                    currentUser = newUser;
+                    if (!currentUser) {
+                        if (guestBanner) guestBanner.classList.remove('hidden');
+                        renderWorkspaceTabs();
+                        renderActiveWorkspaceHeader();
+                        renderTasksList();
+                        renderFocusStats();
+                    } else {
+                        if (guestBanner) guestBanner.classList.add('hidden');
+                        loadAllWorkspaceData();
+                        setupRealtimeSubscriptions();
+                    }
+                }
+            });
         }
 
         await loadAllWorkspaceData();
@@ -326,7 +368,7 @@
     }
 
     /**
-     * Realtime Subscriptions with Granular Updates
+     * Realtime Subscriptions with Granular Incremental Updates
      */
     function setupRealtimeSubscriptions() {
         if (!currentUser) return;
@@ -342,12 +384,11 @@
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'task_progress' }, (payload) => {
                     handleRealtimeProgressChange(payload);
                 })
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'workspace_members' }, () => {
-                    loadAllWorkspaceData();
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'workspace_members' }, (payload) => {
+                    handleRealtimeMemberChange(payload);
                 })
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'focus_sessions' }, (payload) => {
-                    if (payload.new) focusSessionsCache.unshift(payload.new);
-                    renderFocusStats();
+                    handleRealtimeFocusSessionChange(payload);
                 })
                 .subscribe();
         }).catch(() => {});
@@ -355,26 +396,96 @@
 
     function handleRealtimeTaskChange(payload) {
         if (payload.eventType === 'INSERT' && payload.new) {
-            tasksCache.unshift(payload.new);
+            if (!tasksCache.some(t => t.id === payload.new.id)) {
+                tasksCache.unshift(payload.new);
+            }
         } else if (payload.eventType === 'UPDATE' && payload.new) {
             const idx = tasksCache.findIndex(t => t.id === payload.new.id);
             if (idx >= 0) tasksCache[idx] = payload.new;
+            else tasksCache.unshift(payload.new);
         } else if (payload.eventType === 'DELETE' && payload.old) {
-            tasksCache = tasksCache.filter(t => t.id !== payload.old.id);
+            const deletedId = payload.old.id;
+            tasksCache = tasksCache.filter(t => t.id !== deletedId);
+            delete taskMembersCache[deletedId];
+            delete taskProgressCache[deletedId];
         }
         renderTasksList();
         renderActiveWorkspaceHeader();
     }
 
     function handleRealtimeProgressChange(payload) {
-        if (payload.new) {
+        if (payload.eventType === 'DELETE' && payload.old) {
+            const taskId = payload.old.task_id;
+            if (taskProgressCache[taskId]) {
+                taskProgressCache[taskId] = taskProgressCache[taskId].filter(p => p.user_id !== payload.old.user_id);
+            }
+        } else if (payload.new) {
             const taskId = payload.new.task_id;
             if (!taskProgressCache[taskId]) taskProgressCache[taskId] = [];
             const idx = taskProgressCache[taskId].findIndex(p => p.user_id === payload.new.user_id);
             if (idx >= 0) taskProgressCache[taskId][idx] = payload.new;
             else taskProgressCache[taskId].push(payload.new);
         }
+
+        // Recalculate task collaborative completion state if applicable
+        if (payload.new || payload.old) {
+            const tId = payload.new ? payload.new.task_id : payload.old.task_id;
+            const task = tasksCache.find(t => t.id === tId);
+            if (task && task.completion_mode === 'collaborative') {
+                const { isFullyCompleted } = calculateCollaborativeTaskProgress(task, taskProgressCache[tId] || []);
+                task.completed = isFullyCompleted;
+            }
+        }
+
         renderTasksList();
+        renderActiveWorkspaceHeader();
+    }
+
+    function handleRealtimeMemberChange(payload) {
+        const wsId = payload.new ? payload.new.workspace_id : (payload.old ? payload.old.workspace_id : null);
+        if (!wsId) return;
+
+        if (payload.eventType === 'DELETE' && payload.old) {
+            if (workspaceMembersCache[wsId]) {
+                workspaceMembersCache[wsId] = workspaceMembersCache[wsId].filter(m => m.user_id !== payload.old.user_id);
+            }
+        } else if (payload.eventType === 'INSERT' && payload.new) {
+            // Fetch profile info for new member without full re-fetch of all workspace data
+            getSupabase().then(async (client) => {
+                if (!client) return;
+                const { data: prof } = await client.from('profiles').select('id, email, display_name').eq('id', payload.new.user_id).single();
+                if (!workspaceMembersCache[wsId]) workspaceMembersCache[wsId] = [];
+                if (!workspaceMembersCache[wsId].some(m => m.user_id === payload.new.user_id)) {
+                    workspaceMembersCache[wsId].push({
+                        user_id: payload.new.user_id,
+                        role: payload.new.role || 'member',
+                        email: prof ? prof.email : 'مستخدم',
+                        display_name: prof ? (prof.display_name || prof.email) : 'مستخدم'
+                    });
+                }
+                renderActiveWorkspaceHeader();
+                renderTasksList();
+            }).catch(() => {});
+            return;
+        }
+
+        renderActiveWorkspaceHeader();
+        renderTasksList();
+    }
+
+    function handleRealtimeFocusSessionChange(payload) {
+        if (payload.eventType === 'DELETE' && payload.old) {
+            focusSessionsCache = focusSessionsCache.filter(s => s.id !== payload.old.id);
+        } else if (payload.eventType === 'INSERT' && payload.new) {
+            if (!focusSessionsCache.some(s => s.id === payload.new.id)) {
+                focusSessionsCache.unshift(payload.new);
+            }
+        } else if (payload.eventType === 'UPDATE' && payload.new) {
+            const idx = focusSessionsCache.findIndex(s => s.id === payload.new.id);
+            if (idx >= 0) focusSessionsCache[idx] = payload.new;
+            else focusSessionsCache.unshift(payload.new);
+        }
+        renderFocusStats();
         renderActiveWorkspaceHeader();
     }
 
