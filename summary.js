@@ -396,32 +396,59 @@ document.addEventListener('DOMContentLoaded', () => {
     statsGrid.appendChild(makeStatBox('fa-solid fa-list-check', activeTodos.length, 'المهام المتبقية', 'todo.html'));
     content.appendChild(statsGrid);
 
-    // ب) خطة اليوم المدمجة (Integrated Daily Plan)
+    // ب) خطة اليوم المترابطة والتكيفية (Adaptive Execution-Oriented Daily Study Plan)
     const planItems = typeof hayyizGenerateDailyPlan === 'function' ? hayyizGenerateDailyPlan() : [];
+    const planCard = document.createElement('div');
+    planCard.className = 'dash-section card';
+
+    const planHead = document.createElement('div');
+    planHead.className = 'dash-section-head';
+
+    const planTitle = document.createElement('h4');
+    planTitle.innerHTML = '<i class="fa-solid fa-calendar-check" aria-hidden="true" style="color:var(--color-primary);"></i> خطة اليوم الدراسي';
+
+    const planLink = document.createElement('a');
+    planLink.href = 'todo.html';
+    planLink.textContent = 'إدارة المهام';
+
+    planHead.appendChild(planTitle);
+    planHead.appendChild(planLink);
+    planCard.appendChild(planHead);
+
     if (planItems && planItems.length > 0) {
-        const planCard = document.createElement('div');
-        planCard.className = 'dash-section card';
+        // ملخص التقدم لخطة اليوم
+        const planSummaryRow = document.createElement('div');
+        planSummaryRow.className = 'dash-plan-summary-bar';
+        planSummaryRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.85rem; font-size: 0.85rem; color: var(--color-text-secondary); background: var(--color-surface); padding: 0.6rem 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border);';
 
-        const planHead = document.createElement('div');
-        planHead.className = 'dash-section-head';
+        const summaryLeft = document.createElement('div');
+        summaryLeft.style.cssText = 'display: flex; gap: 0.85rem; flex-wrap: wrap; font-weight: 600; color: var(--color-text);';
 
-        const planTitle = document.createElement('h4');
-        planTitle.innerHTML = '<i class="fa-solid fa-calendar-check" aria-hidden="true" style="color:var(--color-primary);"></i> خطة اليوم';
+        const activeCount = activeTodos.length;
+        summaryLeft.innerHTML = `<span><i class="fa-solid fa-list-check" style="color: var(--color-primary);"></i> ${activeCount > 0 ? activeCount + ' مهام متبقية' : 'جميع المهام مكتملة'}</span>` +
+                                `<span><i class="fa-solid fa-stopwatch" style="color: var(--color-primary);"></i> ${focusMinutes > 0 ? focusMinutes + ' دقيقة تركيز اليوم' : 'لم تبدأ التركيز بعد'}</span>`;
 
-        const planLink = document.createElement('a');
-        planLink.href = 'todo.html';
-        planLink.textContent = 'إدارة الخطة';
+        const summaryRowExams = typeof hayyizGetCalendarSummary === 'function' ? hayyizGetCalendarSummary().nearestEvent : null;
+        if (summaryRowExams) {
+            const daysToEx = hayyizDaysUntil(summaryRowExams.date);
+            if (daysToEx !== null && daysToEx >= 0 && daysToEx <= 7) {
+                const exLabel = daysToEx === 0 ? 'اختبار اليوم' : (daysToEx === 1 ? 'اختبار غداً' : `اختبار بعد ${daysToEx} أيام`);
+                const examSpan = document.createElement('span');
+                examSpan.style.color = 'var(--color-primary)';
+                examSpan.innerHTML = `<i class="fa-solid fa-graduation-cap"></i> ${exLabel} (${escapeHtml(summaryRowExams.name)})`;
+                summaryLeft.appendChild(examSpan);
+            }
+        }
 
-        planHead.appendChild(planTitle);
-        planHead.appendChild(planLink);
-        planCard.appendChild(planHead);
+        planSummaryRow.appendChild(summaryLeft);
+        planCard.appendChild(planSummaryRow);
 
         const planList = document.createElement('ul');
         planList.className = 'dash-plan-list';
 
         planItems.forEach((item) => {
             const li = document.createElement('li');
-            li.className = 'dash-plan-item';
+            li.className = 'dash-plan-item' + (item.isPrimaryNextAction ? ' primary-next-action' : '');
 
             const info = document.createElement('div');
             info.className = 'dash-plan-info';
@@ -454,8 +481,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'btn btn-secondary btn-sm';
-            btn.textContent = item.actionLabel;
+            btn.className = item.isPrimaryNextAction ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+            btn.innerHTML = (item.isPrimaryNextAction ? '<i class="fa-solid fa-play" aria-hidden="true"></i> ' : '') + escapeHtml(item.actionLabel);
             btn.addEventListener('click', () => {
                 if (item.actionType === 'pomo-task' && item.task) {
                     const idx = todos.indexOf(item.task);
@@ -477,6 +504,41 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         planCard.appendChild(planList);
+        content.appendChild(planCard);
+    } else {
+        // حالة الخطة الفارغة (Empty State)
+        const emptyPlanBox = document.createElement('div');
+        emptyPlanBox.style.cssText = 'padding: 1.25rem; text-align: center; color: var(--color-text-secondary);';
+
+        const emptyTitle = document.createElement('strong');
+        emptyTitle.style.cssText = 'display: block; font-size: 1rem; color: var(--color-text); margin-bottom: 0.35rem;';
+        emptyTitle.textContent = 'لا توجد مهام مخططة لليوم';
+
+        const emptyDesc = document.createElement('p');
+        emptyDesc.style.cssText = 'font-size: 0.88rem; margin: 0 0 1rem;';
+        emptyDesc.textContent = 'أضف مهامك أو مواعيد اختباراتك ليقوم حيز بتنظيم خطتك الدراسية التكيفية تلقائياً.';
+
+        const emptyActions = document.createElement('div');
+        emptyActions.style.cssText = 'display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap;';
+
+        const addTasksBtn = document.createElement('a');
+        addTasksBtn.href = 'todo.html';
+        addTasksBtn.className = 'btn btn-primary btn-sm';
+        addTasksBtn.textContent = '+ إضافة مهام';
+
+        const addCalBtn = document.createElement('a');
+        addCalBtn.href = 'calculator.html';
+        addCalBtn.className = 'btn btn-secondary btn-sm';
+        addCalBtn.textContent = 'تقويم الطالب';
+
+        emptyActions.appendChild(addTasksBtn);
+        emptyActions.appendChild(addCalBtn);
+
+        emptyPlanBox.appendChild(emptyTitle);
+        emptyPlanBox.appendChild(emptyDesc);
+        emptyPlanBox.appendChild(emptyActions);
+
+        planCard.appendChild(emptyPlanBox);
         content.appendChild(planCard);
     }
 

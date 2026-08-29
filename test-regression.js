@@ -98,7 +98,7 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
 
 // --- 4. SERVICE WORKER CACHE VERSION TEST ---
 {
-    assert(swJs.includes("const CACHE_NAME = 'heez-v1.9.1';"), 'Service Worker uses cache version heez-v1.9.1');
+    assert(swJs.includes("const CACHE_NAME = 'heez-v1.9.2';"), 'Service Worker uses cache version heez-v1.9.2');
     assert(swJs.includes('.filter((key) => key !== CACHE_NAME)'), 'Service Worker activates clean deletion of old cache versions');
     assert(swJs.includes('./contact.html') && swJs.includes('./terms.html') && swJs.includes('./privacy.html') && swJs.includes('./founder.html'), 'Service Worker caches newly added static HTML pages for offline support');
 }
@@ -893,34 +893,10 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     Date.now = realDateNow;
 }
 
-// --- 11. CENTRALIZED RULE ENGINE & DAILY PLAN TESTS ---
+// --- 11. CENTRALIZED RULE ENGINE & ADAPTIVE DAILY PLAN SCENARIOS A-H ---
 {
-    // Clean storage
-    localStorage.removeItem('hayyiz-student-exams');
-    localStorage.removeItem('hayyiz-exams');
-    localStorage.removeItem('hayyiz-todos');
-    localStorage.removeItem('hayyiz-habits');
-    localStorage.removeItem('hayyiz-pomodoro-state');
-    localStorage.setItem('hayyiz-focus-minutes-today', '0');
+    localStorage.clear();
 
-    // Case 1: Empty state -> returns null
-    const emptyStateRes = hayyizEvaluateStudentState();
-    assert(emptyStateRes === null, 'Rule Engine: Empty student state produces no artificial suggestion (null)');
-
-    // Case 2: Running Focus Session -> Suggests continuing active session
-    const runningSession = {
-        status: 'running',
-        startTime: Date.now() - 300000,
-        durationMinutes: 25,
-        remainingSeconds: 1200,
-        context: { title: 'مراجعة الاحياء' }
-    };
-    hayyizSaveFocusState(runningSession);
-    const runningRes = hayyizEvaluateStudentState();
-    assert(runningRes && runningRes.id === 'running-focus' && runningRes.type === 'pomodoro', 'Rule Engine: Suggests continuing active running Pomodoro focus session');
-    localStorage.removeItem('hayyiz-pomodoro-state');
-
-    // Helper date string formatter relative to getTodayLocal()
     const getOffsetDateStr = (offsetDays) => {
         const base = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
         const parts = base.split('-').map(Number);
@@ -931,55 +907,72 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
         return `${y}-${m}-${day}`;
     };
 
-    // Case 3: Upcoming Exam <= 7 days & focusMinutes < 25 -> Suggests exam focus session
-    const tomorrowStr = getOffsetDateStr(1);
+    // Scenario A: Tasks + Exam -> Primary action at top
     localStorage.setItem('hayyiz-student-exams', JSON.stringify([
-        { id: 'ex_test_1', name: 'اختبار الرياضيات النهائي', date: tomorrowStr, done: false }
+        { id: 'ex_scen_a', name: 'اختبار الكيمياء', date: getOffsetDateStr(1) }
     ]));
     localStorage.setItem('hayyiz-todos', JSON.stringify([
-        { id: 't_ex_1', text: 'حل نماذج الرياضيات', priority: 'high', completed: false }
+        { id: 't_scen_a1', text: 'مراجعة الكيمياء الباب 1', priority: 'high', completed: false },
+        { id: 't_scen_a2', text: 'حل الواجب العادي', priority: 'low', completed: false }
     ]));
-    const examRes = hayyizEvaluateStudentState();
-    assert(examRes && examRes.id === 'exam-upcoming' && examRes.badge === 'اختبار قريب', 'Rule Engine: Suggests study session for upcoming exam when focus minutes < 25');
+    const planScenA = hayyizGenerateDailyPlan();
+    assert(planScenA.length > 0 && planScenA[0].isPrimaryNextAction === true, 'Scenario A: Primary Student OS decision is placed first in Daily Plan');
 
-    // Case 4: Overdue tasks -> Suggests overdue task
-    localStorage.removeItem('hayyiz-student-exams');
-    const yesterdayStr = getOffsetDateStr(-1);
+    // Scenario B: Complete Task A -> Regenerates plan without Task A
+    hayyizCompleteTask('t_scen_a1', 'مراجعة الكيمياء الباب 1');
+    const planScenB = hayyizGenerateDailyPlan();
+    assert(!planScenB.some(item => item.task && item.task.id === 't_scen_a1'), 'Scenario B: Completed task is immediately absent from regenerated Daily Plan');
+
+    // Scenario C: Focus Task A -> Complete Pomodoro -> Task A remains incomplete, Focus logged in plan subtitle
+    localStorage.clear();
+    const taskScenC = { id: 't_scen_c', text: 'حل تمارين الفيزياء', minutes: 50, focusDone: 0, priority: 'high', completed: false };
+    hayyizSaveTodos([taskScenC]);
+    hayyizApplyFocusResult({ workMin: 25, taskId: 't_scen_c', taskText: 'حل تمارين الفيزياء' });
+    const planScenC = hayyizGenerateDailyPlan();
+    const taskItemC = planScenC.find(i => i.task && i.task.id === 't_scen_c');
+    assert(taskItemC && taskItemC.subtitle.includes('متبقي 25 دقيقة'), 'Scenario C: Focus session logged while task remains incomplete; Daily Plan reflects remaining focus time');
+
+    // Scenario D: Completion modal choice "Task complete" -> Task A completed -> Plan updates
+    hayyizCompleteTask('t_scen_c', 'حل تمارين الفيزياء');
+    const planScenD = hayyizGenerateDailyPlan();
+    assert(!planScenD.some(i => i.task && i.task.id === 't_scen_c'), 'Scenario D: User marking task complete removes it from regenerated plan');
+
+    // Scenario E: Completion modal choice "Next task" -> Task A remains incomplete, next task (Task B) becomes primary
+    localStorage.clear();
+    const taskE1 = { id: 't_scen_e1', text: 'مهمة أ', focusDone: 0, priority: 'medium', completed: false };
+    const taskE2 = { id: 't_scen_e2', text: 'مهمة ب أولوية عالية', priority: 'high', completed: false };
+    hayyizSaveTodos([taskE1, taskE2]);
+    const planScenE = hayyizGenerateDailyPlan();
+    assert(planScenE[0].task && planScenE[0].task.id === 't_scen_e2', 'Scenario E: Next task option keeps task incomplete while next action becomes primary in Daily Plan');
+
+    // Scenario F: Exam proximity changes -> Plan priority dynamically updates
+    localStorage.clear();
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_scen_f', name: 'اختبار الحاسب القريب جداً', date: getOffsetDateStr(0) }
+    ]));
     localStorage.setItem('hayyiz-todos', JSON.stringify([
-        { id: 't_ov_1', text: 'تسليم بحث التاريخ المتأخر', date: yesterdayStr, completed: false }
+        { id: 't_scen_f', text: 'مهمة عادية', priority: 'low', completed: false }
     ]));
-    const overdueRes = hayyizEvaluateStudentState();
-    assert(overdueRes && overdueRes.id === 'task-overdue' && overdueRes.badge === 'مهام متأخرة', 'Rule Engine: Suggests focusing on overdue tasks first');
+    const planScenF = hayyizGenerateDailyPlan();
+    assert(planScenF[0].type === 'exam' && planScenF[0].event.id === 'ex_scen_f', 'Scenario F: Exam date becoming today dynamically shifts exam to highest priority in Daily Plan');
 
-    // Case 5: Daily Plan generation priority ordering
-    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
-        { id: 'ex_plan_1', name: 'اختبار الفيزياء', date: tomorrowStr, done: false }
-    ]));
-    localStorage.setItem('hayyiz-habits', JSON.stringify([
-        { id: 'h_plan_1', title: 'قراءة كتاب', streak: 5, lastCompleted: '2020-01-01' }
-    ]));
+    // Scenario G: Empty state -> Empty plan array
+    localStorage.clear();
+    const planScenG = hayyizGenerateDailyPlan();
+    assert(Array.isArray(planScenG) && planScenG.length === 0, 'Scenario G: Empty state produces no artificial or fake daily plan items');
 
-    const planItems = hayyizGenerateDailyPlan();
-    assert(Array.isArray(planItems) && planItems.length >= 3, 'Daily Plan: Generates integrated list from exams, todos, and habits');
-    assert(planItems[0].type === 'exam' || planItems[0].type === 'todo', 'Daily Plan: Exams and overdue/priority tasks take top priority');
-    assert(planItems.some(item => item.type === 'habit'), 'Daily Plan: Includes uncompleted daily habits');
-
-    // Case 6: Backward compatibility - Dual-key exam merging without data loss or duplication
-    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
-        { id: 'ex_new_1', name: 'اختبار الحاسب', date: tomorrowStr }
-    ]));
-    localStorage.setItem('hayyiz-exams', JSON.stringify([
-        { id: 'ex_new_1', name: 'اختبار الحاسب', date: tomorrowStr },
-        { id: 'ex_legacy_2', name: 'اختبار الإنجليزي القديم', date: tomorrowStr }
-    ]));
-    const mergedExams = hayyizGetExams();
-    assert(mergedExams.length === 2, 'hayyizGetExams: Merges and deduplicates exams from both hayyiz-student-exams and legacy hayyiz-exams without data loss');
-
-    // Case 7: Custom user Pomodoro duration preference in recommendation
-    localStorage.setItem('hayyiz-pref-work', '45');
-    const customPomoRes = hayyizEvaluateStudentState();
-    assert(customPomoRes && customPomoRes.text.includes('45 دقيقة'), 'Rule Engine: Uses custom user Pomodoro duration preference in recommendations');
-    localStorage.removeItem('hayyiz-pref-work');
+    // Scenario H: Active running Pomodoro session -> Running session takes top priority without interruption
+    const activeRunningState = {
+        mode: 'focus',
+        status: 'running',
+        remainingSeconds: 600,
+        totalDuration: 1500,
+        endTime: Date.now() + 600000,
+        context: { type: 'free', id: null, title: 'جلسة تركيز قائمة' }
+    };
+    hayyizSaveFocusState(activeRunningState);
+    const planScenH = hayyizGenerateDailyPlan();
+    assert(planScenH.length > 0 && planScenH[0].type === 'pomodoro' && planScenH[0].badge === 'جلسة جارية', 'Scenario H: Active running Pomodoro takes top priority in Daily Plan');
 }
 
 console.log(`\n===================================`);

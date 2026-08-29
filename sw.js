@@ -1,4 +1,4 @@
-const CACHE_NAME = 'heez-v1.9.1';
+const CACHE_NAME = 'heez-v1.9.2';
 
 const ASSETS = [
   './',
