@@ -650,7 +650,21 @@ function hayyizBumpSubjectProgress(subjectId, minutes) {
 
 function hayyizGetExams() {
     hayyizEnsureDataShape();
-    return hayyizParseJSON('hayyiz-exams', []);
+    const list1 = hayyizParseJSON('hayyiz-student-exams', []);
+    const list2 = hayyizParseJSON('hayyiz-exams', []);
+    const merged = [];
+    const seen = new Set();
+
+    [...list1, ...list2].forEach((item) => {
+        if (!item || typeof item !== 'object') return;
+        const key = item.id ? String(item.id) : `${item.name || ''}_${item.date || ''}`;
+        if (key && !seen.has(key)) {
+            seen.add(key);
+            merged.push(item);
+        }
+    });
+
+    return merged;
 }
 
 function hayyizSaveExams(list) {
@@ -810,6 +824,173 @@ function hayyizRecommendNext(limit) {
         ranked: top,
         allActive: active
     };
+}
+
+/**
+ * محرك التقييم المركزي لحالة الطالب (Rule Engine)
+ * يقيم بيانات الطالب الحالية محلياً دون أطراف خارجية أو AI
+ */
+function hayyizEvaluateStudentState() {
+    const today = getTodayLocal();
+    const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
+    const candidates = [];
+
+    const focusState = hayyizGetFocusState();
+    if (focusState && focusState.status === 'running' && focusState.remainingSeconds > 0) {
+        const ctxTitle = focusState.context ? focusState.context.title : 'جلسة تركيز';
+        candidates.push({
+            score: 1000, id: 'running-focus', type: 'pomodoro', badge: 'جلسة جارية',
+            title: 'اقتراح حيز',
+            text: `لديك جلسة تركيز جارية الآن ("${ctxTitle}"). واصل تركيزك للحفاظ على استمراريتك.`,
+            actionLabel: 'متابعة الجلسة', actionType: 'url', url: 'pomodoro.html'
+        });
+    }
+
+    const exams = hayyizGetExams();
+    const todos = hayyizGetTodos();
+    const habits = hayyizGetHabits();
+    const habitsSummary = hayyizGetHabitTodaySummary(habits);
+    const focusMinutesToday = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
+
+    const activeTodos = todos.filter((t) => t && !t.completed);
+    const overdueTodos = activeTodos.filter((t) => t.date && String(t.date).slice(0, 10) < today);
+    const rec = hayyizRecommendNext(1);
+    const nextTask = rec ? rec.next : (activeTodos[0] || null);
+
+    const upcomingExams = exams.filter((e) => e && !e.done && e.date);
+    let nearestExam = null, minDays = Infinity;
+    upcomingExams.forEach((e) => {
+        const d = hayyizDaysUntil(String(e.date).slice(0, 10));
+        if (d !== null && d >= 0 && d <= 7 && d < minDays) {
+            minDays = d;
+            nearestExam = e;
+        }
+    });
+
+    if (nearestExam && focusMinutesToday < workMin) {
+        const daysText = minDays === 0 ? 'اليوم' : (minDays === 1 ? 'غداً' : `بعد ${minDays} أيام`);
+        const textMsg = `لديك اختبار قريب (${nearestExam.name}) ${daysText}، ولم تبدأ جلسة دراسة كافية اليوم.` +
+            (nextTask ? ` ابدأ جلسة ${workMin} دقيقة لمهمتك ذات الأولوية ("${nextTask.text}").` : ` ابدأ جلسة تركيز مدتها ${workMin} دقيقة للمراجعة.`);
+        candidates.push({
+            score: 150 + (7 - minDays) * 15, id: 'exam-upcoming', type: 'exam', badge: 'اختبار قريب',
+            title: 'اقتراح حيز', text: textMsg,
+            actionLabel: nextTask ? 'ابدأ جلسة للمهمة' : 'ابدأ جلسة تركيز',
+            actionType: nextTask ? 'pomo-task' : 'url', task: nextTask, url: 'pomodoro.html'
+        });
+    }
+
+    if (overdueTodos.length > 0) {
+        const topOverdue = overdueTodos[0];
+        const daysOverdue = Math.abs(hayyizDaysUntil(String(topOverdue.date).slice(0, 10)) || 1);
+        candidates.push({
+            score: 130 + Math.min(daysOverdue * 10, 50) + (topOverdue.priority === 'high' ? 30 : 10),
+            id: 'task-overdue', type: 'todo', badge: 'مهام متأخرة', title: 'اقتراح حيز',
+            text: `لديك ${overdueTodos.length} مهام متأخرة عن موعدها. يفضل البدء بمهمة "${topOverdue.text}" لإنجازها أولاً وتجنب تراكم المهام.`,
+            actionLabel: 'ابدأ التركيز عليها', actionType: 'pomo-task', task: topOverdue, url: 'pomodoro.html'
+        });
+    }
+
+    if (nextTask) {
+        if (rec && rec.isInProgress) {
+            candidates.push({
+                score: 140, id: 'task-in-progress', type: 'todo', badge: 'قيد التنفيذ', title: 'اقتراح حيز',
+                text: `بدأت العمل على مهمة "${nextTask.text}". أكمل جلسة التركيز القادمة لإتمامها.`,
+                actionLabel: 'استكمال جلسة التركيز', actionType: 'pomo-task', task: nextTask, url: 'pomodoro.html'
+            });
+        } else if (nextTask.priority === 'high') {
+            candidates.push({
+                score: 95, id: 'high-priority-task', type: 'todo', badge: 'أولوية عالية', title: 'اقتراح حيز',
+                text: `لديك مهمة عالية الأولوية "${nextTask.text}". ابدأ بها الآن لتحقيق أقصى تقدم في خطتك الدراسية.`,
+                actionLabel: 'ابدأ جلسة تركيز', actionType: 'pomo-task', task: nextTask, url: 'pomodoro.html'
+            });
+        }
+    }
+
+    if (habitsSummary.remaining > 0) {
+        const uncompletedHabit = habits.find((h) => h && h.lastCompleted !== today);
+        const habitName = uncompletedHabit ? uncompletedHabit.title : 'عاداتك اليومية';
+        candidates.push({
+            score: 65 + Math.min(habitsSummary.remaining * 10, 25), id: 'habit-due', type: 'habit', badge: 'عادات اليوم',
+            title: 'اقتراح حيز',
+            text: `متبقي لديك ${habitsSummary.remaining} عادات لم تنجزها اليوم ("${habitName}"). أتمها للحفاظ على استمراريتك وسلسلة الإنجاز!`,
+            actionLabel: 'انتقل للعادات', actionType: 'url', url: 'habits.html'
+        });
+    }
+
+    candidates.sort((a, b) => b.score - a.score);
+    const winner = candidates[0] || null;
+    return winner && winner.score >= 50 ? winner : null;
+}
+
+/**
+ * توليد خطة اليوم المترابطة (Daily Plan Data Aggregator)
+ */
+function hayyizGenerateDailyPlan() {
+    const today = getTodayLocal();
+    const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
+    const planItems = [];
+
+    const exams = hayyizGetExams();
+    exams.forEach((ex) => {
+        if (!ex || ex.done || !ex.date) return;
+        const d = hayyizDaysUntil(String(ex.date).slice(0, 10));
+        if (d === 0 || d === 1) {
+            planItems.push({
+                id: 'plan-exam-' + ex.id, type: 'exam', priority: d === 0 ? 100 : 90,
+                badge: d === 0 ? 'اليوم' : 'غداً', badgeClass: d === 0 ? 'badge-danger' : 'badge-warning',
+                title: ex.name, subtitle: ex.time ? `اختبار الساعة ${ex.time}` : 'اختبار دراسي',
+                icon: 'fa-solid fa-graduation-cap', actionLabel: 'عرض التقويم', actionType: 'url', url: 'calculator.html'
+            });
+        }
+    });
+
+    const todos = hayyizGetTodos();
+    const activeTodos = todos.filter((t) => t && !t.completed);
+    activeTodos.forEach((t) => {
+        const d = t.date ? hayyizDaysUntil(String(t.date).slice(0, 10)) : null;
+        const isOverdue = d !== null && d < 0;
+        const isDueToday = d === 0;
+        const isHigh = t.priority === 'high';
+
+        if (isOverdue || isDueToday || isHigh) {
+            let priorityScore = 50, badgeText = 'مهمة', badgeClass = 'badge-primary';
+            if (isOverdue) { priorityScore = 85; badgeText = 'متأخرة'; badgeClass = 'badge-danger'; }
+            else if (isDueToday) { priorityScore = 75; badgeText = 'اليوم'; badgeClass = 'badge-warning'; }
+            else if (isHigh) { priorityScore = 65; badgeText = 'أولوية عالية'; badgeClass = 'badge-primary'; }
+
+            const minutes = t.minutes ? parseInt(t.minutes, 10) : workMin;
+            planItems.push({
+                id: 'plan-task-' + (t.id || t.text), type: 'todo', priority: priorityScore,
+                badge: badgeText, badgeClass: badgeClass, title: t.text, subtitle: `تقدير الوقت: ${minutes} دقيقة`,
+                icon: 'fa-solid fa-list-check', actionLabel: 'ابدأ', actionType: 'pomo-task', task: t, url: 'pomodoro.html'
+            });
+        }
+    });
+
+    const habits = hayyizGetHabits();
+    const pendingHabits = habits.filter((h) => h && h.lastCompleted !== today);
+    if (pendingHabits.length > 0) {
+        pendingHabits.slice(0, 2).forEach((h) => {
+            planItems.push({
+                id: 'plan-habit-' + h.id, type: 'habit', priority: 40,
+                badge: 'عادة', badgeClass: 'badge-success', title: h.title,
+                subtitle: `سلسلة الاستمرار: ${h.streak || 0} أيام`, icon: 'fa-solid fa-fire',
+                actionLabel: 'إنجاز', actionType: 'url', url: 'habits.html'
+            });
+        });
+    }
+
+    if (planItems.length === 0 && activeTodos.length > 0) {
+        const topTask = activeTodos[0];
+        planItems.push({
+            id: 'plan-focus-suggested', type: 'focus', priority: 30,
+            badge: 'جلسة تركيز', badgeClass: 'badge-primary', title: topTask.text,
+            subtitle: `${workMin} دقيقة تركيز`, icon: 'fa-solid fa-clock',
+            actionLabel: 'ابدأ', actionType: 'pomo-task', task: topTask, url: 'pomodoro.html'
+        });
+    }
+
+    return planItems.sort((a, b) => b.priority - a.priority);
 }
 
 /* ---------- Focus Engine Data Layer Helpers ---------- */
