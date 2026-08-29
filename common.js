@@ -869,13 +869,26 @@ function hayyizEvaluateStudentState() {
 
     if (nearestExam && focusMinutesToday < workMin) {
         const daysText = minDays === 0 ? 'اليوم' : (minDays === 1 ? 'غداً' : `بعد ${minDays} أيام`);
+
+        // التحقق من وجود مهمة مرتبطة فعلياً بهذا الاختبار تجنباً لاختلاق علاقات وهمية
+        const relatedTask = activeTodos.find((t) => {
+            if (!t) return false;
+            if (nearestExam.subjectId && t.subjectId === nearestExam.subjectId) return true;
+            if (t.eventId && t.eventId === nearestExam.id) return true;
+            if (nearestExam.name && t.text && t.text.includes(nearestExam.name)) return true;
+            return false;
+        });
+
         const textMsg = `لديك اختبار قريب (${nearestExam.name}) ${daysText}، ولم تبدأ جلسة دراسة كافية اليوم.` +
-            (nextTask ? ` ابدأ جلسة ${workMin} دقيقة لمهمتك ذات الأولوية ("${nextTask.text}").` : ` ابدأ جلسة تركيز مدتها ${workMin} دقيقة للمراجعة.`);
+            (relatedTask ? ` ابدأ جلسة ${workMin} دقيقة لمهمتك المرتبطة ("${relatedTask.text}").` : ` ابدأ جلسة تركيز مدتها ${workMin} دقيقة للمراجعة.`);
         candidates.push({
             score: 150 + (7 - minDays) * 15, id: 'exam-upcoming', type: 'exam', badge: 'اختبار قريب',
             title: 'اقتراح حيز', text: textMsg,
-            actionLabel: nextTask ? 'ابدأ جلسة للمهمة' : 'ابدأ جلسة تركيز',
-            actionType: nextTask ? 'pomo-task' : 'url', task: nextTask, url: 'pomodoro.html'
+            actionLabel: relatedTask ? 'ابدأ جلسة للمهمة' : 'ابدأ جلسة تركيز',
+            actionType: relatedTask ? 'pomo-task' : 'pomo-event',
+            task: relatedTask || null,
+            event: relatedTask ? null : nearestExam,
+            url: 'pomodoro.html'
         });
     }
 
@@ -939,7 +952,7 @@ function hayyizGenerateDailyPlan() {
                 id: 'plan-exam-' + ex.id, type: 'exam', priority: d === 0 ? 100 : 90,
                 badge: d === 0 ? 'اليوم' : 'غداً', badgeClass: d === 0 ? 'badge-danger' : 'badge-warning',
                 title: ex.name, subtitle: ex.time ? `اختبار الساعة ${ex.time}` : 'اختبار دراسي',
-                icon: 'fa-solid fa-graduation-cap', actionLabel: 'عرض التقويم', actionType: 'url', url: 'calculator.html'
+                icon: 'fa-solid fa-graduation-cap', actionLabel: 'ابدأ تركيز', actionType: 'pomo-event', event: ex, url: 'pomodoro.html'
             });
         }
     });

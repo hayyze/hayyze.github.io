@@ -184,6 +184,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (suggestion.actionType === 'pomo-task' && suggestion.task) {
                 const idx = todos.indexOf(suggestion.task);
                 launchPomodoroForTask(suggestion.task, idx >= 0 ? idx : 0);
+            } else if (suggestion.actionType === 'pomo-event' && suggestion.event) {
+                if (typeof hayyizLaunchPomodoro === 'function') {
+                    hayyizLaunchPomodoro(suggestion.event);
+                } else if (suggestion.url) {
+                    window.location.href = suggestion.url;
+                }
             } else if (suggestion.url) {
                 window.location.href = suggestion.url;
             }
@@ -451,6 +457,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (item.actionType === 'pomo-task' && item.task) {
                     const idx = todos.indexOf(item.task);
                     launchPomodoroForTask(item.task, idx >= 0 ? idx : 0);
+                } else if (item.actionType === 'pomo-event' && item.event) {
+                    if (typeof hayyizLaunchPomodoro === 'function') {
+                        hayyizLaunchPomodoro(item.event);
+                    } else if (item.url) {
+                        window.location.href = item.url;
+                    }
                 } else if (item.url) {
                     window.location.href = item.url;
                 }
