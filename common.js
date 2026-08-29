@@ -1449,6 +1449,17 @@ function hayyizCompleteTask(taskId, taskText, indexHint) {
     if (typeof hayyizUploadItem === 'function') {
         hayyizUploadItem('todos', todos[idx].id, todos[idx]);
     }
+
+    // تنظيف تخزين المهمة الحالية إذا كانت هي المهمة التي اكتملت
+    const currentTaskId = localStorage.getItem('hayyiz-current-task-id');
+    const currentTaskText = localStorage.getItem('hayyiz-current-task');
+    if ((currentTaskId && currentTaskId === todos[idx].id) || (currentTaskText && currentTaskText === todos[idx].text)) {
+        localStorage.removeItem('hayyiz-current-task');
+        localStorage.removeItem('hayyiz-current-task-id');
+        localStorage.removeItem('hayyiz-current-task-index');
+        localStorage.removeItem('hayyiz-task-session');
+    }
+
     return true;
 }
 
