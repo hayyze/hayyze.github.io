@@ -1014,24 +1014,21 @@ $$;
 -- =============================================================================
 
 -- Revoke execution rights from PUBLIC and anon for all internal functions
-REVOKE ALL ON FUNCTION public.is_workspace_member(UUID, UUID) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.is_workspace_owner(UUID, UUID) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.is_task_member(UUID, UUID) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.can_view_task(UUID, UUID) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.recalculate_collaborative_task(UUID) FROM PUBLIC, anon;
+-- Revoke execution rights on internal helper functions from PUBLIC, anon, AND authenticated
+REVOKE ALL ON FUNCTION public.is_workspace_member(UUID, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.is_workspace_owner(UUID, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.is_task_member(UUID, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.can_view_task(UUID, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.recalculate_collaborative_task(UUID) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.handle_member_removal_recalculate() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.handle_new_workspace() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.handle_new_task() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.validate_task_member_insert() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.validate_focus_session() FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.add_workspace_member_by_email(UUID, TEXT) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.set_task_progress_and_recalculate(UUID, BOOLEAN) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.add_workspace_member_by_email(UUID, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.set_task_progress_and_recalculate(UUID, BOOLEAN) FROM PUBLIC, anon, authenticated;
 
--- Grant EXECUTE to authenticated role strictly for user-callable RPC endpoints
+-- Grant EXECUTE to authenticated role strictly for user-callable public RPC endpoints
 GRANT EXECUTE ON FUNCTION public.add_workspace_member_by_email(UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.set_task_progress_and_recalculate(UUID, BOOLEAN) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.can_view_task(UUID, UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.is_workspace_member(UUID, UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.is_workspace_owner(UUID, UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.is_task_member(UUID, UUID) TO authenticated;

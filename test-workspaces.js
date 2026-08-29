@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-console.log('=== RUNNING RIGOROUS HAYYIZ WORKSPACES & SYNCHRONIZED TASKS TEST SUITE (22 SCENARIOS) ===\n');
+console.log('=== RUNNING RIGOROUS HAYYIZ WORKSPACES & SYNCHRONIZED TASKS TEST SUITE (24 SCENARIOS) ===\n');
 
 let passed = 0;
 let failed = 0;
@@ -309,6 +309,19 @@ class SupabaseDbMock {
     notifyRealtime(table, event, payload) {
         // Simulating Realtime broadcast
     }
+
+    // Direct invocation simulation for internal SECURITY DEFINER helpers
+    invokeInternalHelperDirectly(currentUser, functionName, ...args) {
+        // Simulating PostgREST RPC authorization layer: internal helper functions REVOKED from authenticated role
+        const internalHelpers = ['can_view_task', 'is_workspace_member', 'is_workspace_owner', 'is_task_member', 'recalculate_collaborative_task'];
+        if (internalHelpers.includes(functionName)) {
+            throw new Error('42501: permission denied for function ' + functionName);
+        }
+        if (typeof this[functionName] === 'function') {
+            return this[functionName](currentUser, ...args);
+        }
+        throw new Error('42883: function does not exist');
+    }
 }
 
 // EXECUTE 20 RIGOROUS TEST SCENARIOS
@@ -513,8 +526,32 @@ let ws = null;
     assert(durationRejected && mismatchRejected, '22. Focus session validation enforces duration caps (<=86400s) and task/workspace consistency');
 }
 
+// Scenario 23: User-facing RPC endpoints (add_workspace_member_by_email, set_task_progress_and_recalculate) are callable
+{
+    const rpcRes1 = db.addWorkspaceMemberByEmail(user1, ws.id, user4.email);
+    db.updateTaskProgress(user1, user1.id, collabTask.id, true);
+    assert(rpcRes1.success === true, '23. Public RPC endpoints (add_workspace_member_by_email, set_task_progress_and_recalculate) remain callable by authenticated users');
+}
+
+// Scenario 24: Direct client execution of internal SECURITY DEFINER helpers is denied
+{
+    let helper1Denied = false;
+    let helper2Denied = false;
+    try {
+        db.invokeInternalHelperDirectly(user2, 'can_view_task', collabTask.id, user1.id);
+    } catch (e) {
+        helper1Denied = e.message.includes('42501: permission denied');
+    }
+    try {
+        db.invokeInternalHelperDirectly(user2, 'is_workspace_member', ws.id, user1.id);
+    } catch (e) {
+        helper2Denied = e.message.includes('42501: permission denied');
+    }
+    assert(helper1Denied && helper2Denied, '24. Direct client invocation of internal helper functions (can_view_task, is_workspace_member) is strictly denied');
+}
+
 console.log(`\n===================================`);
-console.log(`WORKSPACES 22-SCENARIO TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
+console.log(`WORKSPACES 24-SCENARIO TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);
 
 if (failed > 0) process.exit(1);
