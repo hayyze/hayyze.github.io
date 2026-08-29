@@ -117,10 +117,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
         const taskFromUrl = urlParams.get('task');
         const eventFromUrl = urlParams.get('event');
+        const workspaceTaskId = urlParams.get('workspace_task_id');
+        const workspaceId = urlParams.get('workspace_id');
 
         const savedTaskName = localStorage.getItem('hayyiz-current-task');
         const savedTaskId = localStorage.getItem('hayyiz-current-task-id');
         const savedEventRaw = localStorage.getItem('hayyiz-current-event');
+
+        if (workspaceTaskId) {
+            state.context = {
+                type: 'workspace_task',
+                id: workspaceTaskId,
+                workspaceId: workspaceId || null,
+                title: taskFromUrl || 'مهمة متزامنة',
+                subjectId: null
+            };
+        } else
 
         let eventObj = null;
         try { eventObj = savedEventRaw ? JSON.parse(savedEventRaw) : null; } catch (e) {}
@@ -759,6 +771,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     contextTitle: state.context.title,
                     subjectId: state.context.subjectId
                 });
+            }
+
+            // Sync with Supabase public.focus_sessions if user is authenticated and linked to workspace or shared task
+            if (state.context.type === 'workspace_task' || state.context.workspaceId) {
+                if (typeof ensureSupabaseLoaded === 'function') {
+                    ensureSupabaseLoaded().then(async (client) => {
+                        const { data: userData } = await client.auth.getUser();
+                        if (userData && userData.user) {
+                            await client.from('focus_sessions').insert({
+                                user_id: userData.user.id,
+                                task_id: state.context.id || null,
+                                workspace_id: state.context.workspaceId || null,
+                                duration_seconds: workMin * 60,
+                                started_at: new Date(Date.now() - workMin * 60 * 1000).toISOString(),
+                                ended_at: new Date().toISOString()
+                            });
+                        }
+                    }).catch(() => {});
+                }
             }
 
             // Apply focus to Task / Subject if connected

@@ -288,3 +288,464 @@ $$;
 
 REVOKE ALL ON FUNCTION public.cleanup_old_tombstones(INT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.cleanup_old_tombstones(INT) TO service_role;
+
+-- =============================================================================
+-- 7. WORKSPACES, COLLABORATIVE TASKS & FOCUS SESSIONS SCHEMA
+-- =============================================================================
+
+-- 7.1 PROFILES TABLE & AUTH TRIGGER
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    email TEXT NOT NULL,
+    display_name TEXT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Authenticated users can read profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+
+CREATE POLICY "Authenticated users can read profiles"
+ON public.profiles FOR SELECT TO authenticated
+USING (true);
+
+CREATE POLICY "Users can update own profile"
+ON public.profiles FOR UPDATE TO authenticated
+USING (auth.uid() = id)
+WITH CHECK (auth.uid() = id);
+
+-- Profile Sync Trigger
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    INSERT INTO public.profiles (id, email, display_name, updated_at)
+    VALUES (
+        NEW.id,
+        NEW.email,
+        COALESCE(NEW.raw_user_meta_data->>'display_name', split_part(NEW.email, '@', 1)),
+        NOW()
+    )
+    ON CONFLICT (id) DO UPDATE
+    SET email = EXCLUDED.email,
+        updated_at = NOW();
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_on_auth_user_created ON auth.users;
+CREATE TRIGGER trg_on_auth_user_created
+AFTER INSERT OR UPDATE ON auth.users
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+
+-- 7.2 WORKSPACES TABLE
+CREATE TABLE IF NOT EXISTS public.workspaces (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    description TEXT NULL,
+    created_by UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.workspaces ENABLE ROW LEVEL SECURITY;
+
+
+-- 7.3 WORKSPACE MEMBERS TABLE
+CREATE TABLE IF NOT EXISTS public.workspace_members (
+    workspace_id UUID NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'member')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (workspace_id, user_id)
+);
+
+ALTER TABLE public.workspace_members ENABLE ROW LEVEL SECURITY;
+
+-- Auto-add workspace creator as 'owner'
+CREATE OR REPLACE FUNCTION public.handle_new_workspace()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    INSERT INTO public.workspace_members (workspace_id, user_id, role)
+    VALUES (NEW.id, NEW.created_by, 'owner')
+    ON CONFLICT (workspace_id, user_id) DO NOTHING;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_on_workspace_created ON public.workspaces;
+CREATE TRIGGER trg_on_workspace_created
+AFTER INSERT ON public.workspaces
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_workspace();
+
+
+-- 7.4 WORKSPACE RLS POLICIES
+DROP POLICY IF EXISTS "Members can view workspace" ON public.workspaces;
+DROP POLICY IF EXISTS "Users can create workspace" ON public.workspaces;
+DROP POLICY IF EXISTS "Owners can update workspace" ON public.workspaces;
+DROP POLICY IF EXISTS "Owners can delete workspace" ON public.workspaces;
+
+CREATE POLICY "Members can view workspace"
+ON public.workspaces FOR SELECT TO authenticated
+USING (
+    created_by = auth.uid() OR
+    EXISTS (
+        SELECT 1 FROM public.workspace_members
+        WHERE workspace_id = public.workspaces.id AND user_id = auth.uid()
+    )
+);
+
+CREATE POLICY "Users can create workspace"
+ON public.workspaces FOR INSERT TO authenticated
+WITH CHECK (created_by = auth.uid());
+
+CREATE POLICY "Owners can update workspace"
+ON public.workspaces FOR UPDATE TO authenticated
+USING (
+    created_by = auth.uid() OR
+    EXISTS (
+        SELECT 1 FROM public.workspace_members
+        WHERE workspace_id = public.workspaces.id AND user_id = auth.uid() AND role = 'owner'
+    )
+);
+
+CREATE POLICY "Owners can delete workspace"
+ON public.workspaces FOR DELETE TO authenticated
+USING (
+    created_by = auth.uid() OR
+    EXISTS (
+        SELECT 1 FROM public.workspace_members
+        WHERE workspace_id = public.workspaces.id AND user_id = auth.uid() AND role = 'owner'
+    )
+);
+
+
+-- 7.5 WORKSPACE MEMBERS RLS POLICIES
+DROP POLICY IF EXISTS "Members can view member list" ON public.workspace_members;
+DROP POLICY IF EXISTS "Owners can add members" ON public.workspace_members;
+DROP POLICY IF EXISTS "Owners or self can remove member" ON public.workspace_members;
+
+CREATE POLICY "Members can view member list"
+ON public.workspace_members FOR SELECT TO authenticated
+USING (
+    user_id = auth.uid() OR
+    EXISTS (
+        SELECT 1 FROM public.workspace_members wm
+        WHERE wm.workspace_id = public.workspace_members.workspace_id AND wm.user_id = auth.uid()
+    )
+);
+
+CREATE POLICY "Owners can add members"
+ON public.workspace_members FOR INSERT TO authenticated
+WITH CHECK (
+    EXISTS (
+        SELECT 1 FROM public.workspaces w
+        WHERE w.id = workspace_id AND w.created_by = auth.uid()
+    ) OR
+    EXISTS (
+        SELECT 1 FROM public.workspace_members wm
+        WHERE wm.workspace_id = workspace_id AND wm.user_id = auth.uid() AND wm.role = 'owner'
+    )
+);
+
+CREATE POLICY "Owners or self can remove member"
+ON public.workspace_members FOR DELETE TO authenticated
+USING (
+    user_id = auth.uid() OR
+    EXISTS (
+        SELECT 1 FROM public.workspace_members wm
+        WHERE wm.workspace_id = workspace_id AND wm.user_id = auth.uid() AND wm.role = 'owner'
+    )
+);
+
+
+-- 7.6 SYNCHRONIZED & COLLABORATIVE TASKS TABLE
+CREATE TABLE IF NOT EXISTS public.tasks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    creator_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+    workspace_id UUID NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT NULL,
+    scope TEXT NOT NULL DEFAULT 'me' CHECK (scope IN ('me', 'specific_users', 'workspace')),
+    completion_mode TEXT NOT NULL DEFAULT 'independent' CHECK (completion_mode IN ('independent', 'collaborative')),
+    due_date TIMESTAMPTZ NULL,
+    completed BOOLEAN NOT NULL DEFAULT FALSE,
+    completed_at TIMESTAMPTZ NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
+
+
+-- 7.7 TASK MEMBERS TABLE (Explicit Task Visibility / Assignment)
+CREATE TABLE IF NOT EXISTS public.task_members (
+    task_id UUID NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    role TEXT NOT NULL DEFAULT 'assignee',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (task_id, user_id)
+);
+
+ALTER TABLE public.task_members ENABLE ROW LEVEL SECURITY;
+
+-- Auto-add creator to task_members
+CREATE OR REPLACE FUNCTION public.handle_new_task()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    INSERT INTO public.task_members (task_id, user_id, role)
+    VALUES (NEW.id, NEW.creator_id, 'creator')
+    ON CONFLICT (task_id, user_id) DO NOTHING;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_on_task_created ON public.tasks;
+CREATE TRIGGER trg_on_task_created
+AFTER INSERT ON public.tasks
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_task();
+
+
+-- 7.8 TASK PROGRESS TABLE (Independent Task Completion per User)
+CREATE TABLE IF NOT EXISTS public.task_progress (
+    task_id UUID NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    completed BOOLEAN NOT NULL DEFAULT FALSE,
+    completed_at TIMESTAMPTZ NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (task_id, user_id)
+);
+
+ALTER TABLE public.task_progress ENABLE ROW LEVEL SECURITY;
+
+
+-- 7.9 TASKS RLS POLICIES
+DROP POLICY IF EXISTS "Users can view permitted tasks" ON public.tasks;
+DROP POLICY IF EXISTS "Users can create tasks" ON public.tasks;
+DROP POLICY IF EXISTS "Authorized users can update tasks" ON public.tasks;
+DROP POLICY IF EXISTS "Creators or workspace owners can delete tasks" ON public.tasks;
+
+CREATE POLICY "Users can view permitted tasks"
+ON public.tasks FOR SELECT TO authenticated
+USING (
+    creator_id = auth.uid() OR
+    EXISTS (
+        SELECT 1 FROM public.task_members tm
+        WHERE tm.task_id = public.tasks.id AND tm.user_id = auth.uid()
+    ) OR
+    (
+        scope = 'workspace' AND workspace_id IS NOT NULL AND
+        EXISTS (
+            SELECT 1 FROM public.workspace_members wm
+            WHERE wm.workspace_id = public.tasks.workspace_id AND wm.user_id = auth.uid()
+        )
+    )
+);
+
+CREATE POLICY "Users can create tasks"
+ON public.tasks FOR INSERT TO authenticated
+WITH CHECK (
+    creator_id = auth.uid() AND
+    (
+        workspace_id IS NULL OR
+        EXISTS (
+            SELECT 1 FROM public.workspace_members wm
+            WHERE wm.workspace_id = workspace_id AND wm.user_id = auth.uid()
+        )
+    )
+);
+
+CREATE POLICY "Authorized users can update tasks"
+ON public.tasks FOR UPDATE TO authenticated
+USING (
+    creator_id = auth.uid() OR
+    EXISTS (
+        SELECT 1 FROM public.task_members tm
+        WHERE tm.task_id = public.tasks.id AND tm.user_id = auth.uid()
+    ) OR
+    (
+        scope = 'workspace' AND workspace_id IS NOT NULL AND
+        EXISTS (
+            SELECT 1 FROM public.workspace_members wm
+            WHERE wm.workspace_id = public.tasks.workspace_id AND wm.user_id = auth.uid()
+        )
+    )
+);
+
+CREATE POLICY "Creators or workspace owners can delete tasks"
+ON public.tasks FOR DELETE TO authenticated
+USING (
+    creator_id = auth.uid() OR
+    (
+        workspace_id IS NOT NULL AND
+        EXISTS (
+            SELECT 1 FROM public.workspace_members wm
+            WHERE wm.workspace_id = public.tasks.workspace_id AND wm.user_id = auth.uid() AND wm.role = 'owner'
+        )
+    )
+);
+
+
+-- 7.10 TASK MEMBERS RLS POLICIES
+DROP POLICY IF EXISTS "Task viewers can read task members" ON public.task_members;
+DROP POLICY IF EXISTS "Task creators can manage task members" ON public.task_members;
+DROP POLICY IF EXISTS "Task creators can remove task members" ON public.task_members;
+
+CREATE POLICY "Task viewers can read task members"
+ON public.task_members FOR SELECT TO authenticated
+USING (
+    user_id = auth.uid() OR
+    EXISTS (
+        SELECT 1 FROM public.tasks t
+        WHERE t.id = task_id AND (
+            t.creator_id = auth.uid() OR
+            EXISTS (
+                SELECT 1 FROM public.task_members tm
+                WHERE tm.task_id = t.id AND tm.user_id = auth.uid()
+            ) OR
+            (t.scope = 'workspace' AND EXISTS (
+                SELECT 1 FROM public.workspace_members wm
+                WHERE wm.workspace_id = t.workspace_id AND wm.user_id = auth.uid()
+            ))
+        )
+    )
+);
+
+CREATE POLICY "Task creators can manage task members"
+ON public.task_members FOR INSERT TO authenticated
+WITH CHECK (
+    EXISTS (
+        SELECT 1 FROM public.tasks t
+        WHERE t.id = task_id AND t.creator_id = auth.uid()
+    )
+);
+
+CREATE POLICY "Task creators can remove task members"
+ON public.task_members FOR DELETE TO authenticated
+USING (
+    user_id = auth.uid() OR
+    EXISTS (
+        SELECT 1 FROM public.tasks t
+        WHERE t.id = task_id AND t.creator_id = auth.uid()
+    )
+);
+
+
+-- 7.11 TASK PROGRESS RLS POLICIES
+DROP POLICY IF EXISTS "Task viewers can read task progress" ON public.task_progress;
+DROP POLICY IF EXISTS "Users can update own task progress" ON public.task_progress;
+DROP POLICY IF EXISTS "Users can insert own task progress" ON public.task_progress;
+
+CREATE POLICY "Task viewers can read task progress"
+ON public.task_progress FOR SELECT TO authenticated
+USING (
+    user_id = auth.uid() OR
+    EXISTS (
+        SELECT 1 FROM public.tasks t
+        WHERE t.id = task_id AND (
+            t.creator_id = auth.uid() OR
+            EXISTS (
+                SELECT 1 FROM public.task_members tm
+                WHERE tm.task_id = t.id AND tm.user_id = auth.uid()
+            ) OR
+            (t.scope = 'workspace' AND EXISTS (
+                SELECT 1 FROM public.workspace_members wm
+                WHERE wm.workspace_id = t.workspace_id AND wm.user_id = auth.uid()
+            ))
+        )
+    )
+);
+
+CREATE POLICY "Users can insert own task progress"
+ON public.task_progress FOR INSERT TO authenticated
+WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can update own task progress"
+ON public.task_progress FOR UPDATE TO authenticated
+USING (user_id = auth.uid())
+WITH CHECK (user_id = auth.uid());
+
+
+-- 7.12 FOCUS SESSIONS TABLE (Linked Focus Sessions for Tasks & Workspaces)
+CREATE TABLE IF NOT EXISTS public.focus_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+    task_id UUID NULL REFERENCES public.tasks(id) ON DELETE SET NULL,
+    workspace_id UUID NULL REFERENCES public.workspaces(id) ON DELETE SET NULL,
+    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ended_at TIMESTAMPTZ NULL,
+    duration_seconds INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.focus_sessions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view permitted focus sessions" ON public.focus_sessions;
+DROP POLICY IF EXISTS "Users can insert own focus sessions" ON public.focus_sessions;
+DROP POLICY IF EXISTS "Users can update own focus sessions" ON public.focus_sessions;
+
+CREATE POLICY "Users can view permitted focus sessions"
+ON public.focus_sessions FOR SELECT TO authenticated
+USING (
+    user_id = auth.uid() OR
+    (
+        task_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM public.tasks t
+            WHERE t.id = task_id AND (
+                t.creator_id = auth.uid() OR
+                EXISTS (SELECT 1 FROM public.task_members tm WHERE tm.task_id = t.id AND tm.user_id = auth.uid()) OR
+                (t.scope = 'workspace' AND EXISTS (SELECT 1 FROM public.workspace_members wm WHERE wm.workspace_id = t.workspace_id AND wm.user_id = auth.uid()))
+            )
+        )
+    ) OR
+    (
+        workspace_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM public.workspace_members wm
+            WHERE wm.workspace_id = public.focus_sessions.workspace_id AND wm.user_id = auth.uid()
+        )
+    )
+);
+
+CREATE POLICY "Users can insert own focus sessions"
+ON public.focus_sessions FOR INSERT TO authenticated
+WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can update own focus sessions"
+ON public.focus_sessions FOR UPDATE TO authenticated
+USING (user_id = auth.uid())
+WITH CHECK (user_id = auth.uid());
+
+
+-- 7.13 INDEXES FOR FAST WORKSPACE & TASK QUERIES
+CREATE INDEX IF NOT EXISTS idx_workspace_members_user ON public.workspace_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_workspace ON public.tasks(workspace_id) WHERE workspace_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_task_members_user ON public.task_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_task_progress_task ON public.task_progress(task_id);
+CREATE INDEX IF NOT EXISTS idx_focus_sessions_user_task ON public.focus_sessions(user_id, task_id);
+CREATE INDEX IF NOT EXISTS idx_focus_sessions_workspace ON public.focus_sessions(workspace_id) WHERE workspace_id IS NOT NULL;
+
+
+-- 7.14 REALTIME PUBLICATION ENABLING
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.workspaces, public.workspace_members, public.tasks, public.task_members, public.task_progress, public.focus_sessions;
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    -- Ignore if already added or restricted
+    NULL;
+END;
+$$;
