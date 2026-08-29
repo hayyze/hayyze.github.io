@@ -841,6 +841,8 @@ function hayyizEvaluateStudentState() {
         candidates.push({
             score: 1000, id: 'running-focus', type: 'pomodoro', badge: 'جلسة جارية',
             title: 'اقتراح حيز',
+            actionTitle: ctxTitle,
+            reason: 'جلسة تركيز جارية الآن للحفاظ على استمراريتك',
             text: `لديك جلسة تركيز جارية الآن ("${ctxTitle}"). واصل تركيزك للحفاظ على استمراريتك.`,
             actionLabel: 'متابعة الجلسة', actionType: 'url', url: 'pomodoro.html'
         });
@@ -879,11 +881,18 @@ function hayyizEvaluateStudentState() {
             return false;
         });
 
+        const actTitle = relatedTask ? relatedTask.text : nearestExam.name;
+        const reasonMsg = relatedTask
+            ? `مرتبطة باختبار قريب (${nearestExam.name}) ${daysText}`
+            : `لديك اختبار قريب (${nearestExam.name}) ${daysText}`;
         const textMsg = `لديك اختبار قريب (${nearestExam.name}) ${daysText}، ولم تبدأ جلسة دراسة كافية اليوم.` +
             (relatedTask ? ` ابدأ جلسة ${workMin} دقيقة لمهمتك المرتبطة ("${relatedTask.text}").` : ` ابدأ جلسة تركيز مدتها ${workMin} دقيقة للمراجعة.`);
         candidates.push({
             score: 150 + (7 - minDays) * 15, id: 'exam-upcoming', type: 'exam', badge: 'اختبار قريب',
-            title: 'اقتراح حيز', text: textMsg,
+            title: 'اقتراح حيز',
+            actionTitle: actTitle,
+            reason: reasonMsg,
+            text: textMsg,
             actionLabel: relatedTask ? 'ابدأ جلسة للمهمة' : 'ابدأ جلسة تركيز',
             actionType: relatedTask ? 'pomo-task' : 'pomo-event',
             task: relatedTask || null,
@@ -898,6 +907,8 @@ function hayyizEvaluateStudentState() {
         candidates.push({
             score: 130 + Math.min(daysOverdue * 10, 50) + (topOverdue.priority === 'high' ? 30 : 10),
             id: 'task-overdue', type: 'todo', badge: 'مهام متأخرة', title: 'اقتراح حيز',
+            actionTitle: topOverdue.text,
+            reason: `مهمة متأخرة عن موعد استحقاقها (${overdueTodos.length} مهام متأخرة)`,
             text: `لديك ${overdueTodos.length} مهام متأخرة عن موعدها. يفضل البدء بمهمة "${topOverdue.text}" لإنجازها أولاً وتجنب تراكم المهام.`,
             actionLabel: 'ابدأ التركيز عليها', actionType: 'pomo-task', task: topOverdue, url: 'pomodoro.html'
         });
@@ -907,12 +918,16 @@ function hayyizEvaluateStudentState() {
         if (rec && rec.isInProgress) {
             candidates.push({
                 score: 140, id: 'task-in-progress', type: 'todo', badge: 'قيد التنفيذ', title: 'اقتراح حيز',
+                actionTitle: nextTask.text,
+                reason: 'أكمل ما بدأت به في الجلسة السابقة',
                 text: `بدأت العمل على مهمة "${nextTask.text}". أكمل جلسة التركيز القادمة لإتمامها.`,
                 actionLabel: 'استكمال جلسة التركيز', actionType: 'pomo-task', task: nextTask, url: 'pomodoro.html'
             });
         } else if (nextTask.priority === 'high') {
             candidates.push({
                 score: 95, id: 'high-priority-task', type: 'todo', badge: 'أولوية عالية', title: 'اقتراح حيز',
+                actionTitle: nextTask.text,
+                reason: rec && rec.reason ? rec.reason : 'أعلى مهمة أولوية حالياً',
                 text: `لديك مهمة عالية الأولوية "${nextTask.text}". ابدأ بها الآن لتحقيق أقصى تقدم في خطتك الدراسية.`,
                 actionLabel: 'ابدأ جلسة تركيز', actionType: 'pomo-task', task: nextTask, url: 'pomodoro.html'
             });
@@ -925,6 +940,8 @@ function hayyizEvaluateStudentState() {
         candidates.push({
             score: 65 + Math.min(habitsSummary.remaining * 10, 25), id: 'habit-due', type: 'habit', badge: 'عادات اليوم',
             title: 'اقتراح حيز',
+            actionTitle: habitName,
+            reason: `متبقي ${habitsSummary.remaining} عادات لم تنجزها اليوم`,
             text: `متبقي لديك ${habitsSummary.remaining} عادات لم تنجزها اليوم ("${habitName}"). أتمها للحفاظ على استمراريتك وسلسلة الإنجاز!`,
             actionLabel: 'انتقل للعادات', actionType: 'url', url: 'habits.html'
         });

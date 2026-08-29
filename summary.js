@@ -213,12 +213,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     nowCard.appendChild(nowHead);
 
-    if (suggestion && suggestion.text && suggestion.actionType) {
-        // إذا وجد اقتراح ذكي مباشر من النظام
+    if (suggestion && (suggestion.actionTitle || suggestion.text) && suggestion.actionType) {
+        // إذا وجد اقتراح ملموس من Student OS
         const nowTitle = document.createElement('div');
         nowTitle.className = 'dash-now-title';
-        nowTitle.textContent = suggestion.text;
+        nowTitle.textContent = suggestion.actionTitle || suggestion.text;
         nowCard.appendChild(nowTitle);
+
+        if (suggestion.reason) {
+            const reasonEl = document.createElement('div');
+            reasonEl.className = 'dash-now-reason';
+            reasonEl.textContent = suggestion.reason;
+            nowCard.appendChild(reasonEl);
+        }
 
         const nowActions = document.createElement('div');
         nowActions.className = 'dash-now-actions';

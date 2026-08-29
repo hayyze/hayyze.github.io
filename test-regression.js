@@ -810,6 +810,89 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     Date.now = realDateNow;
 }
 
+// --- 14. SECTION 22 DAILY STUDENT LOOP SCENARIOS (A THROUGH F) ---
+{
+    // Scenario A: Exam near -> Related task exists -> Task recommended -> Start Pomodoro -> Completion -> Task incomplete -> Next decision
+    localStorage.clear();
+    const realDateNow = Date.now;
+    let mockTime = 1900000000000;
+    Date.now = () => mockTime;
+
+    const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+    const subMath = hayyizAddSubject('رياضيات');
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_loop_a', name: 'اختبار الرياضيات', date: todayStr, subjectId: subMath.id }
+    ]));
+    const taskA = { id: 't_loop_a', text: 'مراجعة الرياضيات', priority: 'high', subjectId: subMath.id, completed: false, focusDone: 0 };
+    hayyizSaveTodos([taskA]);
+
+    // Evaluation recommends related task with clear actionTitle & reason
+    const evalA = hayyizEvaluateStudentState();
+    assert(evalA && evalA.task && evalA.task.id === 't_loop_a' && evalA.actionTitle === 'مراجعة الرياضيات', 'Scenario A: Exam near with related task recommends task');
+
+    // Start Pomodoro
+    hayyizLaunchPomodoro(evalA.task, 0);
+    const pStateA = {
+        mode: 'focus', status: 'running', remainingSeconds: 1500, totalDuration: 1500,
+        endTime: mockTime + 1500 * 1000,
+        context: { type: 'task', id: 't_loop_a', title: 'مراجعة الرياضيات' }
+    };
+    hayyizSaveFocusState(pStateA);
+
+    // Completion
+    mockTime += 1500 * 1000;
+    const reconciledA = hayyizReconcilePomodoroState();
+    const taskAAfter = hayyizGetTaskById('t_loop_a');
+    assert(reconciledA.status === 'completed' && taskAAfter.focusDone === 25 && taskAAfter.completed === false, 'Scenario A: Focus completed (25m logged) while task strictly remains incomplete');
+
+    // Scenario B: Pomodoro completed -> User marks task complete -> Task completed -> Recommendation changes
+    const taskB2 = { id: 't_loop_b2', text: 'مراجعة الفيزياء التالية', priority: 'medium', completed: false, focusDone: 0 };
+    hayyizSaveTodos([taskAAfter, taskB2]);
+    hayyizCompleteTask('t_loop_a', 'مراجعة الرياضيات');
+    const taskACompleted = hayyizGetTaskById('t_loop_a');
+    const recB = hayyizRecommendNext();
+    assert(taskACompleted.completed === true && recB.next && recB.next.id === 't_loop_b2', 'Scenario B: User marks task complete and recommendation re-evaluates to next task');
+
+    // Scenario C: Pomodoro completed -> User chooses next task -> Current task remains incomplete -> Next action selected
+    localStorage.clear();
+    const taskC1 = { id: 't_c1', text: 'مهمة 1', priority: 'high', completed: false, focusDone: 0 };
+    const taskC2 = { id: 't_c2', text: 'مهمة 2', priority: 'high', completed: false, focusDone: 0 };
+    hayyizSaveTodos([taskC1, taskC2]);
+    hayyizApplyFocusResult({ workMin: 25, taskId: 't_c1', taskText: 'مهمة 1' });
+    const recC = hayyizRecommendNext();
+    const nextForC = recC.ranked.find(r => r.task.id !== 't_c1')?.task;
+    const taskC1After = hayyizGetTaskById('t_c1');
+    assert(taskC1After.completed === false && taskC1After.focusDone === 25 && nextForC && nextForC.id === 't_c2', 'Scenario C: Choosing next task leaves current task incomplete and selects next action');
+
+    // Scenario D: Pomodoro completed -> User chooses break -> Task remains unchanged -> Existing break flow
+    localStorage.clear();
+    const taskD = { id: 't_d_break', text: 'مهمة الراحة', priority: 'medium', completed: false };
+    hayyizSaveTodos([taskD]);
+    hayyizApplyFocusResult({ workMin: 25, taskId: 't_d_break', taskText: 'مهمة الراحة' });
+    hayyizSaveFocusState({ mode: 'break', status: 'idle', remainingSeconds: 300, totalDuration: 300 });
+    const taskDAfter = hayyizGetTaskById('t_d_break');
+    const stateD = hayyizGetFocusState();
+    assert(taskDAfter.completed === false && stateD.mode === 'break', 'Scenario D: Choosing break keeps task unchanged and enters break mode');
+
+    // Scenario E: Pomodoro completed -> User chooses note -> Existing Notes flow -> Task remains unchanged
+    localStorage.clear();
+    const taskE = { id: 't_e_note', text: 'مهمة الملاحظة', priority: 'high', completed: false };
+    hayyizSaveTodos([taskE]);
+    hayyizApplyFocusResult({ workMin: 25, taskId: 't_e_note', taskText: 'مهمة الملاحظة' });
+    const noteUrlE = 'notes.html?title=' + encodeURIComponent('مهمة الملاحظة') + '&taskId=' + encodeURIComponent('t_e_note');
+    const taskEAfter = hayyizGetTaskById('t_e_note');
+    assert(taskEAfter.completed === false && noteUrlE.includes('taskId=t_e_note'), 'Scenario E: Choosing note launches notes flow with task context while task remains unchanged');
+
+    // Scenario F: No tasks, No exams, No relevant events -> No invented recommendation
+    localStorage.clear();
+    const evalF = hayyizEvaluateStudentState();
+    const recF = hayyizRecommendNext();
+    const planF = hayyizGenerateDailyPlan();
+    assert(evalF === null && recF.next === null && planF.length === 0, 'Scenario F: Empty state produces no artificial recommendation (returns null)');
+
+    Date.now = realDateNow;
+}
+
 // --- 11. CENTRALIZED RULE ENGINE & DAILY PLAN TESTS ---
 {
     // Clean storage
