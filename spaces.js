@@ -135,42 +135,40 @@
     async function updateTaskProgress(taskId, completed) {
         if (!currentUser) throw new Error('يرجى تسجيل الدخول أولاً');
         const client = await getSupabase();
-        const nowIso = new Date().toISOString();
 
-        const task = tasksCache.find(t => t.id === taskId);
-        if (!task) return;
-
-        // 1. Update task_progress for caller
-        const { error: progError } = await client.from('task_progress').upsert({
-            task_id: taskId,
-            user_id: currentUser.id,
-            completed: completed,
-            completed_at: completed ? nowIso : null,
-            updated_at: nowIso
+        // Call atomic PostgreSQL RPC function
+        const { data, error } = await client.rpc('set_task_progress_and_recalculate', {
+            p_task_id: taskId,
+            p_completed: completed
         });
 
-        if (progError) throw progError;
-
-        // 2. If collaborative mode, recalculate total group completion status
-        if (task.completion_mode === 'collaborative') {
-            const allProgress = taskProgressCache[taskId] || [];
-            // Update local memory first to reflect caller change
-            let callerProg = allProgress.find(p => p.user_id === currentUser.id);
-            if (callerProg) {
-                callerProg.completed = completed;
-            } else {
-                allProgress.push({ task_id: taskId, user_id: currentUser.id, completed });
-            }
-
-            const isAllCompleted = calculateCollaborativeTaskProgress(task, allProgress).isFullyCompleted;
-
-            const { error: taskError } = await client.from('tasks').update({
-                completed: isAllCompleted,
-                completed_at: isAllCompleted ? nowIso : null,
+        if (error) {
+            // Fallback if RPC not yet deployed in DB
+            const nowIso = new Date().toISOString();
+            const { error: progError } = await client.from('task_progress').upsert({
+                task_id: taskId,
+                user_id: currentUser.id,
+                completed: completed,
+                completed_at: completed ? nowIso : null,
                 updated_at: nowIso
-            }).eq('id', taskId);
+            });
+            if (progError) throw progError;
+        }
 
-            if (taskError) throw taskError;
+        // Update local memory
+        const allProgress = taskProgressCache[taskId] || [];
+        let callerProg = allProgress.find(p => p.user_id === currentUser.id);
+        if (callerProg) {
+            callerProg.completed = completed;
+        } else {
+            allProgress.push({ task_id: taskId, user_id: currentUser.id, completed });
+            taskProgressCache[taskId] = allProgress;
+        }
+
+        const task = tasksCache.find(t => t.id === taskId);
+        if (task && task.completion_mode === 'collaborative') {
+            const { isFullyCompleted } = calculateCollaborativeTaskProgress(task, allProgress);
+            task.completed = isFullyCompleted;
         }
     }
 
@@ -180,19 +178,18 @@
     function calculateCollaborativeTaskProgress(task, progressList = []) {
         if (!task) return { totalRequired: 0, completedCount: 0, percentage: 0, isFullyCompleted: false };
 
-        const members = taskMembersCache[task.id] || [];
-        let totalRequired = 0;
-
+        let requiredMemberIds = [];
         if (task.scope === 'specific_users' || task.scope === 'me') {
-            totalRequired = Math.max(1, members.length);
+            requiredMemberIds = (taskMembersCache[task.id] || []).map(m => m.user_id);
+            if (!requiredMemberIds.includes(task.creator_id)) requiredMemberIds.push(task.creator_id);
         } else if (task.scope === 'workspace' && task.workspace_id) {
-            const wsMembers = workspaceMembersCache[task.workspace_id] || [];
-            totalRequired = Math.max(1, wsMembers.length);
+            requiredMemberIds = (workspaceMembersCache[task.workspace_id] || []).map(m => m.user_id);
         } else {
-            totalRequired = 1;
+            requiredMemberIds = [task.creator_id];
         }
 
-        const completedCount = progressList.filter(p => p.completed).length;
+        const totalRequired = Math.max(1, requiredMemberIds.length);
+        const completedCount = progressList.filter(p => p.completed && requiredMemberIds.includes(p.user_id)).length;
         const percentage = Math.min(100, Math.round((completedCount / totalRequired) * 100));
         const isFullyCompleted = (completedCount >= totalRequired);
 
@@ -439,6 +436,40 @@
 
         const members = workspaceMembersCache[ws.id] || [];
         $('active-ws-members-count').textContent = members.length;
+
+        // Member list rendering & Leave/Remove actions
+        const membersListEl = $('active-ws-members-list');
+        if (membersListEl) {
+            membersListEl.innerHTML = '';
+            const isOwner = currentUser && ws.created_by === currentUser.id;
+
+            members.forEach(m => {
+                const badge = document.createElement('div');
+                badge.style.cssText = 'display: inline-flex; align-items: center; gap: 0.4rem; background: var(--surface); padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid var(--border); font-size: 0.85rem;';
+                badge.innerHTML = `<span><i class="fa-solid fa-user"></i> ${escapeHtml(m.display_name)} ${m.user_id === ws.created_by ? '(مالك)' : ''}</span>`;
+
+                if (currentUser && (isOwner || m.user_id === currentUser.id) && m.user_id !== ws.created_by) {
+                    const removeBtn = document.createElement('button');
+                    removeBtn.type = 'button';
+                    removeBtn.style.cssText = 'background: none; border: none; color: var(--danger); cursor: pointer; padding: 0 0.2rem; margin-right: 0.2rem;';
+                    removeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                    removeBtn.title = m.user_id === currentUser.id ? 'مغادرة المساحة' : 'إزالة العضو';
+                    removeBtn.addEventListener('click', async () => {
+                        if (confirm(m.user_id === currentUser.id ? 'هل أنت متأكد من مغادرة هذه المساحة؟' : `هل أنت متأكد من إزالة ${m.display_name}؟`)) {
+                            try {
+                                await removeWorkspaceMember(ws.id, m.user_id);
+                                if (m.user_id === currentUser.id) activeWorkspaceId = 'all';
+                                await loadAllWorkspaceData();
+                            } catch (err) {
+                                alert('حدث خطأ أثناء تنفيذ الطلب: ' + (err.message || ''));
+                            }
+                        }
+                    });
+                    badge.appendChild(removeBtn);
+                }
+                membersListEl.appendChild(badge);
+            });
+        }
 
         // Group Focus Time in Workspace
         const wsSessions = focusSessionsCache.filter(s => s.workspace_id === ws.id);

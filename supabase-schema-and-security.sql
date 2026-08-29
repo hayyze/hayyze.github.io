@@ -527,11 +527,16 @@ BEGIN
             USING ERRCODE = '42501';
     END IF;
 
-    -- Look up target user ID safely from profiles or auth.users
+    -- Look up target user ID safely from profiles
     SELECT id INTO v_target_user_id FROM public.profiles WHERE lower(email) = v_clean_email;
 
     IF v_target_user_id IS NULL THEN
         RETURN jsonb_build_object('success', false, 'message', 'المستخدم غير موجود بهذا البريد الإلكتروني');
+    END IF;
+
+    -- Prevent self invitation
+    IF v_target_user_id = auth.uid() THEN
+        RETURN jsonb_build_object('success', false, 'message', 'لا يمكنك دعوة نفسك');
     END IF;
 
     -- Check duplicate member
@@ -544,6 +549,97 @@ BEGIN
     VALUES (p_workspace_id, v_target_user_id, 'member');
 
     RETURN jsonb_build_object('success', true, 'user_id', v_target_user_id, 'message', 'تمت إضافة العضو بنجاح');
+END;
+$$;
+
+-- Atomic RPC Function: set_task_progress_and_recalculate
+-- Updates user progress and recalculates collaborative group completion atomically in PostgreSQL
+CREATE OR REPLACE FUNCTION public.set_task_progress_and_recalculate(
+    p_task_id UUID,
+    p_completed BOOLEAN
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_caller_id UUID := auth.uid();
+    v_task RECORD;
+    v_now_iso TIMESTAMPTZ := NOW();
+    v_total_required INT := 0;
+    v_completed_count INT := 0;
+    v_is_fully_completed BOOLEAN := FALSE;
+BEGIN
+    IF v_caller_id IS NULL THEN
+        RAISE EXCEPTION 'Unauthorized: Authentication required.' USING ERRCODE = '42501';
+    END IF;
+
+    -- Fetch task and verify view permission
+    IF NOT public.can_view_task(p_task_id, v_caller_id) THEN
+        RAISE EXCEPTION 'Unauthorized: Task permission denied.' USING ERRCODE = '42501';
+    END IF;
+
+    SELECT * INTO v_task FROM public.tasks WHERE id = p_task_id FOR UPDATE;
+
+    -- 1. Upsert caller's task progress
+    INSERT INTO public.task_progress (task_id, user_id, completed, completed_at, updated_at)
+    VALUES (p_task_id, v_caller_id, p_completed, CASE WHEN p_completed THEN v_now_iso ELSE NULL END, v_now_iso)
+    ON CONFLICT (task_id, user_id) DO UPDATE
+    SET completed = EXCLUDED.completed,
+        completed_at = EXCLUDED.completed_at,
+        updated_at = EXCLUDED.updated_at;
+
+    -- 2. If collaborative mode, calculate exact group completion
+    IF v_task.completion_mode = 'collaborative' THEN
+        IF v_task.scope IN ('specific_users', 'me') THEN
+            SELECT COUNT(DISTINCT user_id) INTO v_total_required
+            FROM public.task_members WHERE task_id = p_task_id;
+        ELSIF v_task.scope = 'workspace' AND v_task.workspace_id IS NOT NULL THEN
+            SELECT COUNT(DISTINCT user_id) INTO v_total_required
+            FROM public.workspace_members WHERE workspace_id = v_task.workspace_id;
+        ELSE
+            v_total_required := 1;
+        END IF;
+
+        IF v_total_required < 1 THEN v_total_required := 1; END IF;
+
+        -- Count completed progress entries among required members
+        IF v_task.scope IN ('specific_users', 'me') THEN
+            SELECT COUNT(DISTINCT tp.user_id) INTO v_completed_count
+            FROM public.task_progress tp
+            JOIN public.task_members tm ON tp.task_id = tm.task_id AND tp.user_id = tm.user_id
+            WHERE tp.task_id = p_task_id AND tp.completed = TRUE;
+        ELSIF v_task.scope = 'workspace' AND v_task.workspace_id IS NOT NULL THEN
+            SELECT COUNT(DISTINCT tp.user_id) INTO v_completed_count
+            FROM public.task_progress tp
+            JOIN public.workspace_members wm ON v_task.workspace_id = wm.workspace_id AND tp.user_id = wm.user_id
+            WHERE tp.task_id = p_task_id AND tp.completed = TRUE;
+        ELSE
+            SELECT COUNT(DISTINCT user_id) INTO v_completed_count
+            FROM public.task_progress
+            WHERE task_id = p_task_id AND completed = TRUE;
+        END IF;
+
+        v_is_fully_completed := (v_completed_count >= v_total_required);
+
+        -- Update tasks table atomically
+        UPDATE public.tasks
+        SET completed = v_is_fully_completed,
+            completed_at = CASE WHEN v_is_fully_completed THEN v_now_iso ELSE NULL END,
+            updated_at = v_now_iso
+        WHERE id = p_task_id;
+    END IF;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'task_id', p_task_id,
+        'user_completed', p_completed,
+        'collaborative', (v_task.completion_mode = 'collaborative'),
+        'completed_count', v_completed_count,
+        'total_required', v_total_required,
+        'is_fully_completed', v_is_fully_completed
+    );
 END;
 $$;
 
