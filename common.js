@@ -650,6 +650,8 @@ function hayyizBumpSubjectProgress(subjectId, minutes) {
 
 function hayyizGetExams() {
     hayyizEnsureDataShape();
+    const studentExams = hayyizParseJSON('hayyiz-student-exams', []);
+    if (studentExams && studentExams.length > 0) return studentExams;
     return hayyizParseJSON('hayyiz-exams', []);
 }
 
@@ -810,6 +812,262 @@ function hayyizRecommendNext(limit) {
         ranked: top,
         allActive: active
     };
+}
+
+/**
+ * محرك التقييم المركزي لحالة الطالب (Rule Engine)
+ * يقيم بيانات الطالب الحالية من المتصفح محلياً دون الحاجة لأي API خارجي أو AI
+ * يُرجع اقتراحاً رئيسياً واحداً متكاملاً أو null إذا لم تكن هناك حالة خاصة تستحق الاقتراح
+ */
+function hayyizEvaluateStudentState() {
+    const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+    const focusState = typeof hayyizGetFocusState === 'function' ? hayyizGetFocusState() : null;
+
+    // قاعدة 1: جلسة تركيز جارية الآن
+    if (focusState && focusState.status === 'running' && focusState.remainingSeconds > 0) {
+        const ctxTitle = focusState.context ? focusState.context.title : 'جلسة تركيز';
+        return {
+            id: 'running-focus',
+            type: 'pomodoro',
+            badge: 'جلسة جارية',
+            title: 'اقتراح حيز',
+            text: `لديك جلسة تركيز جارية الآن ("${ctxTitle}"). واصل تركيزك للحفاظ على استمراريتك.`,
+            actionLabel: 'متابعة الجلسة',
+            actionType: 'url',
+            url: 'pomodoro.html'
+        };
+    }
+
+    const exams = typeof hayyizGetExams === 'function' ? hayyizGetExams() : [];
+    const todos = typeof hayyizGetTodos === 'function' ? hayyizGetTodos() : [];
+    const habits = typeof hayyizGetHabits === 'function' ? hayyizGetHabits() : [];
+    const habitsSummary = typeof hayyizGetHabitTodaySummary === 'function' ? hayyizGetHabitTodaySummary(habits) : { remaining: 0 };
+    const focusMinutesToday = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
+
+    const activeTodos = todos.filter((t) => t && !t.completed);
+    const overdueTodos = activeTodos.filter((t) => t.date && String(t.date).slice(0, 10) < today);
+    const rec = typeof hayyizRecommendNext === 'function' ? hayyizRecommendNext(1) : null;
+    const nextTask = rec ? rec.next : (activeTodos[0] || null);
+
+    // قاعدة 2: اختبار قريب (خلال 7 أيام) + لم تنجز جلسة دراسة كافية اليوم (أقل من 25 دقيقة)
+    const upcomingExams = exams.filter((e) => e && !e.done && e.date);
+    let nearestExam = null;
+    let minDays = Infinity;
+    upcomingExams.forEach((e) => {
+        const d = hayyizDaysUntil(String(e.date).slice(0, 10));
+        if (d !== null && d >= 0 && d <= 7 && d < minDays) {
+            minDays = d;
+            nearestExam = e;
+        }
+    });
+
+    if (nearestExam && focusMinutesToday < 25) {
+        let daysText = minDays === 0 ? 'اليوم' : (minDays === 1 ? 'غداً' : `بعد ${minDays} أيام`);
+        let textMsg = `لديك اختبار قريب (${nearestExam.name}) ${daysText}، ولم تبدأ جلسة دراسة كافية اليوم.`;
+        if (nextTask) {
+            textMsg += ` ابدأ جلسة 25 دقيقة لمهمتك ذات الأولوية ("${nextTask.text}").`;
+        } else {
+            textMsg += ` ابدأ جلسة تركيز مدتها 25 دقيقة للمراجعة.`;
+        }
+
+        return {
+            id: 'exam-upcoming',
+            type: 'exam',
+            badge: 'اختبار قريب',
+            title: 'اقتراح حيز',
+            text: textMsg,
+            actionLabel: nextTask ? 'ابدأ جلسة للمهمة' : 'ابدأ جلسة تركيز',
+            actionType: nextTask ? 'pomo-task' : 'url',
+            task: nextTask,
+            url: 'pomodoro.html'
+        };
+    }
+
+    // قاعدة 3: مهام متأخرة
+    if (overdueTodos.length > 0) {
+        const topOverdue = overdueTodos[0];
+        return {
+            id: 'task-overdue',
+            type: 'todo',
+            badge: 'مهام متأخرة',
+            title: 'اقتراح حيز',
+            text: `لديك ${overdueTodos.length} مهام متأخرة عن موعدها. يفضل البدء بمهمة "${topOverdue.text}" لإنجازها أولاً وتجنب تراكم المهام.`,
+            actionLabel: 'ابدأ التركيز عليها',
+            actionType: 'pomo-task',
+            task: topOverdue,
+            url: 'pomodoro.html'
+        };
+    }
+
+    // قاعدة 4: المهمة الأعلى أولوية / قيد التنفيذ
+    if (nextTask && (rec && rec.isInProgress)) {
+        return {
+            id: 'task-in-progress',
+            type: 'todo',
+            badge: 'قيد التنفيذ',
+            title: 'اقتراح حيز',
+            text: `بدأت العمل على مهمة "${nextTask.text}". أكمل جلسة التركيز القادمة لإتمامها.`,
+            actionLabel: 'استكمال جلسة التركيز',
+            actionType: 'pomo-task',
+            task: nextTask,
+            url: 'pomodoro.html'
+        };
+    }
+
+    // قاعدة 5: عادة يومية غير منجزة (في المساء أو عند عدم وجود مهام عاجلة)
+    const currentHour = new Date().getHours();
+    if (habitsSummary.remaining > 0 && (currentHour >= 14 || activeTodos.length === 0)) {
+        const uncompletedHabit = habits.find((h) => h && h.lastCompleted !== today);
+        const habitName = uncompletedHabit ? uncompletedHabit.title : 'عاداتك اليومية';
+        return {
+            id: 'habit-due',
+            type: 'habit',
+            badge: 'عادات اليوم',
+            title: 'اقتراح حيز',
+            text: `متبقي لديك ${habitsSummary.remaining} عادات لم تنجزها اليوم ("${habitName}"). أتمها للحفاظ على استمراريتك وسلسلة الإنجاز!`,
+            actionLabel: 'انتقل للعادات',
+            actionType: 'url',
+            url: 'habits.html'
+        };
+    }
+
+    // قاعدة 6: مهمة عالية الأولوية ومستحقة اليوم أو غداً
+    if (nextTask && nextTask.priority === 'high') {
+        return {
+            id: 'high-priority-task',
+            type: 'todo',
+            badge: 'أولوية عالية',
+            title: 'اقتراح حيز',
+            text: `لديك مهمة عالية الأولوية "${nextTask.text}". ابدأ بها الآن لتحقيق أقصى تقدم في خطتك الدراسية.`,
+            actionLabel: 'ابدأ جلسة تركيز',
+            actionType: 'pomo-task',
+            task: nextTask,
+            url: 'pomodoro.html'
+        };
+    }
+
+    return null;
+}
+
+/**
+ * توليد خطة اليوم المترابطة (Daily Plan Data Aggregator)
+ * تجميع وترتيب عناصر اليوم العملية المباشرة من التقويم والمهام والعادات
+ */
+function hayyizGenerateDailyPlan() {
+    const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+    const planItems = [];
+
+    // 1. المواعيد والاختبارات القادمة اليوم وغداً
+    const exams = typeof hayyizGetExams === 'function' ? hayyizGetExams() : [];
+    exams.forEach((ex) => {
+        if (!ex || ex.done || !ex.date) return;
+        const d = hayyizDaysUntil(String(ex.date).slice(0, 10));
+        if (d === 0 || d === 1) {
+            planItems.push({
+                id: 'plan-exam-' + ex.id,
+                type: 'exam',
+                priority: d === 0 ? 100 : 90,
+                badge: d === 0 ? 'اليوم' : 'غداً',
+                badgeClass: d === 0 ? 'badge-danger' : 'badge-warning',
+                title: ex.name,
+                subtitle: ex.time ? `اختبار الساعة ${ex.time}` : 'اختبار دراسي',
+                icon: 'fa-solid fa-graduation-cap',
+                actionLabel: 'عرض التقويم',
+                actionType: 'url',
+                url: 'calculator.html'
+            });
+        }
+    });
+
+    // 2. المهام المتأخرة والمستحقة اليوم / عالية الأولوية
+    const todos = typeof hayyizGetTodos === 'function' ? hayyizGetTodos() : [];
+    const activeTodos = todos.filter((t) => t && !t.completed);
+
+    activeTodos.forEach((t) => {
+        const d = t.date ? hayyizDaysUntil(String(t.date).slice(0, 10)) : null;
+        const isOverdue = d !== null && d < 0;
+        const isDueToday = d === 0;
+        const isHigh = t.priority === 'high';
+
+        if (isOverdue || isDueToday || isHigh) {
+            let priorityScore = 50;
+            let badgeText = 'مهمة';
+            let badgeClass = 'badge-primary';
+
+            if (isOverdue) {
+                priorityScore = 85;
+                badgeText = 'متأخرة';
+                badgeClass = 'badge-danger';
+            } else if (isDueToday) {
+                priorityScore = 75;
+                badgeText = 'اليوم';
+                badgeClass = 'badge-warning';
+            } else if (isHigh) {
+                priorityScore = 65;
+                badgeText = 'أولوية عالية';
+                badgeClass = 'badge-primary';
+            }
+
+            const minutes = t.minutes ? parseInt(t.minutes, 10) : 25;
+            planItems.push({
+                id: 'plan-task-' + (t.id || t.text),
+                type: 'todo',
+                priority: priorityScore,
+                badge: badgeText,
+                badgeClass: badgeClass,
+                title: t.text,
+                subtitle: `تقدير الوقت: ${minutes} دقيقة`,
+                icon: 'fa-solid fa-list-check',
+                actionLabel: 'ابدأ',
+                actionType: 'pomo-task',
+                task: t,
+                url: 'pomodoro.html'
+            });
+        }
+    });
+
+    // 3. العادات اليومية غير المنجزة
+    const habits = typeof hayyizGetHabits === 'function' ? hayyizGetHabits() : [];
+    const pendingHabits = habits.filter((h) => h && h.lastCompleted !== today);
+
+    if (pendingHabits.length > 0) {
+        pendingHabits.slice(0, 2).forEach((h) => {
+            planItems.push({
+                id: 'plan-habit-' + h.id,
+                type: 'habit',
+                priority: 40,
+                badge: 'عادة',
+                badgeClass: 'badge-success',
+                title: h.title,
+                subtitle: `سلسلة الاستمرار: ${h.streak || 0} أيام`,
+                icon: 'fa-solid fa-fire',
+                actionLabel: 'إنجاز',
+                actionType: 'url',
+                url: 'habits.html'
+            });
+        });
+    }
+
+    // 4. مقترح جلسة تركيز عامة إذا لم توجد عناصر أو كانت القائمة قصيرة
+    if (planItems.length === 0 && activeTodos.length > 0) {
+        const topTask = activeTodos[0];
+        planItems.push({
+            id: 'plan-focus-suggested',
+            type: 'focus',
+            priority: 30,
+            badge: 'جلسة تركيز',
+            badgeClass: 'badge-primary',
+            title: topTask.text,
+            subtitle: '25 دقيقة تركيز',
+            icon: 'fa-solid fa-clock',
+            actionLabel: 'ابدأ',
+            actionType: 'pomo-task',
+            task: topTask,
+            url: 'pomodoro.html'
+        });
+    }
+
+    return planItems.sort((a, b) => b.priority - a.priority);
 }
 
 /* ---------- Focus Engine Data Layer Helpers ---------- */

@@ -146,6 +146,55 @@ document.addEventListener('DOMContentLoaded', () => {
     content.appendChild(greet);
 
     // ==========================================
+    // قسم: «اقتراح حيز» — Centralized Smart Recommendation Card
+    // ==========================================
+    const suggestion = typeof hayyizEvaluateStudentState === 'function' ? hayyizEvaluateStudentState() : null;
+    if (suggestion) {
+        const sugCard = document.createElement('div');
+        sugCard.className = 'dash-suggestion-card card';
+
+        const sugHead = document.createElement('div');
+        sugHead.className = 'dash-suggestion-header';
+
+        const sugTitle = document.createElement('span');
+        sugTitle.className = 'dash-suggestion-badge';
+        sugTitle.innerHTML = '<i class="fa-solid fa-lightbulb" aria-hidden="true"></i> ' + escapeHtml(suggestion.title);
+
+        const sugTag = document.createElement('span');
+        sugTag.className = 'dash-suggestion-tag';
+        sugTag.textContent = suggestion.badge;
+
+        sugHead.appendChild(sugTitle);
+        sugHead.appendChild(sugTag);
+        sugCard.appendChild(sugHead);
+
+        const sugBody = document.createElement('p');
+        sugBody.className = 'dash-suggestion-text';
+        sugBody.textContent = suggestion.text;
+        sugCard.appendChild(sugBody);
+
+        const sugActions = document.createElement('div');
+        sugActions.className = 'dash-suggestion-actions';
+
+        const sugBtn = document.createElement('button');
+        sugBtn.type = 'button';
+        sugBtn.className = 'btn btn-primary';
+        sugBtn.innerHTML = '<i class="fa-solid fa-play" aria-hidden="true"></i> ' + escapeHtml(suggestion.actionLabel);
+        sugBtn.addEventListener('click', () => {
+            if (suggestion.actionType === 'pomo-task' && suggestion.task) {
+                const idx = todos.indexOf(suggestion.task);
+                launchPomodoroForTask(suggestion.task, idx >= 0 ? idx : 0);
+            } else if (suggestion.url) {
+                window.location.href = suggestion.url;
+            }
+        });
+        sugActions.appendChild(sugBtn);
+        sugCard.appendChild(sugActions);
+
+        content.appendChild(sugCard);
+    }
+
+    // ==========================================
     // قسم 1: «أين أنا وما هدفي؟» — Goal & Academic Progress Card
     // ==========================================
     const acadSummary = typeof hayyizGetAcademicSummary === 'function' ? hayyizGetAcademicSummary() : null;
@@ -335,6 +384,86 @@ document.addEventListener('DOMContentLoaded', () => {
                         '<span style="font-size:0.88rem; color:var(--text-muted);">' + statusMsg + '</span></div>';
 
     content.appendChild(statusBox);
+
+    // ==========================================
+    // قسم: «خطة اليوم» — Today's Integrated Plan Section
+    // ==========================================
+    const planItems = typeof hayyizGenerateDailyPlan === 'function' ? hayyizGenerateDailyPlan() : [];
+    if (planItems && planItems.length > 0) {
+        const planCard = document.createElement('div');
+        planCard.className = 'dash-section card dash-daily-plan';
+
+        const planHead = document.createElement('div');
+        planHead.className = 'dash-section-head';
+
+        const planTitle = document.createElement('h4');
+        planTitle.innerHTML = '<i class="fa-solid fa-calendar-check" aria-hidden="true" style="color:var(--primary);"></i> خطة اليوم';
+
+        const planLink = document.createElement('a');
+        planLink.href = 'todo.html';
+        planLink.textContent = 'إدارة الخطة';
+
+        planHead.appendChild(planTitle);
+        planHead.appendChild(planLink);
+        planCard.appendChild(planHead);
+
+        const planList = document.createElement('ul');
+        planList.className = 'dash-plan-list';
+
+        planItems.forEach((item) => {
+            const li = document.createElement('li');
+            li.className = 'dash-plan-item';
+
+            const info = document.createElement('div');
+            info.className = 'dash-plan-info';
+
+            const badge = document.createElement('span');
+            badge.className = 'dash-plan-badge ' + (item.badgeClass || '');
+            badge.textContent = item.badge;
+
+            const titleWrap = document.createElement('div');
+            titleWrap.className = 'dash-plan-title-wrap';
+
+            const icon = document.createElement('i');
+            icon.className = item.icon || 'fa-solid fa-check';
+            icon.setAttribute('aria-hidden', 'true');
+
+            const title = document.createElement('strong');
+            title.className = 'dash-plan-title';
+            title.textContent = item.title;
+
+            titleWrap.appendChild(icon);
+            titleWrap.appendChild(title);
+
+            const sub = document.createElement('span');
+            sub.className = 'dash-plan-sub';
+            sub.textContent = item.subtitle;
+
+            info.appendChild(badge);
+            info.appendChild(titleWrap);
+            info.appendChild(sub);
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-outline btn-sm dash-plan-btn';
+            btn.textContent = item.actionLabel;
+            btn.addEventListener('click', () => {
+                if (item.actionType === 'pomo-task' && item.task) {
+                    const idx = todos.indexOf(item.task);
+                    launchPomodoroForTask(item.task, idx >= 0 ? idx : 0);
+                } else if (item.url) {
+                    window.location.href = item.url;
+                }
+            });
+
+            li.appendChild(info);
+            li.appendChild(btn);
+            planList.appendChild(li);
+        });
+
+        planCard.appendChild(planList);
+        content.appendChild(planCard);
+    }
 
     // ==========================================
     // قسم 3: «ماذا أفعل الآن؟» — Task Card ("أكمل ما بدأت" أو "ما المهمة التالية؟")

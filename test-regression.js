@@ -98,7 +98,7 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
 
 // --- 4. SERVICE WORKER CACHE VERSION TEST ---
 {
-    assert(swJs.includes("const CACHE_NAME = 'heez-v1.8.2';"), 'Service Worker uses cache version heez-v1.8.2');
+    assert(swJs.includes("const CACHE_NAME = 'heez-v1.8.3';"), 'Service Worker uses cache version heez-v1.8.3');
     assert(swJs.includes('.filter((key) => key !== CACHE_NAME)'), 'Service Worker activates clean deletion of old cache versions');
     assert(swJs.includes('./contact.html') && swJs.includes('./terms.html') && swJs.includes('./privacy.html') && swJs.includes('./founder.html'), 'Service Worker caches newly added static HTML pages for offline support');
 }
@@ -629,6 +629,78 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     localStorage.setItem('hayyiz-student-exams', JSON.stringify(exams));
     const calSummary = hayyizGetCalendarSummary();
     assert(calSummary.nearestEvent && calSummary.nearestEvent.name === 'اختبار الكيمياء', 'Student Calendar nearest exam is extracted accurately for Dashboard');
+}
+
+// --- 11. CENTRALIZED RULE ENGINE & DAILY PLAN TESTS ---
+{
+    // Clean storage
+    localStorage.removeItem('hayyiz-student-exams');
+    localStorage.removeItem('hayyiz-exams');
+    localStorage.removeItem('hayyiz-todos');
+    localStorage.removeItem('hayyiz-habits');
+    localStorage.removeItem('hayyiz-pomodoro-state');
+    localStorage.setItem('hayyiz-focus-minutes-today', '0');
+
+    // Case 1: Empty state -> returns null
+    const emptyStateRes = hayyizEvaluateStudentState();
+    assert(emptyStateRes === null, 'Rule Engine: Empty student state produces no artificial suggestion (null)');
+
+    // Case 2: Running Focus Session -> Suggests continuing active session
+    const runningSession = {
+        status: 'running',
+        startTime: Date.now() - 300000,
+        durationMinutes: 25,
+        remainingSeconds: 1200,
+        context: { title: 'مراجعة الاحياء' }
+    };
+    hayyizSaveFocusState(runningSession);
+    const runningRes = hayyizEvaluateStudentState();
+    assert(runningRes && runningRes.id === 'running-focus' && runningRes.type === 'pomodoro', 'Rule Engine: Suggests continuing active running Pomodoro focus session');
+    localStorage.removeItem('hayyiz-pomodoro-state');
+
+    // Helper date string formatter relative to getTodayLocal()
+    const getOffsetDateStr = (offsetDays) => {
+        const base = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+        const parts = base.split('-').map(Number);
+        const dt = new Date(parts[0], parts[1] - 1, parts[2] + offsetDays);
+        const y = dt.getFullYear();
+        const m = String(dt.getMonth() + 1).padStart(2, '0');
+        const day = String(dt.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    };
+
+    // Case 3: Upcoming Exam <= 7 days & focusMinutes < 25 -> Suggests exam focus session
+    const tomorrowStr = getOffsetDateStr(1);
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_test_1', name: 'اختبار الرياضيات النهائي', date: tomorrowStr, done: false }
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_ex_1', text: 'حل نماذج الرياضيات', priority: 'high', completed: false }
+    ]));
+    const examRes = hayyizEvaluateStudentState();
+    assert(examRes && examRes.id === 'exam-upcoming' && examRes.badge === 'اختبار قريب', 'Rule Engine: Suggests study session for upcoming exam when focus minutes < 25');
+
+    // Case 4: Overdue tasks -> Suggests overdue task
+    localStorage.removeItem('hayyiz-student-exams');
+    const yesterdayStr = getOffsetDateStr(-1);
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_ov_1', text: 'تسليم بحث التاريخ المتأخر', date: yesterdayStr, completed: false }
+    ]));
+    const overdueRes = hayyizEvaluateStudentState();
+    assert(overdueRes && overdueRes.id === 'task-overdue' && overdueRes.badge === 'مهام متأخرة', 'Rule Engine: Suggests focusing on overdue tasks first');
+
+    // Case 5: Daily Plan generation priority ordering
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_plan_1', name: 'اختبار الفيزياء', date: tomorrowStr, done: false }
+    ]));
+    localStorage.setItem('hayyiz-habits', JSON.stringify([
+        { id: 'h_plan_1', title: 'قراءة كتاب', streak: 5, lastCompleted: '2020-01-01' }
+    ]));
+
+    const planItems = hayyizGenerateDailyPlan();
+    assert(Array.isArray(planItems) && planItems.length >= 3, 'Daily Plan: Generates integrated list from exams, todos, and habits');
+    assert(planItems[0].type === 'exam' || planItems[0].type === 'todo', 'Daily Plan: Exams and overdue/priority tasks take top priority');
+    assert(planItems.some(item => item.type === 'habit'), 'Daily Plan: Includes uncompleted daily habits');
 }
 
 console.log(`\n===================================`);
