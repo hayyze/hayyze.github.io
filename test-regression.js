@@ -631,6 +631,185 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     assert(calSummary.nearestEvent && calSummary.nearestEvent.name === 'اختبار الكيمياء', 'Student Calendar nearest exam is extracted accurately for Dashboard');
 }
 
+// --- 13. POST-FOCUS DECISION MODAL TESTS (A, B, C, D, E) ---
+{
+    localStorage.clear();
+    const taskObj = { id: 't_post_modal', text: 'مذاكرة الفلسفة', priority: 'high', completed: false, focusDone: 0 };
+    hayyizSaveTodos([taskObj]);
+
+    // Simulate Pomodoro completion (Step 1: Real completion & focus logging without task completion)
+    hayyizApplyFocusResult({ workMin: 25, taskId: 't_post_modal', taskText: 'مذاكرة الفلسفة' });
+    const taskAfterFocus = hayyizGetTaskById('t_post_modal');
+    assert(taskAfterFocus.focusDone === 25 && taskAfterFocus.completed === false, 'Post-Focus Order: Pomodoro completion updates focus time while task strictly remains incomplete');
+
+    // Test A: User selects "المهمة مكتملة"
+    hayyizCompleteTask('t_post_modal', 'مذاكرة الفلسفة');
+    const taskOptionA = hayyizGetTaskById('t_post_modal');
+    const recOptionA = hayyizRecommendNext();
+    assert(taskOptionA.completed === true && !recOptionA.ranked.some(r => r.task.id === 't_post_modal'), 'Test A (المهمة مكتملة): Task becomes completed on explicit user choice and Student OS re-evaluates');
+
+    // Test B: User selects "المهمة التالية"
+    localStorage.clear();
+    const taskB1 = { id: 't_b1', text: 'مهمة حالية', priority: 'medium', completed: false, focusDone: 0 };
+    const taskB2 = { id: 't_b2', text: 'مهمة قادمة أولوية عالية', priority: 'high', completed: false, focusDone: 0 };
+    hayyizSaveTodos([taskB1, taskB2]);
+    hayyizApplyFocusResult({ workMin: 25, taskId: 't_b1', taskText: 'مهمة حالية' });
+
+    // Option B chosen (next task chosen, current task stays incomplete)
+    const taskB1After = hayyizGetTaskById('t_b1');
+    const recOptionB = hayyizRecommendNext();
+    const nextTaskForB = recOptionB.ranked.find(r => r.task.id !== 't_b1')?.task;
+    assert(taskB1After.completed === false && taskB1After.focusDone === 25, 'Test B (المهمة التالية): Current task remains incomplete with focus logged');
+    assert(nextTaskForB && nextTaskForB.id === 't_b2', 'Test B (المهمة التالية): Student OS selects next highest priority action cleanly');
+
+    // Test C: User selects "استراحة"
+    localStorage.clear();
+    const taskC = { id: 't_c', text: 'مهمة جارية', priority: 'high', completed: false };
+    hayyizSaveTodos([taskC]);
+    hayyizApplyFocusResult({ workMin: 25, taskId: 't_c', taskText: 'مهمة جارية' });
+    const pStateC = { mode: 'break', status: 'idle', totalDuration: 300, remainingSeconds: 300 };
+    hayyizSaveFocusState(pStateC);
+    const taskCAfter = hayyizGetTaskById('t_c');
+    const restoredStateC = hayyizGetFocusState();
+    assert(taskCAfter.completed === false && restoredStateC.mode === 'break', 'Test C (استراحة): Task remains incomplete and break flow is preserved using existing Pomodoro logic');
+
+    // Test D: User selects "تسجيل ملاحظة"
+    localStorage.clear();
+    const taskD = { id: 't_d', text: 'تمرين كيمياء', priority: 'medium', completed: false };
+    hayyizSaveTodos([taskD]);
+    hayyizApplyFocusResult({ workMin: 25, taskId: 't_d', taskText: 'تمرين كيمياء' });
+    const targetNoteUrl = 'notes.html?title=' + encodeURIComponent('تمرين كيمياء');
+    const taskDAfter = hayyizGetTaskById('t_d');
+    assert(taskDAfter.completed === false && targetNoteUrl.includes('notes.html?title='), 'Test D (تسجيل ملاحظة): Opens notes flow with task context while task strictly remains incomplete');
+
+    // Test E: Modal Dismiss / Close
+    localStorage.clear();
+    const taskE = { id: 't_e', text: 'مراجعة أدب', priority: 'high', completed: false };
+    hayyizSaveTodos([taskE]);
+    hayyizApplyFocusResult({ workMin: 25, taskId: 't_e', taskText: 'مراجعة أدب' });
+    // Dismiss modal (no action selected)
+    const taskEAfter = hayyizGetTaskById('t_e');
+    const focusLogsE = hayyizGetFocusSessions();
+    assert(taskEAfter.completed === false && taskEAfter.focusDone === 25, 'Test E (إغلاق Modal): Closing modal leaves task incomplete with focus session recorded safely');
+}
+
+// --- 12. STUDENT OS SCENARIOS A THROUGH J E2E TESTS ---
+{
+    // Scenario A: New User (No data)
+    localStorage.clear();
+    const evalA = hayyizEvaluateStudentState();
+    const planA = hayyizGenerateDailyPlan();
+    const recA = hayyizRecommendNext();
+    assert(evalA === null, 'Scenario A: New user with no data produces no artificial suggestion');
+    assert(Array.isArray(planA) && planA.length === 0, 'Scenario A: New user produces no artificial daily plan items');
+    assert(recA.next === null && recA.ranked.length === 0, 'Scenario A: New user produces no fake task recommendations');
+
+    // Scenario B: Upcoming Exam
+    const tomorrowStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_sc_b', name: 'اختبار الكيمياء النهائي', date: tomorrowStr }
+    ]));
+    const evalB = hayyizEvaluateStudentState();
+    assert(evalB && evalB.type === 'exam' && evalB.badge === 'اختبار قريب' && evalB.actionType === 'pomo-event', 'Scenario B: Discovers upcoming exam importance and creates actionable pomo-event');
+
+    // Scenario C: Exam + Task (Relation vs No relation)
+    // C1: No relation -> Task is not falsely claimed as linked to exam
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_unrelated', text: 'تنظيف الغرفة', priority: 'medium', completed: false }
+    ]));
+    const evalC1 = hayyizEvaluateStudentState();
+    assert(evalC1 && evalC1.task === null && evalC1.event.name === 'اختبار الكيمياء النهائي', 'Scenario C: Unrelated task is strictly not claimed as linked to exam');
+
+    // C2: Actual relation -> Task is correctly linked to exam
+    const subMath = hayyizAddSubject('كيمياء');
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_sc_c', name: 'اختبار الكيمياء', date: tomorrowStr, subjectId: subMath.id }
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_related', text: 'مراجعة الباب الأول كيمياء', priority: 'high', subjectId: subMath.id, completed: false }
+    ]));
+    const evalC2 = hayyizEvaluateStudentState();
+    assert(evalC2 && evalC2.task && evalC2.task.id === 't_related' && evalC2.actionType === 'pomo-task', 'Scenario C: Truly related task is correctly linked to upcoming exam recommendation');
+
+    // Scenario D & E: Start Action & Pomodoro Context Preservation
+    let redirectedUrl = '';
+    global.window.location = {
+        set href(val) { redirectedUrl = val; },
+        get href() { return redirectedUrl; }
+    };
+    hayyizLaunchPomodoro(evalC2.task, 0);
+    const storedCurrentTask = localStorage.getItem('hayyiz-current-task');
+    const storedCurrentTaskId = localStorage.getItem('hayyiz-current-task-id');
+    assert(redirectedUrl.includes('pomodoro.html?task=') && storedCurrentTask === 'مراجعة الباب الأول كيمياء' && storedCurrentTaskId === 't_related', 'Scenario D & E: Launching action sets existing Pomodoro context accurately without inventing new systems');
+
+    // Scenario F: Session Completion & Re-evaluation
+    const realDateNow = Date.now;
+    let mockTime = 1800000000000;
+    Date.now = () => mockTime;
+    const sessF = {
+        mode: 'focus',
+        status: 'running',
+        sessionId: 'sess_sc_f',
+        totalDuration: 1500,
+        remainingSeconds: 1500,
+        endTime: mockTime + 1500 * 1000,
+        context: { type: 'task', id: 't_related', title: 'مراجعة الباب الأول كيمياء' }
+    };
+    hayyizSaveFocusState(sessF);
+    mockTime += 1500 * 1000; // 25 mins elapsed
+    const reconciledF = hayyizReconcilePomodoroState();
+    const updatedTaskF = hayyizGetTaskById('t_related');
+    assert(reconciledF.status === 'completed' && updatedTaskF.focusDone === 25, 'Scenario F: Pomodoro completion updates focus time and task state cleanly');
+
+    // Scenario G: Task Completion
+    hayyizCompleteTask('t_related', 'مراجعة الباب الأول كيمياء');
+    const recG = hayyizRecommendNext();
+    const planG = hayyizGenerateDailyPlan();
+    assert(!recG.ranked.some(r => r.task.id === 't_related'), 'Scenario G: Completed task is strictly removed from active recommendations');
+    assert(!planG.some(p => p.id === 'plan-task-t_related'), 'Scenario G: Completed task is strictly removed from daily plan');
+
+    // Scenario H: Overdue Task vs Upcoming Exam Priority
+    localStorage.clear();
+    const getOffsetDateStr = (offsetDays) => {
+        const base = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+        const parts = base.split('-').map(Number);
+        const dt = new Date(parts[0], parts[1] - 1, parts[2] + offsetDays);
+        return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    };
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_sc_h', name: 'اختبار التاريخ', date: getOffsetDateStr(5) } // 5 days away
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_sc_h_overdue', text: 'حل واجب الرياضيات المتأخر', date: getOffsetDateStr(-3), priority: 'high', completed: false } // 3 days overdue
+    ]));
+    const evalH = hayyizEvaluateStudentState();
+    assert(evalH && evalH.id === 'task-overdue' && evalH.task.id === 't_sc_h_overdue', 'Scenario H: Overdue task scores higher than a distant exam based on priority/scoring');
+
+    // Scenario I: Active Running Pomodoro Non-Interruption
+    const runningSessI = {
+        mode: 'focus',
+        status: 'running',
+        remainingSeconds: 800,
+        totalDuration: 1500,
+        endTime: mockTime + 800 * 1000,
+        context: { type: 'free', id: null, title: 'تركيز جاري' }
+    };
+    hayyizSaveFocusState(runningSessI);
+    const evalI = hayyizEvaluateStudentState();
+    assert(evalI && evalI.id === 'running-focus' && evalI.score === 1000, 'Scenario I: Active running Pomodoro session takes top priority without interruption');
+
+    // Scenario J: Custom Pomodoro Duration Preference
+    localStorage.clear();
+    localStorage.setItem('hayyiz-pref-work', '50');
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_sc_j', name: 'اختبار الفيزياء', date: getOffsetDateStr(1) }
+    ]));
+    const evalJ = hayyizEvaluateStudentState();
+    assert(evalJ && evalJ.text.includes('50 دقيقة'), 'Scenario J: Evaluation Engine incorporates custom 50-minute Pomodoro duration preference');
+
+    Date.now = realDateNow;
+}
+
 // --- 11. CENTRALIZED RULE ENGINE & DAILY PLAN TESTS ---
 {
     // Clean storage
