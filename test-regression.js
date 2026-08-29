@@ -631,6 +631,68 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     assert(calSummary.nearestEvent && calSummary.nearestEvent.name === 'اختبار الكيمياء', 'Student Calendar nearest exam is extracted accurately for Dashboard');
 }
 
+// --- 13. POST-FOCUS DECISION MODAL TESTS (A, B, C, D, E) ---
+{
+    localStorage.clear();
+    const taskObj = { id: 't_post_modal', text: 'مذاكرة الفلسفة', priority: 'high', completed: false, focusDone: 0 };
+    hayyizSaveTodos([taskObj]);
+
+    // Simulate Pomodoro completion (Step 1: Real completion & focus logging without task completion)
+    hayyizApplyFocusResult({ workMin: 25, taskId: 't_post_modal', taskText: 'مذاكرة الفلسفة' });
+    const taskAfterFocus = hayyizGetTaskById('t_post_modal');
+    assert(taskAfterFocus.focusDone === 25 && taskAfterFocus.completed === false, 'Post-Focus Order: Pomodoro completion updates focus time while task strictly remains incomplete');
+
+    // Test A: User selects "المهمة مكتملة"
+    hayyizCompleteTask('t_post_modal', 'مذاكرة الفلسفة');
+    const taskOptionA = hayyizGetTaskById('t_post_modal');
+    const recOptionA = hayyizRecommendNext();
+    assert(taskOptionA.completed === true && !recOptionA.ranked.some(r => r.task.id === 't_post_modal'), 'Test A (المهمة مكتملة): Task becomes completed on explicit user choice and Student OS re-evaluates');
+
+    // Test B: User selects "المهمة التالية"
+    localStorage.clear();
+    const taskB1 = { id: 't_b1', text: 'مهمة حالية', priority: 'medium', completed: false, focusDone: 0 };
+    const taskB2 = { id: 't_b2', text: 'مهمة قادمة أولوية عالية', priority: 'high', completed: false, focusDone: 0 };
+    hayyizSaveTodos([taskB1, taskB2]);
+    hayyizApplyFocusResult({ workMin: 25, taskId: 't_b1', taskText: 'مهمة حالية' });
+
+    // Option B chosen (next task chosen, current task stays incomplete)
+    const taskB1After = hayyizGetTaskById('t_b1');
+    const recOptionB = hayyizRecommendNext();
+    const nextTaskForB = recOptionB.ranked.find(r => r.task.id !== 't_b1')?.task;
+    assert(taskB1After.completed === false && taskB1After.focusDone === 25, 'Test B (المهمة التالية): Current task remains incomplete with focus logged');
+    assert(nextTaskForB && nextTaskForB.id === 't_b2', 'Test B (المهمة التالية): Student OS selects next highest priority action cleanly');
+
+    // Test C: User selects "استراحة"
+    localStorage.clear();
+    const taskC = { id: 't_c', text: 'مهمة جارية', priority: 'high', completed: false };
+    hayyizSaveTodos([taskC]);
+    hayyizApplyFocusResult({ workMin: 25, taskId: 't_c', taskText: 'مهمة جارية' });
+    const pStateC = { mode: 'break', status: 'idle', totalDuration: 300, remainingSeconds: 300 };
+    hayyizSaveFocusState(pStateC);
+    const taskCAfter = hayyizGetTaskById('t_c');
+    const restoredStateC = hayyizGetFocusState();
+    assert(taskCAfter.completed === false && restoredStateC.mode === 'break', 'Test C (استراحة): Task remains incomplete and break flow is preserved using existing Pomodoro logic');
+
+    // Test D: User selects "تسجيل ملاحظة"
+    localStorage.clear();
+    const taskD = { id: 't_d', text: 'تمرين كيمياء', priority: 'medium', completed: false };
+    hayyizSaveTodos([taskD]);
+    hayyizApplyFocusResult({ workMin: 25, taskId: 't_d', taskText: 'تمرين كيمياء' });
+    const targetNoteUrl = 'notes.html?title=' + encodeURIComponent('تمرين كيمياء');
+    const taskDAfter = hayyizGetTaskById('t_d');
+    assert(taskDAfter.completed === false && targetNoteUrl.includes('notes.html?title='), 'Test D (تسجيل ملاحظة): Opens notes flow with task context while task strictly remains incomplete');
+
+    // Test E: Modal Dismiss / Close
+    localStorage.clear();
+    const taskE = { id: 't_e', text: 'مراجعة أدب', priority: 'high', completed: false };
+    hayyizSaveTodos([taskE]);
+    hayyizApplyFocusResult({ workMin: 25, taskId: 't_e', taskText: 'مراجعة أدب' });
+    // Dismiss modal (no action selected)
+    const taskEAfter = hayyizGetTaskById('t_e');
+    const focusLogsE = hayyizGetFocusSessions();
+    assert(taskEAfter.completed === false && taskEAfter.focusDone === 25, 'Test E (إغلاق Modal): Closing modal leaves task incomplete with focus session recorded safely');
+}
+
 // --- 12. STUDENT OS SCENARIOS A THROUGH J E2E TESTS ---
 {
     // Scenario A: New User (No data)

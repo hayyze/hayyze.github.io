@@ -817,8 +817,21 @@ document.addEventListener('DOMContentLoaded', () => {
         saveState();
     }
 
-    // Interactive Completion Modal
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    // Interactive Completion Modal (Student OS Decision Modal)
     function showCompletionModal(workMinJustDone, isLongBreak, breakMin) {
+        // Show decision modal only for Student OS contexts (tasks or events)
+        if (!state.context || state.context.type === 'free') return;
+
         document.querySelector('.session-end-overlay')?.remove();
 
         const overlay = document.createElement('div');
@@ -830,7 +843,7 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.className = 'task-modal';
 
         const h3 = document.createElement('h3');
-        h3.innerHTML = '🎉 أحسنت! أتممت جلسة التركيز';
+        h3.innerHTML = '🎉 انتهت جلسة التركيز';
         modal.appendChild(h3);
 
         const summaryP = document.createElement('p');
@@ -838,14 +851,6 @@ document.addEventListener('DOMContentLoaded', () => {
         summaryP.style.fontSize = '0.95rem';
         summaryP.textContent = `أنجزت ${workMinJustDone} دقيقة تركيز حقيقي · ${state.context.title}`;
         modal.appendChild(summaryP);
-
-        const breakNoticeP = document.createElement('p');
-        breakNoticeP.style.fontWeight = '700';
-        breakNoticeP.style.color = 'var(--primary)';
-        breakNoticeP.textContent = isLongBreak
-            ? `حان وقت راحة طويلة لمكافأة نفسك (${breakMin} دقيقة)`
-            : `خذ استراحة قصيرة لتجديد طاقتك (${breakMin} دقيقة)`;
-        modal.appendChild(breakNoticeP);
 
         const actions = document.createElement('div');
         actions.className = 'modal-actions';
@@ -856,23 +861,12 @@ document.addEventListener('DOMContentLoaded', () => {
             overlay.remove();
         }
 
-        // Start Break Immediately
-        const startBreakBtn = document.createElement('button');
-        startBreakBtn.type = 'button';
-        startBreakBtn.className = 'btn btn-primary';
-        startBreakBtn.innerHTML = `<i class="fa-solid fa-coffee"></i> ابدأ الاستراحة الآن (${breakMin} د)`;
-        startBreakBtn.addEventListener('click', () => {
-            closeModal();
-            startTimer();
-        });
-        actions.appendChild(startBreakBtn);
-
-        // Mark Task Complete (If connected to a task)
+        // 1. المهمة مكتملة (أنشط عند ربط الجلسة بمهمة)
         if (state.context.type === 'task' && state.context.id) {
             const completeTaskBtn = document.createElement('button');
             completeTaskBtn.type = 'button';
-            completeTaskBtn.className = 'btn btn-outline';
-            completeTaskBtn.innerHTML = '<i class="fa-solid fa-check"></i> تعليم المهمة كمكتملة';
+            completeTaskBtn.className = 'btn btn-primary';
+            completeTaskBtn.innerHTML = '<i class="fa-solid fa-check"></i> المهمة مكتملة';
             completeTaskBtn.addEventListener('click', () => {
                 if (typeof hayyizCompleteTask === 'function') {
                     hayyizCompleteTask(state.context.id, state.context.title);
@@ -883,19 +877,21 @@ document.addEventListener('DOMContentLoaded', () => {
             actions.appendChild(completeTaskBtn);
         }
 
-        // Switch to Next Recommended Task
+        // 2. المهمة التالية
         try {
             if (typeof hayyizRecommendNext === 'function') {
-                const rec = hayyizRecommendNext(3);
-                if (rec && rec.next && rec.next.text !== state.context.title) {
+                const rec = hayyizRecommendNext(5);
+                const nextRecTask = rec && rec.ranked ? rec.ranked.find(r => r.task && r.task.id !== state.context.id)?.task : null;
+                if (nextRecTask) {
                     const nextBtn = document.createElement('button');
                     nextBtn.type = 'button';
                     nextBtn.className = 'btn btn-outline';
-                    nextBtn.innerHTML = `<i class="fa-solid fa-forward"></i> الانتقال للمهمة التالية: ${rec.next.text.slice(0, 25)}…`;
+                    const truncatedText = nextRecTask.text.length > 25 ? nextRecTask.text.slice(0, 25) + '…' : nextRecTask.text;
+                    nextBtn.innerHTML = `<i class="fa-solid fa-forward"></i> المهمة التالية: ${escapeHtml(truncatedText)}`;
                     nextBtn.addEventListener('click', () => {
                         closeModal();
                         if (typeof hayyizLaunchPomodoro === 'function') {
-                            hayyizLaunchPomodoro(rec.next);
+                            hayyizLaunchPomodoro(nextRecTask);
                         }
                     });
                     actions.appendChild(nextBtn);
@@ -903,22 +899,38 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (e) {}
 
-        // Quick Note
+        // 3. استراحة
+        const breakBtn = document.createElement('button');
+        breakBtn.type = 'button';
+        breakBtn.className = 'btn btn-outline';
+        breakBtn.innerHTML = `<i class="fa-solid fa-coffee"></i> استراحة (${breakMin} دقيقة)`;
+        breakBtn.addEventListener('click', () => {
+            closeModal();
+            startTimer();
+        });
+        actions.appendChild(breakBtn);
+
+        // 4. تسجيل ملاحظة
         const noteBtn = document.createElement('button');
         noteBtn.type = 'button';
         noteBtn.className = 'btn btn-outline';
-        noteBtn.innerHTML = '<i class="fa-solid fa-note-sticky"></i> تدوين ملاحظة ملخصة';
+        noteBtn.innerHTML = '<i class="fa-solid fa-note-sticky"></i> تسجيل ملاحظة';
         noteBtn.addEventListener('click', () => {
             closeModal();
-            window.location.href = 'notes.html?title=' + encodeURIComponent(state.context.title);
+            let noteUrl = 'notes.html?title=' + encodeURIComponent(state.context.title);
+            if (state.context.type === 'task' && state.context.id) {
+                noteUrl += '&taskId=' + encodeURIComponent(state.context.id);
+            }
+            window.location.href = noteUrl;
         });
         actions.appendChild(noteBtn);
 
-        // Close
+        // Dismiss / Close
         const dismissBtn = document.createElement('button');
         dismissBtn.type = 'button';
         dismissBtn.className = 'btn btn-outline';
-        dismissBtn.textContent = 'إغلاق ومتابعة';
+        dismissBtn.style.opacity = '0.8';
+        dismissBtn.textContent = 'إغلاق';
         dismissBtn.addEventListener('click', closeModal);
         actions.appendChild(dismissBtn);
 
