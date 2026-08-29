@@ -35,12 +35,176 @@
     }
 
     /**
+     * Central API Methods
+     */
+    async function getSupabase() {
+        if (typeof ensureSupabaseLoaded === 'function') {
+            return await ensureSupabaseLoaded();
+        }
+        return window.supabaseClient || null;
+    }
+
+    async function createWorkspace(name, description) {
+        if (!currentUser) throw new Error('يرجى تسجيل الدخول أولاً');
+        const client = await getSupabase();
+        const { data, error } = await client.from('workspaces').insert({
+            name,
+            description,
+            created_by: currentUser.id
+        }).select().single();
+
+        if (error) throw error;
+        return data;
+    }
+
+    async function deleteWorkspace(workspaceId) {
+        if (!currentUser) throw new Error('يرجى تسجيل الدخول أولاً');
+        const client = await getSupabase();
+        const { error } = await client.from('workspaces').delete().eq('id', workspaceId);
+        if (error) throw error;
+    }
+
+    async function addWorkspaceMemberByEmail(workspaceId, email) {
+        if (!currentUser) throw new Error('يرجى تسجيل الدخول أولاً');
+        const client = await getSupabase();
+        const { data, error } = await client.rpc('add_workspace_member_by_email', {
+            p_workspace_id: workspaceId,
+            p_email: email
+        });
+
+        if (error) throw error;
+        return data;
+    }
+
+    async function removeWorkspaceMember(workspaceId, userId) {
+        if (!currentUser) throw new Error('يرجى تسجيل الدخول أولاً');
+        const client = await getSupabase();
+        const { error } = await client.from('workspace_members')
+            .delete()
+            .eq('workspace_id', workspaceId)
+            .eq('user_id', userId);
+
+        if (error) throw error;
+    }
+
+    async function createWorkspaceTask({ title, description, scope, completion_mode, workspace_id, due_date, recipientUserIds = [] }) {
+        if (!currentUser) throw new Error('يرجى تسجيل الدخول أولاً');
+        if (scope === 'specific_users' && (!recipientUserIds || recipientUserIds.length === 0)) {
+            throw new Error('يرجى اختيار مستلم واحد على الأقل للمهمة الموجهة');
+        }
+
+        const client = await getSupabase();
+        const { data: newTask, error } = await client.from('tasks').insert({
+            creator_id: currentUser.id,
+            workspace_id: scope === 'workspace' ? workspace_id : null,
+            title,
+            description,
+            scope,
+            completion_mode,
+            due_date: due_date ? new Date(due_date).toISOString() : null
+        }).select().single();
+
+        if (error) throw error;
+
+        // Add additional task members if specific_users
+        if (scope === 'specific_users' && recipientUserIds.length > 0) {
+            const membersToInsert = recipientUserIds
+                .filter(uId => uId !== currentUser.id)
+                .map(uId => ({
+                    task_id: newTask.id,
+                    user_id: uId,
+                    role: 'assignee'
+                }));
+
+            if (membersToInsert.length > 0) {
+                const { error: memberError } = await client.from('task_members').insert(membersToInsert);
+                if (memberError) console.error('Error inserting task members:', memberError);
+            }
+        }
+
+        return newTask;
+    }
+
+    async function deleteTask(taskId) {
+        if (!currentUser) throw new Error('يرجى تسجيل الدخول أولاً');
+        const client = await getSupabase();
+        const { error } = await client.from('tasks').delete().eq('id', taskId);
+        if (error) throw error;
+    }
+
+    async function updateTaskProgress(taskId, completed) {
+        if (!currentUser) throw new Error('يرجى تسجيل الدخول أولاً');
+        const client = await getSupabase();
+        const nowIso = new Date().toISOString();
+
+        const task = tasksCache.find(t => t.id === taskId);
+        if (!task) return;
+
+        // 1. Update task_progress for caller
+        const { error: progError } = await client.from('task_progress').upsert({
+            task_id: taskId,
+            user_id: currentUser.id,
+            completed: completed,
+            completed_at: completed ? nowIso : null,
+            updated_at: nowIso
+        });
+
+        if (progError) throw progError;
+
+        // 2. If collaborative mode, recalculate total group completion status
+        if (task.completion_mode === 'collaborative') {
+            const allProgress = taskProgressCache[taskId] || [];
+            // Update local memory first to reflect caller change
+            let callerProg = allProgress.find(p => p.user_id === currentUser.id);
+            if (callerProg) {
+                callerProg.completed = completed;
+            } else {
+                allProgress.push({ task_id: taskId, user_id: currentUser.id, completed });
+            }
+
+            const isAllCompleted = calculateCollaborativeTaskProgress(task, allProgress).isFullyCompleted;
+
+            const { error: taskError } = await client.from('tasks').update({
+                completed: isAllCompleted,
+                completed_at: isAllCompleted ? nowIso : null,
+                updated_at: nowIso
+            }).eq('id', taskId);
+
+            if (taskError) throw taskError;
+        }
+    }
+
+    /**
+     * Calculates Group Completion Progress for Collaborative Tasks
+     */
+    function calculateCollaborativeTaskProgress(task, progressList = []) {
+        if (!task) return { totalRequired: 0, completedCount: 0, percentage: 0, isFullyCompleted: false };
+
+        const members = taskMembersCache[task.id] || [];
+        let totalRequired = 0;
+
+        if (task.scope === 'specific_users' || task.scope === 'me') {
+            totalRequired = Math.max(1, members.length);
+        } else if (task.scope === 'workspace' && task.workspace_id) {
+            const wsMembers = workspaceMembersCache[task.workspace_id] || [];
+            totalRequired = Math.max(1, wsMembers.length);
+        } else {
+            totalRequired = 1;
+        }
+
+        const completedCount = progressList.filter(p => p.completed).length;
+        const percentage = Math.min(100, Math.round((completedCount / totalRequired) * 100));
+        const isFullyCompleted = (completedCount >= totalRequired);
+
+        return { totalRequired, completedCount, percentage, isFullyCompleted };
+    }
+
+    /**
      * Initializer for Workspaces Module
      */
     async function initWorkspacesModule() {
         setupUIEvents();
 
-        // Check authentication state
         if (typeof hayyizGetUser === 'function') {
             currentUser = await hayyizGetUser();
         } else if (typeof window !== 'undefined' && window.supabaseClient && window.supabaseClient.auth) {
@@ -57,10 +221,7 @@
             if (guestBanner) guestBanner.classList.add('hidden');
         }
 
-        // Load data from Supabase
         await loadAllWorkspaceData();
-
-        // Setup Realtime subscriptions
         setupRealtimeSubscriptions();
     }
 
@@ -69,7 +230,7 @@
      */
     async function loadAllWorkspaceData() {
         try {
-            const client = await ensureSupabaseLoaded();
+            const client = await getSupabase();
             if (!client || !currentUser) return;
 
             // 1. Fetch User Workspaces
@@ -82,7 +243,7 @@
                 workspacesCache = wsData;
             }
 
-            // 2. Fetch Workspace Members and Profiles
+            // 2. Fetch Workspace Members & Profiles
             if (workspacesCache.length > 0) {
                 const wsIds = workspacesCache.map(w => w.id);
                 const { data: wm = [] } = await client
@@ -144,10 +305,12 @@
                 });
             }
 
-            // 5. Fetch Focus Sessions
+            // 5. Optimized Focus Sessions Query: fetch recent 7 days only
+            const startOfWeekIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
             const { data: fsData } = await client
                 .from('focus_sessions')
                 .select('*')
+                .gte('created_at', startOfWeekIso)
                 .order('created_at', { ascending: false });
 
             if (fsData) {
@@ -166,30 +329,56 @@
     }
 
     /**
-     * Realtime Subscriptions for Instant Updates
+     * Realtime Subscriptions with Granular Updates
      */
     function setupRealtimeSubscriptions() {
-        if (!currentUser || typeof ensureSupabaseLoaded !== 'function') return;
+        if (!currentUser) return;
 
-        ensureSupabaseLoaded().then(client => {
+        getSupabase().then(client => {
             if (!client || realtimeSubscription) return;
 
             realtimeSubscription = client
                 .channel('hayyiz-workspaces-realtime')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
-                    loadAllWorkspaceData();
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
+                    handleRealtimeTaskChange(payload);
                 })
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'task_progress' }, () => {
-                    loadAllWorkspaceData();
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'task_progress' }, (payload) => {
+                    handleRealtimeProgressChange(payload);
                 })
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'workspace_members' }, () => {
                     loadAllWorkspaceData();
                 })
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'focus_sessions' }, () => {
-                    loadAllWorkspaceData();
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'focus_sessions' }, (payload) => {
+                    if (payload.new) focusSessionsCache.unshift(payload.new);
+                    renderFocusStats();
                 })
                 .subscribe();
         }).catch(() => {});
+    }
+
+    function handleRealtimeTaskChange(payload) {
+        if (payload.eventType === 'INSERT' && payload.new) {
+            tasksCache.unshift(payload.new);
+        } else if (payload.eventType === 'UPDATE' && payload.new) {
+            const idx = tasksCache.findIndex(t => t.id === payload.new.id);
+            if (idx >= 0) tasksCache[idx] = payload.new;
+        } else if (payload.eventType === 'DELETE' && payload.old) {
+            tasksCache = tasksCache.filter(t => t.id !== payload.old.id);
+        }
+        renderTasksList();
+        renderActiveWorkspaceHeader();
+    }
+
+    function handleRealtimeProgressChange(payload) {
+        if (payload.new) {
+            const taskId = payload.new.task_id;
+            if (!taskProgressCache[taskId]) taskProgressCache[taskId] = [];
+            const idx = taskProgressCache[taskId].findIndex(p => p.user_id === payload.new.user_id);
+            if (idx >= 0) taskProgressCache[taskId][idx] = payload.new;
+            else taskProgressCache[taskId].push(payload.new);
+        }
+        renderTasksList();
+        renderActiveWorkspaceHeader();
     }
 
     /**
@@ -214,7 +403,6 @@
             container.appendChild(btn);
         });
 
-        // Add event handlers to tabs
         container.querySelectorAll('button').forEach(btn => {
             btn.addEventListener('click', () => {
                 container.querySelectorAll('button').forEach(b => b.classList.remove('active'));
@@ -275,12 +463,11 @@
     function isTaskCompletedForDisplay(task) {
         if (!task) return false;
         if (task.completion_mode === 'collaborative') {
-            return Boolean(task.completed);
+            return calculateCollaborativeTaskProgress(task, taskProgressCache[task.id] || []).isFullyCompleted;
         } else {
-            // Independent completion mode: Check current user's progress or task.completed
+            // Independent completion mode: Check caller's progress only
             const userProg = (taskProgressCache[task.id] || []).find(p => p.user_id === (currentUser ? currentUser.id : ''));
-            if (userProg) return Boolean(userProg.completed);
-            return Boolean(task.completed);
+            return userProg ? Boolean(userProg.completed) : false;
         }
     }
 
@@ -361,7 +548,13 @@
             deleteBtn.title = 'حذف المهمة';
             deleteBtn.addEventListener('click', async () => {
                 if (confirm(`هل أنت متأكد من حذف المهمة "${task.title}"؟`)) {
-                    await deleteTask(task.id);
+                    try {
+                        await deleteTask(task.id);
+                        tasksCache = tasksCache.filter(t => t.id !== task.id);
+                        renderTasksList();
+                    } catch (err) {
+                        alert('حدث خطأ أثناء حذف المهمة: ' + (err.message || 'خطأ غير معروف'));
+                    }
                 }
             });
             actionsDiv.appendChild(deleteBtn);
@@ -389,44 +582,55 @@
         const progressRow = document.createElement('div');
         progressRow.style.cssText = 'border-top: 1px dashed var(--border); padding-top: 0.6rem; display: flex; flex-direction: column; gap: 0.5rem;';
 
+        const allProgress = taskProgressCache[task.id] || [];
+
         if (task.completion_mode === 'collaborative') {
-            // Collaborative progress (Group total)
-            const allProgress = taskProgressCache[task.id] || [];
-            const members = taskMembersCache[task.id] || [];
-            const totalMembersCount = Math.max(1, members.length);
-            const completedMembersCount = allProgress.filter(p => p.completed).length;
+            const { completedCount, totalRequired, percentage } = calculateCollaborativeTaskProgress(task, allProgress);
 
             progressRow.innerHTML = `
                 <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
                     <span><i class="fa-solid fa-users-gear"></i> التقدم الجماعي المشترك</span>
-                    <strong>${completedMembersCount} / ${totalMembersCount} أُنجزت</strong>
+                    <strong>${completedCount} / ${totalRequired} أُنجزت</strong>
                 </div>
                 <div style="background: var(--surface); border-radius: 6px; height: 8px; overflow: hidden;">
-                    <div style="background: var(--success); width: ${(completedMembersCount / totalMembersCount) * 100}%; height: 100%;"></div>
+                    <div style="background: var(--success); width: ${percentage}%; height: 100%;"></div>
                 </div>
             `;
         }
 
-        // Individual Statuses Breakdown
-        const membersList = taskMembersCache[task.id] || [];
+        // Individual Statuses Breakdown (Combine workspace members if scope === 'workspace')
+        let membersList = taskMembersCache[task.id] || [];
+        if (task.scope === 'workspace' && task.workspace_id) {
+            const wsMembers = workspaceMembersCache[task.workspace_id] || [];
+            const memberMap = new Map();
+            wsMembers.forEach(m => memberMap.set(m.user_id, m));
+            membersList.forEach(m => memberMap.set(m.user_id, m));
+            membersList = Array.from(memberMap.values());
+        }
+
         const statusListEl = document.createElement('div');
         statusListEl.style.cssText = 'display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center; font-size: 0.85rem; margin-top: 0.2rem;';
 
         membersList.forEach(m => {
             const isMe = currentUser && m.user_id === currentUser.id;
-            const userProg = (taskProgressCache[task.id] || []).find(p => p.user_id === m.user_id);
-            const userDone = userProg ? userProg.completed : (task.completion_mode === 'collaborative' ? task.completed : false);
+            const userProg = allProgress.find(p => p.user_id === m.user_id);
+            const userDone = userProg ? Boolean(userProg.completed) : false;
 
             const item = document.createElement('div');
             item.style.cssText = 'display: flex; align-items: center; gap: 0.3rem; background: var(--surface); padding: 0.25rem 0.6rem; border-radius: 6px; border: 1px solid var(--border);';
 
             if (isMe) {
-                // Interactive Checkbox for current user
                 const chk = document.createElement('input');
                 chk.type = 'checkbox';
-                chk.checked = Boolean(userDone);
+                chk.checked = userDone;
                 chk.addEventListener('change', async () => {
-                    await toggleTaskCompletion(task, chk.checked);
+                    try {
+                        await updateTaskProgress(task.id, chk.checked);
+                        renderTasksList();
+                    } catch (err) {
+                        chk.checked = !chk.checked;
+                        alert('حدث خطأ أثناء تحديث حالة المهمة: ' + (err.message || ''));
+                    }
                 });
                 item.appendChild(chk);
                 const label = document.createElement('span');
@@ -455,60 +659,6 @@
         }
 
         return card;
-    }
-
-    /**
-     * Toggle Task Completion Handler (Independent vs Collaborative)
-     */
-    async function toggleTaskCompletion(task, completed) {
-        try {
-            const client = await ensureSupabaseLoaded();
-            if (!client || !currentUser) return;
-
-            const nowIso = new Date().toISOString();
-
-            // 1. Update task_progress for user
-            await client
-                .from('task_progress')
-                .upsert({
-                    task_id: task.id,
-                    user_id: currentUser.id,
-                    completed: completed,
-                    completed_at: completed ? nowIso : null,
-                    updated_at: nowIso
-                });
-
-            // 2. If collaborative mode, update main tasks table completed status
-            if (task.completion_mode === 'collaborative') {
-                await client
-                    .from('tasks')
-                    .update({
-                        completed: completed,
-                        completed_at: completed ? nowIso : null,
-                        updated_at: nowIso
-                    })
-                    .eq('id', task.id);
-            }
-
-            await loadAllWorkspaceData();
-        } catch (e) {
-            console.error('Error toggling task completion:', e);
-        }
-    }
-
-    /**
-     * Delete Task
-     */
-    async function deleteTask(taskId) {
-        try {
-            const client = await ensureSupabaseLoaded();
-            if (!client) return;
-
-            await client.from('tasks').delete().eq('id', taskId);
-            await loadAllWorkspaceData();
-        } catch (e) {
-            console.error('Error deleting task:', e);
-        }
     }
 
     /**
@@ -544,7 +694,6 @@
         $('stat-week-focus').textContent = `${Math.round(weekSecs / 60)}د`;
         $('stat-workspace-focus').textContent = `${Math.round(workspaceSecs / 60)}د`;
 
-        // Find top task focused on
         let topTaskId = null;
         let maxSecs = 0;
         Object.entries(taskFocusMap).forEach(([tId, secs]) => {
@@ -563,10 +712,9 @@
     }
 
     /**
-     * UI Event Handlers & Modals
+     * UI Event Handlers & Modals Wiring
      */
     function setupUIEvents() {
-        // Modal toggles
         const closeBtns = document.querySelectorAll('.close-modal');
         closeBtns.forEach(btn => btn.addEventListener('click', () => {
             document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
@@ -588,8 +736,58 @@
                 return;
             }
             populateWorkspaceSelectorInModal();
+            populateSpecificUsersList();
             $('modal-create-task').classList.remove('hidden');
         });
+
+        // Add Member Button
+        const btnAddMember = $('btn-add-member');
+        if (btnAddMember) btnAddMember.addEventListener('click', () => {
+            if (!currentUser) return;
+            $('modal-add-member').classList.remove('hidden');
+        });
+
+        // Delete Workspace Button
+        const btnDeleteWs = $('btn-delete-workspace');
+        if (btnDeleteWs) btnDeleteWs.addEventListener('click', async () => {
+            if (activeWorkspaceId === 'all') return;
+            const ws = workspacesCache.find(w => w.id === activeWorkspaceId);
+            if (!ws) return;
+
+            if (confirm(`هل أنت متأكد من حذف المساحة "${ws.name}" بجميع مهامها؟`)) {
+                try {
+                    await deleteWorkspace(ws.id);
+                    activeWorkspaceId = 'all';
+                    await loadAllWorkspaceData();
+                } catch (err) {
+                    alert('حدث خطأ أثناء حذف المساحة: ' + (err.message || ''));
+                }
+            }
+        });
+
+        // Form Submit: Add Member by Email
+        const formAddMember = $('form-add-member');
+        if (formAddMember) {
+            formAddMember.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = $('member-email-input').value.trim();
+                if (!email || activeWorkspaceId === 'all') return;
+
+                try {
+                    const res = await addWorkspaceMemberByEmail(activeWorkspaceId, email);
+                    if (res && res.success) {
+                        alert('تمت إضافة العضو بنجاح!');
+                        formAddMember.reset();
+                        $('modal-add-member').classList.add('hidden');
+                        await loadAllWorkspaceData();
+                    } else {
+                        alert(res.message || 'عذراً، لم نتمكن من إضافة العضو.');
+                    }
+                } catch (err) {
+                    alert('حدث خطأ أثناء دعوة العضو: ' + (err.message || ''));
+                }
+            });
+        }
 
         // Form Submit: Create Workspace
         const formCreateWs = $('form-create-workspace');
@@ -598,19 +796,15 @@
                 e.preventDefault();
                 const name = $('ws-name-input').value.trim();
                 const desc = $('ws-desc-input').value.trim();
-                if (!name || !currentUser) return;
+                if (!name) return;
 
-                const client = await ensureSupabaseLoaded();
-                const { error } = await client.from('workspaces').insert({
-                    name,
-                    description: desc,
-                    created_by: currentUser.id
-                });
-
-                if (!error) {
+                try {
+                    await createWorkspace(name, desc);
                     formCreateWs.reset();
                     $('modal-create-workspace').classList.add('hidden');
                     await loadAllWorkspaceData();
+                } catch (err) {
+                    alert('حدث خطأ أثناء إنشاء المساحة: ' + (err.message || ''));
                 }
             });
         }
@@ -627,23 +821,33 @@
                 const completion_mode = $('task-completion-mode-select').value;
                 const due_date = $('task-due-date-input').value || null;
 
-                if (!title || !currentUser) return;
+                // Extract recipient user IDs from checkboxes
+                const recipientUserIds = [];
+                const listEl = $('members-checkboxes-list');
+                if (listEl) {
+                    listEl.querySelectorAll('input[type="checkbox"]:checked').forEach(chk => {
+                        recipientUserIds.push(chk.value);
+                    });
+                }
 
-                const client = await ensureSupabaseLoaded();
-                const { data: newTask, error } = await client.from('tasks').insert({
-                    creator_id: currentUser.id,
-                    workspace_id: scope === 'workspace' ? workspace_id : null,
-                    title,
-                    description,
-                    scope,
-                    completion_mode,
-                    due_date: due_date ? new Date(due_date).toISOString() : null
-                }).select().single();
+                if (!title) return;
 
-                if (!error && newTask) {
+                try {
+                    await createWorkspaceTask({
+                        title,
+                        description,
+                        scope,
+                        completion_mode,
+                        workspace_id,
+                        due_date,
+                        recipientUserIds
+                    });
+
                     formCreateTask.reset();
                     $('modal-create-task').classList.add('hidden');
                     await loadAllWorkspaceData();
+                } catch (err) {
+                    alert('حدث خطأ أثناء إضافة المهمة: ' + (err.message || ''));
                 }
             });
         }
@@ -662,6 +866,7 @@
                 } else if (val === 'specific_users') {
                     if (wsGroup) wsGroup.style.display = 'none';
                     if (usersGroup) usersGroup.classList.remove('hidden');
+                    populateSpecificUsersList();
                 } else {
                     if (wsGroup) wsGroup.style.display = 'none';
                     if (usersGroup) usersGroup.classList.add('hidden');
@@ -682,6 +887,50 @@
     }
 
     /**
+     * Populates Specific Users Checkbox List for Task Creation
+     */
+    function populateSpecificUsersList() {
+        const listEl = $('members-checkboxes-list');
+        if (!listEl) return;
+
+        listEl.innerHTML = '';
+
+        let membersToDisplay = [];
+        if (activeWorkspaceId !== 'all') {
+            membersToDisplay = workspaceMembersCache[activeWorkspaceId] || [];
+        } else {
+            // Aggregate all members across workspaces
+            const seen = new Set();
+            Object.values(workspaceMembersCache).flat().forEach(m => {
+                if (!seen.has(m.user_id)) {
+                    seen.add(m.user_id);
+                    membersToDisplay.push(m);
+                }
+            });
+        }
+
+        const otherMembers = membersToDisplay.filter(m => currentUser && m.user_id !== currentUser.id);
+
+        if (otherMembers.length === 0) {
+            listEl.innerHTML = '<span style="font-size:0.85rem; color: var(--text-muted);">لا يوجد أعضاء آخرون في المساحات الحالية. قم بدعوة أعضاء أولاً.</span>';
+            return;
+        }
+
+        otherMembers.forEach(m => {
+            const label = document.createElement('label');
+            label.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer;';
+
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.value = m.user_id;
+
+            label.appendChild(chk);
+            label.appendChild(document.createTextNode(m.display_name + ' (' + m.email + ')'));
+            listEl.appendChild(label);
+        });
+    }
+
+    /**
      * Fills Workspace Dropdown Selector in Task Creation Modal
      */
     function populateWorkspaceSelectorInModal() {
@@ -693,6 +942,7 @@
             const opt = document.createElement('option');
             opt.value = ws.id;
             opt.textContent = ws.name;
+            if (ws.id === activeWorkspaceId) opt.selected = true;
             select.appendChild(opt);
         });
     }
@@ -706,5 +956,6 @@
 
     // Export public interfaces
     global.initWorkspacesModule = initWorkspacesModule;
+    global.calculateCollaborativeTaskProgress = calculateCollaborativeTaskProgress;
 
 })(typeof window !== 'undefined' ? window : global);

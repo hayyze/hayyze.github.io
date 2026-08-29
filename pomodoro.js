@@ -132,49 +132,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 title: taskFromUrl || 'مهمة متزامنة',
                 subjectId: null
             };
-        } else
-
-        let eventObj = null;
-        try { eventObj = savedEventRaw ? JSON.parse(savedEventRaw) : null; } catch (e) {}
-
-        if (taskFromUrl || savedTaskName) {
-            const title = taskFromUrl || savedTaskName;
-            let taskId = savedTaskId || null;
-            let subjectId = null;
-
-            // Try to find subjectId from todo items
-            if (typeof hayyizGetTodos === 'function') {
-                const todos = hayyizGetTodos();
-                const found = todos.find(t => t.text === title || (taskId && t.id === taskId));
-                if (found) {
-                    if (!taskId) taskId = found.id;
-                    subjectId = found.subjectId || null;
-                }
-            }
-
-            state.context = {
-                type: 'task',
-                id: taskId,
-                title: title,
-                subjectId: subjectId
-            };
-            localStorage.setItem('hayyiz-current-task', title);
-            if (taskId) localStorage.setItem('hayyiz-current-task-id', taskId);
-        } else if (eventFromUrl || (eventObj && eventObj.name)) {
-            const title = eventFromUrl || eventObj.name;
-            state.context = {
-                type: 'event',
-                id: eventObj ? eventObj.id : null,
-                title: title,
-                subjectId: eventObj ? eventObj.subjectId : null
-            };
         } else {
-            state.context = {
-                type: 'free',
-                id: null,
-                title: 'تركيز حر',
-                subjectId: null
-            };
+            let eventObj = null;
+            try { eventObj = savedEventRaw ? JSON.parse(savedEventRaw) : null; } catch (e) {}
+
+            if (taskFromUrl || savedTaskName) {
+                const title = taskFromUrl || savedTaskName;
+                let taskId = savedTaskId || null;
+                let subjectId = null;
+
+                // Try to find subjectId from todo items
+                if (typeof hayyizGetTodos === 'function') {
+                    const todos = hayyizGetTodos();
+                    const found = todos.find(t => t.text === title || (taskId && t.id === taskId));
+                    if (found) {
+                        if (!taskId) taskId = found.id;
+                        subjectId = found.subjectId || null;
+                    }
+                }
+
+                state.context = {
+                    type: 'task',
+                    id: taskId,
+                    title: title,
+                    subjectId: subjectId
+                };
+                localStorage.setItem('hayyiz-current-task', title);
+                if (taskId) localStorage.setItem('hayyiz-current-task-id', taskId);
+            } else if (eventFromUrl || (eventObj && eventObj.name)) {
+                const title = eventFromUrl || eventObj.name;
+                state.context = {
+                    type: 'event',
+                    id: eventObj ? eventObj.id : null,
+                    title: title,
+                    subjectId: eventObj ? eventObj.subjectId : null
+                };
+            } else {
+                state.context = {
+                    type: 'free',
+                    id: null,
+                    title: 'تركيز حر',
+                    subjectId: null
+                };
+            }
         }
 
         updateContextUI();

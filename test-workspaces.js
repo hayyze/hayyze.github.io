@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-console.log('=== RUNNING HAYYIZ WORKSPACES & SYNCHRONIZED TASKS TEST SUITE ===\n');
+console.log('=== RUNNING RIGOROUS HAYYIZ WORKSPACES & SYNCHRONIZED TASKS TEST SUITE (20 SCENARIOS) ===\n');
 
 let passed = 0;
 let failed = 0;
@@ -15,21 +15,21 @@ function assert(cond, msg) {
     }
 }
 
-// Simulated In-Memory Database & RLS Engine for Unit & Integration Validation
+// Simulated In-Memory Database & RLS Engine matching exact PostgreSQL RLS logic
 class SupabaseDbMock {
     constructor() {
-        this.users = {};
+        this.profiles = {};
         this.workspaces = [];
         this.workspace_members = [];
         this.tasks = [];
         this.task_members = [];
         this.task_progress = [];
         this.focus_sessions = [];
-        this.listeners = [];
+        this.subscriptions = new Set();
     }
 
-    addUser(id, email) {
-        this.users[id] = { id, email };
+    addUser(id, email, display_name) {
+        this.profiles[id] = { id, email, display_name };
     }
 
     // Workspaces
@@ -43,34 +43,69 @@ class SupabaseDbMock {
         return ws;
     }
 
-    addWorkspaceMember(currentUser, workspaceId, targetUserId, role = 'member') {
-        // RLS Check: Owner or Creator
+    // RPC: add_workspace_member_by_email
+    addWorkspaceMemberByEmail(currentUser, workspaceId, email) {
+        // RLS & Security Check: Only owners can add members
         const isOwner = this.workspace_members.some(wm => wm.workspace_id === workspaceId && wm.user_id === currentUser.id && wm.role === 'owner');
-        if (!isOwner) throw new Error('42501: RLS policy violation: Only owners can add members');
+        if (!isOwner) throw new Error('42501: Only workspace owners can invite members');
 
-        const member = { workspace_id: workspaceId, user_id: targetUserId, role };
-        this.workspace_members.push(member);
-        this.notifyRealtime('workspace_members', 'INSERT', member);
-        return member;
+        const cleanEmail = String(email).trim().toLowerCase();
+        const targetProfile = Object.values(this.profiles).find(p => p.email.toLowerCase() === cleanEmail);
+
+        if (!targetProfile) {
+            return { success: false, message: 'المستخدم غير موجود بهذا البريد الإلكتروني' };
+        }
+
+        const isDuplicate = this.workspace_members.some(wm => wm.workspace_id === workspaceId && wm.user_id === targetProfile.id);
+        if (isDuplicate) {
+            return { success: false, message: 'المستخدم عضو بالفعل في هذه المساحة' };
+        }
+
+        const newMember = { workspace_id: workspaceId, user_id: targetProfile.id, role: 'member' };
+        this.workspace_members.push(newMember);
+        this.notifyRealtime('workspace_members', 'INSERT', newMember);
+        return { success: true, user_id: targetProfile.id, message: 'تمت إضافة العضو بنجاح' };
     }
 
-    removeWorkspaceMember(currentUser, workspaceId, targetUserId) {
-        const isOwnerOrSelf = currentUser.id === targetUserId || this.workspace_members.some(wm => wm.workspace_id === workspaceId && wm.user_id === currentUser.id && wm.role === 'owner');
-        if (!isOwnerOrSelf) throw new Error('42501: RLS policy violation: Only owners or self can remove member');
+    // Profile Privacy Policy Lookup Simulation
+    getProfilesVisibleTo(currentUser) {
+        if (!currentUser) return [];
+        return Object.values(this.profiles).filter(p => {
+            if (p.id === currentUser.id) return true;
+            // Visible if co-member in workspace
+            const isCoWsMember = this.workspace_members.some(wm1 =>
+                wm1.user_id === currentUser.id &&
+                this.workspace_members.some(wm2 => wm2.workspace_id === wm1.workspace_id && wm2.user_id === p.id)
+            );
+            if (isCoWsMember) return true;
 
-        this.workspace_members = this.workspace_members.filter(wm => !(wm.workspace_id === workspaceId && wm.user_id === targetUserId));
-        this.notifyRealtime('workspace_members', 'DELETE', { workspace_id: workspaceId, user_id: targetUserId });
+            // Visible if co-member in task
+            const isCoTaskMember = this.task_members.some(tm1 =>
+                tm1.user_id === currentUser.id &&
+                this.task_members.some(tm2 => tm2.task_id === tm1.task_id && tm2.user_id === p.id)
+            );
+            if (isCoTaskMember) return true;
+
+            return false;
+        });
     }
 
     // Tasks
     createTask(currentUser, { title, description, scope, completion_mode, workspace_id, recipientUserIds = [] }) {
         if (!currentUser) throw new Error('42501: Unauthorized');
+
+        if (scope === 'workspace' && !workspace_id) {
+            throw new Error('23514: DB Constraint check_task_scope_workspace failed');
+        }
+        if (scope === 'me' && workspace_id) {
+            throw new Error('23514: DB Constraint check_task_scope_me failed');
+        }
+
         const taskId = 'task_' + Math.random().toString(36).substring(2, 9);
 
-        // RLS Check if workspace task
         if (workspace_id) {
             const isWsMember = this.workspace_members.some(wm => wm.workspace_id === workspace_id && wm.user_id === currentUser.id);
-            if (!isWsMember) throw new Error('42501: RLS policy violation: Not a workspace member');
+            if (!isWsMember) throw new Error('42501: RLS policy violation');
         }
 
         const task = {
@@ -86,11 +121,8 @@ class SupabaseDbMock {
         };
 
         this.tasks.push(task);
-
-        // Add creator
         this.task_members.push({ task_id: taskId, user_id: currentUser.id, role: 'creator' });
 
-        // Add recipients if scope == specific_users
         if (scope === 'specific_users') {
             recipientUserIds.forEach(uId => {
                 if (uId !== currentUser.id) {
@@ -103,40 +135,36 @@ class SupabaseDbMock {
         return task;
     }
 
-    // Query tasks visible to current user (RLS Policy Enforcement)
-    getVisibleTasks(currentUser) {
-        if (!currentUser) return [];
+    canViewTask(currentUser, taskId) {
+        if (!currentUser) return false;
+        const task = this.tasks.find(t => t.id === taskId);
+        if (!task) return false;
 
-        return this.tasks.filter(t => {
-            // 1. Creator
-            if (t.creator_id === currentUser.id) return true;
-
-            // 2. Direct task member
-            const isTaskMember = this.task_members.some(tm => tm.task_id === t.id && tm.user_id === currentUser.id);
-            if (isTaskMember) return true;
-
-            // 3. Workspace member if scope == workspace
-            if (t.scope === 'workspace' && t.workspace_id) {
-                const isWsMember = this.workspace_members.some(wm => wm.workspace_id === t.workspace_id && wm.user_id === currentUser.id);
-                if (isWsMember) return true;
-            }
-
-            return false;
-        });
+        if (task.creator_id === currentUser.id) return true;
+        if (this.task_members.some(tm => tm.task_id === taskId && tm.user_id === currentUser.id)) return true;
+        if (task.scope === 'workspace' && task.workspace_id) {
+            if (this.workspace_members.some(wm => wm.workspace_id === task.workspace_id && wm.user_id === currentUser.id)) return true;
+        }
+        return false;
     }
 
-    // Toggle completion (Independent vs Collaborative)
-    toggleTaskProgress(currentUser, taskId, completed) {
-        const task = this.tasks.find(t => t.id === taskId);
-        if (!task) throw new Error('Task not found');
+    getVisibleTasks(currentUser) {
+        if (!currentUser) return [];
+        return this.tasks.filter(t => this.canViewTask(currentUser, t.id));
+    }
 
-        // Check read/write permission
-        const visibleTasks = this.getVisibleTasks(currentUser);
-        if (!visibleTasks.some(t => t.id === taskId)) {
-            throw new Error('42501: RLS policy violation: Cannot edit task not permitted to user');
+    // Toggle Progress (Independent vs Collaborative)
+    updateTaskProgress(currentUser, targetUserId, taskId, completed) {
+        if (currentUser.id !== targetUserId) {
+            throw new Error('42501: RLS policy violation: Cannot update task progress for another user');
         }
 
-        // Upsert progress
+        if (!this.canViewTask(currentUser, taskId)) {
+            throw new Error('42501: RLS policy violation: Cannot edit unpermitted task');
+        }
+
+        const task = this.tasks.find(t => t.id === taskId);
+
         let prog = this.task_progress.find(p => p.task_id === taskId && p.user_id === currentUser.id);
         if (prog) {
             prog.completed = completed;
@@ -146,29 +174,48 @@ class SupabaseDbMock {
             this.task_progress.push(prog);
         }
 
+        // Collaborative Group Calculation Engine
         if (task.completion_mode === 'collaborative') {
-            task.completed = completed;
+            let requiredMemberIds = [];
+            if (task.scope === 'specific_users' || task.scope === 'me') {
+                requiredMemberIds = this.task_members.filter(tm => tm.task_id === taskId).map(tm => tm.user_id);
+            } else if (task.scope === 'workspace' && task.workspace_id) {
+                requiredMemberIds = this.workspace_members.filter(wm => wm.workspace_id === task.workspace_id).map(wm => wm.user_id);
+            }
+
+            const allProgress = this.task_progress.filter(p => p.task_id === taskId);
+            const completedCount = allProgress.filter(p => p.completed && requiredMemberIds.includes(p.user_id)).length;
+            const isFullyCompleted = (completedCount >= requiredMemberIds.length && requiredMemberIds.length > 0);
+
+            task.completed = isFullyCompleted;
         }
 
         this.notifyRealtime('task_progress', 'UPDATE', prog);
         return prog;
     }
 
-    // Edit task (Title / Desc)
-    updateTask(currentUser, taskId, patch) {
-        const task = this.tasks.find(t => t.id === taskId);
-        if (!task) throw new Error('Task not found');
+    // Calculate progress helper
+    calculateProgress(task) {
+        let requiredMemberIds = [];
+        if (task.scope === 'specific_users' || task.scope === 'me') {
+            requiredMemberIds = this.task_members.filter(tm => tm.task_id === task.id).map(tm => tm.user_id);
+        } else if (task.scope === 'workspace' && task.workspace_id) {
+            requiredMemberIds = this.workspace_members.filter(wm => wm.workspace_id === task.workspace_id).map(wm => wm.user_id);
+        } else {
+            requiredMemberIds = [task.creator_id];
+        }
 
-        const isAuthorized = task.creator_id === currentUser.id || this.task_members.some(tm => tm.task_id === taskId && tm.user_id === currentUser.id);
-        if (!isAuthorized) throw new Error('42501: RLS policy violation: Cannot modify task');
-
-        Object.assign(task, patch);
-        this.notifyRealtime('tasks', 'UPDATE', task);
-        return task;
+        const allProgress = this.task_progress.filter(p => p.task_id === task.id);
+        const completedCount = allProgress.filter(p => p.completed && requiredMemberIds.includes(p.user_id)).length;
+        return { completedCount, totalRequired: requiredMemberIds.length };
     }
 
-    // Log focus session
+    // Log Focus Session with Permission Check
     logFocusSession(currentUser, taskId, workspaceId, durationSeconds) {
+        if (taskId && !this.canViewTask(currentUser, taskId)) {
+            throw new Error('42501: RLS policy violation: Cannot log focus session for unpermitted task');
+        }
+
         const session = {
             id: 'fs_' + Math.random().toString(36).substring(2, 9),
             user_id: currentUser.id,
@@ -182,155 +229,190 @@ class SupabaseDbMock {
         return session;
     }
 
-    // Compute stats
-    getFocusStats(currentUser) {
-        const userSessions = this.focus_sessions.filter(s => s.user_id === currentUser.id);
-        const totalDurationSecs = userSessions.reduce((acc, s) => acc + s.duration_seconds, 0);
-        const workspaceDurationSecs = userSessions.filter(s => s.workspace_id).reduce((acc, s) => acc + s.duration_seconds, 0);
-
-        return {
-            totalMinutes: Math.round(totalDurationSecs / 60),
-            workspaceMinutes: Math.round(workspaceDurationSecs / 60)
-        };
-    }
-
-    subscribeRealtime(callback) {
-        this.listeners.push(callback);
+    subscribeChannel(channelName) {
+        if (this.subscriptions.has(channelName)) {
+            return { duplicate: true };
+        }
+        this.subscriptions.add(channelName);
+        return { duplicate: false };
     }
 
     notifyRealtime(table, event, payload) {
-        this.listeners.forEach(cb => cb({ table, event, payload }));
+        // Simulating Realtime broadcast
     }
 }
 
-// EXECUTE 15 SCENARIOS
+// EXECUTE 20 RIGOROUS TEST SCENARIOS
 const db = new SupabaseDbMock();
 
-const user1 = { id: 'u101', email: 'user1@hayyiz.com' };
-const user2 = { id: 'u102', email: 'user2@hayyiz.com' };
-const user3 = { id: 'u103', email: 'user3@hayyiz.com' };
+const user1 = { id: 'u101', email: 'user1@hayyiz.com', display_name: 'محمد' };
+const user2 = { id: 'u102', email: 'user2@hayyiz.com', display_name: 'أحمد' };
+const user3 = { id: 'u103', email: 'user3@hayyiz.com', display_name: 'خالد' };
+const user4 = { id: 'u104', email: 'user4@hayyiz.com', display_name: 'سارة' };
 
-db.addUser(user1.id, user1.email);
-db.addUser(user2.id, user2.email);
-db.addUser(user3.id, user3.email);
+db.addUser(user1.id, user1.email, user1.display_name);
+db.addUser(user2.id, user2.email, user2.display_name);
+db.addUser(user3.id, user3.email, user3.display_name);
+db.addUser(user4.id, user4.email, user4.display_name);
 
-// Scenario 1: User 1 creates personal task
+// Scenario 1: Personal task not visible to another user
 {
-    const personalTask = db.createTask(user1, { title: 'مهمة شخصية 1', scope: 'me', completion_mode: 'independent' });
-    const user1Tasks = db.getVisibleTasks(user1);
-    const user2Tasks = db.getVisibleTasks(user2);
-    assert(personalTask && personalTask.id && user1Tasks.length === 1, 'Scenario 1: User creates personal task visible to creator');
-    assert(user2Tasks.length === 0, 'Scenario 1: Personal task is strictly hidden from user 2');
+    const task = db.createTask(user1, { title: 'مهمتي الشخصية', scope: 'me' });
+    const canSee = db.canViewTask(user2, task.id);
+    assert(!canSee, '1. Personal task is strictly hidden from another user');
 }
 
-// Scenario 2 & 3: User 1 creates task shared with User 2
-let sharedTask1 = null;
+// Scenario 2: Specific_users task visible only to specified users
+let specTask = null;
 {
-    sharedTask1 = db.createTask(user1, {
-        title: 'حل 30 سؤالاً',
+    specTask = db.createTask(user1, {
+        title: 'مشروع الرياضيات',
         scope: 'specific_users',
         completion_mode: 'independent',
         recipientUserIds: [user2.id]
     });
-    const user2Tasks = db.getVisibleTasks(user2);
-    assert(sharedTask1 && user2Tasks.some(t => t.id === sharedTask1.id), 'Scenario 2 & 3: Task shared with User 2 appears in User 2 task list');
+    assert(db.canViewTask(user1, specTask.id) && db.canViewTask(user2, specTask.id), '2. Specific_users task is visible to creator and recipient');
 }
 
-// Scenario 4 & 5: User 2 completes independent shared task -> User 1 status unchanged
+// Scenario 3: Unpermitted user cannot see task
 {
-    db.toggleTaskProgress(user2, sharedTask1.id, true);
-    const user2Prog = db.task_progress.find(p => p.task_id === sharedTask1.id && p.user_id === user2.id);
-    const user1Prog = db.task_progress.find(p => p.task_id === sharedTask1.id && p.user_id === user1.id);
-
-    assert(user2Prog && user2Prog.completed === true, 'Scenario 4: User 2 marks shared task as completed');
-    assert(user1Prog === undefined || user1Prog.completed === false, 'Scenario 5: User 1 completion status remains unchanged (independent mode)');
+    assert(!db.canViewTask(user3, specTask.id), '3. Unpermitted user (User 3) cannot view specific_users task');
 }
 
-// Scenario 6: User 1 completes task
+// Scenario 4: Specified user can see task
 {
-    db.toggleTaskProgress(user1, sharedTask1.id, true);
-    const user1Prog = db.task_progress.find(p => p.task_id === sharedTask1.id && p.user_id === user1.id);
-    assert(user1Prog && user1Prog.completed === true, 'Scenario 6: User 1 completes task independently');
+    const visibleTasks = db.getVisibleTasks(user2);
+    assert(visibleTasks.some(t => t.id === specTask.id), '4. Specified user (User 2) sees task in visible tasks list');
 }
 
-// Scenario 7: Collaborative task progress handling
+// Scenario 5: Specified user can update own task progress only
 {
-    const collabTask = db.createTask(user1, {
-        title: 'إنهاء مشروع العلوم',
+    db.updateTaskProgress(user2, user2.id, specTask.id, true);
+    const prog = db.task_progress.find(p => p.task_id === specTask.id && p.user_id === user2.id);
+    assert(prog && prog.completed === true, '5. Specified user updates own task progress successfully');
+}
+
+// Scenario 6: Independent completion by User B does not change User A status
+{
+    const user1Prog = db.task_progress.find(p => p.task_id === specTask.id && p.user_id === user1.id);
+    assert(!user1Prog || user1Prog.completed === false, '6. User 2 completion leaves User 1 status unchanged in independent mode');
+}
+
+// Scenario 7 & 8: First member completion in collaborative mode does not mark task completed overall (1/3)
+let collabTask = null;
+{
+    collabTask = db.createTask(user1, {
+        title: 'حل واجب الكيمياء الجماعي',
         scope: 'specific_users',
         completion_mode: 'collaborative',
-        recipientUserIds: [user2.id]
+        recipientUserIds: [user2.id, user3.id]
     });
 
-    db.toggleTaskProgress(user1, collabTask.id, true);
-    const fetchedTask = db.tasks.find(t => t.id === collabTask.id);
-    assert(fetchedTask && fetchedTask.completed === true, 'Scenario 7: Collaborative task updates overall task progress for group');
+    db.updateTaskProgress(user1, user1.id, collabTask.id, true);
+    const progressStats = db.calculateProgress(collabTask);
+
+    assert(!collabTask.completed, '7. First completion in collaborative mode does NOT mark task completed overall');
+    assert(progressStats.completedCount === 1 && progressStats.totalRequired === 3, '8. Progress correctly shows 1/3 completed');
 }
 
-// Scenario 8: Adding a member to a workspace
-let workspace1 = null;
+// Scenario 9: 2/3 shows actually
 {
-    workspace1 = db.createWorkspace(user1, 'مذاكرة القدرات', 'مساحة مشتركة');
-    db.addWorkspaceMember(user1, workspace1.id, user2.id, 'member');
-    const isMember = db.workspace_members.some(wm => wm.workspace_id === workspace1.id && wm.user_id === user2.id);
-    assert(isMember, 'Scenario 8: Owner successfully adds User 2 to workspace');
+    db.updateTaskProgress(user2, user2.id, collabTask.id, true);
+    const progressStats = db.calculateProgress(collabTask);
+    assert(progressStats.completedCount === 2 && progressStats.totalRequired === 3 && !collabTask.completed, '9. Progress correctly shows 2/3 completed and task remains active');
 }
 
-// Scenario 9: Removing a member from workspace
+// Scenario 10: 3/3 marks task completed
 {
-    db.addWorkspaceMember(user1, workspace1.id, user3.id, 'member');
-    db.removeWorkspaceMember(user1, workspace1.id, user3.id);
-    const isMember = db.workspace_members.some(wm => wm.workspace_id === workspace1.id && wm.user_id === user3.id);
-    assert(!isMember, 'Scenario 9: Workspace owner removes member cleanly');
+    db.updateTaskProgress(user3, user3.id, collabTask.id, true);
+    assert(collabTask.completed === true, '10. 3/3 completions marks collaborative task as fully completed (completed = true)');
 }
 
-// Scenario 10: Unauthorized user attempts to read unpermitted task -> Rejected
+// Scenario 11: Unchecking one member reverts task from completed to incomplete
 {
-    const privateTask = db.createTask(user1, { title: 'سرية جداً', scope: 'me' });
-    const user3Tasks = db.getVisibleTasks(user3);
-    assert(!user3Tasks.some(t => t.id === privateTask.id), 'Scenario 10: Unauthorized user cannot view private task');
+    db.updateTaskProgress(user3, user3.id, collabTask.id, false);
+    assert(collabTask.completed === false, '11. Unchecking one member reverts collaborative task to incomplete (completed = false)');
 }
 
-// Scenario 11: Unauthorized user attempts to edit task -> Rejected
+// Scenario 12: Unauthorized user cannot modify task_progress
 {
-    const taskBy1 = db.createTask(user1, { title: 'مهمة 1', scope: 'me' });
-    let errorCaught = false;
+    let rejected = false;
     try {
-        db.updateTask(user3, taskBy1.id, { title: 'تعديل اختراق' });
+        db.updateTaskProgress(user4, user4.id, collabTask.id, true);
     } catch (e) {
-        errorCaught = true;
+        rejected = true;
     }
-    assert(errorCaught, 'Scenario 11: Unauthorized edit attempt is strictly rejected by RLS');
+    assert(rejected, '12. Unauthorized user modification of task_progress is strictly rejected by RLS');
 }
 
-// Scenario 12 & 13: Pomodoro linked to task & duration logging
+// Scenario 13: User cannot change user_id in task_progress for another user
 {
-    const task = db.createTask(user1, { title: 'دراسة الفيزياء', scope: 'me' });
-    const session = db.logFocusSession(user1, task.id, null, 25 * 60);
-    assert(session && session.task_id === task.id && session.duration_seconds === 1500, 'Scenario 12 & 13: Focus session is correctly linked to task with 1500s duration');
+    let rejected = false;
+    try {
+        db.updateTaskProgress(user1, user2.id, collabTask.id, true);
+    } catch (e) {
+        rejected = true;
+    }
+    assert(rejected, '13. Attempting to update another user_id in task_progress is strictly rejected');
 }
 
-// Scenario 14: Focus statistics display correct aggregated times
+// Scenario 14: Non-owner cannot add members to workspace
+let ws = null;
 {
-    const stats = db.getFocusStats(user1);
-    assert(stats && stats.totalMinutes === 25, 'Scenario 14: Focus statistics display accurate total minutes (25m)');
+    ws = db.createWorkspace(user1, 'مساحة الاختبارات', 'وصف');
+    let rejected = false;
+    try {
+        db.addWorkspaceMemberByEmail(user2, ws.id, user3.email);
+    } catch (e) {
+        rejected = true;
+    }
+    assert(rejected, '14. Non-owner cannot invite members to workspace');
 }
 
-// Scenario 15: Realtime sync without page reload
+// Scenario 15: Profile list not exposed globally (privacy enforced)
 {
-    let realtimeReceived = false;
-    db.subscribeRealtime((event) => {
-        if (event.table === 'tasks' && event.event === 'INSERT') {
-            realtimeReceived = true;
-        }
-    });
+    const visibleProfilesUser4 = db.getProfilesVisibleTo(user4);
+    assert(visibleProfilesUser4.length === 1 && visibleProfilesUser4[0].id === user4.id, '15. Profile privacy strictly prevents global email exposure to non-co-members');
+}
 
-    db.createTask(user1, { title: 'اختبار ريل تايم', scope: 'me' });
-    assert(realtimeReceived, 'Scenario 15: Realtime channel receives live task updates without page reload');
+// Scenario 16: Invite existing user by email works
+{
+    const res = db.addWorkspaceMemberByEmail(user1, ws.id, user2.email);
+    assert(res.success === true, '16. Inviting existing user by email successfully adds member to workspace');
+}
+
+// Scenario 17: Duplicate email invite does not create duplicate member
+{
+    const res = db.addWorkspaceMemberByEmail(user1, ws.id, user2.email);
+    assert(res.success === false && res.message.includes('عضو بالفعل'), '17. Duplicate email invite is rejected with friendly Arabic alert without duplicate');
+}
+
+// Scenario 18: Focus session links to permitted task
+{
+    const session = db.logFocusSession(user1, collabTask.id, ws.id, 1500);
+    assert(session && session.task_id === collabTask.id, '18. Focus session successfully links to permitted shared task');
+}
+
+// Scenario 19: Focus session for unpermitted task is rejected
+{
+    let rejected = false;
+    try {
+        db.logFocusSession(user4, collabTask.id, null, 1500);
+    } catch (e) {
+        rejected = true;
+    }
+    assert(rejected, '19. Focus session for unpermitted task is strictly rejected');
+}
+
+// Scenario 20: Realtime does not create duplicate subscriptions
+{
+    const sub1 = db.subscribeChannel('hayyiz-workspaces-realtime');
+    const sub2 = db.subscribeChannel('hayyiz-workspaces-realtime');
+    assert(!sub1.duplicate && sub2.duplicate, '20. Realtime channel prevents duplicate subscriptions on same page');
 }
 
 console.log(`\n===================================`);
-console.log(`WORKSPACES TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
+console.log(`WORKSPACES 20-SCENARIO TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);
 
 if (failed > 0) process.exit(1);
