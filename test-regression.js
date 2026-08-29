@@ -945,16 +945,41 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     const planScenE = hayyizGenerateDailyPlan();
     assert(planScenE[0].task && planScenE[0].task.id === 't_scen_e2', 'Scenario E: Next task option keeps task incomplete while next action becomes primary in Daily Plan');
 
-    // Scenario F: Exam proximity changes -> Plan priority dynamically updates
+    // Scenario F: Exam proximity changes -> Distant exam (>2 days) does NOT pollute plan; urgent exam (<= 2 days) appears
     localStorage.clear();
     localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_distant', name: 'اختبار بعيد بعد 6 أيام', date: getOffsetDateStr(6) },
         { id: 'ex_scen_f', name: 'اختبار الحاسب القريب جداً', date: getOffsetDateStr(0) }
     ]));
     localStorage.setItem('hayyiz-todos', JSON.stringify([
         { id: 't_scen_f', text: 'مهمة عادية', priority: 'low', completed: false }
     ]));
     const planScenF = hayyizGenerateDailyPlan();
-    assert(planScenF[0].type === 'exam' && planScenF[0].event.id === 'ex_scen_f', 'Scenario F: Exam date becoming today dynamically shifts exam to highest priority in Daily Plan');
+    assert(planScenF.some(item => item.event && item.event.id === 'ex_scen_f'), 'Scenario F: Urgent exam (<= 2 days) appears in concise plan');
+    assert(!planScenF.some(item => item.event && item.event.id === 'ex_distant'), 'Scenario F: Distant exam (> 2 days) does not pollute concise Daily Plan items');
+
+    // Scenario I: Plan Item Count Cap (3-5 items max)
+    localStorage.clear();
+    const tenTasks = Array.from({ length: 10 }, (_, idx) => ({
+        id: 't_cap_' + idx,
+        text: 'مهمة اختباري رقم ' + idx,
+        priority: idx === 0 ? 'high' : 'medium',
+        completed: false
+    }));
+    hayyizSaveTodos(tenTasks);
+    const planCapped = hayyizGenerateDailyPlan();
+    assert(planCapped.length >= 1 && planCapped.length <= 5, 'Scenario I: Daily Plan items strictly capped between 1 and 5 items');
+
+    // Scenario J: Honest Time Phrasing
+    localStorage.clear();
+    const taskNoMin = { id: 't_no_min', text: 'مهمة بدون دقائق محددة', completed: false };
+    const taskWithMin = { id: 't_with_min', text: 'مهمة بدقائق محددة', minutes: 40, completed: false };
+    hayyizSaveTodos([taskNoMin, taskWithMin]);
+    const planHonest = hayyizGenerateDailyPlan();
+    const itemNoMin = planHonest.find(i => i.task && i.task.id === 't_no_min');
+    const itemWithMin = planHonest.find(i => i.task && i.task.id === 't_with_min');
+    assert(itemNoMin && itemNoMin.subtitle.includes('جلسة') && itemNoMin.subtitle.includes('مقترحة'), 'Scenario J: Task without explicit total duration shows honest suggestion subtitle');
+    assert(itemWithMin && itemWithMin.subtitle === '40 دقيقة', 'Scenario J: Task with explicit total duration shows exact minute duration');
 
     // Scenario G: Empty state -> Empty plan array
     localStorage.clear();

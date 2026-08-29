@@ -953,8 +953,8 @@ function hayyizEvaluateStudentState() {
 }
 
 /**
- * توليد خطة اليوم المترابطة والتكيفية (Adaptive Daily Study Plan Aggregator)
- * تُشتق بالكامل حتمياً من حالة الطالب الحالية دون أوقات وهمية أو تخزين معقد
+ * توليد خطة اليوم المترابطة والتكيفية المركزّة (Adaptive Daily Study Plan Aggregator)
+ * تشتق بالكامل حتمياً من حالة الطالب وتقتصر على 3 إلى 5 عناصر تنفيية أساسية لليوم فقط
  */
 function hayyizGenerateDailyPlan() {
     const today = getTodayLocal();
@@ -965,21 +965,21 @@ function hayyizGenerateDailyPlan() {
     // 1. تقييم القرار الأهم من Student OS (Primary Next Action)
     const topDecision = typeof hayyizEvaluateStudentState === 'function' ? hayyizEvaluateStudentState() : null;
 
-    // 2. الاختبارات القادمة (خلال 7 أيام)
+    // 2. الاختبارات القادمة التي تحتاج إلى تنفيذ اليوم فقط (اليوم أو غداً <= 2 يوم)
     const exams = hayyizGetExams();
-    const upcomingExams = exams.filter((ex) => {
+    const urgentExams = exams.filter((ex) => {
         if (!ex || ex.done || !ex.date) return false;
         const d = hayyizDaysUntil(String(ex.date).slice(0, 10));
-        return d !== null && d >= 0 && d <= 7;
+        return d !== null && d >= 0 && d <= 2;
     });
 
-    // 3. ترتيب المهام النشطة باستخدام scoring الحتمي
+    // 3. جلب أفضل المهام المرشحة (تقتصر على أفضل 3-5 مهام فقط)
     const todos = hayyizGetTodos();
     const activeTodos = todos.filter((t) => t && !t.completed);
-    const rec = typeof hayyizRecommendNext === 'function' ? hayyizRecommendNext(20) : null;
-    const rankedTasks = rec && rec.ranked ? rec.ranked : activeTodos.map((t) => ({ task: t, score: 10 }));
+    const rec = typeof hayyizRecommendNext === 'function' ? hayyizRecommendNext(5) : null;
+    const rankedTasks = rec && rec.ranked ? rec.ranked : activeTodos.slice(0, 5).map((t) => ({ task: t, score: 10 }));
 
-    // إضافة المهام المصنفة إلى الخطة
+    // إضافة المهام المصنفة إلى الخطة مع صياغة صادقة للمدة الزمنية
     rankedTasks.forEach((r, idx) => {
         const t = r.task;
         if (!t) return;
@@ -991,7 +991,8 @@ function hayyizGenerateDailyPlan() {
         const isDueToday = d === 0;
         const isHigh = t.priority === 'high';
         const focusDone = parseInt(t.focusDone, 10) || 0;
-        const totalMin = t.minutes ? parseInt(t.minutes, 10) : workMin;
+        const hasExplicitDuration = Boolean(t.minutes && parseInt(t.minutes, 10) > 0);
+        const totalMin = hasExplicitDuration ? parseInt(t.minutes, 10) : workMin;
         const remainingMin = Math.max(0, totalMin - focusDone);
 
         let badgeText = 'مهمة';
@@ -1010,14 +1011,24 @@ function hayyizGenerateDailyPlan() {
             badgeClass = 'badge-warning';
         }
 
-        let timeSubtitle = `${totalMin} دقيقة`;
-        if (focusDone > 0 && remainingMin > 0) {
-            timeSubtitle = `متبقي ${remainingMin} دقيقة (${focusDone}/${totalMin} د)`;
-        } else if (focusDone > 0 && remainingMin === 0) {
-            timeSubtitle = `مكتمل التركيز (${totalMin} د)`;
+        // صياغة الوقت بصدق ودقة
+        let timeSubtitle = '';
+        if (hasExplicitDuration) {
+            if (focusDone > 0 && remainingMin > 0) {
+                timeSubtitle = `متبقي ${remainingMin} دقيقة (${focusDone}/${totalMin} د)`;
+            } else if (focusDone > 0 && remainingMin === 0) {
+                timeSubtitle = `مكتمل التركيز (${totalMin} د)`;
+            } else {
+                timeSubtitle = `${totalMin} دقيقة`;
+            }
+        } else {
+            if (focusDone > 0) {
+                timeSubtitle = `أُنجز ${focusDone} دقيقة تركيز`;
+            } else {
+                timeSubtitle = `جلسة ${workMin} دقيقة مقترحة`;
+            }
         }
 
-        // حساب أولوية الخطة
         let priorityScore = r.score || (50 - idx * 2);
         if (isOverdue) priorityScore += 40;
         if (isDueToday) priorityScore += 30;
@@ -1039,14 +1050,14 @@ function hayyizGenerateDailyPlan() {
         itemIdsSeen.add(itemId);
     });
 
-    // إضافة الاختبارات القادمة
-    upcomingExams.forEach((ex) => {
+    // إضافة الاختبارات القريبة جداً فقط (اليوم وغداً)
+    urgentExams.forEach((ex) => {
         const d = hayyizDaysUntil(String(ex.date).slice(0, 10));
         const itemId = 'plan-exam-' + ex.id;
         if (itemIdsSeen.has(itemId)) return;
 
-        let badgeText = d === 0 ? 'اليوم' : (d === 1 ? 'غداً' : `بعد ${d} أيام`);
-        let badgeClass = d === 0 ? 'badge-danger' : (d === 1 ? 'badge-warning' : 'badge-primary');
+        let badgeText = d === 0 ? 'اليوم' : (d === 1 ? 'غداً' : `بعد يومين`);
+        let badgeClass = d === 0 ? 'badge-danger' : 'badge-warning';
         let priorityScore = 120 + (7 - d) * 15;
 
         planItems.push({
@@ -1066,35 +1077,36 @@ function hayyizGenerateDailyPlan() {
         itemIdsSeen.add(itemId);
     });
 
-    // إضافة العادات اليومية المتبقية
+    // إضافة عادة واحدة كحد أقصى إذا توفر متسع في الخطة
     const habits = hayyizGetHabits();
     const pendingHabits = habits.filter((h) => h && h.lastCompleted !== today);
-    pendingHabits.slice(0, 2).forEach((h) => {
+    if (pendingHabits.length > 0 && planItems.length < 4) {
+        const h = pendingHabits[0];
         const itemId = 'plan-habit-' + h.id;
-        if (itemIdsSeen.has(itemId)) return;
-        planItems.push({
-            id: itemId,
-            type: 'habit',
-            priority: 35,
-            badge: 'عادة',
-            badgeClass: 'badge-success',
-            title: h.title,
-            subtitle: `سلسلة الاستمرار: ${h.streak || 0} أيام`,
-            icon: 'fa-solid fa-fire',
-            actionLabel: 'إنجاز',
-            actionType: 'url',
-            url: 'habits.html'
-        });
-        itemIdsSeen.add(itemId);
-    });
+        if (!itemIdsSeen.has(itemId)) {
+            planItems.push({
+                id: itemId,
+                type: 'habit',
+                priority: 35,
+                badge: 'عادة',
+                badgeClass: 'badge-success',
+                title: h.title,
+                subtitle: `سلسلة الاستمرار: ${h.streak || 0} أيام`,
+                icon: 'fa-solid fa-fire',
+                actionLabel: 'إنجاز',
+                actionType: 'url',
+                url: 'habits.html'
+            });
+            itemIdsSeen.add(itemId);
+        }
+    }
 
     // ترتيب العناصر حسب الأولوية
     planItems.sort((a, b) => b.priority - a.priority);
 
-    // ربط وتأكيد خيار Student OS (Primary Next Action) في بداية الخطة
+    // ربط وتأكيد خيار Student OS (Primary Next Action) في بداية الخطة (Index 0)
     if (topDecision) {
         if (topDecision.id === 'running-focus') {
-            // جلسة جارية
             const runningItem = {
                 id: 'plan-running-focus',
                 type: 'pomodoro',
@@ -1130,7 +1142,8 @@ function hayyizGenerateDailyPlan() {
         }
     }
 
-    return planItems;
+    // اقتصار الخطة بشكل قاطع وصارم على 3 إلى 5 عناصر تنفيية فقط
+    return planItems.slice(0, 5);
 }
 
 /* ---------- Focus Engine Data Layer Helpers ---------- */
