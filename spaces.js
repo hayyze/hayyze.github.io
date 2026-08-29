@@ -94,35 +94,29 @@
         }
 
         const client = await getSupabase();
-        const { data: newTask, error } = await client.from('tasks').insert({
-            creator_id: currentUser.id,
-            workspace_id: scope === 'workspace' ? workspace_id : null,
-            title,
-            description,
-            scope,
-            completion_mode,
-            due_date: due_date ? new Date(due_date).toISOString() : null
-        }).select().single();
+        const wsIdToPass = (scope === 'workspace' || (scope === 'specific_users' && workspace_id)) ? workspace_id : null;
 
-        if (error) throw error;
+        // Call atomic PostgreSQL RPC function create_synchronized_task
+        const { data, error } = await client.rpc('create_synchronized_task', {
+            p_title: title,
+            p_description: description || null,
+            p_scope: scope,
+            p_completion_mode: completion_mode,
+            p_workspace_id: wsIdToPass,
+            p_due_date: due_date ? new Date(due_date).toISOString() : null,
+            p_recipient_user_ids: recipientUserIds || []
+        });
 
-        // Add additional task members if specific_users
-        if (scope === 'specific_users' && recipientUserIds.length > 0) {
-            const membersToInsert = recipientUserIds
-                .filter(uId => uId !== currentUser.id)
-                .map(uId => ({
-                    task_id: newTask.id,
-                    user_id: uId,
-                    role: 'assignee'
-                }));
-
-            if (membersToInsert.length > 0) {
-                const { error: memberError } = await client.from('task_members').insert(membersToInsert);
-                if (memberError) console.error('Error inserting task members:', memberError);
-            }
+        if (error) {
+            console.error('Failed to create task via RPC create_synchronized_task:', error);
+            throw new Error(error.message || 'فشل إنشاء المهمة المتزامنة');
         }
 
-        return newTask;
+        if (!data || !data.success) {
+            throw new Error((data && data.message) || 'تعذر إنشاء المهمة');
+        }
+
+        return data.task;
     }
 
     async function deleteTask(taskId) {

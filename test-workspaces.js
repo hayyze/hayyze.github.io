@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-console.log('=== RUNNING RIGOROUS HAYYIZ WORKSPACES & SYNCHRONIZED TASKS TEST SUITE (24 SCENARIOS) ===\n');
+console.log('=== RUNNING RIGOROUS HAYYIZ WORKSPACES & SYNCHRONIZED TASKS TEST SUITE (26 SCENARIOS) ===\n');
 
 let passed = 0;
 let failed = 0;
@@ -88,6 +88,71 @@ class SupabaseDbMock {
 
             return false;
         });
+    }
+
+    // Atomic RPC Simulation: create_synchronized_task
+    createSynchronizedTaskRPC(currentUser, { title, description, scope, completion_mode, workspace_id, due_date, recipientUserIds = [] }) {
+        if (!currentUser) throw new Error('42501: Unauthorized');
+        if (!title || !title.trim()) throw new Error('22023: Task title is required');
+
+        if (scope === 'workspace' && !workspace_id) {
+            throw new Error('22023: Workspace ID is required for workspace scope');
+        }
+        if (scope === 'me' && workspace_id) {
+            throw new Error('22023: Workspace ID must be null for me scope');
+        }
+
+        if (workspace_id) {
+            const isMember = this.workspace_members.some(wm => wm.workspace_id === workspace_id && wm.user_id === currentUser.id);
+            if (!isMember) throw new Error('42501: Creator is not a member of workspace');
+        }
+
+        // Validate recipients BEFORE insertion (Atomic transaction simulation)
+        if (scope === 'specific_users' && recipientUserIds && recipientUserIds.length > 0) {
+            for (const uId of recipientUserIds) {
+                if (uId !== currentUser.id) {
+                    if (!this.profiles[uId]) {
+                        throw new Error('22023: Target user does not exist');
+                    }
+                    if (workspace_id) {
+                        const isRecipMember = this.workspace_members.some(wm => wm.workspace_id === workspace_id && wm.user_id === uId);
+                        if (!isRecipMember) {
+                            throw new Error(`42501: Invalid recipient ${uId}: User is not a member of workspace ${workspace_id}`);
+                        }
+                    }
+                }
+            }
+        }
+
+        const taskId = 'task_' + Math.random().toString(36).substring(2, 9);
+        const task = {
+            id: taskId,
+            creator_id: currentUser.id,
+            workspace_id: (scope === 'workspace' || (scope === 'specific_users' && workspace_id)) ? workspace_id : null,
+            title: title.trim(),
+            description: description || null,
+            scope: scope || 'me',
+            completion_mode: completion_mode || 'independent',
+            due_date: due_date || null,
+            completed: false,
+            created_at: new Date().toISOString()
+        };
+
+        this.tasks.push(task);
+        this.task_members.push({ task_id: taskId, user_id: currentUser.id, role: 'creator' });
+
+        if (scope === 'specific_users' && recipientUserIds && recipientUserIds.length > 0) {
+            const seen = new Set([currentUser.id]);
+            recipientUserIds.forEach(uId => {
+                if (!seen.has(uId)) {
+                    seen.add(uId);
+                    this.task_members.push({ task_id: taskId, user_id: uId, role: 'assignee' });
+                }
+            });
+        }
+
+        this.notifyRealtime('tasks', 'INSERT', task);
+        return { success: true, task };
     }
 
     // Tasks
@@ -550,8 +615,45 @@ let ws = null;
     assert(helper1Denied && helper2Denied, '24. Direct client invocation of internal helper functions (can_view_task, is_workspace_member) is strictly denied');
 }
 
+// Scenario 25: Atomic RPC task creation inserts task and all recipients cleanly without duplicates
+{
+    const atomicRes = db.createSynchronizedTaskRPC(user1, {
+        title: 'مهمة أصلية نووية',
+        description: 'وصف',
+        scope: 'specific_users',
+        completion_mode: 'collaborative',
+        workspace_id: ws.id,
+        recipientUserIds: [user2.id, user4.id, user2.id] // user2 duplicate check
+    });
+
+    const createdTask = atomicRes.task;
+    const assignees = db.task_members.filter(tm => tm.task_id === createdTask.id);
+    assert(atomicRes.success && assignees.length === 3, '25. Atomic RPC create_synchronized_task creates task and members atomically without duplicates (creator + user2 + user4 = 3)');
+}
+
+// Scenario 26: Atomic RPC rolls back completely when recipient is invalid or non-workspace member (zero orphan tasks)
+{
+    const initialTaskCount = db.tasks.length;
+    let atomicFailed = false;
+
+    try {
+        // user3 is not in workspace ws
+        db.createSynchronizedTaskRPC(user1, {
+            title: 'مهمة فاشلة لن تُنشأ',
+            scope: 'specific_users',
+            workspace_id: ws.id,
+            recipientUserIds: [user3.id]
+        });
+    } catch (e) {
+        atomicFailed = true;
+    }
+
+    const finalTaskCount = db.tasks.length;
+    assert(atomicFailed && initialTaskCount === finalTaskCount, '26. Atomic RPC rejects non-workspace member recipient and prevents orphan tasks via transaction rollback');
+}
+
 console.log(`\n===================================`);
-console.log(`WORKSPACES 24-SCENARIO TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
+console.log(`WORKSPACES 26-SCENARIO TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);
 
 if (failed > 0) process.exit(1);

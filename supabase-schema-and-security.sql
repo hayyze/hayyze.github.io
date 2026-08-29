@@ -510,6 +510,110 @@ USING (
     user_id = auth.uid() OR public.is_workspace_owner(workspace_id, auth.uid())
 );
 
+-- Atomic RPC Function: create_synchronized_task
+-- Creates a task and all recipient task_members in a single, atomic PostgreSQL transaction
+CREATE OR REPLACE FUNCTION public.create_synchronized_task(
+    p_title TEXT,
+    p_description TEXT DEFAULT NULL,
+    p_scope TEXT DEFAULT 'me',
+    p_completion_mode TEXT DEFAULT 'independent',
+    p_workspace_id UUID DEFAULT NULL,
+    p_due_date TIMESTAMPTZ DEFAULT NULL,
+    p_recipient_user_ids UUID[] DEFAULT '{}'
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_creator_id UUID := auth.uid();
+    v_task_id UUID;
+    v_target_u_id UUID;
+    v_clean_title TEXT := trim(p_title);
+    v_task RECORD;
+BEGIN
+    IF v_creator_id IS NULL THEN
+        RAISE EXCEPTION 'Unauthorized: Authentication required.' USING ERRCODE = '42501';
+    END IF;
+
+    IF v_clean_title IS NULL OR v_clean_title = '' THEN
+        RAISE EXCEPTION 'Invalid argument: Task title is required.' USING ERRCODE = '22023';
+    END IF;
+
+    IF p_scope NOT IN ('me', 'specific_users', 'workspace') THEN
+        RAISE EXCEPTION 'Invalid scope: %.', p_scope USING ERRCODE = '22023';
+    END IF;
+
+    IF p_completion_mode NOT IN ('independent', 'collaborative') THEN
+        RAISE EXCEPTION 'Invalid completion_mode: %.', p_completion_mode USING ERRCODE = '22023';
+    END IF;
+
+    -- Validate workspace scope constraints
+    IF p_scope = 'workspace' THEN
+        IF p_workspace_id IS NULL THEN
+            RAISE EXCEPTION 'Invalid workspace scope: workspace_id is required.' USING ERRCODE = '22023';
+        END IF;
+        IF NOT public.is_workspace_member(p_workspace_id, v_creator_id) THEN
+            RAISE EXCEPTION 'Unauthorized: Creator is not a member of workspace.' USING ERRCODE = '42501';
+        END IF;
+    ELSIF p_scope = 'me' THEN
+        IF p_workspace_id IS NOT NULL THEN
+            RAISE EXCEPTION 'Invalid scope "me": workspace_id must be null.' USING ERRCODE = '22023';
+        END IF;
+    ELSIF p_scope = 'specific_users' THEN
+        IF p_workspace_id IS NOT NULL AND NOT public.is_workspace_member(p_workspace_id, v_creator_id) THEN
+            RAISE EXCEPTION 'Unauthorized: Creator is not a member of specified workspace.' USING ERRCODE = '42501';
+        END IF;
+    END IF;
+
+    -- 1. Insert task row
+    INSERT INTO public.tasks (
+        creator_id,
+        workspace_id,
+        title,
+        description,
+        scope,
+        completion_mode,
+        due_date
+    )
+    VALUES (
+        v_creator_id,
+        p_workspace_id,
+        v_clean_title,
+        p_description,
+        p_scope,
+        p_completion_mode,
+        p_due_date
+    )
+    RETURNING id INTO v_task_id;
+
+    -- 2. Insert additional specific users if scope = specific_users
+    IF p_scope = 'specific_users' AND p_recipient_user_ids IS NOT NULL AND array_length(p_recipient_user_ids, 1) > 0 THEN
+        FOREACH v_target_u_id IN ARRAY p_recipient_user_ids LOOP
+            IF v_target_u_id IS NOT NULL AND v_target_u_id <> v_creator_id THEN
+                -- If task is associated with a workspace, verify recipient workspace membership
+                IF p_workspace_id IS NOT NULL AND NOT public.is_workspace_member(p_workspace_id, v_target_u_id) THEN
+                    RAISE EXCEPTION 'Invalid recipient: User % is not a member of workspace %.', v_target_u_id, p_workspace_id
+                        USING ERRCODE = '42501';
+                END IF;
+
+                INSERT INTO public.task_members (task_id, user_id, role)
+                VALUES (v_task_id, v_target_u_id, 'assignee')
+                ON CONFLICT (task_id, user_id) DO NOTHING;
+            END IF;
+        END LOOP;
+    END IF;
+
+    SELECT * INTO v_task FROM public.tasks WHERE id = v_task_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'task', row_to_json(v_task)
+    );
+END;
+$$;
+
 -- Secure RPC function for inviting members by email without dumping email table
 CREATE OR REPLACE FUNCTION public.add_workspace_member_by_email(p_workspace_id UUID, p_email TEXT)
 RETURNS JSONB
@@ -1028,7 +1132,9 @@ REVOKE ALL ON FUNCTION public.validate_task_member_insert() FROM PUBLIC, anon, a
 REVOKE ALL ON FUNCTION public.validate_focus_session() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.add_workspace_member_by_email(UUID, TEXT) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.set_task_progress_and_recalculate(UUID, BOOLEAN) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.create_synchronized_task(TEXT, TEXT, TEXT, TEXT, UUID, TIMESTAMPTZ, UUID[]) FROM PUBLIC, anon, authenticated;
 
 -- Grant EXECUTE to authenticated role strictly for user-callable public RPC endpoints
 GRANT EXECUTE ON FUNCTION public.add_workspace_member_by_email(UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.set_task_progress_and_recalculate(UUID, BOOLEAN) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_synchronized_task(TEXT, TEXT, TEXT, TEXT, UUID, TIMESTAMPTZ, UUID[]) TO authenticated;
