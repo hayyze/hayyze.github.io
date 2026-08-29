@@ -701,6 +701,23 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     assert(Array.isArray(planItems) && planItems.length >= 3, 'Daily Plan: Generates integrated list from exams, todos, and habits');
     assert(planItems[0].type === 'exam' || planItems[0].type === 'todo', 'Daily Plan: Exams and overdue/priority tasks take top priority');
     assert(planItems.some(item => item.type === 'habit'), 'Daily Plan: Includes uncompleted daily habits');
+
+    // Case 6: Backward compatibility - Dual-key exam merging without data loss or duplication
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_new_1', name: 'اختبار الحاسب', date: tomorrowStr }
+    ]));
+    localStorage.setItem('hayyiz-exams', JSON.stringify([
+        { id: 'ex_new_1', name: 'اختبار الحاسب', date: tomorrowStr },
+        { id: 'ex_legacy_2', name: 'اختبار الإنجليزي القديم', date: tomorrowStr }
+    ]));
+    const mergedExams = hayyizGetExams();
+    assert(mergedExams.length === 2, 'hayyizGetExams: Merges and deduplicates exams from both hayyiz-student-exams and legacy hayyiz-exams without data loss');
+
+    // Case 7: Custom user Pomodoro duration preference in recommendation
+    localStorage.setItem('hayyiz-pref-work', '45');
+    const customPomoRes = hayyizEvaluateStudentState();
+    assert(customPomoRes && customPomoRes.text.includes('45 دقيقة'), 'Rule Engine: Uses custom user Pomodoro duration preference in recommendations');
+    localStorage.removeItem('hayyiz-pref-work');
 }
 
 console.log(`\n===================================`);
