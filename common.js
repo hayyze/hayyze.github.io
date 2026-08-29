@@ -953,74 +953,197 @@ function hayyizEvaluateStudentState() {
 }
 
 /**
- * توليد خطة اليوم المترابطة (Daily Plan Data Aggregator)
+ * توليد خطة اليوم المترابطة والتكيفية المركزّة (Adaptive Daily Study Plan Aggregator)
+ * تشتق بالكامل حتمياً من حالة الطالب وتقتصر على 3 إلى 5 عناصر تنفيية أساسية لليوم فقط
  */
 function hayyizGenerateDailyPlan() {
     const today = getTodayLocal();
     const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
     const planItems = [];
+    const itemIdsSeen = new Set();
 
+    // 1. تقييم القرار الأهم من Student OS (Primary Next Action)
+    const topDecision = typeof hayyizEvaluateStudentState === 'function' ? hayyizEvaluateStudentState() : null;
+
+    // 2. الاختبارات القادمة التي تحتاج إلى تنفيذ اليوم فقط (اليوم أو غداً <= 2 يوم)
     const exams = hayyizGetExams();
-    exams.forEach((ex) => {
-        if (!ex || ex.done || !ex.date) return;
+    const urgentExams = exams.filter((ex) => {
+        if (!ex || ex.done || !ex.date) return false;
         const d = hayyizDaysUntil(String(ex.date).slice(0, 10));
-        if (d === 0 || d === 1) {
-            planItems.push({
-                id: 'plan-exam-' + ex.id, type: 'exam', priority: d === 0 ? 100 : 90,
-                badge: d === 0 ? 'اليوم' : 'غداً', badgeClass: d === 0 ? 'badge-danger' : 'badge-warning',
-                title: ex.name, subtitle: ex.time ? `اختبار الساعة ${ex.time}` : 'اختبار دراسي',
-                icon: 'fa-solid fa-graduation-cap', actionLabel: 'ابدأ تركيز', actionType: 'pomo-event', event: ex, url: 'pomodoro.html'
-            });
-        }
+        return d !== null && d >= 0 && d <= 2;
     });
 
+    // 3. جلب أفضل المهام المرشحة (تقتصر على أفضل 3-5 مهام فقط)
     const todos = hayyizGetTodos();
     const activeTodos = todos.filter((t) => t && !t.completed);
-    activeTodos.forEach((t) => {
+    const rec = typeof hayyizRecommendNext === 'function' ? hayyizRecommendNext(5) : null;
+    const rankedTasks = rec && rec.ranked ? rec.ranked : activeTodos.slice(0, 5).map((t) => ({ task: t, score: 10 }));
+
+    // إضافة المهام المصنفة إلى الخطة مع صياغة صادقة للمدة الزمنية
+    rankedTasks.forEach((r, idx) => {
+        const t = r.task;
+        if (!t) return;
+        const itemId = 'plan-task-' + (t.id || t.text);
+        if (itemIdsSeen.has(itemId)) return;
+
         const d = t.date ? hayyizDaysUntil(String(t.date).slice(0, 10)) : null;
         const isOverdue = d !== null && d < 0;
         const isDueToday = d === 0;
         const isHigh = t.priority === 'high';
+        const focusDone = parseInt(t.focusDone, 10) || 0;
+        const hasExplicitDuration = Boolean(t.minutes && parseInt(t.minutes, 10) > 0);
+        const totalMin = hasExplicitDuration ? parseInt(t.minutes, 10) : workMin;
+        const remainingMin = Math.max(0, totalMin - focusDone);
 
-        if (isOverdue || isDueToday || isHigh) {
-            let priorityScore = 50, badgeText = 'مهمة', badgeClass = 'badge-primary';
-            if (isOverdue) { priorityScore = 85; badgeText = 'متأخرة'; badgeClass = 'badge-danger'; }
-            else if (isDueToday) { priorityScore = 75; badgeText = 'اليوم'; badgeClass = 'badge-warning'; }
-            else if (isHigh) { priorityScore = 65; badgeText = 'أولوية عالية'; badgeClass = 'badge-primary'; }
-
-            const minutes = t.minutes ? parseInt(t.minutes, 10) : workMin;
-            planItems.push({
-                id: 'plan-task-' + (t.id || t.text), type: 'todo', priority: priorityScore,
-                badge: badgeText, badgeClass: badgeClass, title: t.text, subtitle: `تقدير الوقت: ${minutes} دقيقة`,
-                icon: 'fa-solid fa-list-check', actionLabel: 'ابدأ', actionType: 'pomo-task', task: t, url: 'pomodoro.html'
-            });
+        let badgeText = 'مهمة';
+        let badgeClass = 'badge-primary';
+        if (isOverdue) {
+            badgeText = 'متأخرة';
+            badgeClass = 'badge-danger';
+        } else if (isDueToday) {
+            badgeText = 'اليوم';
+            badgeClass = 'badge-warning';
+        } else if (isHigh) {
+            badgeText = 'أولوية عالية';
+            badgeClass = 'badge-primary';
+        } else if (focusDone > 0) {
+            badgeText = 'قيد التنفيذ';
+            badgeClass = 'badge-warning';
         }
+
+        // صياغة الوقت بصدق ودقة
+        let timeSubtitle = '';
+        if (hasExplicitDuration) {
+            if (focusDone > 0 && remainingMin > 0) {
+                timeSubtitle = `متبقي ${remainingMin} دقيقة (${focusDone}/${totalMin} د)`;
+            } else if (focusDone > 0 && remainingMin === 0) {
+                timeSubtitle = `مكتمل التركيز (${totalMin} د)`;
+            } else {
+                timeSubtitle = `${totalMin} دقيقة`;
+            }
+        } else {
+            if (focusDone > 0) {
+                timeSubtitle = `أُنجز ${focusDone} دقيقة تركيز`;
+            } else {
+                timeSubtitle = `جلسة ${workMin} دقيقة مقترحة`;
+            }
+        }
+
+        let priorityScore = r.score || (50 - idx * 2);
+        if (isOverdue) priorityScore += 40;
+        if (isDueToday) priorityScore += 30;
+
+        planItems.push({
+            id: itemId,
+            type: 'todo',
+            priority: priorityScore,
+            badge: badgeText,
+            badgeClass: badgeClass,
+            title: t.text,
+            subtitle: timeSubtitle,
+            icon: focusDone > 0 ? 'fa-solid fa-spinner' : 'fa-solid fa-list-check',
+            actionLabel: focusDone > 0 ? 'استكمال' : 'ابدأ',
+            actionType: 'pomo-task',
+            task: t,
+            url: 'pomodoro.html'
+        });
+        itemIdsSeen.add(itemId);
     });
 
+    // إضافة الاختبارات القريبة جداً فقط (اليوم وغداً)
+    urgentExams.forEach((ex) => {
+        const d = hayyizDaysUntil(String(ex.date).slice(0, 10));
+        const itemId = 'plan-exam-' + ex.id;
+        if (itemIdsSeen.has(itemId)) return;
+
+        let badgeText = d === 0 ? 'اليوم' : (d === 1 ? 'غداً' : `بعد يومين`);
+        let badgeClass = d === 0 ? 'badge-danger' : 'badge-warning';
+        let priorityScore = 120 + (7 - d) * 15;
+
+        planItems.push({
+            id: itemId,
+            type: 'exam',
+            priority: priorityScore,
+            badge: 'اختبار ' + badgeText,
+            badgeClass: badgeClass,
+            title: ex.name,
+            subtitle: ex.time ? `موعد الاختبار: ${ex.time}` : 'مراجعة وتأهب للاختبار',
+            icon: 'fa-solid fa-graduation-cap',
+            actionLabel: 'مراجعة',
+            actionType: 'pomo-event',
+            event: ex,
+            url: 'pomodoro.html'
+        });
+        itemIdsSeen.add(itemId);
+    });
+
+    // إضافة عادة واحدة كحد أقصى إذا توفر متسع في الخطة
     const habits = hayyizGetHabits();
     const pendingHabits = habits.filter((h) => h && h.lastCompleted !== today);
-    if (pendingHabits.length > 0) {
-        pendingHabits.slice(0, 2).forEach((h) => {
+    if (pendingHabits.length > 0 && planItems.length < 4) {
+        const h = pendingHabits[0];
+        const itemId = 'plan-habit-' + h.id;
+        if (!itemIdsSeen.has(itemId)) {
             planItems.push({
-                id: 'plan-habit-' + h.id, type: 'habit', priority: 40,
-                badge: 'عادة', badgeClass: 'badge-success', title: h.title,
-                subtitle: `سلسلة الاستمرار: ${h.streak || 0} أيام`, icon: 'fa-solid fa-fire',
-                actionLabel: 'إنجاز', actionType: 'url', url: 'habits.html'
+                id: itemId,
+                type: 'habit',
+                priority: 35,
+                badge: 'عادة',
+                badgeClass: 'badge-success',
+                title: h.title,
+                subtitle: `سلسلة الاستمرار: ${h.streak || 0} أيام`,
+                icon: 'fa-solid fa-fire',
+                actionLabel: 'إنجاز',
+                actionType: 'url',
+                url: 'habits.html'
             });
-        });
+            itemIdsSeen.add(itemId);
+        }
     }
 
-    if (planItems.length === 0 && activeTodos.length > 0) {
-        const topTask = activeTodos[0];
-        planItems.push({
-            id: 'plan-focus-suggested', type: 'focus', priority: 30,
-            badge: 'جلسة تركيز', badgeClass: 'badge-primary', title: topTask.text,
-            subtitle: `${workMin} دقيقة تركيز`, icon: 'fa-solid fa-clock',
-            actionLabel: 'ابدأ', actionType: 'pomo-task', task: topTask, url: 'pomodoro.html'
-        });
+    // ترتيب العناصر حسب الأولوية
+    planItems.sort((a, b) => b.priority - a.priority);
+
+    // ربط وتأكيد خيار Student OS (Primary Next Action) في بداية الخطة (Index 0)
+    if (topDecision) {
+        if (topDecision.id === 'running-focus') {
+            const runningItem = {
+                id: 'plan-running-focus',
+                type: 'pomodoro',
+                priority: 2000,
+                isPrimaryNextAction: true,
+                badge: 'جلسة جارية',
+                badgeClass: 'badge-danger',
+                title: topDecision.actionTitle || 'جلسة تركيز',
+                subtitle: topDecision.reason || 'واصل تركيزك الحقيقي الآن',
+                icon: 'fa-solid fa-circle-play',
+                actionLabel: 'متابعة',
+                actionType: 'url',
+                url: 'pomodoro.html'
+            };
+            planItems.unshift(runningItem);
+        } else if (topDecision.task) {
+            const existingIdx = planItems.findIndex((item) => item.task && item.task.id === topDecision.task.id);
+            if (existingIdx >= 0) {
+                const item = planItems.splice(existingIdx, 1)[0];
+                item.priority = 1000;
+                item.isPrimaryNextAction = true;
+                item.actionLabel = topDecision.actionLabel || item.actionLabel;
+                planItems.unshift(item);
+            }
+        } else if (topDecision.event) {
+            const existingIdx = planItems.findIndex((item) => item.event && item.event.id === topDecision.event.id);
+            if (existingIdx >= 0) {
+                const item = planItems.splice(existingIdx, 1)[0];
+                item.priority = 1000;
+                item.isPrimaryNextAction = true;
+                planItems.unshift(item);
+            }
+        }
     }
 
-    return planItems.sort((a, b) => b.priority - a.priority);
+    // اقتصار الخطة بشكل قاطع وصارم على 3 إلى 5 عناصر تنفيية فقط
+    return planItems.slice(0, 5);
 }
 
 /* ---------- Focus Engine Data Layer Helpers ---------- */
