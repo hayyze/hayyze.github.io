@@ -2121,7 +2121,177 @@ input[type="radio"] {
     margin-top: 0.5rem;
 }
 
-/* Dashboard Component Styles */
+/* Dashboard Component Styles - Action First & Human Centered */
+.dash-attention-banner {
+    padding: 0.9rem 1.15rem;
+    margin-bottom: 1.25rem;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+    border: 1px solid var(--color-border);
+}
+
+.dash-attention-banner.focus-running {
+    background: var(--color-primary);
+    color: var(--color-primary-text);
+    border-color: var(--color-primary);
+}
+
+.dash-attention-banner.focus-running .banner-title i {
+    color: var(--color-primary-text);
+}
+
+.dash-attention-banner.focus-running .banner-sub {
+    color: var(--color-primary-text);
+    opacity: 0.9;
+}
+
+.dash-attention-banner.overdue-alert {
+    background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
+    border-color: color-mix(in srgb, var(--color-danger) 25%, transparent);
+    color: var(--color-text);
+}
+
+.dash-attention-banner .banner-title {
+    display: block;
+    font-size: 0.98rem;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+}
+
+.dash-attention-banner .banner-sub {
+    font-size: 0.86rem;
+    color: var(--color-text-secondary);
+}
+
+.dash-now-card {
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+}
+
+.dash-now-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+}
+
+.dash-now-label {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.dash-now-tag {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.2rem 0.65rem;
+    border-radius: 12px;
+    background: var(--color-surface-alt);
+    color: var(--color-primary);
+    border: 1px solid var(--color-border);
+}
+
+.dash-now-title {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--color-text);
+    line-height: 1.4;
+    margin-bottom: 0.35rem;
+    word-break: break-word;
+}
+
+.dash-now-meta {
+    font-size: 0.86rem;
+    color: var(--color-text-secondary);
+    margin-bottom: 0.75rem;
+}
+
+.dash-now-reason {
+    font-size: 0.88rem;
+    color: var(--color-text-secondary);
+    background: var(--color-surface-alt);
+    padding: 0.6rem 0.85rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    margin-bottom: 1rem;
+    line-height: 1.5;
+}
+
+.dash-empty-text {
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+    margin: 0.25rem 0 0.85rem;
+}
+
+.dash-now-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.dash-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+@media (max-width: 650px) {
+    .dash-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.dash-stat-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 0.85rem 0.7rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.dash-stat-link {
+    text-decoration: none;
+    color: inherit;
+    transition: var(--transition);
+}
+
+.dash-stat-link:hover {
+    border-color: var(--color-primary);
+}
+
+.dash-stat-card i {
+    color: var(--color-primary);
+    font-size: 1.1rem;
+}
+
+.dash-stat-card strong {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--color-text);
+}
+
+.dash-stat-card span {
+    font-size: 0.78rem;
+    color: var(--color-text-secondary);
+}
+
 .dash-card {
     padding: 1.1rem 1.25rem;
     margin-bottom: 1.25rem;
@@ -2143,19 +2313,6 @@ input[type="radio"] {
     background: var(--color-surface-alt);
     border-radius: var(--radius-sm);
     border: 1px solid var(--color-border);
-}
-
-.dash-status-box {
-    padding: 0.9rem 1.15rem;
-    margin-bottom: 1.25rem;
-    background: var(--color-surface-alt);
-    border-radius: var(--radius-sm);
-    border-right: 4px solid var(--color-primary);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    flex-wrap: wrap;
 }
 
 .dash-progress-track {

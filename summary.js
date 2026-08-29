@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const today = getToday();
 
-    // المصدر الوحيد للحقيقة للمهام: hayyizGetTodos()
+    // المصدر الوحيد للحقيقة للمهام والعادات والتركيز
     const todos = typeof hayyizGetTodos === 'function'
         ? hayyizGetTodos()
         : JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
@@ -32,7 +32,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const sessionsToday = parseInt(localStorage.getItem('hayyiz-sessions-today') || '0', 10);
     const focusMinutes = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
 
-    // تفكيك أرقام المهام بوضوح ودون تناقض:
     const activeTodos = todos.filter((t) => t && !t.completed);
     const completedToday = todos.filter(
         (t) => t && t.completed && t.completedAt === today
@@ -40,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const completedAll = todos.filter((t) => t && t.completed).length;
     const overdueTodos = activeTodos.filter((t) => t.date && String(t.date).slice(0, 10) < today);
     const dueTodayTodos = activeTodos.filter((t) => t.date && String(t.date).slice(0, 10) === today);
+
     const habitTodaySummary = typeof hayyizGetHabitTodaySummary === 'function'
         ? hayyizGetHabitTodaySummary(habits)
         : (() => {
@@ -130,11 +130,23 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = 'pomodoro.html?task=' + encodeURIComponent(task.text);
     }
 
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     const priMap = { high: 'عالية', medium: 'متوسطة', low: 'منخفضة' };
 
     content.replaceChildren();
 
-    // --- الترحيب ---
+    // ==========================================
+    // 1. اليوم (Today Header)
+    // ==========================================
     const greet = document.createElement('div');
     greet.className = 'dash-greeting';
     const greetTitle = document.createElement('h3');
@@ -146,41 +158,76 @@ document.addEventListener('DOMContentLoaded', () => {
     content.appendChild(greet);
 
     // ==========================================
-    // قسم: «اقتراح حيز» — Centralized Smart Recommendation Card
+    // 2. ما يحتاج انتباهي الآن (Needs Attention Now)
+    // ==========================================
+    const activeFocusState = typeof hayyizGetFocusState === 'function' ? hayyizGetFocusState() : null;
+    if (activeFocusState && activeFocusState.status === 'running' && activeFocusState.remainingSeconds > 0) {
+        const activeFocusBanner = document.createElement('div');
+        activeFocusBanner.className = 'dash-attention-banner focus-running';
+
+        const remMin = Math.floor(activeFocusState.remainingSeconds / 60);
+        const remSec = activeFocusState.remainingSeconds % 60;
+        const timeFormatted = `${String(remMin).padStart(2, '0')}:${String(remSec).padStart(2, '0')}`;
+        const ctxTitle = activeFocusState.context ? activeFocusState.context.title : 'جلسة تركيز';
+
+        activeFocusBanner.innerHTML = `
+            <div>
+                <strong class="banner-title"><i class="fa-solid fa-play" aria-hidden="true"></i> جلسة تركيز قائمة الآن (${timeFormatted})</strong>
+                <span class="banner-sub">${escapeHtml(ctxTitle)}</span>
+            </div>
+            <a href="pomodoro.html" class="btn btn-accent btn-sm">متابعة الجلسة</a>
+        `;
+        content.appendChild(activeFocusBanner);
+    } else if (overdueTodos.length > 0) {
+        const alertBox = document.createElement('div');
+        alertBox.className = 'dash-attention-banner overdue-alert';
+        alertBox.innerHTML = `
+            <div>
+                <strong class="banner-title"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> مهام متأخرة تحتاج الانتباه</strong>
+                <span class="banner-sub">لديك ${overdueTodos.length} مهمة متأخرة عن موعد استحقاقها</span>
+            </div>
+            <a href="todo.html" class="btn btn-secondary btn-sm">عرض المهام</a>
+        `;
+        content.appendChild(alertBox);
+    }
+
+    // ==========================================
+    // 3. الخطوة التالية (Next Action & Student OS Recommendation - Integrated, Human & Action-First)
     // ==========================================
     const suggestion = typeof hayyizEvaluateStudentState === 'function' ? hayyizEvaluateStudentState() : null;
-    if (suggestion) {
-        const sugCard = document.createElement('div');
-        sugCard.className = 'dash-suggestion-card card';
+    const nowCard = document.createElement('div');
+    nowCard.className = 'dash-now-card card';
 
-        const sugHead = document.createElement('div');
-        sugHead.className = 'dash-suggestion-header';
+    const nowHead = document.createElement('div');
+    nowHead.className = 'dash-now-header';
+    const nowLabel = document.createElement('span');
+    nowLabel.className = 'dash-now-label';
+    nowLabel.innerHTML = '<i class="fa-solid fa-bullseye" aria-hidden="true"></i> الخطوة التالية';
+    nowHead.appendChild(nowLabel);
 
-        const sugTitle = document.createElement('span');
-        sugTitle.className = 'dash-suggestion-badge';
-        sugTitle.innerHTML = '<i class="fa-solid fa-lightbulb" aria-hidden="true"></i> ' + escapeHtml(suggestion.title);
+    if (suggestion && suggestion.badge) {
+        const sugBadge = document.createElement('span');
+        sugBadge.className = 'dash-now-tag';
+        sugBadge.textContent = suggestion.badge;
+        nowHead.appendChild(sugBadge);
+    }
+    nowCard.appendChild(nowHead);
 
-        const sugTag = document.createElement('span');
-        sugTag.className = 'dash-suggestion-tag';
-        sugTag.textContent = suggestion.badge;
+    if (suggestion && suggestion.text && suggestion.actionType) {
+        // إذا وجد اقتراح ذكي مباشر من النظام
+        const nowTitle = document.createElement('div');
+        nowTitle.className = 'dash-now-title';
+        nowTitle.textContent = suggestion.text;
+        nowCard.appendChild(nowTitle);
 
-        sugHead.appendChild(sugTitle);
-        sugHead.appendChild(sugTag);
-        sugCard.appendChild(sugHead);
+        const nowActions = document.createElement('div');
+        nowActions.className = 'dash-now-actions';
 
-        const sugBody = document.createElement('p');
-        sugBody.className = 'dash-suggestion-text';
-        sugBody.textContent = suggestion.text;
-        sugCard.appendChild(sugBody);
-
-        const sugActions = document.createElement('div');
-        sugActions.className = 'dash-suggestion-actions';
-
-        const sugBtn = document.createElement('button');
-        sugBtn.type = 'button';
-        sugBtn.className = 'btn btn-primary';
-        sugBtn.innerHTML = '<i class="fa-solid fa-play" aria-hidden="true"></i> ' + escapeHtml(suggestion.actionLabel);
-        sugBtn.addEventListener('click', () => {
+        const startBtn = document.createElement('button');
+        startBtn.type = 'button';
+        startBtn.className = 'btn btn-primary';
+        startBtn.innerHTML = '<i class="fa-solid fa-play" aria-hidden="true"></i> ' + escapeHtml(suggestion.actionLabel || 'ابدأ التركيز');
+        startBtn.addEventListener('click', () => {
             if (suggestion.actionType === 'pomo-task' && suggestion.task) {
                 const idx = todos.indexOf(suggestion.task);
                 launchPomodoroForTask(suggestion.task, idx >= 0 ? idx : 0);
@@ -194,216 +241,165 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.location.href = suggestion.url;
             }
         });
-        sugActions.appendChild(sugBtn);
-        sugCard.appendChild(sugActions);
+        nowActions.appendChild(startBtn);
 
-        content.appendChild(sugCard);
-    }
+        const secondaryLink = document.createElement('a');
+        secondaryLink.href = 'todo.html';
+        secondaryLink.className = 'btn btn-secondary';
+        secondaryLink.textContent = 'قائمة المهام';
+        nowActions.appendChild(secondaryLink);
 
-    // ==========================================
-    // قسم 1: «أين أنا وما هدفي؟» — Goal & Academic Progress Card
-    // ==========================================
-    const acadSummary = typeof hayyizGetAcademicSummary === 'function' ? hayyizGetAcademicSummary() : null;
-    if (acadSummary && (acadSummary.current !== null || acadSummary.target !== null)) {
-        const goalCard = document.createElement('div');
-        goalCard.className = 'dash-card card';
+        nowCard.appendChild(nowActions);
 
-        const goalHead = document.createElement('div');
-        goalHead.className = 'dash-section-head';
+    } else if (nextTask) {
+        // إذا لم يوجد اقتراح استثنائي ولكن توجد مهمة قادمة
+        const nowTitle = document.createElement('div');
+        nowTitle.className = 'dash-now-title';
+        nowTitle.textContent = nextTask.text;
+        nowCard.appendChild(nowTitle);
 
-        const goalHeadTitle = document.createElement('h4');
-        goalHeadTitle.innerHTML = '<i class="fa-solid fa-bullseye" aria-hidden="true" style="color:var(--primary);"></i> وضعك الدراسي وهدفك';
-
-        const gpaLink = document.createElement('a');
-        gpaLink.href = 'gpa.html';
-        gpaLink.textContent = acadSummary.target !== null ? 'تعديل الهدف' : 'حدد هدفك';
-
-        goalHead.appendChild(goalHeadTitle);
-        goalHead.appendChild(gpaLink);
-        goalCard.appendChild(goalHead);
-
-        const goalGrid = document.createElement('div');
-        goalGrid.className = 'dash-card-grid';
-
-        if (acadSummary.current !== null) {
-            const curBox = document.createElement('div');
-            curBox.className = 'dash-card-box';
-            curBox.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted); display:block;">المعدل الحالي</span>' +
-                               '<strong style="font-size:1.25rem; color:var(--text);">' + acadSummary.current.toFixed(2) + '%</strong>';
-            goalGrid.appendChild(curBox);
+        const metaParts = [];
+        if (nextTask.priority) metaParts.push('أولوية ' + (priMap[nextTask.priority] || nextTask.priority));
+        if (nextTask.subjectId && typeof hayyizGetSubjectName === 'function') {
+            const sn = hayyizGetSubjectName(nextTask.subjectId);
+            if (sn) metaParts.push(sn);
+        }
+        if (nextTask.minutes) {
+            const done = nextTask.focusDone ? parseInt(nextTask.focusDone, 10) || 0 : 0;
+            const total = parseInt(nextTask.minutes, 10) || 0;
+            if (done > 0 && total > 0) metaParts.push(done + '/' + total + ' د');
+            else metaParts.push(nextTask.minutes + ' د');
+        }
+        if (nextTask.date) {
+            const d = String(nextTask.date).slice(0, 10);
+            if (d < today) metaParts.push('متأخرة');
+            else if (d === today) metaParts.push('اليوم');
+            else metaParts.push(d);
         }
 
-        if (acadSummary.target !== null) {
-            const tgtBox = document.createElement('div');
-            tgtBox.className = 'dash-card-box';
-            tgtBox.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted); display:block;">الهدف</span>' +
-                               '<strong style="font-size:1.25rem; color:var(--primary);">' + acadSummary.target.toFixed(2) + '%</strong>';
-            goalGrid.appendChild(tgtBox);
+        const nowMeta = document.createElement('div');
+        nowMeta.className = 'dash-now-meta';
+        nowMeta.textContent = metaParts.join(' · ');
+        nowCard.appendChild(nowMeta);
+
+        if (nextReason) {
+            const reasonEl = document.createElement('div');
+            reasonEl.className = 'dash-now-reason';
+            reasonEl.textContent = nextReason;
+            nowCard.appendChild(reasonEl);
         }
 
-        if (acadSummary.current !== null && acadSummary.target !== null) {
-            const pctVal = Math.min(100, Math.max(0, Math.round((acadSummary.current / acadSummary.target) * 100)));
-            const pctBox = document.createElement('div');
-            pctBox.className = 'dash-card-box';
-            pctBox.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted); display:block;">نسبة الاقتراب من الهدف</span>' +
-                               '<strong style="font-size:1.25rem; color:var(--color-success);">' + pctVal + '%</strong>';
-            goalGrid.appendChild(pctBox);
-        }
+        const nowActions = document.createElement('div');
+        nowActions.className = 'dash-now-actions';
 
-        goalCard.appendChild(goalGrid);
+        const startNowBtn = document.createElement('button');
+        startNowBtn.type = 'button';
+        startNowBtn.className = 'btn btn-primary';
+        startNowBtn.innerHTML = isTaskInProgress
+            ? '<i class="fa-solid fa-play" aria-hidden="true"></i> استكمال جلسة التركيز'
+            : '<i class="fa-solid fa-play" aria-hidden="true"></i> ابدأ جلسة تركيز';
+        startNowBtn.addEventListener('click', () => {
+            const idx = todos.indexOf(nextTask);
+            launchPomodoroForTask(nextTask, idx >= 0 ? idx : 0);
+        });
+        nowActions.appendChild(startNowBtn);
 
-        // شريط الاقتراب من الهدف مع التركيز البصري على الفجوة بالنظام المئوي / النقاط
-        if (acadSummary.current !== null && acadSummary.target !== null) {
-            const pctVal = Math.min(100, Math.max(0, (acadSummary.current / acadSummary.target) * 100));
-            const progWrap = document.createElement('div');
-            progWrap.className = 'dash-progress-track';
-            const progBar = document.createElement('div');
-            progBar.className = 'dash-progress-fill';
-            progBar.style.width = pctVal.toFixed(1) + '%';
-            progWrap.appendChild(progBar);
-            goalCard.appendChild(progWrap);
+        const openTodo = document.createElement('a');
+        openTodo.href = 'todo.html';
+        openTodo.className = 'btn btn-secondary';
+        openTodo.textContent = 'اختر مهمة أخرى';
+        nowActions.appendChild(openTodo);
 
-            const gapP = document.createElement('p');
-            gapP.style.cssText = 'margin: 0 0 0.6rem; font-size: 0.92rem; color: var(--text); font-weight: 600;';
-            if (acadSummary.gap > 0.009) {
-                gapP.innerHTML = `<i class="fa-solid fa-arrow-trend-up" style="color:var(--primary);"></i> المتبقي للوصول إلى الهدف: <strong>${acadSummary.gap.toFixed(2)} نقطة مئوية</strong>`;
-            } else if (acadSummary.gap < -0.009) {
-                gapP.innerHTML = `<i class="fa-solid fa-circle-check" style="color:var(--success);"></i> أنت أعلى من هدفك بـ <strong>${Math.abs(acadSummary.gap).toFixed(2)} نقطة مئوية</strong> 🎉`;
-            } else {
-                gapP.innerHTML = `<i class="fa-solid fa-circle-check" style="color:var(--success);"></i> وصلت إلى هدفك تماماً! حافظ على استمراريتك 🎉`;
-            }
-            goalCard.appendChild(gapP);
-        }
+        nowCard.appendChild(nowActions);
 
-        // تحسين عرض أهداف المواد والمهام المرتبطة
-        if (acadSummary.subjectGoals && acadSummary.subjectGoals.length > 0) {
-            const subGoalsWrap = document.createElement('div');
-            subGoalsWrap.style.cssText = 'margin-top: 0.85rem; padding-top: 0.85rem; border-top: 1px solid var(--border);';
-
-            const subGoalsTitle = document.createElement('strong');
-            subGoalsTitle.style.cssText = 'font-size: 0.88rem; color: var(--text); display: block; margin-bottom: 0.5rem;';
-            subGoalsTitle.textContent = 'أهداف المواد والمهام المرتبطة بها:';
-            subGoalsWrap.appendChild(subGoalsTitle);
-
-            const subGoalsList = document.createElement('ul');
-            subGoalsList.style.cssText = 'list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;';
-
-            const allSubjects = typeof hayyizGetSubjects === 'function' ? hayyizGetSubjects() : [];
-
-            acadSummary.subjectGoals.forEach((sg) => {
-                const li = document.createElement('li');
-                li.style.cssText = 'font-size: 0.85rem; color: var(--text); display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; background: var(--bg); padding: 0.5rem 0.75rem; border-radius: 8px; border: 1px solid var(--border);';
-
-                const relSubject = allSubjects.find((s) => s.name === sg.name);
-                const relTodos = relSubject ? todos.filter((t) => t && t.subjectId === relSubject.id) : [];
-                const relCompleted = relTodos.filter((t) => t && t.completed).length;
-                const relFocusMin = relSubject ? (parseInt(relSubject.focusMinutes, 10) || 0) : 0;
-
-                const leftSpan = document.createElement('span');
-                const flagIcon = document.createElement('i');
-                flagIcon.className = 'fa-solid fa-flag';
-                flagIcon.style.cssText = 'color:var(--primary); font-size:0.75rem;';
-                leftSpan.appendChild(flagIcon);
-                leftSpan.appendChild(document.createTextNode(' ' + sg.name + ' (هدف: ' + sg.target + '%)'));
-
-                const rightSpan = document.createElement('span');
-                rightSpan.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; flex-wrap: wrap;';
-
-                if (relTodos.length > 0) {
-                    let infoText = `المهام: ${relCompleted}/${relTodos.length}`;
-                    if (relFocusMin > 0) infoText += ` · ${relFocusMin} د تركيز`;
-                    rightSpan.textContent = infoText;
-                } else {
-                    const noTasksSpan = document.createElement('span');
-                    noTasksSpan.style.color = 'var(--text-muted)';
-                    noTasksSpan.textContent = 'لا توجد مهام مرتبطة ';
-
-                    const addBtn = document.createElement('a');
-                    addBtn.href = 'todo.html' + (relSubject ? '?subjectId=' + encodeURIComponent(relSubject.id) : '');
-                    addBtn.style.cssText = 'color: var(--primary); font-weight: 600; text-decoration: none;';
-                    addBtn.textContent = '+ إضافة مهمة';
-
-                    rightSpan.appendChild(noTasksSpan);
-                    rightSpan.appendChild(addBtn);
-                }
-
-                li.appendChild(leftSpan);
-                li.appendChild(rightSpan);
-                subGoalsList.appendChild(li);
-            });
-
-            subGoalsWrap.appendChild(subGoalsList);
-            goalCard.appendChild(subGoalsWrap);
-        }
-
-        content.appendChild(goalCard);
-    }
-
-    // ==========================================
-    // قسم 2: «حالتك الدراسية الآن» — Student Status & Active Focus Session Banner
-    // ==========================================
-    const activeFocusState = typeof hayyizGetFocusState === 'function' ? hayyizGetFocusState() : null;
-    if (activeFocusState && activeFocusState.status === 'running' && activeFocusState.remainingSeconds > 0) {
-        const activeFocusBanner = document.createElement('div');
-        activeFocusBanner.style.cssText = 'padding: 1rem 1.25rem; margin-bottom: 1.25rem; background: var(--color-primary); color: var(--color-primary-text); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between; gap: 0.85rem; flex-wrap: wrap; box-shadow: var(--shadow);';
-
-        const remMin = Math.floor(activeFocusState.remainingSeconds / 60);
-        const remSec = activeFocusState.remainingSeconds % 60;
-        const timeFormatted = `${String(remMin).padStart(2, '0')}:${String(remSec).padStart(2, '0')}`;
-        const ctxTitle = activeFocusState.context ? activeFocusState.context.title : 'جلسة تركيز';
-
-        activeFocusBanner.innerHTML = `
-            <div>
-                <strong style="font-size: 1.05rem; display: block; margin-bottom: 0.2rem;"><i class="fa-solid fa-play"></i> لديك جلسة تركيز جارية الآن (${timeFormatted})</strong>
-                <span style="font-size: 0.88rem; opacity: 0.9;">السياق: ${escapeHtml(ctxTitle)}</span>
-            </div>
-            <a href="pomodoro.html" class="btn btn-accent" style="font-weight: 700; text-decoration: none;">متابعة الجلسة</a>
-        `;
-        content.appendChild(activeFocusBanner);
-    }
-
-    const statusBox = document.createElement('div');
-    statusBox.className = 'dash-section';
-    statusBox.style.cssText = 'padding: 0.9rem 1.15rem; margin-bottom: 1.25rem; background: var(--bg); border-radius: var(--radius-sm, 12px); border-right: 4px solid var(--primary); display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;';
-
-    let statusMsg = '';
-    const activeCount = activeTodos.length;
-
-    if (activeCount === 0) {
-        statusMsg = 'لا توجد مهام متبقية اليوم. يمكنك إضافة مهمة جديدة أو أداء جلسة تركيز حرة.';
-    } else if (overdueTodos.length > 0) {
-        statusMsg = `لديك ${overdueTodos.length} مهام متأخرة عن موعدها اليوم. ابدأ بالمهام المتأخرة ذات الأولوية العالية.`;
-    } else if (isTaskInProgress && nextTask) {
-        const truncatedText = nextTask.text.length > 25 ? nextTask.text.slice(0, 25) + '…' : nextTask.text;
-        statusMsg = `لديك مهمة قيد التنفيذ ("${escapeHtml(truncatedText)}"). أكمل الجلسة القائمة أولاً.`;
-    } else if (dueTodayTodos.length > 0) {
-        statusMsg = `لديك ${dueTodayTodos.length} مهام مستحقة اليوم و${activeCount} مهام نشطة إجمالاً. ابدأ بالمهمة الأكثر أولوية.`;
-    } else if (hour < 12) {
-        statusMsg = `لديك ${activeCount} مهام متبقية في خطتك اليوم. جدول أعمالك جاهز للبدء.`;
-    } else if (hour >= 18) {
-        statusMsg = `لديك ${activeCount} مهام متبقية اليوم (${completedToday} منجزة اليوم). ركّز على إنجاز الأهم قبل نهاية اليوم.`;
     } else {
-        statusMsg = `لديك ${activeCount} مهام متبقية اليوم. اختر المهمة التالية للبدء.`;
+        // حالة عدم وجود مهام
+        const emptyTitle = document.createElement('div');
+        emptyTitle.className = 'dash-now-title';
+        emptyTitle.textContent = 'لا توجد مهام نشطة حالياً';
+        nowCard.appendChild(emptyTitle);
+
+        const emptyHint = document.createElement('p');
+        emptyHint.className = 'dash-empty-text';
+        emptyHint.textContent = 'أضف مهمة دراسية جديدة أو ابدأ جلسة تركيز حرة مباشرة.';
+        nowCard.appendChild(emptyHint);
+
+        const nowActions = document.createElement('div');
+        nowActions.className = 'dash-now-actions';
+
+        const startFree = document.createElement('button');
+        startFree.type = 'button';
+        startFree.className = 'btn btn-primary';
+        startFree.innerHTML = '<i class="fa-solid fa-play" aria-hidden="true"></i> ابدأ جلسة تركيز';
+        startFree.addEventListener('click', () => {
+            if (typeof hayyizLaunchPomodoro === 'function') {
+                hayyizLaunchPomodoro(null);
+            } else {
+                localStorage.removeItem('hayyiz-current-task');
+                localStorage.removeItem('hayyiz-current-task-index');
+                localStorage.removeItem('hayyiz-current-task-id');
+                localStorage.removeItem('hayyiz-task-session');
+                window.location.href = 'pomodoro.html';
+            }
+        });
+        nowActions.appendChild(startFree);
+
+        const addTask = document.createElement('a');
+        addTask.href = 'todo.html';
+        addTask.className = 'btn btn-secondary';
+        addTask.textContent = 'إضافة مهمة';
+        nowActions.appendChild(addTask);
+
+        nowCard.appendChild(nowActions);
+    }
+    content.appendChild(nowCard);
+
+    // ==========================================
+    // 4. التقدم وخطة اليوم (Progress & Today's Plan)
+    // ==========================================
+
+    // أ) شريط إحصائيات اليوم (Stats Bar)
+    const statsGrid = document.createElement('div');
+    statsGrid.className = 'dash-stats-grid';
+
+    function makeStatBox(icon, value, label, link) {
+        const el = link ? document.createElement('a') : document.createElement('div');
+        if (link) {
+            el.href = link;
+            el.className = 'dash-stat-card dash-stat-link';
+        } else {
+            el.className = 'dash-stat-card';
+        }
+        const ic = document.createElement('i');
+        ic.className = icon;
+        ic.setAttribute('aria-hidden', 'true');
+        const val = document.createElement('strong');
+        val.textContent = String(value);
+        const lab = document.createElement('span');
+        lab.textContent = label;
+        el.appendChild(ic);
+        el.appendChild(val);
+        el.appendChild(lab);
+        return el;
     }
 
-    statusBox.innerHTML = '<div><strong style="display:block; font-size:0.92rem; color:var(--text); margin-bottom:0.2rem;">حالتك الدراسية الآن</strong>' +
-                        '<span style="font-size:0.88rem; color:var(--text-muted);">' + statusMsg + '</span></div>';
+    statsGrid.appendChild(makeStatBox('fa-solid fa-clock', sessionsToday, 'جلسات اليوم', 'pomodoro.html'));
+    statsGrid.appendChild(makeStatBox('fa-solid fa-hourglass-half', timeText, 'وقت التركيز', 'pomodoro.html'));
+    statsGrid.appendChild(makeStatBox('fa-solid fa-circle-check', completedToday, 'المنجز اليوم', 'todo.html'));
+    statsGrid.appendChild(makeStatBox('fa-solid fa-list-check', activeTodos.length, 'المهام المتبقية', 'todo.html'));
+    content.appendChild(statsGrid);
 
-    content.appendChild(statusBox);
-
-    // ==========================================
-    // قسم: «خطة اليوم» — Today's Integrated Plan Section
-    // ==========================================
+    // ب) خطة اليوم المدمجة (Integrated Daily Plan)
     const planItems = typeof hayyizGenerateDailyPlan === 'function' ? hayyizGenerateDailyPlan() : [];
     if (planItems && planItems.length > 0) {
         const planCard = document.createElement('div');
-        planCard.className = 'dash-section card dash-daily-plan';
+        planCard.className = 'dash-section card';
 
         const planHead = document.createElement('div');
         planHead.className = 'dash-section-head';
 
         const planTitle = document.createElement('h4');
-        planTitle.innerHTML = '<i class="fa-solid fa-calendar-check" aria-hidden="true" style="color:var(--primary);"></i> خطة اليوم';
+        planTitle.innerHTML = '<i class="fa-solid fa-calendar-check" aria-hidden="true" style="color:var(--color-primary);"></i> خطة اليوم';
 
         const planLink = document.createElement('a');
         planLink.href = 'todo.html';
@@ -451,7 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'btn btn-outline btn-sm dash-plan-btn';
+            btn.className = 'btn btn-secondary btn-sm';
             btn.textContent = item.actionLabel;
             btn.addEventListener('click', () => {
                 if (item.actionType === 'pomo-task' && item.task) {
@@ -477,149 +473,104 @@ document.addEventListener('DOMContentLoaded', () => {
         content.appendChild(planCard);
     }
 
-    // ==========================================
-    // قسم 3: «ماذا أفعل الآن؟» — Task Card ("أكمل ما بدأت" أو "ما المهمة التالية؟")
-    // ==========================================
-    const nowCard = document.createElement('div');
-    nowCard.className = 'dash-now';
+    // ج) بطاقة الهدف والتقدم الدراسي (Academic Progress)
+    const acadSummary = typeof hayyizGetAcademicSummary === 'function' ? hayyizGetAcademicSummary() : null;
+    if (acadSummary && (acadSummary.current !== null || acadSummary.target !== null)) {
+        const goalCard = document.createElement('div');
+        goalCard.className = 'dash-card card';
 
-    if (nextTask) {
-        const nowLabel = document.createElement('div');
-        nowLabel.className = 'dash-now-label';
-        const cardHeaderTitle = isTaskInProgress ? 'أكمل ما بدأت' : 'ما المهمة التالية؟';
-        nowLabel.innerHTML = `<i class="fa-solid fa-bullseye" aria-hidden="true"></i> ${cardHeaderTitle}`;
-        nowCard.appendChild(nowLabel);
+        const goalHead = document.createElement('div');
+        goalHead.className = 'dash-section-head';
 
-        const nowName = document.createElement('div');
-        nowName.className = 'dash-now-name';
-        nowName.textContent = nextTask.text;
-        nowCard.appendChild(nowName);
+        const goalHeadTitle = document.createElement('h4');
+        goalHeadTitle.innerHTML = '<i class="fa-solid fa-bullseye" aria-hidden="true" style="color:var(--color-primary);"></i> الهدف والتقدم الدراسي';
 
-        const nowMeta = document.createElement('div');
-        nowMeta.className = 'dash-now-meta';
-        const metaParts = [];
-        if (nextTask.priority) metaParts.push('أولوية ' + (priMap[nextTask.priority] || nextTask.priority));
-        if (nextTask.subjectId && typeof hayyizGetSubjectName === 'function') {
-            const sn = hayyizGetSubjectName(nextTask.subjectId);
-            if (sn) metaParts.push(sn);
-        }
-        if (nextTask.minutes) {
-            const done = nextTask.focusDone ? parseInt(nextTask.focusDone, 10) || 0 : 0;
-            const total = parseInt(nextTask.minutes, 10) || 0;
-            if (done > 0 && total > 0) metaParts.push(done + '/' + total + ' د');
-            else metaParts.push(nextTask.minutes + ' د');
-        }
-        if (nextTask.date) {
-            const d = String(nextTask.date).slice(0, 10);
-            if (d < today) metaParts.push('متأخرة');
-            else if (d === today) metaParts.push('اليوم');
-            else metaParts.push(d);
-        }
-        nowMeta.textContent = metaParts.join(' · ');
-        nowCard.appendChild(nowMeta);
+        const gpaLink = document.createElement('a');
+        gpaLink.href = 'gpa.html';
+        gpaLink.textContent = acadSummary.target !== null ? 'تعديل الهدف' : 'حدد هدفك';
 
-        // السبب الموضوعي: لماذا هذه المهمة؟
-        if (nextReason) {
-            const reasonEl = document.createElement('p');
-            reasonEl.className = 'dash-now-reason';
-            reasonEl.style.cssText = 'margin: 0.4rem 0 0; font-size: 0.88rem; color: var(--text-muted);';
-            reasonEl.innerHTML = `<strong style="color:var(--text);">لماذا هذه المهمة؟</strong> ${escapeHtml(nextReason)}`;
-            nowCard.appendChild(reasonEl);
+        goalHead.appendChild(goalHeadTitle);
+        goalHead.appendChild(gpaLink);
+        goalCard.appendChild(goalHead);
+
+        const goalGrid = document.createElement('div');
+        goalGrid.className = 'dash-card-grid';
+
+        if (acadSummary.current !== null) {
+            const curBox = document.createElement('div');
+            curBox.className = 'dash-card-box';
+            curBox.innerHTML = '<span style="font-size:0.8rem; color:var(--color-text-secondary); display:block;">المعدل الحالي</span>' +
+                               '<strong style="font-size:1.25rem; color:var(--color-text);">' + acadSummary.current.toFixed(2) + '%</strong>';
+            goalGrid.appendChild(curBox);
         }
 
-        const nowActions = document.createElement('div');
-        nowActions.className = 'dash-now-actions';
+        if (acadSummary.target !== null) {
+            const tgtBox = document.createElement('div');
+            tgtBox.className = 'dash-card-box';
+            tgtBox.innerHTML = '<span style="font-size:0.8rem; color:var(--color-text-secondary); display:block;">الهدف المخطط</span>' +
+                               '<strong style="font-size:1.25rem; color:var(--color-primary);">' + acadSummary.target.toFixed(2) + '%</strong>';
+            goalGrid.appendChild(tgtBox);
+        }
 
-        const startNowBtn = document.createElement('button');
-        startNowBtn.type = 'button';
-        startNowBtn.className = 'btn btn-primary';
-        startNowBtn.innerHTML = isTaskInProgress
-            ? '<i class="fa-solid fa-play" aria-hidden="true"></i> استكمال جلسة التركيز'
-            : '<i class="fa-solid fa-play" aria-hidden="true"></i> ابدأ جلسة تركيز';
-        startNowBtn.addEventListener('click', () => {
-            const idx = todos.indexOf(nextTask);
-            launchPomodoroForTask(nextTask, idx >= 0 ? idx : 0);
-        });
-        nowActions.appendChild(startNowBtn);
+        if (acadSummary.current !== null && acadSummary.target !== null) {
+            const pctVal = Math.min(100, Math.max(0, Math.round((acadSummary.current / acadSummary.target) * 100)));
+            const pctBox = document.createElement('div');
+            pctBox.className = 'dash-card-box';
+            pctBox.innerHTML = '<span style="font-size:0.8rem; color:var(--color-text-secondary); display:block;">نسبة الإنجاز</span>' +
+                               '<strong style="font-size:1.25rem; color:var(--color-success);">' + pctVal + '%</strong>';
+            goalGrid.appendChild(pctBox);
+        }
 
-        const openTodo = document.createElement('a');
-        openTodo.href = 'todo.html';
-        openTodo.className = 'btn btn-outline';
-        openTodo.textContent = 'اختر مهمة أخرى';
-        nowActions.appendChild(openTodo);
+        goalCard.appendChild(goalGrid);
 
-        nowCard.appendChild(nowActions);
-    } else {
-        const nowLabel = document.createElement('div');
-        nowLabel.className = 'dash-now-label';
-        nowLabel.innerHTML = '<i class="fa-solid fa-check-double" aria-hidden="true"></i> لا مهام نشطة الآن';
-        nowCard.appendChild(nowLabel);
+        if (acadSummary.current !== null && acadSummary.target !== null) {
+            const pctVal = Math.min(100, Math.max(0, (acadSummary.current / acadSummary.target) * 100));
+            const progWrap = document.createElement('div');
+            progWrap.className = 'dash-progress-track';
+            const progBar = document.createElement('div');
+            progBar.className = 'dash-progress-fill';
+            progBar.style.width = pctVal.toFixed(1) + '%';
+            progWrap.appendChild(progBar);
+            goalCard.appendChild(progWrap);
 
-        const emptyHint = document.createElement('p');
-        emptyHint.className = 'dash-empty';
-        emptyHint.style.margin = '0.5rem 0 0.85rem';
-        emptyHint.textContent = 'أضف مهمة من قائمة المهام، أو ابدأ جلسة تركيز مباشرة.';
-        nowCard.appendChild(emptyHint);
-
-        const nowActions = document.createElement('div');
-        nowActions.className = 'dash-now-actions';
-
-        const startFree = document.createElement('button');
-        startFree.type = 'button';
-        startFree.className = 'btn btn-primary';
-        startFree.innerHTML = '<i class="fa-solid fa-play" aria-hidden="true"></i> ابدأ جلسة تركيز';
-        startFree.addEventListener('click', () => {
-            if (typeof hayyizLaunchPomodoro === 'function') {
-                hayyizLaunchPomodoro(null);
+            const gapP = document.createElement('p');
+            gapP.style.cssText = 'margin: 0; font-size: 0.9rem; color: var(--color-text); font-weight: 600;';
+            if (acadSummary.gap > 0.009) {
+                gapP.innerHTML = `المتبقي للوصول إلى الهدف: <strong>${acadSummary.gap.toFixed(2)} نقطة مئوية</strong>`;
+            } else if (acadSummary.gap < -0.009) {
+                gapP.innerHTML = `أنت أعلى من هدفك الحالي بـ <strong>${Math.abs(acadSummary.gap).toFixed(2)} نقطة مئوية</strong> 🎉`;
             } else {
-                localStorage.removeItem('hayyiz-current-task');
-                localStorage.removeItem('hayyiz-current-task-index');
-                localStorage.removeItem('hayyiz-current-task-id');
-                localStorage.removeItem('hayyiz-task-session');
-                window.location.href = 'pomodoro.html';
+                gapP.innerHTML = `وصلت إلى هدفك الدراسي تماماً 🎉`;
             }
-        });
-        nowActions.appendChild(startFree);
+            goalCard.appendChild(gapP);
+        }
 
-        const addTask = document.createElement('a');
-        addTask.href = 'todo.html';
-        addTask.className = 'btn btn-outline';
-        addTask.textContent = 'أضف مهمة';
-        nowActions.appendChild(addTask);
-
-        nowCard.appendChild(nowActions);
+        content.appendChild(goalCard);
     }
-    content.appendChild(nowCard);
 
-    // ==========================================
-    // قسم: بطاقة تقويم الطالب — Student Calendar Card
-    // ==========================================
+    // د) تقويم الطالب والأحداث القادمة (Calendar & Countdown)
     if (typeof hayyizGetCalendarSummary === 'function') {
         const calSummary = hayyizGetCalendarSummary();
         const calCard = document.createElement('div');
         calCard.className = 'dash-section card';
-        calCard.style.cssText = 'padding: 1.1rem 1.25rem; margin-bottom: 1.25rem; background: var(--bg-card); border-radius: var(--radius); border: 1px solid var(--border);';
 
         const calHead = document.createElement('div');
         calHead.className = 'dash-section-head';
-        calHead.style.cssText = 'margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;';
 
         const calHeadTitle = document.createElement('h4');
-        calHeadTitle.style.cssText = 'font-size: 1.05rem; margin: 0;';
-        calHeadTitle.innerHTML = '<i class="fa-solid fa-calendar-days" aria-hidden="true" style="color:var(--primary);"></i> تقويم الطالب';
+        calHeadTitle.innerHTML = '<i class="fa-solid fa-calendar-days" aria-hidden="true" style="color:var(--color-primary);"></i> تقويم الطالب';
 
         const calLink = document.createElement('a');
         calLink.href = 'calculator.html';
         calLink.textContent = 'عرض التقويم';
-        calLink.style.cssText = 'color: var(--primary); font-weight: 600; text-decoration: none; font-size: 0.9rem;';
 
         calHead.appendChild(calHeadTitle);
         calHead.appendChild(calLink);
         calCard.appendChild(calHead);
 
-        // 1. أقرب حدث قادم
         const eventBox = document.createElement('div');
-        eventBox.style.cssText = 'padding: 0.85rem; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); margin-bottom: 0.75rem;';
+        eventBox.className = 'dash-card-box';
+        eventBox.style.textAlign = 'right';
 
         if (calSummary.nearestEvent) {
             const ev = calSummary.nearestEvent;
@@ -643,10 +594,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         const remMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
                         countdownStr = totalHours > 0 ? `بعد ${totalHours} ساعة و ${remMinutes} دقيقة` : `بعد ${remMinutes} دقيقة`;
                     }
-                    statusBadge = '<span style="background: rgba(79, 70, 229, 0.1); color: var(--primary); font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">قادم</span>';
+                    statusBadge = '<span class="dash-now-tag">قادم</span>';
                 } else {
                     countdownStr = 'اليوم';
-                    statusBadge = '<span style="background: color-mix(in srgb, var(--color-warning) 15%, var(--color-surface)); color: var(--color-warning); font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">اليوم</span>';
+                    statusBadge = '<span class="dash-now-tag">اليوم</span>';
                 }
             } else {
                 const t0 = new Date(`${todayStr}T00:00:00`).getTime();
@@ -655,10 +606,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (diffDays > 0) {
                     countdownStr = `بعد ${diffDays} يومًا`;
-                    statusBadge = '<span style="background: rgba(79, 70, 229, 0.1); color: var(--primary); font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">قادم</span>';
+                    statusBadge = '<span class="dash-now-tag">قادم</span>';
                 } else {
                     countdownStr = 'اليوم';
-                    statusBadge = '<span style="background: color-mix(in srgb, var(--color-warning) 15%, var(--color-surface)); color: var(--color-warning); font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 12px;">اليوم</span>';
+                    statusBadge = '<span class="dash-now-tag">اليوم</span>';
                 }
             }
 
@@ -668,29 +619,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
             eventBox.innerHTML = `
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.35rem;">
-                    <strong style="font-size: 1rem; color: var(--text);">${escapeHtml(ev.name)}</strong>
+                    <strong style="font-size: 1rem; color: var(--color-text);">${escapeHtml(ev.name)}</strong>
                     ${statusBadge}
                 </div>
-                <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.4rem;">
+                <div style="font-size: 0.85rem; color: var(--color-text-secondary); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.4rem;">
                     <span><i class="fa-regular fa-calendar"></i> ${dateStrFormatted} · ${typeLabel}</span>
-                    <strong style="color: var(--primary); font-size: 0.95rem;">${countdownStr}</strong>
+                    <strong style="color: var(--color-primary); font-size: 0.95rem;">${countdownStr}</strong>
                 </div>
             `;
         } else {
             eventBox.innerHTML = `
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;">
-                    <span style="font-size: 0.9rem; color: var(--text-muted);"><i class="fa-regular fa-calendar-xmark"></i> لا توجد اختبارات قادمة</span>
-                    <a href="calculator.html" style="font-size: 0.85rem; color: var(--primary); font-weight: 700; text-decoration: none;">+ إضافة موعد</a>
+                    <span style="font-size: 0.9rem; color: var(--color-text-secondary);"><i class="fa-regular fa-calendar-xmark"></i> لا توجد اختبارات قادمة</span>
+                    <a href="calculator.html" style="font-size: 0.85rem; color: var(--color-primary); font-weight: 700; text-decoration: none;">+ إضافة موعد</a>
                 </div>
             `;
         }
         calCard.appendChild(eventBox);
 
-        // 2. قسم العمر الاختياري
-        const ageBox = document.createElement('div');
-        ageBox.style.cssText = 'padding: 0.75rem 0.85rem; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); font-size: 0.88rem;';
-
+        // العمر الاختياري
         if (calSummary.birthdate && calSummary.ageInfo) {
+            const ageBox = document.createElement('div');
+            ageBox.style.cssText = 'padding: 0.75rem 0.85rem; background: var(--color-surface); border-radius: var(--radius-sm); border: 1px solid var(--color-border); font-size: 0.88rem; margin-top: 0.75rem;';
+
             if (calSummary.showAgePref === 'true') {
                 const age = calSummary.ageInfo;
                 let ageStr = `عمرك الحالي: <strong>${age.years} سنة و ${age.months} شهر و ${age.days} يوم</strong>`;
@@ -701,16 +652,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (st.months > 0) remStr += `و ${st.months} شهر `;
                     if (st.days > 0 || (!st.years && !st.months)) remStr += `و ${st.days} يوم`;
                     remStr = remStr.trim().replace(/^و\s*/, '');
-                    ageStr += `<div style="margin-top:0.3rem; color: var(--text-muted); font-size: 0.82rem;">متبقي على 18 عاماً: <strong>${remStr}</strong></div>`;
+                    ageStr += `<div style="margin-top:0.3rem; color: var(--color-text-secondary); font-size: 0.82rem;">متبقي على 18 عاماً: <strong>${remStr}</strong></div>`;
                 }
 
                 ageBox.innerHTML = `
                     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
-                        <div><i class="fa-solid fa-cake-candles" style="color:var(--primary);"></i> ${ageStr}</div>
-                        <button type="button" id="hide-age-dash-btn" style="background: none; border: none; color: var(--text-muted); font-size: 0.78rem; cursor: pointer; text-decoration: underline;">إخفاء</button>
+                        <div><i class="fa-solid fa-cake-candles" style="color:var(--color-primary);"></i> ${ageStr}</div>
+                        <button type="button" id="hide-age-dash-btn" style="background: none; border: none; color: var(--color-text-secondary); font-size: 0.78rem; cursor: pointer; text-decoration: underline;">إخفاء</button>
                     </div>
                 `;
-
                 calCard.appendChild(ageBox);
 
                 setTimeout(() => {
@@ -726,8 +676,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (calSummary.showAgePref === 'false') {
                 ageBox.innerHTML = `
                     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
-                        <span style="color: var(--text-muted);"><i class="fa-solid fa-cake-candles"></i> معلومات العمر مخفية</span>
-                        <button type="button" id="show-age-dash-btn" style="background: none; border: none; color: var(--primary); font-weight: 600; font-size: 0.82rem; cursor: pointer;">عرض عمري</button>
+                        <span style="color: var(--color-text-secondary);"><i class="fa-solid fa-cake-candles"></i> معلومات العمر مخفية</span>
+                        <button type="button" id="show-age-dash-btn" style="background: none; border: none; color: var(--color-primary); font-weight: 600; font-size: 0.82rem; cursor: pointer;">عرض عمري</button>
                     </div>
                 `;
                 calCard.appendChild(ageBox);
@@ -745,10 +695,10 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 ageBox.innerHTML = `
                     <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <span><i class="fa-solid fa-circle-question" style="color:var(--primary);"></i> هل تريد عرض عمرك في الملخص اليومي؟</span>
+                        <span>هل تريد عرض عمرك في الملخص اليومي؟</span>
                         <div style="display: flex; gap: 0.5rem;">
-                            <button type="button" id="accept-show-age-btn" class="btn btn-primary" style="padding: 0.3rem 0.75rem; font-size: 0.82rem;">عرض عمري</button>
-                            <button type="button" id="decline-show-age-btn" class="btn btn-outline" style="padding: 0.3rem 0.75rem; font-size: 0.82rem;">ليس الآن</button>
+                            <button type="button" id="accept-show-age-btn" class="btn btn-primary btn-sm">عرض عمري</button>
+                            <button type="button" id="decline-show-age-btn" class="btn btn-secondary btn-sm">ليس الآن</button>
                         </div>
                     </div>
                 `;
@@ -771,204 +721,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }, 0);
             }
-        } else {
-            ageBox.innerHTML = `
-                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
-                    <span style="color: var(--text-muted);"><i class="fa-solid fa-cake-candles"></i> لم تقم بإدخال تاريخ ميلادك بعد</span>
-                    <a href="calculator.html" style="color: var(--primary); font-weight: 600; text-decoration: none; font-size: 0.85rem;">أضف تاريخ ميلادك</a>
-                </div>
-            `;
-            calCard.appendChild(ageBox);
         }
-
         content.appendChild(calCard);
     }
 
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    }
-
-    // ==========================================
-    // قسم 4: «ماذا أنجزت؟» — Dashboard Stats (اتساق رياضي تام)
-    // ==========================================
-    const stats = document.createElement('div');
-    stats.className = 'dash-stats';
-
-    function makeStat(icon, value, label, sublabel, link) {
-        const el = link ? document.createElement('a') : document.createElement('div');
-        if (link) {
-            el.href = link;
-            el.className = 'dash-stat dash-stat-link';
-        } else {
-            el.className = 'dash-stat';
-        }
-        const ic = document.createElement('i');
-        ic.className = icon;
-        ic.setAttribute('aria-hidden', 'true');
-        const val = document.createElement('strong');
-        val.textContent = String(value);
-        const lab = document.createElement('span');
-        lab.textContent = label;
-        el.appendChild(ic);
-        el.appendChild(val);
-        el.appendChild(lab);
-        if (sublabel) {
-            const sub = document.createElement('small');
-            sub.style.cssText = 'font-size:0.75rem; color:var(--text-muted); display:block; margin-top:2px;';
-            sub.textContent = sublabel;
-            el.appendChild(sub);
-        }
-        return el;
-    }
-
-    stats.appendChild(makeStat('fa-solid fa-clock', sessionsToday, 'جلسات اليوم', null, 'pomodoro.html'));
-    stats.appendChild(makeStat('fa-solid fa-hourglass-half', timeText, 'تركيز اليوم', null, 'pomodoro.html'));
-    stats.appendChild(makeStat('fa-solid fa-circle-check', completedToday, 'أنجزت اليوم', `إجمالي المنجز: ${completedAll}`, 'todo.html'));
-    stats.appendChild(makeStat('fa-solid fa-list-check', activeTodos.length, 'المهام المتبقية', overdueTodos.length > 0 ? `متأخرة: ${overdueTodos.length}` : null, 'todo.html'));
-
-    content.appendChild(stats);
-
-    // ملخص اليوم النظري الإجرائي
-    const dayBits = [];
-    if (sessionsToday > 0) dayBits.push(sessionsToday + ' جلسة تركيز');
-    if (focusMinutes > 0) dayBits.push(timeText + ' تركيز');
-    dayBits.push(completedToday + ' مهمة منجزة اليوم');
-    if (habits.length > 0) dayBits.push(habitsDoneToday + '/' + habits.length + ' عادات');
-    if (dayBits.length > 0) {
-        const daySum = document.createElement('p');
-        daySum.className = 'dash-day-summary';
-        daySum.textContent = 'ملخص اليوم: ' + dayBits.join(' · ');
-        content.appendChild(daySum);
-    }
-
-    // تنبيه بالمهام المتأخرة / المستحقة
-    if (overdueTodos.length > 0 || dueTodayTodos.length > 0) {
-        const alertBox = document.createElement('div');
-        alertBox.className = 'dash-alert';
-        if (overdueTodos.length > 0) {
-            alertBox.classList.add('warn');
-            alertBox.innerHTML =
-                '<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> ' +
-                '<span>لديك <strong>' + overdueTodos.length + '</strong> مهمة متأخرة عن موعدها</span>';
-        } else {
-            alertBox.innerHTML =
-                '<i class="fa-solid fa-calendar-day" aria-hidden="true"></i> ' +
-                '<span><strong>' + dueTodayTodos.length + '</strong> مهمة مستحقة اليوم</span>';
-        }
-        const alertLink = document.createElement('a');
-        alertLink.href = 'todo.html';
-        alertLink.textContent = 'عرض في المهام';
-        alertBox.appendChild(alertLink);
-        content.appendChild(alertBox);
-    }
-
-    // ==========================================
-    // قسم 5: مهام أخرى مناسبة
-    // ==========================================
-    const moreTasks = nextTasks.slice(1);
-    const tasksSection = document.createElement('div');
-    tasksSection.className = 'dash-section';
-
-    const tasksHead = document.createElement('div');
-    tasksHead.className = 'dash-section-head';
-    const tasksTitle = document.createElement('h4');
-    tasksTitle.textContent = moreTasks.length > 0 ? 'مهام أخرى مناسبة' : 'المهام';
-    const tasksAll = document.createElement('a');
-    tasksAll.href = 'todo.html';
-    tasksAll.textContent = 'عرض الكل (' + activeTodos.length + ')';
-    tasksHead.appendChild(tasksTitle);
-    tasksHead.appendChild(tasksAll);
-    tasksSection.appendChild(tasksHead);
-
-    if (nextTasks.length === 0) {
-        const empty = document.createElement('p');
-        empty.className = 'dash-empty';
-        empty.textContent = 'لا توجد مهام نشطة — ';
-        const addLink = document.createElement('a');
-        addLink.href = 'todo.html';
-        addLink.textContent = 'أضف مهمة';
-        empty.appendChild(addLink);
-        tasksSection.appendChild(empty);
-        content.appendChild(tasksSection);
-    } else if (moreTasks.length > 0) {
-        const list = document.createElement('ul');
-        list.className = 'dash-task-list';
-
-        moreTasks.forEach((task) => {
-            const realIndex = todos.indexOf(task);
-            const li = document.createElement('li');
-            li.className = 'dash-task-item';
-
-            const info = document.createElement('div');
-            info.className = 'dash-task-info';
-
-            const name = document.createElement('span');
-            name.className = 'dash-task-name';
-            name.textContent = task.text;
-
-            const meta = document.createElement('span');
-            meta.className = 'dash-task-meta';
-            let metaText = priMap[task.priority] || '';
-            if (task.subjectId && typeof hayyizGetSubjectName === 'function') {
-                const sn = hayyizGetSubjectName(task.subjectId);
-                if (sn) metaText += (metaText ? ' · ' : '') + sn;
-            }
-            if (task.minutes) {
-                const done = task.focusDone ? parseInt(task.focusDone, 10) || 0 : 0;
-                const total = parseInt(task.minutes, 10) || 0;
-                if (done > 0 && total > 0) {
-                    metaText += (metaText ? ' · ' : '') + done + '/' + total + ' د';
-                } else {
-                    metaText += (metaText ? ' · ' : '') + task.minutes + ' د';
-                }
-            }
-            if (task.date) {
-                const d = String(task.date).slice(0, 10);
-                if (d < today) metaText += (metaText ? ' · ' : '') + 'متأخرة';
-                else if (d === today) metaText += (metaText ? ' · ' : '') + 'اليوم';
-                else metaText += (metaText ? ' · ' : '') + d;
-            }
-            meta.textContent = metaText;
-
-            info.appendChild(name);
-            info.appendChild(meta);
-
-            const pomoBtn = document.createElement('button');
-            pomoBtn.type = 'button';
-            pomoBtn.className = 'dash-pomo-btn';
-            pomoBtn.title = 'ابدأ تركيز';
-            pomoBtn.setAttribute('aria-label', 'ابدأ جلسة تركيز على ' + task.text);
-            pomoBtn.innerHTML = '<i class="fa-solid fa-play" aria-hidden="true"></i>';
-            pomoBtn.addEventListener('click', () => {
-                launchPomodoroForTask(task, realIndex);
-            });
-
-            li.appendChild(info);
-            li.appendChild(pomoBtn);
-            list.appendChild(li);
-        });
-
-        tasksSection.appendChild(list);
-        content.appendChild(tasksSection);
-    }
-
-    // ==========================================
-    // قسم 6: عادات اليوم
-    // ==========================================
+    // هـ) العادات اليومية (Habits Progress)
     const habitsCard = document.createElement('a');
-    habitsCard.className = 'dash-card dash-habits-card';
+    habitsCard.className = 'dash-card card dash-habits-card';
     habitsCard.href = 'habits.html';
 
     const habitsHead = document.createElement('div');
     habitsHead.className = 'dash-section-head';
     const habitsTitle = document.createElement('h4');
-    habitsTitle.innerHTML = '<i class="fa-solid fa-fire" aria-hidden="true" style="color:var(--primary);"></i> العادات';
+    habitsTitle.innerHTML = '<i class="fa-solid fa-fire" aria-hidden="true" style="color:var(--color-primary);"></i> العادات الدراسية';
     const habitsAction = document.createElement('span');
     habitsAction.textContent = habits.length > 0 ? 'عرض العادات' : 'أضف عادة';
     habitsHead.appendChild(habitsTitle);
@@ -993,18 +758,9 @@ document.addEventListener('DOMContentLoaded', () => {
     habitsProgWrap.appendChild(habitsProg);
     habitsCard.appendChild(habitsProgWrap);
 
-    const habitsNote = document.createElement('p');
-    habitsNote.className = 'dash-habits-note';
-    habitsNote.textContent = habits.length > 0
-        ? 'المتبقي اليوم: ' + habitTodaySummary.remaining + ' عادة'
-        : 'لا توجد عادات بعد. ابدأ بعادة دراسية واحدة بسيطة.';
-    habitsCard.appendChild(habitsNote);
-
     content.appendChild(habitsCard);
 
-    // ==========================================
-    // قسم 7: «كيف وزعت وقتي؟» — Weekly Focus Statistics
-    // ==========================================
+    // و) تركيز الأسبوع والإحصائيات الخاصة بالمواد (Weekly Focus & Subjects Breakdown)
     try {
         const hist = JSON.parse(localStorage.getItem('hayyiz-focus-history') || '{}');
         if (focusMinutes > 0) {
@@ -1012,11 +768,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const dayNames = ['الاحد', 'الاثنين', 'الثلاثاء', 'الاربعاء', 'الخميس', 'الجمعة', 'السبت'];
         const weekSection = document.createElement('div');
-        weekSection.className = 'dash-section';
+        weekSection.className = 'dash-section card';
+
         const weekHead = document.createElement('div');
         weekHead.className = 'dash-section-head';
         const weekTitle = document.createElement('h4');
-        weekTitle.textContent = 'تركيز الأسبوع';
+        weekTitle.innerHTML = '<i class="fa-solid fa-chart-column" aria-hidden="true" style="color:var(--color-primary);"></i> تركيز الأسبوع';
         weekHead.appendChild(weekTitle);
         weekSection.appendChild(weekHead);
 
@@ -1059,38 +816,32 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         weekSection.appendChild(bars);
 
-        // إحصائيات توزيع وقت المذاكرة حسب المواد هذا الأسبوع
+        // إحصائيات توزيع وقت المذاكرة حسب المواد هذا الأسبوع (Safely rendered textContent)
         if (typeof hayyizGetWeeklySubjectStats === 'function') {
             const subStats = hayyizGetWeeklySubjectStats();
             const grandTotal = Math.max(subStats.totalMinutes, totalWeekMinutesFromHist);
 
             if (grandTotal > 0 || subStats.subjects.length > 0) {
                 const subBox = document.createElement('div');
-                subBox.style.cssText = 'margin-top: 1rem; padding-top: 0.85rem; border-top: 1px solid var(--border);';
-
-                const summaryTotalP = document.createElement('p');
-                summaryTotalP.style.cssText = 'margin: 0 0 0.6rem; font-size: 0.9rem; font-weight: 600; color: var(--text);';
-                summaryTotalP.innerHTML = `<i class="fa-solid fa-chart-pie" aria-hidden="true" style="color:var(--primary);"></i> إجمالي التركيز هذا الأسبوع: <strong>${grandTotal} دقيقة</strong>`;
-                subBox.appendChild(summaryTotalP);
+                subBox.style.cssText = 'margin-top: 1rem; padding-top: 0.85rem; border-top: 1px solid var(--color-border);';
 
                 if (subStats.subjects.length > 0) {
                     const topSub = subStats.subjects[0];
                     const insightP = document.createElement('p');
-                    insightP.style.cssText = 'margin: 0 0 0.6rem; font-size: 0.88rem; color: var(--text-muted);';
-                    insightP.innerHTML = `قضيت <strong>${topSub.percentage}%</strong> من وقت مذاكرتك الموزّع على المواد هذا الأسبوع على <strong>${escapeHtml(topSub.name)}</strong> (${topSub.minutes} دقيقة).`;
+                    insightP.style.cssText = 'margin: 0 0 0.6rem; font-size: 0.88rem; color: var(--color-text-secondary);';
+                    insightP.textContent = `قضيت ${topSub.percentage}% من وقت مذاكرتك الموزّع على المواد هذا الأسبوع على ${topSub.name} (${topSub.minutes} دقيقة).`;
                     subBox.appendChild(insightP);
 
                     const subList = document.createElement('div');
                     subList.style.cssText = 'display: flex; flex-wrap: wrap; gap: 0.5rem;';
                     subStats.subjects.forEach((s) => {
                         const tag = document.createElement('span');
-                        tag.style.cssText = 'font-size: 0.8rem; padding: 0.25rem 0.65rem; background: var(--bg); border: 1px solid var(--border); border-radius: 20px; color: var(--text);';
+                        tag.className = 'dash-subject-tag';
                         tag.textContent = `${s.name}: ${s.percentage}% — ${s.minutes} دقيقة`;
                         subList.appendChild(tag);
                     });
                     subBox.appendChild(subList);
                 }
-
                 weekSection.appendChild(subBox);
             }
         }
@@ -1101,29 +852,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================
-    // قسم 8: اختصارات سريعة
+    // 5. الأدوات (Tools Quick Grid)
     // ==========================================
+    const quickSection = document.createElement('div');
+    quickSection.className = 'dash-section';
+
+    const quickHead = document.createElement('div');
+    quickHead.className = 'dash-section-head';
+    const quickTitle = document.createElement('h4');
+    quickTitle.textContent = 'أدوات حيز';
+    quickHead.appendChild(quickTitle);
+    quickSection.appendChild(quickHead);
+
     const quick = document.createElement('div');
     quick.className = 'dash-quick';
 
     const shortcuts = [
-        { href: 'pomodoro.html', icon: 'fa-solid fa-clock', label: 'مؤقت' },
-        { href: 'todo.html', icon: 'fa-solid fa-list-check', label: 'مهام' },
-        { href: 'notes.html', icon: 'fa-solid fa-note-sticky', label: 'ملاحظات' },
-        { href: 'gpa.html', icon: 'fa-solid fa-calculator', label: 'معدل' },
-        { href: 'habits.html', icon: 'fa-solid fa-fire', label: 'عادات' },
-        { href: 'game.html', icon: 'fa-solid fa-gamepad', label: 'لعبة' }
+        { href: 'pomodoro.html', icon: 'fa-solid fa-stopwatch', label: 'المؤقت' },
+        { href: 'todo.html', icon: 'fa-solid fa-list-check', label: 'المهام' },
+        { href: 'notes.html', icon: 'fa-solid fa-note-sticky', label: 'الملاحظات' },
+        { href: 'gpa.html', icon: 'fa-solid fa-calculator', label: 'المعدل' },
+        { href: 'habits.html', icon: 'fa-solid fa-fire', label: 'العادات' },
+        { href: 'calculator.html', icon: 'fa-solid fa-calendar-days', label: 'التقويم' }
     ];
 
     shortcuts.forEach((s) => {
         const a = document.createElement('a');
         a.href = s.href;
         a.className = 'dash-quick-item';
-        a.innerHTML =
-            '<i class="' + s.icon + '" aria-hidden="true"></i><span>' + s.label + '</span>';
+        a.innerHTML = `<i class="${s.icon}" aria-hidden="true"></i><span>${s.label}</span>`;
         quick.appendChild(a);
     });
-    content.appendChild(quick);
+    quickSection.appendChild(quick);
+    content.appendChild(quickSection);
 
     const startBtn = document.getElementById('start-focus-session-btn');
     if (startBtn) {
