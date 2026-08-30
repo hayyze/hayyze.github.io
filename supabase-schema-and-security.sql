@@ -155,6 +155,9 @@ CREATE TABLE IF NOT EXISTS private.rate_limits (
     expires_at TIMESTAMPTZ NOT NULL
 );
 
+-- ENABLE RLS ON PRIVATE RATE LIMITS TABLE (FAILS CLOSED FOR DIRECT CLIENT API QUERIES)
+ALTER TABLE private.rate_limits ENABLE ROW LEVEL SECURITY;
+
 CREATE INDEX IF NOT EXISTS idx_rate_limits_expires ON private.rate_limits (expires_at);
 
 CREATE OR REPLACE FUNCTION private.check_rate_limit(
@@ -373,6 +376,7 @@ CREATE INDEX IF NOT EXISTS idx_focus_sessions_workspace ON public.focus_sessions
 CREATE OR REPLACE FUNCTION public.is_workspace_member(p_workspace_id UUID, p_user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
+STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $$
@@ -385,6 +389,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.is_workspace_owner(p_workspace_id UUID, p_user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
+STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $$
@@ -400,6 +405,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.is_task_member(p_task_id UUID, p_user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
+STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $$
@@ -412,6 +418,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.can_view_task(p_task_id UUID, p_user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
+STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $$
@@ -503,12 +510,14 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
+DECLARE
+    v_email TEXT := COALESCE(NEW.email, '');
 BEGIN
     INSERT INTO public.profiles (id, email, display_name, updated_at)
     VALUES (
         NEW.id,
-        NEW.email,
-        COALESCE(NEW.raw_user_meta_data->>'display_name', split_part(NEW.email, '@', 1)),
+        v_email,
+        COALESCE(NEW.raw_user_meta_data->>'display_name', NULLIF(split_part(v_email, '@', 1), ''), 'طالب'),
         NOW()
     )
     ON CONFLICT (id) DO UPDATE
@@ -1075,6 +1084,7 @@ WITH CHECK (user_id = auth.uid());
 -- =============================================================================
 
 -- Revoke execution rights on internal helper functions from PUBLIC, anon, AND authenticated
+REVOKE ALL ON FUNCTION public.check_sync_item_limits() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.is_workspace_member(UUID, UUID) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.is_workspace_owner(UUID, UUID) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.is_task_member(UUID, UUID) FROM PUBLIC, anon, authenticated;
