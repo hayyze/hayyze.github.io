@@ -562,7 +562,10 @@ BEGIN
             RAISE EXCEPTION 'Invalid scope "me": workspace_id must be null.' USING ERRCODE = '22023';
         END IF;
     ELSIF p_scope = 'specific_users' THEN
-        IF p_workspace_id IS NOT NULL AND NOT public.is_workspace_member(p_workspace_id, v_creator_id) THEN
+        IF p_workspace_id IS NULL THEN
+            RAISE EXCEPTION 'Invalid specific_users scope: workspace_id is required.' USING ERRCODE = '22023';
+        END IF;
+        IF NOT public.is_workspace_member(p_workspace_id, v_creator_id) THEN
             RAISE EXCEPTION 'Unauthorized: Creator is not a member of specified workspace.' USING ERRCODE = '42501';
         END IF;
     END IF;
@@ -817,6 +820,7 @@ CREATE TABLE IF NOT EXISTS public.tasks (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_task_scope_workspace CHECK ((scope = 'workspace' AND workspace_id IS NOT NULL) OR (scope <> 'workspace')),
+    CONSTRAINT chk_task_scope_specific CHECK ((scope = 'specific_users' AND workspace_id IS NOT NULL) OR (scope <> 'specific_users')),
     CONSTRAINT chk_task_scope_me CHECK ((scope = 'me' AND workspace_id IS NULL) OR (scope <> 'me'))
 );
 
@@ -994,7 +998,8 @@ CREATE TABLE IF NOT EXISTS public.focus_sessions (
     started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     ended_at TIMESTAMPTZ NULL,
     duration_seconds INT NOT NULL DEFAULT 0 CHECK (duration_seconds >= 0 AND duration_seconds <= 86400),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_focus_session_timestamps CHECK (ended_at IS NULL OR ended_at >= started_at)
 );
 
 ALTER TABLE public.focus_sessions ENABLE ROW LEVEL SECURITY;

@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-console.log('=== RUNNING RIGOROUS HAYYIZ WORKSPACES & SYNCHRONIZED TASKS TEST SUITE (28 SCENARIOS) ===\n');
+console.log('=== RUNNING RIGOROUS HAYYIZ WORKSPACES & SYNCHRONIZED TASKS TEST SUITE (30 SCENARIOS) ===\n');
 
 let passed = 0;
 let failed = 0;
@@ -97,6 +97,9 @@ class SupabaseDbMock {
 
         if (scope === 'workspace' && !workspace_id) {
             throw new Error('22023: Workspace ID is required for workspace scope');
+        }
+        if (scope === 'specific_users' && !workspace_id) {
+            throw new Error('22023: Workspace ID is required for specific_users scope');
         }
         if (scope === 'me' && workspace_id) {
             throw new Error('22023: Workspace ID must be null for me scope');
@@ -686,8 +689,44 @@ let ws = null;
     assert(collabFallbackFailed && collabTask.completed === initialCompletedState, '28. Collaborative task completion state remains uncorrupted when RPC fails');
 }
 
+// Scenario 29: specific_users scope strictly requires workspace_id at DB/RPC level
+{
+    let specNullWsFailed = false;
+    try {
+        // specific_users with null workspace_id should fail
+        db.createSynchronizedTaskRPC(user1, {
+            title: 'مهمة بدون مساحة مخصصة',
+            scope: 'specific_users',
+            workspace_id: null,
+            recipientUserIds: [user2.id]
+        });
+    } catch (e) {
+        specNullWsFailed = e.message.includes('Workspace ID is required') || e.message.includes('22023');
+    }
+
+    assert(specNullWsFailed, '29. Task creation with scope = specific_users and null workspace_id is strictly rejected at DB/RPC level');
+}
+
+// Scenario 30: Recipient DevTools tampering with non-workspace member is strictly blocked
+{
+    let tamperingBlocked = false;
+    try {
+        // user3 is not in workspace ws
+        db.createSynchronizedTaskRPC(user1, {
+            title: 'تلاعب بالصلاحيات',
+            scope: 'specific_users',
+            workspace_id: ws.id,
+            recipientUserIds: [user3.id]
+        });
+    } catch (e) {
+        tamperingBlocked = e.message.includes('Invalid recipient') || e.message.includes('42501');
+    }
+
+    assert(tamperingBlocked, '30. Recipient DevTools tampering with non-workspace member is strictly blocked by DB RPC validation');
+}
+
 console.log(`\n===================================`);
-console.log(`WORKSPACES 28-SCENARIO TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
+console.log(`WORKSPACES 30-SCENARIO TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);
 
 if (failed > 0) process.exit(1);

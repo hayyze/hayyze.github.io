@@ -265,22 +265,22 @@
             const client = await getSupabase();
             if (!client || !currentUser) return;
 
-            // 1. Fetch User Workspaces
+            // 1. Fetch User Workspaces (Selected Columns)
             const { data: wsData, error: wsError } = await client
                 .from('workspaces')
-                .select('*')
+                .select('id, name, description, created_by, created_at')
                 .order('created_at', { ascending: false });
 
             if (!wsError && wsData) {
                 workspacesCache = wsData;
             }
 
-            // 2. Fetch Workspace Members & Profiles
+            // 2. Fetch Workspace Members & Profiles (Omit emails to protect privacy)
             if (workspacesCache.length > 0) {
                 const wsIds = workspacesCache.map(w => w.id);
                 const { data: wm = [] } = await client
                     .from('workspace_members')
-                    .select('workspace_id, user_id, role, created_at, profiles(id, email, display_name)')
+                    .select('workspace_id, user_id, role, created_at, profiles(id, display_name)')
                     .in('workspace_id', wsIds);
 
                 workspaceMembersCache = {};
@@ -289,16 +289,15 @@
                     workspaceMembersCache[m.workspace_id].push({
                         user_id: m.user_id,
                         role: m.role,
-                        email: m.profiles ? m.profiles.email : 'مستخدم',
-                        display_name: m.profiles ? (m.profiles.display_name || m.profiles.email) : 'مستخدم'
+                        display_name: m.profiles ? (m.profiles.display_name || 'عضو') : 'عضو'
                     });
                 });
             }
 
-            // 3. Fetch Permitted Tasks
+            // 3. Fetch Permitted Tasks (Selected Columns)
             const { data: taskData, error: taskError } = await client
                 .from('tasks')
-                .select('*')
+                .select('id, creator_id, workspace_id, title, description, scope, completion_mode, due_date, completed, completed_at, created_at')
                 .order('created_at', { ascending: false });
 
             if (!taskError && taskData) {
@@ -311,7 +310,7 @@
 
                 const { data: tm = [] } = await client
                     .from('task_members')
-                    .select('task_id, user_id, role, profiles(id, email, display_name)')
+                    .select('task_id, user_id, role, profiles(id, display_name)')
                     .in('task_id', taskIds);
 
                 taskMembersCache = {};
@@ -320,14 +319,13 @@
                     taskMembersCache[m.task_id].push({
                         user_id: m.user_id,
                         role: m.role,
-                        email: m.profiles ? m.profiles.email : 'مستخدم',
-                        display_name: m.profiles ? (m.profiles.display_name || m.profiles.email) : 'مستخدم'
+                        display_name: m.profiles ? (m.profiles.display_name || 'عضو') : 'عضو'
                     });
                 });
 
                 const { data: tp = [] } = await client
                     .from('task_progress')
-                    .select('*')
+                    .select('task_id, user_id, completed, completed_at, updated_at')
                     .in('task_id', taskIds);
 
                 taskProgressCache = {};
@@ -337,11 +335,11 @@
                 });
             }
 
-            // 5. Optimized Focus Sessions Query: fetch recent 7 days only
+            // 5. Optimized Focus Sessions Query: fetch recent 7 days with specific columns
             const startOfWeekIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
             const { data: fsData } = await client
                 .from('focus_sessions')
-                .select('*')
+                .select('id, user_id, task_id, workspace_id, duration_seconds, started_at, created_at')
                 .gte('created_at', startOfWeekIso)
                 .order('created_at', { ascending: false });
 
@@ -968,7 +966,7 @@
                 if (!title) return;
 
                 try {
-                    await createWorkspaceTask({
+                    const createdTask = await createWorkspaceTask({
                         title,
                         description,
                         scope,
@@ -980,7 +978,14 @@
 
                     formCreateTask.reset();
                     $('modal-create-task').classList.add('hidden');
-                    await loadAllWorkspaceData();
+                    // Incremental local update without full workspace reload
+                    if (createdTask && !tasksCache.some(t => t.id === createdTask.id)) {
+                        tasksCache.unshift(createdTask);
+                        renderTasksList();
+                        renderActiveWorkspaceHeader();
+                    } else {
+                        await loadAllWorkspaceData();
+                    }
                 } catch (err) {
                     alert('حدث خطأ أثناء إضافة المهمة: ' + (err.message || ''));
                 }
@@ -989,22 +994,33 @@
 
         // Scope Selector Change Logic
         const scopeSelect = $('task-scope-select');
+        const wsSelect = $('task-workspace-select');
+
         if (scopeSelect) {
             scopeSelect.addEventListener('change', () => {
                 const val = scopeSelect.value;
                 const wsGroup = $('workspace-select-group');
                 const usersGroup = $('specific-users-group');
 
-                if (val === 'workspace') {
+                if (val === 'workspace' || val === 'specific_users') {
                     if (wsGroup) wsGroup.style.display = 'block';
-                    if (usersGroup) usersGroup.classList.add('hidden');
-                } else if (val === 'specific_users') {
-                    if (wsGroup) wsGroup.style.display = 'none';
-                    if (usersGroup) usersGroup.classList.remove('hidden');
-                    populateSpecificUsersList();
+                    if (val === 'specific_users') {
+                        if (usersGroup) usersGroup.classList.remove('hidden');
+                        populateSpecificUsersList();
+                    } else {
+                        if (usersGroup) usersGroup.classList.add('hidden');
+                    }
                 } else {
                     if (wsGroup) wsGroup.style.display = 'none';
                     if (usersGroup) usersGroup.classList.add('hidden');
+                }
+            });
+        }
+
+        if (wsSelect) {
+            wsSelect.addEventListener('change', () => {
+                if (scopeSelect && scopeSelect.value === 'specific_users') {
+                    populateSpecificUsersList();
                 }
             });
         }
@@ -1026,28 +1042,23 @@
      */
     function populateSpecificUsersList() {
         const listEl = $('members-checkboxes-list');
+        const wsSelect = $('task-workspace-select');
         if (!listEl) return;
 
         listEl.innerHTML = '';
 
-        let membersToDisplay = [];
-        if (activeWorkspaceId !== 'all') {
-            membersToDisplay = workspaceMembersCache[activeWorkspaceId] || [];
-        } else {
-            // Aggregate all members across workspaces
-            const seen = new Set();
-            Object.values(workspaceMembersCache).flat().forEach(m => {
-                if (!seen.has(m.user_id)) {
-                    seen.add(m.user_id);
-                    membersToDisplay.push(m);
-                }
-            });
+        const selectedWsId = wsSelect ? wsSelect.value : (activeWorkspaceId !== 'all' ? activeWorkspaceId : null);
+
+        if (!selectedWsId) {
+            listEl.innerHTML = '<span style="font-size:0.85rem; color: var(--text-muted);">يرجى اختيار مساحة أولاً لاختيار المستلمين منها.</span>';
+            return;
         }
 
+        const membersToDisplay = workspaceMembersCache[selectedWsId] || [];
         const otherMembers = membersToDisplay.filter(m => currentUser && m.user_id !== currentUser.id);
 
         if (otherMembers.length === 0) {
-            listEl.innerHTML = '<span style="font-size:0.85rem; color: var(--text-muted);">لا يوجد أعضاء آخرون في المساحات الحالية. قم بدعوة أعضاء أولاً.</span>';
+            listEl.innerHTML = '<span style="font-size:0.85rem; color: var(--text-muted);">لا يوجد أعضاء آخرون في هذه المساحة. قم بدعوة أعضاء للمساحة أولاً.</span>';
             return;
         }
 
@@ -1060,7 +1071,7 @@
             chk.value = m.user_id;
 
             label.appendChild(chk);
-            label.appendChild(document.createTextNode(m.display_name + ' (' + m.email + ')'));
+            label.appendChild(document.createTextNode(m.display_name));
             listEl.appendChild(label);
         });
     }
