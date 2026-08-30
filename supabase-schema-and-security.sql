@@ -1101,9 +1101,19 @@ GRANT EXECUTE ON FUNCTION public.cleanup_old_tombstones(INT) TO service_role;
 -- =============================================================================
 
 DO $$
+DECLARE
+    t_name TEXT;
+    t_array TEXT[] := ARRAY['workspaces', 'workspace_members', 'tasks', 'task_members', 'task_progress', 'focus_sessions'];
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.workspaces, public.workspace_members, public.tasks, public.task_members, public.task_progress, public.focus_sessions;
+        FOREACH t_name IN ARRAY t_array LOOP
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_publication_tables
+                WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t_name
+            ) THEN
+                EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t_name);
+            END IF;
+        END LOOP;
     END IF;
 EXCEPTION WHEN OTHERS THEN
     NULL;
