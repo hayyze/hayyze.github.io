@@ -155,6 +155,8 @@ CREATE TABLE IF NOT EXISTS private.rate_limits (
     expires_at TIMESTAMPTZ NOT NULL
 );
 
+ALTER TABLE private.rate_limits ENABLE ROW LEVEL SECURITY;
+
 CREATE INDEX IF NOT EXISTS idx_rate_limits_expires ON private.rate_limits (expires_at);
 
 CREATE OR REPLACE FUNCTION private.check_rate_limit(
