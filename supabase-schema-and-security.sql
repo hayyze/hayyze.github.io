@@ -78,9 +78,12 @@ BEGIN
     tool_val := COALESCE(NEW.tool, OLD.tool);
     item_id_val := COALESCE(NEW.item_id, OLD.item_id);
 
-    IF user_id_val IS NULL OR user_id_val <> auth.uid() THEN
-        RAISE EXCEPTION 'Unauthorized: user_id must match authenticated user identity.'
-            USING ERRCODE = '42501';
+    -- Enforce user_id matching for authenticated users, but allow service_role administrative cleanup
+    IF auth.role() <> 'service_role' THEN
+        IF user_id_val IS NULL OR user_id_val <> auth.uid() THEN
+            RAISE EXCEPTION 'Unauthorized: user_id must match authenticated user identity.'
+                USING ERRCODE = '42501';
+        END IF;
     END IF;
 
     IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
@@ -1115,8 +1118,6 @@ BEGIN
             END IF;
         END LOOP;
     END IF;
-EXCEPTION WHEN OTHERS THEN
-    NULL;
 END;
 $$;
 
