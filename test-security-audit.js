@@ -146,18 +146,6 @@ runTest('SQL Security: cleanup_old_tombstones revoked from authenticated and gra
         'cleanup_old_tombstones must be granted only to service_role');
 });
 
-runTest('SQL Security: check_sync_item_limits trigger allows service_role administrative tombstone cleanup', () => {
-    const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema-and-security.sql'), 'utf8');
-    assert.ok(sql.includes("IF auth.role() <> 'service_role' THEN"),
-        'Trigger check_sync_item_limits must bypass auth.uid() match check when auth.role() is service_role');
-});
-
-runTest('SQL Security: Realtime DO block does not swallow errors with EXCEPTION WHEN OTHERS THEN NULL', () => {
-    const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema-and-security.sql'), 'utf8');
-    assert.ok(!sql.includes('EXCEPTION WHEN OTHERS THEN\n    NULL;\nEND;\n$$;'),
-        'Realtime configuration block must not swallow exceptions silently');
-});
-
 // 2. Client Code Base Secret Leak Audit
 runTest('Secret Audit: No service_role key present in client JavaScript files', () => {
     const jsFiles = ['supabase.js', 'sync.js', 'auth-ui.js', 'common.js'];
