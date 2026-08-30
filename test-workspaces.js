@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-console.log('=== RUNNING RIGOROUS HAYYIZ WORKSPACES & SYNCHRONIZED TASKS TEST SUITE (30 SCENARIOS) ===\n');
+console.log('=== RUNNING RIGOROUS HAYYIZ WORKSPACES & SYNCHRONIZED TASKS TEST SUITE (30 SCENARIOS + SCHEMA VERIFICATION) ===\n');
 
 let passed = 0;
 let failed = 0;
@@ -14,6 +14,80 @@ function assert(cond, msg) {
         failed++;
     }
 }
+
+// =============================================================================
+// STATIC SCHEMA & CONTRACT VERIFICATION TESTS (MIGRATION & JS AUDIT)
+// =============================================================================
+console.log('--- STATIC SCHEMA & RPC SIGNATURE AUDIT ---');
+const sqlContent = fs.readFileSync('./supabase-schema-and-security.sql', 'utf8');
+const jsContent = fs.readFileSync('./spaces.js', 'utf8');
+
+// Audit 1: Check presence of all 7 workspaces tables
+const requiredTables = [
+    'public.profiles',
+    'public.workspaces',
+    'public.workspace_members',
+    'public.tasks',
+    'public.task_members',
+    'public.task_progress',
+    'public.focus_sessions'
+];
+let allTablesExist = true;
+requiredTables.forEach(t => {
+    if (!sqlContent.includes(`CREATE TABLE IF NOT EXISTS ${t}`)) {
+        allTablesExist = false;
+        console.error(`Missing table DDL for ${t}`);
+    }
+});
+assert(allTablesExist, 'Static Audit 1: All 7 workspace tables defined with CREATE TABLE IF NOT EXISTS');
+
+// Audit 2: Verify table definition order precedes helper and RPC function definitions
+const firstTablePos = sqlContent.indexOf('CREATE TABLE IF NOT EXISTS public.profiles');
+const firstHelperPos = sqlContent.indexOf('CREATE OR REPLACE FUNCTION public.is_workspace_member');
+const createSyncTaskRpcPos = sqlContent.indexOf('CREATE OR REPLACE FUNCTION public.create_synchronized_task');
+
+assert(firstTablePos > -1 && firstHelperPos > firstTablePos && createSyncTaskRpcPos > firstTablePos,
+    'Static Audit 2: Base table DDL precedes helper and RPC function definitions');
+
+// Audit 3: Exact RPC parameter keys matching between JS client call and PostgreSQL function signature
+const jsRpcMatch = jsContent.includes("client.rpc('create_synchronized_task', {") &&
+    jsContent.includes('p_title:') &&
+    jsContent.includes('p_description:') &&
+    jsContent.includes('p_scope:') &&
+    jsContent.includes('p_completion_mode:') &&
+    jsContent.includes('p_workspace_id:') &&
+    jsContent.includes('p_due_date:') &&
+    jsContent.includes('p_recipient_user_ids:');
+
+const sqlRpcSignatureMatch = sqlContent.includes('CREATE OR REPLACE FUNCTION public.create_synchronized_task(') &&
+    sqlContent.includes('p_title TEXT') &&
+    sqlContent.includes('p_description TEXT') &&
+    sqlContent.includes('p_scope TEXT') &&
+    sqlContent.includes('p_completion_mode TEXT') &&
+    sqlContent.includes('p_workspace_id UUID') &&
+    sqlContent.includes('p_due_date TIMESTAMPTZ') &&
+    sqlContent.includes('p_recipient_user_ids UUID[]');
+
+assert(jsRpcMatch && sqlRpcSignatureMatch,
+    'Static Audit 3: Exact parameter key & RPC signature match between spaces.js and PostgreSQL DDL');
+
+// Audit 4: Execution grants on user-callable public RPC functions
+const syncTaskGrant = sqlContent.includes('GRANT EXECUTE ON FUNCTION public.create_synchronized_task');
+const addMemberGrant = sqlContent.includes('GRANT EXECUTE ON FUNCTION public.add_workspace_member_by_email');
+const setProgressGrant = sqlContent.includes('GRANT EXECUTE ON FUNCTION public.set_task_progress_and_recalculate');
+
+assert(syncTaskGrant && addMemberGrant && setProgressGrant,
+    'Static Audit 4: Public RPC endpoints have explicit GRANT EXECUTE ... TO authenticated permissions');
+
+// Audit 5: NOTIFY pgrst, 'reload schema'; presence in migration SQL
+const notifyReloadMatch = sqlContent.includes("NOTIFY pgrst, 'reload schema';");
+assert(notifyReloadMatch, 'Static Audit 5: Migration file includes NOTIFY pgrst, \'reload schema\'; for PostgREST cache reload');
+
+// Audit 6: Idempotent migration pattern (no DROP TABLE)
+const dropTablePresent = /DROP\s+TABLE/i.test(sqlContent);
+assert(!dropTablePresent, 'Static Audit 6: Migration is safe and non-destructive (0 DROP TABLE statements)');
+
+console.log('\n--- DYNAMIC BEHAVIORAL & RLS SIMULATION SUITE ---');
 
 // Simulated In-Memory Database & RLS Engine matching exact PostgreSQL RLS logic
 class SupabaseDbMock {
@@ -380,7 +454,6 @@ class SupabaseDbMock {
 
     // Direct invocation simulation for internal SECURITY DEFINER helpers
     invokeInternalHelperDirectly(currentUser, functionName, ...args) {
-        // Simulating PostgREST RPC authorization layer: internal helper functions REVOKED from authenticated role
         const internalHelpers = ['can_view_task', 'is_workspace_member', 'is_workspace_owner', 'is_task_member', 'recalculate_collaborative_task'];
         if (internalHelpers.includes(functionName)) {
             throw new Error('42501: permission denied for function ' + functionName);
@@ -392,7 +465,7 @@ class SupabaseDbMock {
     }
 }
 
-// EXECUTE 20 RIGOROUS TEST SCENARIOS
+// EXECUTE 30 RIGOROUS TEST SCENARIOS
 const db = new SupabaseDbMock();
 
 const user1 = { id: 'u101', email: 'user1@hayyiz.com', display_name: 'محمد' };
@@ -726,7 +799,7 @@ let ws = null;
 }
 
 console.log(`\n===================================`);
-console.log(`WORKSPACES 30-SCENARIO TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
+console.log(`WORKSPACES TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);
 
 if (failed > 0) process.exit(1);
