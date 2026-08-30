@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-console.log('=== RUNNING RIGOROUS HAYYIZ WORKSPACES & SYNCHRONIZED TASKS TEST SUITE (26 SCENARIOS) ===\n');
+console.log('=== RUNNING RIGOROUS HAYYIZ WORKSPACES & SYNCHRONIZED TASKS TEST SUITE (28 SCENARIOS) ===\n');
 
 let passed = 0;
 let failed = 0;
@@ -652,8 +652,42 @@ let ws = null;
     assert(atomicFailed && initialTaskCount === finalTaskCount, '26. Atomic RPC rejects non-workspace member recipient and prevents orphan tasks via transaction rollback');
 }
 
+// Scenario 27: Fail-closed task progress update - RPC failure prevents local cache & status mutation
+{
+    let updateFailed = false;
+    let localCacheMutated = false;
+    const initialProgState = db.task_progress.find(p => p.task_id === collabTask.id && p.user_id === user4.id);
+
+    try {
+        // Unpermitted user4 attempting progress update fails
+        db.updateTaskProgress(user4, user4.id, collabTask.id, true);
+    } catch (e) {
+        updateFailed = true;
+    }
+
+    const postProgState = db.task_progress.find(p => p.task_id === collabTask.id && p.user_id === user4.id);
+    localCacheMutated = (postProgState !== initialProgState);
+
+    assert(updateFailed && !localCacheMutated, '27. Task progress update fails closed on RPC error without client-side fallback mutation');
+}
+
+// Scenario 28: Collaborative task cannot be marked completed via fallback writes on RPC failure
+{
+    let collabFallbackFailed = false;
+    const initialCompletedState = collabTask.completed;
+
+    try {
+        // Unauthorized attempt to force completion
+        db.updateTaskProgress(user4, user4.id, collabTask.id, true);
+    } catch (e) {
+        collabFallbackFailed = true;
+    }
+
+    assert(collabFallbackFailed && collabTask.completed === initialCompletedState, '28. Collaborative task completion state remains uncorrupted when RPC fails');
+}
+
 console.log(`\n===================================`);
-console.log(`WORKSPACES 26-SCENARIO TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
+console.log(`WORKSPACES 28-SCENARIO TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);
 
 if (failed > 0) process.exit(1);

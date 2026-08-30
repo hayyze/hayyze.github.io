@@ -130,26 +130,22 @@
         if (!currentUser) throw new Error('يرجى تسجيل الدخول أولاً');
         const client = await getSupabase();
 
-        // Call atomic PostgreSQL RPC function
+        // Call atomic PostgreSQL RPC function set_task_progress_and_recalculate (fail-closed)
         const { data, error } = await client.rpc('set_task_progress_and_recalculate', {
             p_task_id: taskId,
             p_completed: completed
         });
 
         if (error) {
-            // Fallback if RPC not yet deployed in DB
-            const nowIso = new Date().toISOString();
-            const { error: progError } = await client.from('task_progress').upsert({
-                task_id: taskId,
-                user_id: currentUser.id,
-                completed: completed,
-                completed_at: completed ? nowIso : null,
-                updated_at: nowIso
-            });
-            if (progError) throw progError;
+            console.error('Failed to update task progress via RPC set_task_progress_and_recalculate:', error);
+            throw new Error(error.message || 'فشل تحديث حالة المهمة');
         }
 
-        // Update local memory
+        if (!data || !data.success) {
+            throw new Error((data && data.message) || 'تعذر تحديث حالة المهمة');
+        }
+
+        // Update local memory cache strictly AFTER RPC success
         const allProgress = taskProgressCache[taskId] || [];
         let callerProg = allProgress.find(p => p.user_id === currentUser.id);
         if (callerProg) {
@@ -160,9 +156,12 @@
         }
 
         const task = tasksCache.find(t => t.id === taskId);
-        if (task && task.completion_mode === 'collaborative') {
-            const { isFullyCompleted } = calculateCollaborativeTaskProgress(task, allProgress);
-            task.completed = isFullyCompleted;
+        if (task) {
+            if (task.completion_mode === 'collaborative') {
+                task.completed = Boolean(data.is_fully_completed);
+            } else {
+                task.completed = completed;
+            }
         }
     }
 
