@@ -51,12 +51,50 @@ document.addEventListener('DOMContentLoaded', () => {
         icon.className = isDarkNow ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
     }
 
-    // قائمة الجوال
+    // قائمة الجوال والـ Dropdown Interactions
     if (menuToggle && navLinks) {
         menuToggle.addEventListener('click', () => {
             navLinks.classList.toggle('open');
         });
     }
+
+    // Dropdown Accessibility & Keyboard Navigation
+    const dropdownToggles = document.querySelectorAll('.nav-dropdown-toggle');
+    dropdownToggles.forEach(toggle => {
+        const parentDropdown = toggle.closest('.nav-dropdown');
+        if (!parentDropdown) return;
+
+        toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = parentDropdown.classList.contains('open');
+            document.querySelectorAll('.nav-dropdown.open').forEach(d => {
+                if (d !== parentDropdown) d.classList.remove('open');
+            });
+            parentDropdown.classList.toggle('open', !isOpen);
+            toggle.setAttribute('aria-expanded', String(!isOpen));
+        });
+
+        toggle.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggle.click();
+            } else if (e.key === 'Escape') {
+                parentDropdown.classList.remove('open');
+                toggle.setAttribute('aria-expanded', 'false');
+                toggle.focus();
+            }
+        });
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.nav-dropdown')) {
+            document.querySelectorAll('.nav-dropdown.open').forEach(d => {
+                d.classList.remove('open');
+                const t = d.querySelector('.nav-dropdown-toggle');
+                if (t) t.setAttribute('aria-expanded', 'false');
+            });
+        }
+    });
 });
 
 // تسجيل Service Worker لـ PWA

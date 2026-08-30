@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <script>
+        (function(){try{if(localStorage.getItem('hayyiz-theme')==='dark'){document.documentElement.classList.add('theme-dark');}}catch(e){}})();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- سياسة الأمان (CSP) -->
+    <meta http-equiv="Content-Security-Policy"
+      content="default-src 'self';
+               script-src 'self' https://www.googletagmanager.com https://cdn.jsdelivr.net 'unsafe-inline';
+               script-src-elem 'self' https://www.googletagmanager.com https://cdn.jsdelivr.net 'unsafe-inline';
+               style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com 'unsafe-inline';
+               font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:;
+               connect-src 'self'
+                           https://www.google-analytics.com
+                           https://*.google-analytics.com
+                           https://analytics.google.com
+                           https://*.analytics.google.com
+                           https://www.googletagmanager.com
+                           https://dzfdbjnqtgltuguqqdkz.supabase.co
+                           wss://dzfdbjnqtgltuguqqdkz.supabase.co;
+               img-src 'self'
+                        data:
+                        https://www.google-analytics.com
+                        https://*.google-analytics.com
+                        https://www.googletagmanager.com;
+               object-src 'none';
+               frame-ancestors 'none';
+               base-uri 'self';">
+    <!-- إعدادات أمنية إضافية -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <!-- SEO -->
+    <title>المساحات والمهام المتزامنة | حيز</title>
+    <meta name="description" content="نظام المساحات والمهام المتزامنة والتعاونية بين الطلاب في حيز. أنشئ مساحاتك الدراسية وشارك المهام بمرونة مع متابعة التقدم وجلسات التركيز الجماعية.">
+    <meta name="author" content="حيز">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://hayyze.github.io/workspaces.html">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://hayyze.github.io/workspaces.html">
+    <meta property="og:title" content="المساحات والمهام المتزامنة | حيز">
+    <meta property="og:description" content="نظام التعاون والمهام المتزامنة بين الطلاب في حيز.">
+    <meta property="og:image" content="https://hayyze.github.io/android-chrome-512x512.png">
+    <meta property="og:image:width" content="512">
+    <meta property="og:image:height" content="512">
+    <meta property="og:locale" content="ar_SA">
+    <meta property="og:site_name" content="حيز">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="المساحات والمهام المتزامنة | حيز">
+    <meta name="twitter:description" content="نظام التعاون والمهام المتزامنة بين الطلاب في حيز.">
+    <meta name="twitter:image" content="https://hayyze.github.io/android-chrome-512x512.png">
+
+    <!-- الخطوط والأيقونات -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
+    <!-- ملف التنسيقات -->
+    <link rel="stylesheet" href="style.css">
+    <!-- الأيقونات (Favicon) -->
+    <link rel="icon" href="favicon.ico">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="manifest" href="manifest.webmanifest">
+</head>
+<body class="theme-light">
+<header class="navbar">
+    <div class="container nav-container">
+        <a href="index.html" class="logo">
+            <div class="logo-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+            <span class="logo-text">حيز</span>
+        </a>
+        <button class="menu-toggle" id="menu-toggle" aria-label="فتح القائمة"><i class="fa-solid fa-bars"></i></button>
+<nav class="nav-links" id="nav-links">
+    <a href="index.html" class="nav-btn"><i class="fa-solid fa-house" aria-hidden="true"></i> الرئيسية</a>
+
+    <div class="nav-dropdown active">
+        <button type="button" class="nav-dropdown-toggle" aria-expanded="false"><i class="fa-solid fa-toolbox" aria-hidden="true"></i> الأدوات <i class="fa-solid fa-chevron-down" style="font-size: 0.75rem;" aria-hidden="true"></i></button>
+        <div class="nav-dropdown-menu">
+            <a href="pomodoro.html" class="dropdown-item"><i class="fa-solid fa-clock" aria-hidden="true"></i> المؤقت</a>
+            <a href="todo.html" class="dropdown-item"><i class="fa-solid fa-list-check" aria-hidden="true"></i> المهام</a>
+            <a href="workspaces.html" class="dropdown-item active"><i class="fa-solid fa-people-group" aria-hidden="true"></i> المساحات المتزامنة</a>
+            <a href="gpa.html" class="dropdown-item"><i class="fa-solid fa-calculator" aria-hidden="true"></i> حاسبة المعدل</a>
+            <a href="notes.html" class="dropdown-item"><i class="fa-solid fa-note-sticky" aria-hidden="true"></i> الملاحظات</a>
+            <a href="habits.html" class="dropdown-item"><i class="fa-solid fa-fire" aria-hidden="true"></i> العادات</a>
+            <a href="calculator.html" class="dropdown-item"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i> تقويم الطالب</a>
+            <a href="game.html" class="dropdown-item"><i class="fa-solid fa-gamepad" aria-hidden="true"></i> لعبة الحروف</a>
+        </div>
+    </div>
+
+    <a href="blog.html" class="nav-btn"><i class="fa-solid fa-newspaper" aria-hidden="true"></i> المدونة</a>
+
+    <div class="nav-dropdown">
+        <button type="button" class="nav-dropdown-toggle" aria-expanded="false"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> عن حيز <i class="fa-solid fa-chevron-down" style="font-size: 0.75rem;" aria-hidden="true"></i></button>
+        <div class="nav-dropdown-menu">
+            <a href="about.html" class="dropdown-item"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> عن حيز</a>
+            <a href="contact.html" class="dropdown-item"><i class="fa-solid fa-envelope" aria-hidden="true"></i> تواصل معنا</a>
+            <a href="privacy.html" class="dropdown-item"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> سياسة الخصوصية</a>
+            <a href="terms.html" class="dropdown-item"><i class="fa-solid fa-file-contract" aria-hidden="true"></i> شروط الاستخدام</a>
+        </div>
+    </div>
+</nav>
+        <div class="nav-actions">
+            <button id="theme-toggle" class="theme-btn" aria-label="تبديل الوضع الليلي"><i class="fa-solid fa-moon"></i></button>
+        </div>
+    </div>
+</header>
+
+<main class="container main-content">
+    <!-- Unauthenticated Banner -->
+    <div id="workspace-guest-banner" class="card hidden" style="margin-bottom: 1.5rem; text-align: center; border-right: 4px solid var(--primary);">
+        <div class="card-body">
+            <h3 style="margin-bottom: 0.5rem;"><i class="fa-solid fa-user-lock" style="color: var(--primary);"></i> سجل دخولك للوصول إلى المساحات المتزامنة</h3>
+            <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1rem;">نظام المساحات يتيح لك مشاركة المهام ومتابعة التقدم والتركيز الجماعي مع زملائك عبر Supabase.</p>
+            <button type="button" class="btn btn-primary" onclick="if(typeof hayyizOpenAuthModal==='function') hayyizOpenAuthModal('login');">
+                <i class="fa-solid fa-right-to-bracket"></i> تسجيل الدخول / حساب جديد
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Spaces Container -->
+    <div id="spaces-app-container">
+        <!-- Workspaces Header / Action Bar -->
+        <div class="card" style="margin-bottom: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h1 style="font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 0.6rem;">
+                        <i class="fa-solid fa-people-group" style="color: var(--primary);"></i> المساحات والمهام المتزامنة
+                    </h1>
+                    <p style="color: var(--text-muted); margin: 0.3rem 0 0; font-size: 0.92rem;">نظام تعاوني لمشاركة المهام، تتبع الإنجاز المستقل والتعاوني، وتركيز الفريق</p>
+                </div>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button type="button" id="btn-create-workspace" class="btn btn-primary">
+                        <i class="fa-solid fa-plus"></i> مساحة جديدة
+                    </button>
+                    <button type="button" id="btn-create-task" class="btn btn-secondary">
+                        <i class="fa-solid fa-plus-node"></i> إضافة مهمة متزامنة
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Focus Statistics Dashboard Panel -->
+        <div id="workspace-focus-stats-panel" class="card" style="margin-bottom: 1.5rem; background: var(--surface);">
+            <div class="section-header" style="margin-bottom: 0.75rem;">
+                <h2><i class="fa-solid fa-chart-line" style="color: var(--primary);"></i> إحصائيات التركيز والمتزامنة</h2>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;" id="stats-cards-grid">
+                <div class="card" style="padding: 1rem; text-align: center; background: var(--bg);">
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.3rem;"><i class="fa-solid fa-clock"></i> تركيزي اليوم</div>
+                    <div id="stat-today-focus" style="font-size: 1.3rem; font-weight: 700; color: var(--primary);">0د</div>
+                </div>
+                <div class="card" style="padding: 1rem; text-align: center; background: var(--bg);">
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.3rem;"><i class="fa-solid fa-calendar-week"></i> تركيز هذا الأسبوع</div>
+                    <div id="stat-week-focus" style="font-size: 1.3rem; font-weight: 700; color: var(--primary);">0د</div>
+                </div>
+                <div class="card" style="padding: 1rem; text-align: center; background: var(--bg);">
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.3rem;"><i class="fa-solid fa-people-carry-box"></i> تركيز داخل المساحات</div>
+                    <div id="stat-workspace-focus" style="font-size: 1.3rem; font-weight: 700; color: var(--primary);">0د</div>
+                </div>
+                <div class="card" style="padding: 1rem; text-align: center; background: var(--bg);">
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.3rem;"><i class="fa-solid fa-bullseye"></i> أكثر مهمة ركزت عليها</div>
+                    <div id="stat-top-task" style="font-size: 0.95rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Workspaces Navigation Tabs / Selector -->
+        <div style="display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.5rem; margin-bottom: 1.25rem;" id="workspace-tabs-container">
+            <button type="button" class="btn btn-outline active" data-workspace-id="all">
+                <i class="fa-solid fa-layer-group"></i> كل المهام المتزامنة
+            </button>
+            <!-- Dynamically populated workspace tabs -->
+        </div>
+
+        <!-- Active Workspace Detail Header (When a specific workspace is selected) -->
+        <div id="active-workspace-header-card" class="card hidden" style="margin-bottom: 1.5rem; border-right: 4px solid var(--primary);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h2 id="active-ws-title" style="margin: 0 0 0.3rem; font-size: 1.35rem;">اسم المساحة</h2>
+                    <p id="active-ws-desc" style="color: var(--text-muted); font-size: 0.92rem; margin: 0 0 0.75rem;">وصف المساحة</p>
+                    <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; font-size: 0.88rem; color: var(--text-muted);">
+                        <span><i class="fa-solid fa-users"></i> الأعضاء: <strong id="active-ws-members-count">0</strong></span>
+                        <span><i class="fa-solid fa-stopwatch"></i> التركيز الجماعي: <strong id="active-ws-total-focus">0د</strong></span>
+                    </div>
+                    <!-- Workspace Members Badges -->
+                    <div id="active-ws-members-list" style="margin-top: 0.5rem; display: flex; gap: 0.4rem; flex-wrap: wrap;"></div>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button type="button" id="btn-add-member" class="btn btn-outline btn-sm"><i class="fa-solid fa-user-plus"></i> دعوة عضو</button>
+                    <button type="button" id="btn-delete-workspace" class="btn btn-outline btn-sm" style="color: var(--danger);"><i class="fa-solid fa-trash"></i> حذف المساحة</button>
+                </div>
+            </div>
+            <!-- Overall Progress Bar -->
+            <div style="margin-top: 1rem;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.3rem;">
+                    <span>تقدم المساحة</span>
+                    <span id="active-ws-progress-text">0% (0/0 مهام)</span>
+                </div>
+                <div style="background: var(--bg); border-radius: 8px; height: 10px; overflow: hidden;">
+                    <div id="active-ws-progress-bar" style="background: var(--primary); width: 0%; height: 100%; transition: width 0.3s ease;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tasks List Container -->
+        <div class="card">
+            <div class="section-header" style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                <h2><i class="fa-solid fa-list-check" style="color: var(--primary);"></i> المهام المتزامنة</h2>
+                <div class="todo-filters" id="task-filter-buttons">
+                    <button type="button" class="filter-btn active" data-task-filter="active">النشطة</button>
+                    <button type="button" class="filter-btn" data-task-filter="completed">المكتملة</button>
+                </div>
+            </div>
+
+            <div id="tasks-list-container" style="display: flex; flex-direction: column; gap: 1rem;">
+                <!-- Dynamically populated task cards -->
+            </div>
+
+            <div id="tasks-empty-state" class="hidden" style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
+                <i class="fa-solid fa-folder-open" style="font-size: 3rem; opacity: 0.4; margin-bottom: 0.75rem;"></i>
+                <p>لا توجد مهام متزامنة حالياً. أنشئ مهمتك الأولى للبدء والمشاركة!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Workspace Modal -->
+    <div id="modal-create-workspace" class="modal hidden" role="dialog" aria-modal="true">
+        <div class="modal-content" style="max-width: 480px;">
+            <button type="button" class="close-modal">&times;</button>
+            <div class="modal-header" style="margin-bottom: 1rem;">
+                <h3><i class="fa-solid fa-people-group" style="color: var(--primary);"></i> إنشاء مساحة جديدة</h3>
+            </div>
+            <form id="form-create-workspace" style="display: flex; flex-direction: column; gap: 1rem;">
+                <div class="field">
+                    <label for="ws-name-input">اسم المساحة</label>
+                    <input type="text" id="ws-name-input" placeholder="مثال: مذاكرة القدرات، مشروع العلوم" required>
+                </div>
+                <div class="field">
+                    <label for="ws-desc-input">وصف مختصر (اختياري)</label>
+                    <textarea id="ws-desc-input" rows="3" placeholder="أدخل وصفاً للمساحة أو أهداف الفريق..."></textarea>
+                </div>
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.5rem;">
+                    <button type="button" class="btn btn-outline close-modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> إنشاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create / Edit Synchronized Task Modal -->
+    <div id="modal-create-task" class="modal hidden" role="dialog" aria-modal="true">
+        <div class="modal-content" style="max-width: 560px;">
+            <button type="button" class="close-modal">&times;</button>
+            <div class="modal-header" style="margin-bottom: 1rem;">
+                <h3><i class="fa-solid fa-plus-node" style="color: var(--primary);"></i> إضافة مهمة متزامنة</h3>
+            </div>
+            <form id="form-create-task" style="display: flex; flex-direction: column; gap: 1rem;">
+                <div class="field">
+                    <label for="task-title-input">اسم المهمة</label>
+                    <input type="text" id="task-title-input" placeholder="مثال: حل 30 سؤالاً، مراجعة الفصل الأول" required>
+                </div>
+                <div class="field">
+                    <label for="task-desc-input">الوصف</label>
+                    <textarea id="task-desc-input" rows="2" placeholder="تفاصيل إضافة أو تعليمات للإنجاز..."></textarea>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    <div class="field">
+                        <label for="task-scope-select">تظهر لدى</label>
+                        <select id="task-scope-select">
+                            <option value="me">أنا فقط</option>
+                            <option value="specific_users">مستخدمون محددون</option>
+                            <option value="workspace">مساحة كاملة</option>
+                        </select>
+                    </div>
+
+                    <div class="field" id="workspace-select-group" style="display: none;">
+                        <label for="task-workspace-select">المساحة</label>
+                        <select id="task-workspace-select">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Specific Users Picker -->
+                <div class="field hidden" id="specific-users-group">
+                    <label>اختر الأعضاء للظهور عندهم</label>
+                    <div id="members-checkboxes-list" style="max-height: 120px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem; background: var(--bg);">
+                        <!-- Dynamically populated member checkboxes -->
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="task-completion-mode-select">طريقة الإنجاز</label>
+                    <select id="task-completion-mode-select">
+                        <option value="independent">بشكل مستقل (حالة إنجاز منفصلة لكل مستخدم)</option>
+                        <option value="collaborative">تعاونية (تقدم جماعي مشترك)</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label for="task-due-date-input">موعد الاستحقاق (اختياري)</label>
+                    <input type="datetime-local" id="task-due-date-input">
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.5rem;">
+                    <button type="button" class="btn btn-outline close-modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> حفظ المهمة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Workspace Member Modal -->
+    <div id="modal-add-member" class="modal hidden" role="dialog" aria-modal="true">
+        <div class="modal-content" style="max-width: 480px;">
+            <button type="button" class="close-modal">&times;</button>
+            <div class="modal-header" style="margin-bottom: 1rem;">
+                <h3><i class="fa-solid fa-user-plus" style="color: var(--primary);"></i> إضافة عضو إلى المساحة</h3>
+            </div>
+            <form id="form-add-member" style="display: flex; flex-direction: column; gap: 1rem;">
+                <div class="field">
+                    <label for="member-email-input">البريد الإلكتروني للعضو</label>
+                    <input type="email" id="member-email-input" placeholder="user@example.com" required>
+                </div>
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.5rem;">
+                    <button type="button" class="btn btn-outline close-modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> إضافة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</main>
+
+<footer class="footer">
+    <div class="container footer-container">
+        <div class="footer-brand">
+            <i class="fa-solid fa-graduation-cap"></i>
+            <span>حيز</span>
+        </div>
+        <p class="footer-copy">&copy; 2026 حيز — جميع الحقوق محفوظة</p>
+        <div class="footer-links">
+            <a href="about.html">عن حيز</a>
+            <a href="blog.html">المدونة</a>
+            <a href="privacy.html">سياسة الخصوصية</a>
+            <a href="terms.html">شروط الاستخدام</a>
+            <a href="contact.html">تواصل معنا</a>
+        </div>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+<script src="common.js"></script>
+<script src="sync.js"></script>
+<script src="auth-ui.js"></script>
+<script src="spaces.js" defer></script>
+</body>
+</html>
