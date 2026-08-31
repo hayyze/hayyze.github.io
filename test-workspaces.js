@@ -87,6 +87,11 @@ assert(notifyReloadMatch, 'Static Audit 5: Migration file includes NOTIFY pgrst,
 const dropTablePresent = /DROP\s+TABLE/i.test(sqlContent);
 assert(!dropTablePresent, 'Static Audit 6: Migration is safe and non-destructive (0 DROP TABLE statements)');
 
+// Audit 7: Audit createWorkspace JS implementation does not manually pass created_by field
+const createWsJsSnippet = jsContent.match(/async\s+function\s+createWorkspace\s*\([^)]*\)\s*\{[\s\S]*?\}/);
+const passesCreatedByManually = createWsJsSnippet ? createWsJsSnippet[0].includes('created_by') : false;
+assert(!passesCreatedByManually, 'Static Audit 7: createWorkspace() in spaces.js relies on DEFAULT auth.uid() without manually passing created_by');
+
 console.log('\n--- DYNAMIC BEHAVIORAL & RLS SIMULATION SUITE ---');
 
 // Simulated In-Memory Database & RLS Engine matching exact PostgreSQL RLS logic
