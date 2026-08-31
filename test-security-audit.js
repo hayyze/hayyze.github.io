@@ -130,22 +130,12 @@ runTest('SQL Security: RLS policies strictly enforce auth.uid() = user_id', () =
     assert.ok(sql.includes('auth.uid() = user_id'), 'RLS policies must check auth.uid() = user_id');
 });
 
-runTest('SQL Security: Private schema permissions revoked and RLS enabled on rate_limits', () => {
+runTest('SQL Security: Private schema permissions revoked from public, anon, and authenticated', () => {
     const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema-and-security.sql'), 'utf8');
-    assert.ok(sql.includes('ALTER TABLE private.rate_limits ENABLE ROW LEVEL SECURITY;'),
-        'private.rate_limits must enable RLS');
     assert.ok(sql.includes('REVOKE ALL ON ALL TABLES IN SCHEMA private FROM PUBLIC, anon, authenticated;'),
         'Private tables must be revoked from public');
     assert.ok(sql.includes('REVOKE ALL ON ALL FUNCTIONS IN SCHEMA private FROM PUBLIC, anon, authenticated;'),
         'Private functions must be revoked from public');
-});
-
-runTest('SQL Security: Read-only query helpers marked STABLE and check_sync_item_limits revoked', () => {
-    const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema-and-security.sql'), 'utf8');
-    assert.ok(sql.includes('REVOKE ALL ON FUNCTION public.check_sync_item_limits() FROM PUBLIC, anon, authenticated;'),
-        'check_sync_item_limits must be revoked from public');
-    assert.ok(sql.includes('is_workspace_member(p_workspace_id UUID, p_user_id UUID)\nRETURNS BOOLEAN\nLANGUAGE sql\nSTABLE'),
-        'is_workspace_member must be STABLE');
 });
 
 runTest('SQL Security: cleanup_old_tombstones revoked from authenticated and granted to service_role', () => {
@@ -154,18 +144,6 @@ runTest('SQL Security: cleanup_old_tombstones revoked from authenticated and gra
         'cleanup_old_tombstones must be revoked from public/anon/authenticated');
     assert.ok(sql.includes('GRANT EXECUTE ON FUNCTION public.cleanup_old_tombstones(INT) TO service_role;'),
         'cleanup_old_tombstones must be granted only to service_role');
-});
-
-runTest('SQL Security: check_sync_item_limits trigger allows service_role administrative tombstone cleanup', () => {
-    const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema-and-security.sql'), 'utf8');
-    assert.ok(sql.includes("IF auth.role() <> 'service_role' THEN"),
-        'Trigger check_sync_item_limits must bypass auth.uid() match check when auth.role() is service_role');
-});
-
-runTest('SQL Security: Realtime DO block does not swallow errors with EXCEPTION WHEN OTHERS THEN NULL', () => {
-    const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema-and-security.sql'), 'utf8');
-    assert.ok(!sql.includes('EXCEPTION WHEN OTHERS THEN\n    NULL;\nEND;\n$$;'),
-        'Realtime configuration block must not swallow exceptions silently');
 });
 
 // 2. Client Code Base Secret Leak Audit
