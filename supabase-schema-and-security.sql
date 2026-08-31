@@ -691,6 +691,49 @@ FOR EACH ROW EXECUTE FUNCTION public.validate_focus_session();
 -- 7. USER-CALLABLE PUBLIC RPC ENDPOINTS
 -- =============================================================================
 
+-- Atomic RPC Function: create_workspace
+-- Signature: public.create_workspace(TEXT, TEXT)
+CREATE OR REPLACE FUNCTION public.create_workspace(
+    p_name TEXT,
+    p_description TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_creator_id UUID := auth.uid();
+    v_clean_name TEXT := trim(p_name);
+    v_workspace RECORD;
+BEGIN
+    IF v_creator_id IS NULL THEN
+        RAISE EXCEPTION 'Unauthorized: Authentication required.' USING ERRCODE = '42501';
+    END IF;
+
+    IF v_clean_name IS NULL OR v_clean_name = '' THEN
+        RAISE EXCEPTION 'Invalid argument: Workspace name is required.' USING ERRCODE = '22023';
+    END IF;
+
+    INSERT INTO public.workspaces (
+        name,
+        description,
+        created_by
+    )
+    VALUES (
+        v_clean_name,
+        p_description,
+        v_creator_id
+    )
+    RETURNING * INTO v_workspace;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'workspace', row_to_json(v_workspace)
+    );
+END;
+$$;
+
 -- Atomic RPC Function: create_synchronized_task
 -- Signature: public.create_synchronized_task(TEXT, TEXT, TEXT, TEXT, UUID, TIMESTAMPTZ, UUID[])
 CREATE OR REPLACE FUNCTION public.create_synchronized_task(
@@ -1102,10 +1145,12 @@ REVOKE ALL ON FUNCTION public.validate_task_member_insert() FROM PUBLIC, anon, a
 REVOKE ALL ON FUNCTION public.validate_focus_session() FROM PUBLIC, anon, authenticated;
 
 -- Revoke and grant execution rights for user-callable public RPC endpoints
+REVOKE ALL ON FUNCTION public.create_workspace(TEXT, TEXT) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.add_workspace_member_by_email(UUID, TEXT) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.set_task_progress_and_recalculate(UUID, BOOLEAN) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.create_synchronized_task(TEXT, TEXT, TEXT, TEXT, UUID, TIMESTAMPTZ, UUID[]) FROM PUBLIC, anon, authenticated;
 
+GRANT EXECUTE ON FUNCTION public.create_workspace(TEXT, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.add_workspace_member_by_email(UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.set_task_progress_and_recalculate(UUID, BOOLEAN) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.create_synchronized_task(TEXT, TEXT, TEXT, TEXT, UUID, TIMESTAMPTZ, UUID[]) TO authenticated;
