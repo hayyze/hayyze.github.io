@@ -1501,6 +1501,7 @@ input[type="radio"] {
         pointer-events: none;
         transition: var(--transition);
         z-index: 999;
+        align-items: stretch;
     }
 
     .nav-links.open {
@@ -1513,6 +1514,33 @@ input[type="radio"] {
         width: 100%;
         justify-content: flex-start;
         padding: 12px 16px;
+    }
+
+    .nav-dropdown {
+        width: 100%;
+    }
+
+    .nav-dropdown-toggle {
+        width: 100%;
+        justify-content: space-between;
+        padding: 12px 16px;
+    }
+
+    .nav-dropdown-menu {
+        position: static;
+        opacity: 1;
+        visibility: visible;
+        transform: none;
+        box-shadow: none;
+        border: none;
+        background: var(--color-surface-alt);
+        margin-top: 4px;
+        padding: 4px 8px;
+        display: none;
+    }
+
+    .nav-dropdown.open .nav-dropdown-menu {
+        display: flex;
     }
 
     .hero-title {

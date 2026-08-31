@@ -145,17 +145,34 @@
             <span class="logo-text">حيز</span>
         </a>
         <button class="menu-toggle" id="menu-toggle" aria-label="فتح القائمة" aria-expanded="false" aria-controls="nav-links"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
-        <nav class="nav-links" id="nav-links">
+                <nav class="nav-links" id="nav-links">
             <a href="index.html" class="nav-btn"><i class="fa-solid fa-house" aria-hidden="true"></i> الرئيسية</a>
-            <a href="pomodoro.html" class="nav-btn"><i class="fa-solid fa-clock" aria-hidden="true"></i> المؤقت</a>
-            <a href="todo.html" class="nav-btn"><i class="fa-solid fa-list-check" aria-hidden="true"></i> المهام</a>
-            <a href="gpa.html" class="nav-btn active"><i class="fa-solid fa-calculator" aria-hidden="true"></i> حاسبة المعدل</a>
-            <a href="notes.html" class="nav-btn"><i class="fa-solid fa-note-sticky" aria-hidden="true"></i> الملاحظات</a>
-            <a href="habits.html" class="nav-btn"><i class="fa-solid fa-fire" aria-hidden="true"></i> العادات</a>
-            <a href="calculator.html" class="nav-btn"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i> تقويم الطالب</a>
-            <a href="game.html" class="nav-btn"><i class="fa-solid fa-gamepad" aria-hidden="true"></i> لعبة الحروف</a>
+            <div class="nav-dropdown active">
+                <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true">
+                    <i class="fa-solid fa-toolbox" aria-hidden="true"></i> الأدوات <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                </button>
+                <div class="nav-dropdown-menu">
+                    <a href="pomodoro.html" class="dropdown-item"><i class="fa-solid fa-clock" aria-hidden="true"></i> المؤقت</a>
+                    <a href="todo.html" class="dropdown-item"><i class="fa-solid fa-list-check" aria-hidden="true"></i> المهام</a>
+                    <a href="gpa.html" class="dropdown-item active"><i class="fa-solid fa-calculator" aria-hidden="true"></i> حاسبة المعدل</a>
+                    <a href="notes.html" class="dropdown-item"><i class="fa-solid fa-note-sticky" aria-hidden="true"></i> الملاحظات</a>
+                    <a href="habits.html" class="dropdown-item"><i class="fa-solid fa-fire" aria-hidden="true"></i> العادات</a>
+                    <a href="calculator.html" class="dropdown-item"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i> تقويم الطالب</a>
+                    <a href="game.html" class="dropdown-item"><i class="fa-solid fa-gamepad" aria-hidden="true"></i> لعبة الحروف</a>
+                </div>
+            </div>
             <a href="blog.html" class="nav-btn"><i class="fa-solid fa-newspaper" aria-hidden="true"></i> المدونة</a>
-            <a href="about.html" class="nav-btn"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> عن حيز</a>
+            <div class="nav-dropdown">
+                <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true">
+                    <i class="fa-solid fa-circle-info" aria-hidden="true"></i> عن حيز <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                </button>
+                <div class="nav-dropdown-menu">
+                    <a href="about.html" class="dropdown-item"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> عن حيز</a>
+                    <a href="contact.html" class="dropdown-item"><i class="fa-solid fa-envelope" aria-hidden="true"></i> تواصل معنا</a>
+                    <a href="privacy.html" class="dropdown-item"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> سياسة الخصوصية</a>
+                    <a href="terms.html" class="dropdown-item"><i class="fa-solid fa-file-contract" aria-hidden="true"></i> شروط الاستخدام</a>
+                </div>
+            </div>
         </nav>
         <div class="nav-actions">
             <button id="theme-toggle" class="theme-btn" aria-label="تبديل الوضع الليلي"><i class="fa-solid fa-moon" aria-hidden="true"></i></button>
