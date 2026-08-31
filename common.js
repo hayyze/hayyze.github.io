@@ -59,28 +59,48 @@ document.addEventListener('DOMContentLoaded', () => {
             menuToggle.setAttribute('aria-expanded', String(isOpen));
         });
 
-        // إغلاق القائمة عند اختيار أي رابط
+        // إغلاق القائمة والـ Dropdowns عند اختيار أي رابط
         navLinks.addEventListener('click', (e) => {
             if (e.target.closest('a')) {
                 navLinks.classList.remove('open');
                 menuToggle.setAttribute('aria-expanded', 'false');
+                document.querySelectorAll('.nav-dropdown.open').forEach(d => {
+                    d.classList.remove('open');
+                    const t = d.querySelector('.nav-dropdown-toggle');
+                    if (t) t.setAttribute('aria-expanded', 'false');
+                });
             }
         });
 
-        // إغلاق القائمة عند النقر خارج الـ navbar
+        // إغلاق القائمة والـ Dropdowns عند النقر خارج الـ navbar
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.nav-container')) {
                 navLinks.classList.remove('open');
                 menuToggle.setAttribute('aria-expanded', 'false');
+                document.querySelectorAll('.nav-dropdown.open').forEach(d => {
+                    d.classList.remove('open');
+                    const t = d.querySelector('.nav-dropdown-toggle');
+                    if (t) t.setAttribute('aria-expanded', 'false');
+                });
             }
         });
 
-        // إغلاق القائمة عند الضغط على Escape
+        // إغلاق القائمة والـ Dropdowns عند الضغط على Escape
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && navLinks.classList.contains('open')) {
-                navLinks.classList.remove('open');
-                menuToggle.setAttribute('aria-expanded', 'false');
-                menuToggle.focus();
+            if (e.key === 'Escape') {
+                if (navLinks.classList.contains('open')) {
+                    navLinks.classList.remove('open');
+                    menuToggle.setAttribute('aria-expanded', 'false');
+                    menuToggle.focus();
+                }
+                document.querySelectorAll('.nav-dropdown.open').forEach(d => {
+                    d.classList.remove('open');
+                    const t = d.querySelector('.nav-dropdown-toggle');
+                    if (t) {
+                        t.setAttribute('aria-expanded', 'false');
+                        t.focus();
+                    }
+                });
             }
         });
     }

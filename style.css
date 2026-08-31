@@ -181,33 +181,13 @@ button, input, select, textarea {
     gap: 10px;
     flex: 1;
     justify-content: center;
-    position: fixed;
-    top: 70px;
-    right: 0;
-    left: 0;
-    background: var(--color-surface);
-    flex-direction: column;
-    padding: 16px;
-    border-bottom: 1px solid var(--color-border);
-    box-shadow: var(--shadow-lg);
-    transform: translateY(-120%);
-    opacity: 0;
-    pointer-events: none;
-    transition: var(--transition);
-    z-index: 999;
-}
-
-.nav-links.open {
-    transform: translateY(0);
-    opacity: 1;
-    pointer-events: auto;
 }
 
 .nav-btn {
     background: transparent;
     border: none;
     color: var(--color-text-secondary);
-    padding: 12px 16px;
+    padding: 8px 14px;
     border-radius: var(--radius-sm);
     cursor: pointer;
     display: flex;
@@ -217,8 +197,6 @@ button, input, select, textarea {
     transition: var(--transition);
     font-size: 0.95rem;
     text-decoration: none;
-    width: 100%;
-    justify-content: flex-start;
 }
 
 .nav-btn:hover {
@@ -278,6 +256,7 @@ button, input, select, textarea {
     z-index: 1050;
 }
 
+.nav-dropdown:hover .nav-dropdown-menu,
 .nav-dropdown.open .nav-dropdown-menu,
 .nav-dropdown:focus-within .nav-dropdown-menu {
     opacity: 1;
@@ -349,7 +328,7 @@ button, input, select, textarea {
 }
 
 .menu-toggle {
-    display: flex;
+    display: none;
 }
 
 /* ===================== المحتوى الرئيسي ===================== */
@@ -1504,6 +1483,67 @@ input[type="radio"] {
 
 /* ===================== تجاوب الجوال ===================== */
 @media (max-width: 900px) {
+    .menu-toggle {
+        display: flex;
+    }
+
+    .nav-links {
+        position: fixed;
+        top: 70px;
+        right: 0;
+        left: 0;
+        background: var(--color-surface);
+        flex-direction: column;
+        padding: 16px;
+        border-bottom: 1px solid var(--color-border);
+        box-shadow: var(--shadow-lg);
+        transform: translateY(-120%);
+        opacity: 0;
+        pointer-events: none;
+        transition: var(--transition);
+        z-index: 999;
+        align-items: stretch;
+    }
+
+    .nav-links.open {
+        transform: translateY(0);
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .nav-btn {
+        width: 100%;
+        justify-content: flex-start;
+        padding: 12px 16px;
+    }
+
+    .nav-dropdown {
+        width: 100%;
+    }
+
+    .nav-dropdown-toggle {
+        width: 100%;
+        justify-content: space-between;
+        padding: 12px 16px;
+    }
+
+    .nav-dropdown-menu {
+        position: static;
+        opacity: 1;
+        visibility: visible;
+        transform: none;
+        box-shadow: none;
+        border: none;
+        background: var(--color-surface-alt);
+        margin-top: 4px;
+        padding: 4px 8px;
+        display: none;
+    }
+
+    .nav-dropdown.open .nav-dropdown-menu {
+        display: flex;
+    }
+
     .hero-title {
         font-size: 2rem;
     }
