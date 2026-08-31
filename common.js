@@ -53,8 +53,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // قائمة الجوال والـ Dropdown Interactions
     if (menuToggle && navLinks) {
-        menuToggle.addEventListener('click', () => {
-            navLinks.classList.toggle('open');
+        menuToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = navLinks.classList.toggle('open');
+            menuToggle.setAttribute('aria-expanded', String(isOpen));
+        });
+
+        // إغلاق القائمة عند اختيار أي رابط
+        navLinks.addEventListener('click', (e) => {
+            if (e.target.closest('a')) {
+                navLinks.classList.remove('open');
+                menuToggle.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        // إغلاق القائمة عند النقر خارج الـ navbar
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.nav-container')) {
+                navLinks.classList.remove('open');
+                menuToggle.setAttribute('aria-expanded', 'false');
+            }
         });
     }
 
