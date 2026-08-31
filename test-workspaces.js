@@ -92,6 +92,17 @@ const createWsJsSnippet = jsContent.match(/async\s+function\s+createWorkspace\s*
 const passesCreatedByManually = createWsJsSnippet ? createWsJsSnippet[0].includes('created_by') : false;
 assert(!passesCreatedByManually, 'Static Audit 7: createWorkspace() in spaces.js relies on DEFAULT auth.uid() without manually passing created_by');
 
+// Audit 8: Audit migration SQL contains ALTER TABLE public.workspaces ALTER COLUMN created_by SET DEFAULT auth.uid();
+const alterColumnMatch = sqlContent.includes('ALTER TABLE public.workspaces') &&
+    sqlContent.includes('ALTER COLUMN created_by SET DEFAULT auth.uid();');
+assert(alterColumnMatch, 'Static Audit 8: Migration SQL includes safe idempotent ALTER COLUMN created_by SET DEFAULT auth.uid();');
+
+// Audit 9: Audit RLS policy Users can create workspace WITH CHECK (created_by = auth.uid()) exists
+const rlsPolicyMatch = sqlContent.includes('CREATE POLICY "Users can create workspace"') &&
+    sqlContent.includes('ON public.workspaces FOR INSERT TO authenticated') &&
+    sqlContent.includes('WITH CHECK (created_by = auth.uid());');
+assert(rlsPolicyMatch, 'Static Audit 9: RLS INSERT policy "Users can create workspace" remains strictly enforced with CHECK (created_by = auth.uid())');
+
 console.log('\n--- DYNAMIC BEHAVIORAL & RLS SIMULATION SUITE ---');
 
 // Simulated In-Memory Database & RLS Engine matching exact PostgreSQL RLS logic
