@@ -47,13 +47,21 @@
     async function createWorkspace(name, description) {
         if (!currentUser) throw new Error('يرجى تسجيل الدخول أولاً');
         const client = await getSupabase();
-        const { data, error } = await client.from('workspaces').insert({
-            name,
-            description
-        }).select().single();
+        const { data, error } = await client.rpc('create_workspace', {
+            p_name: name,
+            p_description: description || null
+        });
 
-        if (error) throw error;
-        return data;
+        if (error) {
+            console.error('Failed to create workspace via RPC create_workspace:', error);
+            throw new Error(error.message || 'فشل إنشاء المساحة');
+        }
+
+        if (!data || !data.success) {
+            throw new Error((data && data.message) || 'تعذر إنشاء المساحة');
+        }
+
+        return data.workspace;
     }
 
     async function deleteWorkspace(workspaceId) {

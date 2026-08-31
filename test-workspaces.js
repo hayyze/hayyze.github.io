@@ -57,7 +57,10 @@ const jsRpcMatch = jsContent.includes("client.rpc('create_synchronized_task', {"
     jsContent.includes('p_completion_mode:') &&
     jsContent.includes('p_workspace_id:') &&
     jsContent.includes('p_due_date:') &&
-    jsContent.includes('p_recipient_user_ids:');
+    jsContent.includes('p_recipient_user_ids:') &&
+    jsContent.includes("client.rpc('create_workspace', {") &&
+    jsContent.includes('p_name:') &&
+    jsContent.includes('p_description:');
 
 const sqlRpcSignatureMatch = sqlContent.includes('CREATE OR REPLACE FUNCTION public.create_synchronized_task(') &&
     sqlContent.includes('p_title TEXT') &&
@@ -66,18 +69,22 @@ const sqlRpcSignatureMatch = sqlContent.includes('CREATE OR REPLACE FUNCTION pub
     sqlContent.includes('p_completion_mode TEXT') &&
     sqlContent.includes('p_workspace_id UUID') &&
     sqlContent.includes('p_due_date TIMESTAMPTZ') &&
-    sqlContent.includes('p_recipient_user_ids UUID[]');
+    sqlContent.includes('p_recipient_user_ids UUID[]') &&
+    sqlContent.includes('CREATE OR REPLACE FUNCTION public.create_workspace(') &&
+    sqlContent.includes('p_name TEXT') &&
+    sqlContent.includes('p_description TEXT');
 
 assert(jsRpcMatch && sqlRpcSignatureMatch,
     'Static Audit 3: Exact parameter key & RPC signature match between spaces.js and PostgreSQL DDL');
 
 // Audit 4: Execution grants on user-callable public RPC functions
+const createWsGrant = sqlContent.includes('GRANT EXECUTE ON FUNCTION public.create_workspace');
 const syncTaskGrant = sqlContent.includes('GRANT EXECUTE ON FUNCTION public.create_synchronized_task');
 const addMemberGrant = sqlContent.includes('GRANT EXECUTE ON FUNCTION public.add_workspace_member_by_email');
 const setProgressGrant = sqlContent.includes('GRANT EXECUTE ON FUNCTION public.set_task_progress_and_recalculate');
 
-assert(syncTaskGrant && addMemberGrant && setProgressGrant,
-    'Static Audit 4: Public RPC endpoints have explicit GRANT EXECUTE ... TO authenticated permissions');
+assert(createWsGrant && syncTaskGrant && addMemberGrant && setProgressGrant,
+    'Static Audit 4: Public RPC endpoints (create_workspace, create_synchronized_task, etc) have explicit GRANT EXECUTE ... TO authenticated permissions');
 
 // Audit 5: NOTIFY pgrst, 'reload schema'; presence in migration SQL
 const notifyReloadMatch = sqlContent.includes("NOTIFY pgrst, 'reload schema';");
@@ -122,15 +129,24 @@ class SupabaseDbMock {
         this.profiles[id] = { id, email, display_name };
     }
 
-    // Workspaces
-    createWorkspace(currentUser, name, description) {
-        if (!currentUser) throw new Error('42501: Unauthorized');
+    // Workspaces RPC Simulation: create_workspace
+    createWorkspaceRPC(currentUser, name, description) {
+        if (!currentUser) throw new Error('42501: Unauthorized: Authentication required.');
+        const cleanName = name ? String(name).trim() : '';
+        if (!cleanName) throw new Error('22023: Invalid argument: Workspace name is required.');
+
         const id = 'ws_' + Math.random().toString(36).substring(2, 9);
-        const ws = { id, name, description, created_by: currentUser.id, created_at: new Date().toISOString() };
+        const ws = { id, name: cleanName, description: description || null, created_by: currentUser.id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
         this.workspaces.push(ws);
         this.workspace_members.push({ workspace_id: id, user_id: currentUser.id, role: 'owner' });
         this.notifyRealtime('workspaces', 'INSERT', ws);
-        return ws;
+        return { success: true, workspace: ws };
+    }
+
+    // Legacy Workspaces helper using createWorkspaceRPC
+    createWorkspace(currentUser, name, description) {
+        const res = this.createWorkspaceRPC(currentUser, name, description);
+        return res.workspace;
     }
 
     // RPC: add_workspace_member_by_email
@@ -812,6 +828,37 @@ let ws = null;
     }
 
     assert(tamperingBlocked, '30. Recipient DevTools tampering with non-workspace member is strictly blocked by DB RPC validation');
+}
+
+// Scenario 31: RPC create_workspace rejects unauthenticated user
+{
+    let unauthRejected = false;
+    try {
+        db.createWorkspaceRPC(null, 'مساحة غير مصرحة', 'وصف');
+    } catch (e) {
+        unauthRejected = e.message.includes('42501');
+    }
+    assert(unauthRejected, '31. RPC create_workspace strictly rejects unauthenticated caller');
+}
+
+// Scenario 32: RPC create_workspace rejects empty workspace name after trim
+{
+    let emptyNameRejected = false;
+    try {
+        db.createWorkspaceRPC(user1, '   ', 'وصف');
+    } catch (e) {
+        emptyNameRejected = e.message.includes('22023');
+    }
+    assert(emptyNameRejected, '32. RPC create_workspace strictly rejects empty or whitespace-only workspace name');
+}
+
+// Scenario 33: RPC create_workspace creates workspace with created_by = auth.uid() and auto-adds creator as owner
+{
+    const res = db.createWorkspaceRPC(user1, '  مساحة العلوم  ', 'وصف جديد');
+    const createdWs = res.workspace;
+    const ownerMember = db.workspace_members.find(wm => wm.workspace_id === createdWs.id && wm.user_id === user1.id);
+    assert(res.success && createdWs.name === 'مساحة العلوم' && createdWs.created_by === user1.id && ownerMember && ownerMember.role === 'owner',
+        '33. RPC create_workspace creates workspace using auth.uid(), trims name, and trigger adds owner member automatically');
 }
 
 console.log(`\n===================================`);
