@@ -49,8 +49,7 @@
         const client = await getSupabase();
         const { data, error } = await client.from('workspaces').insert({
             name,
-            description,
-            created_by: currentUser.id
+            description
         }).select().single();
 
         if (error) throw error;

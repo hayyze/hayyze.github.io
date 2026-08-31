@@ -290,6 +290,10 @@ CREATE TABLE IF NOT EXISTS public.workspaces (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Ensure created_by has DEFAULT auth.uid() for existing database schemas
+ALTER TABLE public.workspaces
+ALTER COLUMN created_by SET DEFAULT auth.uid();
+
 -- 4.3 WORKSPACE MEMBERS TABLE
 CREATE TABLE IF NOT EXISTS public.workspace_members (
     workspace_id UUID NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
