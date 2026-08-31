@@ -74,6 +74,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 menuToggle.setAttribute('aria-expanded', 'false');
             }
         });
+
+        // إغلاق القائمة عند الضغط على Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && navLinks.classList.contains('open')) {
+                navLinks.classList.remove('open');
+                menuToggle.setAttribute('aria-expanded', 'false');
+                menuToggle.focus();
+            }
+        });
     }
 
     // Dropdown Accessibility & Keyboard Navigation
