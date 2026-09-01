@@ -1,35 +1,35 @@
 :root {
-    /* ===================== DESIGN TOKENS (LIGHT THEME) ===================== */
-    /* Palette: Lapis Lazuli Deep Blue (#1F3A5F), Vermilion Accent (#A6412E), Parchment Cream (#F4EDE0, #FBF7EE) */
-    --color-background: #F4EDE0;
-    --color-surface: #FBF7EE;
-    --color-surface-alt: #EDE5D8;
+    /* ===================== DESIGN TOKENS — VISUAL IDENTITY 2.0 (LIGHT THEME) ===================== */
+    --color-background: #F3EFE6; /* Warm paper tone */
+    --color-surface: #FBF9F4;    /* Primary content surface */
+    --color-surface-alt: #E9E3D7;/* Secondary surface / inline container */
 
-    --color-primary: #1F3A5F;
-    --color-primary-hover: #162B48;
-    --color-primary-active: #0E1B2E;
+    --color-primary: #18324A;        /* Deep Ink */
+    --color-primary-hover: #122639;
+    --color-primary-active: #0C1A27;
     --color-primary-text: #FFFFFF;
 
-    --color-accent: #A6412E;
-    --color-accent-hover: #8C3524;
-    --color-accent-active: #732A1B;
+    --color-accent: #B6533B;         /* Terracotta */
+    --color-accent-hover: #9B4530;
+    --color-accent-active: #803826;
     --color-accent-text: #FFFFFF;
 
-    --color-text: #2A2420;
-    --color-text-secondary: #635850;
-    --color-text-muted: #635850;
-    --color-border: #E3D8C8;
+    --color-text: #24221F;
+    --color-text-secondary: #635E57;
+    --color-text-muted: #817A71;
+    --color-border: #D9D1C4;
 
-    --color-success: #2A7A56;
-    --color-warning: #C87A1E;
-    --color-danger: #B83A2A;
+    --color-success: #39735A;
+    --color-warning: #A66A24;
+    --color-danger: #A94235;
 
-    --shadow: 0 2px 12px rgba(42, 36, 32, 0.05);
-    --shadow-lg: 0 6px 24px rgba(42, 36, 32, 0.08);
-    --radius: 12px;
-    --radius-sm: 8px;
-    --transition: 0.2s ease;
-    --font: 'Cairo', sans-serif;
+    --shadow: 0 1px 4px rgba(24, 32, 40, 0.04);
+    --shadow-lg: 0 4px 12px rgba(24, 32, 40, 0.08);
+    --radius: 10px;
+    --radius-sm: 7px;
+    --radius-btn: 8px;
+    --transition: 0.18s ease;
+    --font: 'Cairo', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
     /* Legacy CSS Variable Mappings for 100% Backward Compatibility */
     --bg: var(--color-background);
@@ -47,32 +47,32 @@
 
 html.theme-dark,
 body.theme-dark {
-    /* ===================== DESIGN TOKENS (DARK THEME) ===================== */
-    --color-background: #12181F;
-    --color-surface: #1B242E;
-    --color-surface-alt: #24303D;
+    /* ===================== DESIGN TOKENS — VISUAL IDENTITY 2.0 (DARK THEME) ===================== */
+    --color-background: #111820;
+    --color-surface: #18222C;
+    --color-surface-alt: #202D38;
 
-    --color-primary: #6E93BC;
-    --color-primary-hover: #85A6CC;
-    --color-primary-active: #577BA6;
-    --color-primary-text: #0E1620; /* High Contrast Dark Text over Light Primary Blue */
+    --color-primary: #8EADC8;
+    --color-primary-hover: #A4C1DC;
+    --color-primary-active: #7998B3;
+    --color-primary-text: #111820;
 
-    --color-accent: #D9714F;
-    --color-accent-hover: #E28567;
-    --color-accent-active: #C45D3B;
-    --color-accent-text: #1A0C08; /* High Contrast Dark Text over Light Accent Orange */
+    --color-accent: #D47A61;
+    --color-accent-hover: #DF8C75;
+    --color-accent-active: #C6694E;
+    --color-accent-text: #111820;
 
-    --color-text: #EDE6D8;
-    --color-text-secondary: #A4B1C1;
-    --color-text-muted: #A4B1C1;
-    --color-border: #2C3A4B;
+    --color-text: #EEE8DE;
+    --color-text-secondary: #AEB7BE;
+    --color-text-muted: #83919E;
+    --color-border: #2C3945;
 
     --color-success: #4EAD80;
     --color-warning: #E6A14A;
     --color-danger: #E56B5D;
 
-    --shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
-    --shadow-lg: 0 6px 24px rgba(0, 0, 0, 0.35);
+    --shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.35);
 
     /* Legacy Mappings */
     --bg: var(--color-background);
@@ -149,7 +149,7 @@ button, input, select, textarea {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 70px;
+    height: 66px;
     gap: 16px;
 }
 
@@ -158,27 +158,29 @@ button, input, select, textarea {
     align-items: center;
     gap: 10px;
     font-weight: 800;
-    font-size: 1.4rem;
+    font-size: 1.45rem;
     color: var(--color-primary);
     text-decoration: none;
+    letter-spacing: -0.01em;
 }
 
 .logo-icon {
-    width: 38px;
-    height: 38px;
+    width: 34px;
+    height: 34px;
     background: var(--color-primary);
     color: var(--color-primary-text);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-btn);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.1rem;
+    font-size: 0.95rem;
+    flex-shrink: 0;
 }
 
 .nav-links {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
     flex: 1;
     justify-content: center;
 }
@@ -187,16 +189,22 @@ button, input, select, textarea {
     background: transparent;
     border: none;
     color: var(--color-text-secondary);
-    padding: 8px 14px;
-    border-radius: var(--radius-sm);
+    padding: 7px 13px;
+    border-radius: var(--radius-btn);
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 6px;
     font-weight: 600;
     transition: var(--transition);
-    font-size: 0.95rem;
+    font-size: 0.93rem;
     text-decoration: none;
+}
+
+.nav-btn i {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    transition: color var(--transition);
 }
 
 .nav-btn:hover {
@@ -204,8 +212,16 @@ button, input, select, textarea {
     color: var(--color-text);
 }
 
+.nav-btn:hover i {
+    color: var(--color-primary);
+}
+
 .nav-btn.active {
     background: var(--color-primary);
+    color: var(--color-primary-text);
+}
+
+.nav-btn.active i {
     color: var(--color-primary-text);
 }
 
@@ -219,15 +235,20 @@ button, input, select, textarea {
     background: transparent;
     border: none;
     color: var(--color-text-secondary);
-    padding: 8px 14px;
-    border-radius: var(--radius-sm);
+    padding: 7px 13px;
+    border-radius: var(--radius-btn);
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: 6px;
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: 0.93rem;
     transition: var(--transition);
+}
+
+.nav-dropdown-toggle i {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
 }
 
 .nav-dropdown-toggle:hover,
@@ -236,23 +257,28 @@ button, input, select, textarea {
     color: var(--color-text);
 }
 
+.nav-dropdown-toggle:hover i,
+.nav-dropdown.active .nav-dropdown-toggle i {
+    color: var(--color-primary);
+}
+
 .nav-dropdown-menu {
     position: absolute;
     top: 100%;
     right: 0;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius);
     box-shadow: var(--shadow-lg);
-    min-width: 210px;
-    padding: 8px;
+    min-width: 200px;
+    padding: 6px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
     opacity: 0;
     visibility: hidden;
-    transform: translateY(10px);
-    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+    transform: translateY(6px);
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
     z-index: 1050;
 }
 
@@ -266,14 +292,21 @@ button, input, select, textarea {
 .dropdown-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
+    gap: 9px;
+    padding: 8px 11px;
     color: var(--color-text);
     text-decoration: none;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     font-weight: 600;
     border-radius: var(--radius-sm);
     transition: var(--transition);
+}
+
+.dropdown-item i {
+    font-size: 0.88rem;
+    color: var(--color-text-muted);
+    width: 16px;
+    text-align: center;
 }
 
 .dropdown-item:hover {
@@ -281,10 +314,18 @@ button, input, select, textarea {
     color: var(--color-primary);
 }
 
+.dropdown-item:hover i {
+    color: var(--color-primary);
+}
+
 .dropdown-item.active {
-    background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+    background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
     color: var(--color-primary);
     font-weight: 700;
+}
+
+.dropdown-item.active i {
+    color: var(--color-primary);
 }
 
 /* Mobile Collapsible Nav Submenus */
@@ -339,7 +380,7 @@ button, input, select, textarea {
 .card {
     background: var(--color-surface);
     border-radius: var(--radius);
-    padding: 28px;
+    padding: 24px 28px;
     box-shadow: var(--shadow);
     border: 1px solid var(--color-border);
     margin-bottom: 24px;
@@ -350,8 +391,8 @@ button, input, select, textarea {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 10px 20px;
-    border-radius: var(--radius-sm);
+    padding: 10px 18px;
+    border-radius: var(--radius-btn);
     border: 1px solid transparent;
     font-weight: 700;
     cursor: pointer;
@@ -513,46 +554,51 @@ input[type="radio"] {
 /* ===================== الصفحة الرئيسية ===================== */
 .hero {
     text-align: center;
-    padding: 20px 0 40px;
+    padding: 32px 0 36px;
+    max-width: 760px;
+    margin: 0 auto;
 }
 
 .hero-badge {
     display: inline-block;
-    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
-    color: var(--color-accent);
-    border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
-    padding: 6px 16px;
-    border-radius: 20px;
-    font-size: 0.9rem;
-    font-weight: 700;
-    margin-bottom: 18px;
+    background: var(--color-surface-alt);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+    padding: 4px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 16px;
 }
 
 .hero-title {
-    font-size: 2.5rem;
+    font-size: 2.2rem;
     font-weight: 800;
     line-height: 1.35;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     color: var(--color-text);
+    letter-spacing: -0.01em;
 }
 
 .highlight {
     color: var(--color-accent);
     background: none;
     -webkit-text-fill-color: initial;
+    font-weight: 800;
 }
 
 .hero-desc {
-    font-size: 1.15rem;
+    font-size: 1.08rem;
     color: var(--color-text-secondary);
-    max-width: 620px;
-    margin: 0 auto 32px;
+    max-width: 580px;
+    margin: 0 auto 24px;
+    line-height: 1.7;
 }
 
 .tools-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 22px;
+    gap: 18px;
     margin-bottom: 30px;
 }
 
@@ -566,44 +612,50 @@ input[type="radio"] {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
-    padding: 24px;
+    padding: 22px 24px;
+    box-shadow: var(--shadow);
 }
 
 .tool-card:hover {
-    transform: translateY(-4px);
     border-color: var(--color-primary);
+    background: var(--color-surface-alt);
+    transform: translateY(-2px);
     box-shadow: var(--shadow-lg);
 }
 
 .card-icon {
-    width: 50px;
-    height: 50px;
+    width: 38px;
+    height: 38px;
     border-radius: var(--radius-sm);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.4rem;
-    margin-bottom: 18px;
+    font-size: 1.1rem;
+    margin-bottom: 14px;
     background: var(--color-surface-alt);
     color: var(--color-primary);
     border: 1px solid var(--color-border);
+    transition: var(--transition);
 }
 
-.pomodoro-icon { color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface)); }
-.todo-icon { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface)); }
-.notes-icon { color: var(--color-warning); background: color-mix(in srgb, var(--color-warning) 10%, var(--color-surface)); }
-.habits-icon { color: var(--color-danger); background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface)); }
-.game-icon { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface)); }
+.tool-card:hover .card-icon {
+    background: var(--color-primary);
+    color: var(--color-primary-text);
+    border-color: var(--color-primary);
+}
 
 .tool-card h3 {
-    font-size: 1.25rem;
-    margin-bottom: 10px;
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-bottom: 8px;
     color: var(--color-text);
+    line-height: 1.4;
 }
 
 .tool-card p {
     color: var(--color-text-secondary);
-    font-size: 0.95rem;
+    font-size: 0.92rem;
+    line-height: 1.6;
     flex: 1;
 }
 
@@ -623,13 +675,20 @@ input[type="radio"] {
     color: var(--color-text-secondary);
 }
 
-/* ===================== البومودورو ===================== */
+/* ===================== البومودورو (Focus Engine) ===================== */
+.pomodoro-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 32px 28px;
+}
+
 .timer-settings {
     display: flex;
     justify-content: center;
-    gap: 30px;
+    gap: 24px;
     flex-wrap: wrap;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
 }
 
 .setting-item {
@@ -639,8 +698,9 @@ input[type="radio"] {
 .setting-item label {
     display: block;
     font-weight: 600;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     color: var(--color-text-secondary);
+    font-size: 0.9rem;
 }
 
 .input-with-unit {
@@ -650,16 +710,16 @@ input[type="radio"] {
     background: var(--color-surface-alt);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
-    padding: 8px 14px;
+    padding: 6px 12px;
 }
 
 .input-with-unit input {
-    width: 70px;
+    width: 60px;
     border: none;
     background: transparent;
     text-align: center;
     font-weight: 700;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     color: var(--color-text);
     outline: none;
 }
@@ -667,13 +727,13 @@ input[type="radio"] {
 .timer-mode-selector {
     display: flex;
     justify-content: center;
-    gap: 12px;
-    margin-bottom: 30px;
+    gap: 8px;
+    margin-bottom: 24px;
 }
 
 .mode-btn {
-    padding: 8px 20px;
-    border-radius: 20px;
+    padding: 6px 16px;
+    border-radius: var(--radius-btn);
     border: 1px solid var(--color-border);
     background: var(--color-surface-alt);
     color: var(--color-text-secondary);
@@ -682,7 +742,8 @@ input[type="radio"] {
     transition: var(--transition);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    font-size: 0.9rem;
 }
 
 .mode-btn.active {
@@ -693,17 +754,18 @@ input[type="radio"] {
 
 .timer-display-wrapper {
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 28px;
 }
 
 .timer-display {
-    font-size: 5rem;
+    font-size: 5.2rem;
     font-weight: 800;
-    letter-spacing: 4px;
+    letter-spacing: 3px;
     color: var(--color-primary);
-    line-height: 1.1;
+    line-height: 1;
     cursor: pointer;
     user-select: none;
+    font-variant-numeric: tabular-nums;
 }
 
 .timer-inline-input {
