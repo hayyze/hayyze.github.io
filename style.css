@@ -826,11 +826,19 @@ input[type="radio"] {
     margin-bottom: 24px;
 }
 
+.todo-list {
+    list-style: none;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
 .todo-item {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 12px 16px;
+    padding: 14px 18px;
     background: var(--color-surface);
     border-radius: 0;
     margin-bottom: 0;
@@ -847,12 +855,44 @@ input[type="radio"] {
     background: var(--color-surface-alt);
 }
 
-.todo-list {
-    list-style: none;
+.todo-text {
+    font-weight: 600;
+    font-size: 0.98rem;
+    color: var(--color-text);
+}
+
+/* ===================== TOOL PERSONALITY: GPA & ACADEMIC TABLES ===================== */
+.subject-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 16px;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+}
+
+.subject-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--color-text);
+}
+
+.gpa-result {
+    text-align: center;
+    padding: 24px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-primary);
     border-radius: var(--radius);
-    overflow: hidden;
+    margin-top: 20px;
+}
+
+.gpa-score {
+    font-size: 3.4rem;
+    font-weight: 800;
+    color: var(--color-primary);
+    line-height: 1;
 }
 
 /* ===================== TOOL PERSONALITY: NOTES (DIGITAL WRITING SPACE) ===================== */
