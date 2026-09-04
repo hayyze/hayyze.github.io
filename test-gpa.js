@@ -171,16 +171,28 @@ function assert(condition, message) {
 }
 
 // Mock DOM elements for testing UI button click interactions
+class ClassList {
+  constructor() { this.classes = new Set(); }
+  add(cls) { this.classes.add(cls); }
+  remove(cls) { this.classes.delete(cls); }
+  contains(cls) { return this.classes.has(cls); }
+}
+
 class TestMockElement {
   constructor(tagName, id = '') {
     this.tagName = tagName.toUpperCase();
     this.id = id;
-    this.className = '';
+    this.classList = new ClassList();
     this.style = {};
     this.children = [];
     this.parentNode = null;
     this._value = '';
     this.eventListeners = {};
+  }
+  get className() { return Array.from(this.classList.classes).join(' '); }
+  set className(val) {
+    this.classList.classes.clear();
+    if (val) val.split(/\s+/).forEach(c => c && this.classList.add(c));
   }
   get value() { return this._value; }
   set value(v) { this._value = String(v); }
@@ -569,6 +581,319 @@ class TestMockElement {
   assert(todos.length === 2, "Case 27: Manual task preserved and separate GPA task created (total 2 tasks)");
   const manualTask = todos.find(t => t.id === "manual_1");
   assert(manualTask && manualTask.notes === "ملاحظتي الشخصية اليدوية" && manualTask.source !== "gpa-target-analysis", "Case 27: Manual user task details and notes remain completely untouched");
+}
+
+// ===== Required Score Calculator (حاسبة الدرجة المطلوبة في القدرات والتحصيلي) Tests =====
+
+// Case 28: Tahsili required score calculation (Exact numeric verification)
+// Example: HS=98, Qudrat=85, Target=90, Weights: 30% HS, 30% Qudrat, 40% Tahsili
+// Expected Tahsili = (90 - (98*0.30 + 85*0.30)) / 0.40 = (90 - 54.9) / 0.40 = 35.1 / 0.40 = 87.75
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 98,
+    targetWeighted: 90,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "tahsili",
+    knownScore: 85
+  });
+  assert(res.isValid, "Case 28: Tahsili calculation is valid");
+  assert(Math.abs(res.requiredScore - 87.75) < 1e-6, `Case 28: Expected Tahsili score 87.75, got ${res.requiredScore}`);
+  assert(res.hsContrib === 29.4 && res.knownContrib === 25.5, "Case 28: Weighted contribution steps computed accurately");
+}
+
+// Case 29: Qudrat required score calculation (Exact numeric verification)
+// Example: HS=95, Tahsili=80, Target=92, Weights: 30% HS, 40% Qudrat, 30% Tahsili
+// Expected Qudrat = (92 - (95*0.30 + 80*0.30)) / 0.40 = (92 - 52.5) / 0.40 = 39.5 / 0.40 = 98.75
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 95,
+    targetWeighted: 92,
+    highSchoolWeight: 30,
+    qudratWeight: 40,
+    tahsiliWeight: 30,
+    targetType: "qudrat",
+    knownScore: 80
+  });
+  assert(res.isValid, "Case 29: Qudrat calculation is valid");
+  assert(Math.abs(res.requiredScore - 98.75) < 1e-6, `Case 29: Expected Qudrat score 98.75, got ${res.requiredScore}`);
+}
+
+// Case 30: Decimal inputs verification
+// Example: HS=98.5, Qudrat=87.25, Target=92.5, Weights: 30% HS, 30% Qudrat, 40% Tahsili
+// HS contrib = 29.55, Qudrat contrib = 26.175, total known = 55.725
+// Needed points = 92.5 - 55.725 = 36.775
+// Required Tahsili = (36.775 / 0.40) = 91.9375
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 98.5,
+    targetWeighted: 92.5,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "tahsili",
+    knownScore: 87.25
+  });
+  assert(res.isValid, "Case 30: Decimal inputs supported and valid");
+  assert(Math.abs(res.requiredScore - 91.9375) < 1e-6, `Case 30: Expected decimal score 91.9375, got ${res.requiredScore}`);
+}
+
+// Case 31: Out of range result > 100 handling
+// Example: HS=80, Qudrat=70, Target=95, Weights: 30%, 30%, 40%
+// HS contrib = 24, Qudrat contrib = 21, Needed points = 50 -> Required = 125
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 80,
+    targetWeighted: 95,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "tahsili",
+    knownScore: 70
+  });
+  assert(res.isValid && res.isOutOfRange && res.rangeStatus === "too_high", "Case 31: Required score > 100 flagged as too_high");
+  assert(res.rangeMessage.includes("تتجاوز الحد الأقصى"), "Case 31: Range message provides clear Arabic alert");
+}
+
+// Case 32: Out of range result < 0 handling (Target already achieved)
+// Example: HS=100, Qudrat=100, Target=50, Weights: 30%, 30%, 40%
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 100,
+    targetWeighted: 50,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "tahsili",
+    knownScore: 100
+  });
+  assert(res.isValid && res.isOutOfRange && res.rangeStatus === "too_low", "Case 32: Required score < 0 flagged as too_low");
+}
+
+// Case 33: Invalid weight sum validation (Sum != 100)
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 95,
+    targetWeighted: 90,
+    highSchoolWeight: 40,
+    qudratWeight: 40,
+    tahsiliWeight: 40,
+    targetType: "tahsili"
+  });
+  assert(!res.isValid && res.errorMessage.includes("مجموع أوزان القبول يجب أن يساوي 100%"), "Case 33: Invalid weight sum rejected cleanly");
+}
+
+// Case 34: Target exam weight = 0 validation
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 95,
+    targetWeighted: 90,
+    highSchoolWeight: 50,
+    qudratWeight: 50,
+    tahsiliWeight: 0,
+    targetType: "tahsili",
+    knownScore: 85
+  });
+  assert(!res.isValid && res.errorMessage.includes("يجب أن يكون أكبر من 0%"), "Case 34: Target exam weight = 0 rejected with clear error message");
+}
+
+// Case 35: Empty knownScore in Tahsili mode rejected (No silent assumption)
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 98,
+    targetWeighted: 90,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "tahsili",
+    knownScore: ""
+  });
+  assert(!res.isValid && res.errorMessage.includes("يرجى إدخال درجة اختبار القدرات الحالية للحساب"), "Case 35: Empty knownScore in Tahsili mode produces clear Arabic validation error without silent assumption");
+}
+
+// Case 36: Empty knownScore in Qudrat mode rejected (No silent assumption)
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 98,
+    targetWeighted: 90,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "qudrat",
+    knownScore: null
+  });
+  assert(!res.isValid && res.errorMessage.includes("يرجى إدخال درجة اختبار التحصيلي الحالية للحساب"), "Case 36: Empty knownScore in Qudrat mode produces clear Arabic validation error without silent assumption");
+}
+
+// Case 37: Explicit Equal Mode ("افتراض نفس الدرجة في القدرات والتحصيلي")
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 98,
+    targetWeighted: 90,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "equal",
+    knownScore: ""
+  });
+  // HS contrib = 29.40. Needed points = 90 - 29.40 = 60.60. Combined weight = 70.
+  // Required score = 60.60 / 0.70 = 86.57142857...
+  assert(res.isValid && res.equalAssumption, "Case 37: Explicit equal mode accepted without requiring knownScore");
+  assert(Math.abs(res.requiredScore - (60.6 / 0.7)) < 1e-6, `Case 37: Expected equal required score ~86.5714, got ${res.requiredScore}`);
+  assert(!JSON.stringify(res).includes("لا يوجد"), "Case 37: Equal mode result object never contains 'لا يوجد'");
+}
+
+// Case 38: Strict non-numeric string rejection (e.g., "90abc", "1e2", "--5", "90%")
+{
+  const badInputs = ["98abc", "abc90", "90%", "1e2", "--5"];
+  let allRejected = true;
+  badInputs.forEach(inp => {
+    const res = global.hayyizCalculateRequiredScore({
+      highSchoolScore: inp,
+      targetWeighted: 90,
+      knownScore: 85
+    });
+    if (res.isValid) allRejected = false;
+  });
+  assert(allRejected, "Case 38: Strict input validation rejects all malformed non-numeric inputs ('98abc', 'abc90', '90%', '1e2', '--5')");
+}
+
+// Case 39: Out of range inputs (-1, 105) rejected
+{
+  const resNegative = global.hayyizCalculateRequiredScore({
+    highSchoolScore: -1,
+    targetWeighted: 90,
+    knownScore: 85
+  });
+  const resTooHigh = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 98,
+    targetWeighted: 105,
+    knownScore: 85
+  });
+  assert(!resNegative.isValid && !resTooHigh.isValid, "Case 39: Out-of-range inputs (-1, 105) strictly rejected");
+}
+
+// Case 40: maxPossibleWeighted logic for Tahsili, Qudrat, and Equal modes
+{
+  const resTahsili = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 90,
+    targetWeighted: 95,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "tahsili",
+    knownScore: 80
+  });
+  // 90*0.3 + 80*0.3 + 40 = 27 + 24 + 40 = 91.0
+  assert(resTahsili.maxPossibleWeighted === 91.0, `Case 40a: Tahsili max possible weighted score expected 91.0, got ${resTahsili.maxPossibleWeighted}`);
+
+  const resQudrat = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 90,
+    targetWeighted: 95,
+    highSchoolWeight: 30,
+    qudratWeight: 40,
+    tahsiliWeight: 30,
+    targetType: "qudrat",
+    knownScore: 80
+  });
+  // 90*0.3 + 80*0.3 + 40 = 27 + 24 + 40 = 91.0
+  assert(resQudrat.maxPossibleWeighted === 91.0, `Case 40b: Qudrat max possible weighted score expected 91.0, got ${resQudrat.maxPossibleWeighted}`);
+
+  const resEqual = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 90,
+    targetWeighted: 95,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "equal",
+    knownScore: ""
+  });
+  // 90*0.3 + 30 + 40 = 27 + 70 = 97.0
+  assert(resEqual.maxPossibleWeighted === 97.0, `Case 40c: Equal mode max possible weighted score expected 97.0, got ${resEqual.maxPossibleWeighted}`);
+}
+
+// Case 41: too_low message in Equal mode
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 100,
+    targetWeighted: 25,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "equal"
+  });
+  assert(res.isValid && res.rangeStatus === "too_low", "Case 41: Equal mode target < HS contribution flagged as too_low");
+  assert(res.rangeMessage.includes("المساهمة الحالية للثانوية العامة"), "Case 41: Equal mode too_low message accurately cites HS contribution");
+}
+
+// Case 42: Mathematical accuracy of maxPossibleWeighted in requiredScore > 100 scenario
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 80,
+    targetWeighted: 95,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "tahsili",
+    knownScore: 70
+  });
+  // HS contrib = 24.0, Qudrat contrib = 21.0, Max Tahsili = 40.0 => Max possible = 85.0
+  assert(res.maxPossibleWeighted === 85.0, `Case 42: Expected max possible weighted score 85.0, got ${res.maxPossibleWeighted}`);
+  assert(res.rangeMessage.includes("85.00%"), "Case 42: Range message accurately cites max possible weighted score 85.00%");
+}
+
+// Case 43: UI DOM Interaction Test (Mode selection changes labels & resets correctly)
+{
+  const mockHsInput = new TestMockElement('input', 'req-hs-score');
+  const mockTargetInput = new TestMockElement('input', 'req-target-weighted');
+  const mockKnownInput = new TestMockElement('input', 'req-known-score');
+  const mockKnownWrap = new TestMockElement('div', 'known-wrap');
+  mockKnownWrap.children.push(mockKnownInput);
+
+  const mockKnownLabel = new TestMockElement('label', 'req-known-label');
+  const mockModeSelect = new TestMockElement('select', 'req-mode-select');
+  const mockCalcBtn = new TestMockElement('button', 'req-calculate-btn');
+  const mockResetBtn = new TestMockElement('button', 'req-reset-btn');
+  const mockResultBox = new TestMockElement('div', 'req-result-box');
+
+  global.document = {
+    createElement: (tag) => new TestMockElement(tag),
+    getElementById: (id) => {
+      if (id === 'req-hs-score') return mockHsInput;
+      if (id === 'req-target-weighted') return mockTargetInput;
+      if (id === 'req-known-score') return mockKnownInput;
+      if (id === 'req-known-label') return mockKnownLabel;
+      if (id === 'req-mode-select') return mockModeSelect;
+      if (id === 'req-calculate-btn') return mockCalcBtn;
+      if (id === 'req-reset-btn') return mockResetBtn;
+      if (id === 'req-result-box') return mockResultBox;
+      return null;
+    }
+  };
+
+  // Trigger page engine initialization
+  global.initRequiredScorePage();
+
+  // Mode 1: Tahsili
+  mockModeSelect.value = 'tahsili';
+  mockModeSelect.eventListeners['change'] ? mockModeSelect.eventListeners['change'].forEach(fn => fn()) : null;
+  assert(mockKnownLabel.textContent.includes('درجة القدرات الحالية (مطلوبة)'), "Case 43a: Tahsili mode updates label to 'درجة القدرات الحالية (مطلوبة)'");
+
+  // Mode 2: Qudrat
+  mockModeSelect.value = 'qudrat';
+  mockModeSelect.eventListeners['change'] ? mockModeSelect.eventListeners['change'].forEach(fn => fn()) : null;
+  assert(mockKnownLabel.textContent.includes('درجة التحصيلي الحالية (مطلوبة)'), "Case 43b: Qudrat mode updates label to 'درجة التحصيلي الحالية (مطلوبة)'");
+
+  // Mode 3: Equal
+  mockModeSelect.value = 'equal';
+  mockModeSelect.eventListeners['change'] ? mockModeSelect.eventListeners['change'].forEach(fn => fn()) : null;
+  assert(mockKnownInput.disabled === true, "Case 43c: Equal mode disables knownScore input");
+
+  // Reset button restores clean state
+  mockHsInput.value = '95';
+  mockResetBtn.click();
+  assert(mockHsInput.value === '' && mockResultBox.classList.contains('hidden'), "Case 43d: Reset button clears inputs and hides result box");
 }
 
 console.log(`\nTests Summary: ${passed} Passed, ${failed} Failed`);
