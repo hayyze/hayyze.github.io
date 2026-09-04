@@ -156,14 +156,15 @@
     </div>
 </header>
 <main class="container main-content">
-    <div class="hero">
-        <div class="hero-badge">منصة أدوات دراسية مجانية</div>
-        <h1 class="hero-title"><span class="highlight">حيز</span> — منصة أدوات دراسية للطلاب</h1>
-        <p class="hero-desc">منصة أدوات دراسية عربية مجانية تساعدك على تنظيم المذاكرة والوقت والمهام، مع أدوات عملية تعمل مباشرة من المتصفح.</p>
-    </div>
+    <!-- HERO: Academic Space Statement -->
+    <header class="home-hero">
+        <div class="hero-brand-mark">مساحة الطالب الرقمية</div>
+        <h1 class="hero-statement">حيز <span>مكانك للمذاكرة والتركيز والتنظيم اليومي.</span></h1>
+        <p class="hero-subtext">أدوات دراسية عربية بسيطة تعمل من المتصفح مباشرة، بدون تعقيد، وبدون تشويش.</p>
+    </header>
 
-    <!-- لوحة اليوم -->
-    <section id="daily-summary" class="card daily-summary">
+    <!-- لوحة اليوم: Unified Student Space Surface -->
+    <section id="daily-summary" class="home-workspace-surface">
         <div id="summary-content">
             <div class="dash-greeting">
                 <h3>مرحباً 👋</h3>
@@ -182,45 +183,83 @@
         </div>
     </section>
 
+    <!-- أدوات الدراسة: Editorial Asymmetric Layout -->
+    <section class="home-tools-section">
+        <div class="section-title-editorial">
+            <h2>الأدوات الدراسية</h2>
+            <span class="editorial-divider"></span>
+        </div>
 
-    <h2 class="section-title" style="margin: 2rem 0 1.2rem; text-align: center; font-size: 1.4rem;">أدوات دراسية مجانية</h2>
-    <div class="tools-grid">
-        <a href="pomodoro.html" class="card tool-card">
-            <div class="card-icon pomodoro-icon"><i class="fa-solid fa-stopwatch" aria-hidden="true"></i></div>
-            <h3>مؤقت المذاكرة بومودورو</h3>
-            <p>نظم جلسات المذاكرة والتركيز باستخدام تقنية بومودورو مع إمكانية تخصيص وقت الدراسة والراحة.</p>
-        </a>
-        <a href="todo.html" class="card tool-card">
-            <div class="card-icon todo-icon"><i class="fa-solid fa-tasks" aria-hidden="true"></i></div>
-            <h3>قائمة مهام للطلاب</h3>
-            <p>نظم واجباتك ومهامك باستخدام الأولويات وتواريخ الاستحقاق.</p>
-        </a>
-        <a href="gpa.html" class="card tool-card">
-            <div class="card-icon" style="background: color-mix(in srgb, var(--color-success) 12%, var(--color-surface)); color: var(--color-success); border: 1px solid var(--color-border);"><i class="fa-solid fa-calculator" aria-hidden="true"></i></div>
-            <h3>حاسبة المعدل الدراسي</h3>
-            <p>احسب معدلك الدراسي بسهولة باستخدام حاسبة المعدل المتوفرة في حيز.</p>
-        </a>
-        <a href="notes.html" class="card tool-card">
-            <div class="card-icon notes-icon"><i class="fa-solid fa-note-sticky" aria-hidden="true"></i></div>
-            <h3>دفتر ملاحظات دراسية</h3>
-            <p>اكتب ملاحظاتك الدراسية ونظمها وابحث فيها بسهولة.</p>
-        </a>
-        <a href="habits.html" class="card tool-card">
-            <div class="card-icon habits-icon"><i class="fa-solid fa-fire" aria-hidden="true"></i></div>
-            <h3>متتبع العادات الدراسية</h3>
-            <p>تابع عاداتك الدراسية اليومية وحافظ على استمراريتك.</p>
-        </a>
-        <a href="calculator.html" class="card tool-card">
-            <div class="card-icon" style="background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface)); color: var(--color-primary); border: 1px solid var(--color-border);"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i></div>
-            <h3>تقويم الطالب</h3>
-            <p>تابع عمرك واختباراتك ومواعيدك المهمة والعد التنازلي لها في مكان واحد.</p>
-        </a>
-        <a href="game.html" class="card tool-card">
-            <div class="card-icon game-icon"><i class="fa-solid fa-font" aria-hidden="true"></i></div>
-            <h3>لعبة الحروف: جماد حيوان نبات</h3>
-            <p>لعبة حروف عربية تتيح لك اللعب بفئات مثل الجماد والحيوان والنبات والإنسان والبلاد.</p>
-        </a>
-    </div>
+        <div class="editorial-tools-layout">
+            <!-- Featured Tool: Focus Engine -->
+            <a href="pomodoro.html" class="tool-editorial-item tool-featured">
+                <div class="tool-editorial-header">
+                    <span class="tool-tag">الأداة الرئيسية</span>
+                    <i class="fa-solid fa-stopwatch tool-inline-icon" aria-hidden="true"></i>
+                </div>
+                <h3>مؤقت المذاكرة بومودورو</h3>
+                <p>نظم جلسات الدراسة والتركيز باستخدام تقنية بومودورو مع ربط مباشر بالمهام والتقويم واستمرار التوقيت خلف الشاشة.</p>
+                <span class="tool-arrow-link">ابدأ التركيز ←</span>
+            </a>
+
+            <!-- Secondary Grid -->
+            <div class="editorial-tools-grid">
+                <a href="todo.html" class="tool-editorial-item">
+                    <div class="tool-editorial-header">
+                        <span class="tool-meta-type">تنظيم</span>
+                        <i class="fa-solid fa-tasks tool-inline-icon" aria-hidden="true"></i>
+                    </div>
+                    <h3>قائمة المهام</h3>
+                    <p>ترتيب الواجبات والمهام حسب الأولويات وتواريخ الاستحقاق.</p>
+                </a>
+
+                <a href="gpa.html" class="tool-editorial-item">
+                    <div class="tool-editorial-header">
+                        <span class="tool-meta-type">أكاديمي</span>
+                        <i class="fa-solid fa-calculator tool-inline-icon" aria-hidden="true"></i>
+                    </div>
+                    <h3>حاسبة المعدل</h3>
+                    <p>حساب المعدل الفصلي والتراكمي وتحليل الهدف المطلوب.</p>
+                </a>
+
+                <a href="notes.html" class="tool-editorial-item">
+                    <div class="tool-editorial-header">
+                        <span class="tool-meta-type">تدوين</span>
+                        <i class="fa-solid fa-note-sticky tool-inline-icon" aria-hidden="true"></i>
+                    </div>
+                    <h3>دفتر الملاحظات</h3>
+                    <p>كتابة الملاحظات وتنظيمها وربطها بالمواد والمهام.</p>
+                </a>
+
+                <a href="habits.html" class="tool-editorial-item">
+                    <div class="tool-editorial-header">
+                        <span class="tool-meta-type">استمرارية</span>
+                        <i class="fa-solid fa-fire tool-inline-icon" aria-hidden="true"></i>
+                    </div>
+                    <h3>متتبع العادات</h3>
+                    <p>متابعة العادات الدراسية اليومية وبناء الروتين.</p>
+                </a>
+
+                <a href="calculator.html" class="tool-editorial-item">
+                    <div class="tool-editorial-header">
+                        <span class="tool-meta-type">زمني</span>
+                        <i class="fa-solid fa-calendar-days tool-inline-icon" aria-hidden="true"></i>
+                    </div>
+                    <h3>تقويم الطالب</h3>
+                    <p>متابعة ميعاد الاختبارات والعد التنازلي وحساب العمر.</p>
+                </a>
+
+                <a href="game.html" class="tool-editorial-item">
+                    <div class="tool-editorial-header">
+                        <span class="tool-meta-type">استراحة</span>
+                        <i class="fa-solid fa-font tool-inline-icon" aria-hidden="true"></i>
+                    </div>
+                    <h3>لعبة الحروف</h3>
+                    <p>تنشيط الذاكرة وتنشيط الذهن بالكلمات العربية.</p>
+                </a>
+            </div>
+        </div>
+    </section>
 
     <!-- قسم: ما هي منصة حيز؟ -->
 <!-- قسم: ما هي منصة حيز؟ -->
