@@ -31,9 +31,9 @@
     <meta name="referrer" content="strict-origin-when-cross-origin">
 
     <!-- SEO Metadata -->
-    <title>حاسبة الدرجة المطلوبة في القدرات والتحصيلي | احسب درجتك للقبول | حيز</title>
-    <meta name="description" content="حاسبة الدرجة المطلوبة في القدرات والتحصيلي للوصول إلى نسبة موزونة معينة للقبول الجامعي. أدخل درجاتك واعرف كم تحتاج في الاختبار القادم بدقة مع خطوات الحساب.">
-    <meta name="keywords" content="حاسبة الدرجة المطلوبة, كم احتاج في التحصيلي, كم احتاج في القدرات, حساب الدرجة المطلوبة للقبول, حساب الموزونة المطلوبة, كيف اصل إلى موزونة 90, كيف اصل إلى موزونة 95">
+    <title>حاسبة الدرجة المطلوبة في القدرات والتحصيلي واختبارات القبول | حيز</title>
+    <meta name="description" content="حاسبة مرنة لحساب الدرجة المطلوبة في القدرات والتحصيلي واختبارات القبول الأخرى وفق أوزان الجامعة التي تدخلها. أدخل درجاتك واعرف كم تحتاج في الاختبار القادم بدقة.">
+    <meta name="keywords" content="حاسبة الدرجة المطلوبة, كم احتاج في التحصيلي, كم احتاج في القدرات, اختبارات القبول, STEP, حساب الدرجة المطلوبة للقبول, حساب الموزونة المطلوبة, كيف اصل إلى موزونة 90, كيف اصل إلى موزونة 95">
     <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
 
@@ -256,63 +256,48 @@
         <span style="margin: 0 0.4rem;">&gt;</span>
         <a href="gpa.html" style="color: var(--text-muted); text-decoration: none;">حاسبات المعدل</a>
         <span style="margin: 0 0.4rem;">&gt;</span>
-        <span style="color: var(--text); font-weight: 600;">حاسبة الدرجة المطلوبة في القدرات والتحصيلي</span>
+        <span style="color: var(--text); font-weight: 600;">حاسبة الدرجة المطلوبة للقبول الجامعي</span>
     </nav>
 
     <!-- الحاسبة الرئيسية -->
     <div class="card" data-calc-page="required-score">
         <div class="section-header">
-            <h1><i class="fa-solid fa-bullseye" style="color: var(--primary);"></i> حاسبة الدرجة المطلوبة في القدرات والتحصيلي</h1>
-            <p class="section-desc">اعرف بالضبط كم تحتاج في اختبار القدرات أو التحصيلي للوصول إلى النسبة الموزونة المستهدفة للقبول الجامعي</p>
+            <h1><i class="fa-solid fa-bullseye" style="color: var(--primary);"></i> حاسبة الدرجة المطلوبة للقبول الجامعي</h1>
+            <p class="section-desc">اعرف كم تحتاج في القدرات أو التحصيلي أو أي اختبار قبول مخصص للوصول إلى النسبة الموزونة المستهدفة</p>
         </div>
 
         <div class="req-info">
-            تتيح لك هذه الأداة التخطيط الأكاديمي المبكر: أدخل درجتك الحالية في الثانوية والاختبار المكتمل، ثم حدد النسبة الموزونة التي ترغب بتحقيقها (مثلاً 90% أو 95%). ستحسب لك الحاسبة الدرجة الدقيقة المطلوبة في الاختبار المتبقي وتوضح لك خطوات الحساب بالتفصيل.
+            تتيح لك هذه الأداة التخطيط الأكاديمي المبكر والمرن للقبول الجامعي: حدد مكونات المفاضلة مع أوزانها ودرجاتك الحالية، ويمكنك إضافة اختبارات مخصصة مثل STEP أو حذف مكونات، ثم اختر الاختبار المراد حساب درجته المطلوبة للوصول إلى موزونتك المستهدفة (مثلاً 90% أو 95%) مع خطوات حساب تفصيلية.
         </div>
 
-        <div class="req-grid">
+        <!-- مكونات النسبة الموزونة -->
+        <div class="weights-subcard">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+                <h3 style="margin: 0;"><i class="fa-solid fa-sliders" style="color:var(--primary);"></i> مكونات النسبة الموزونة</h3>
+                <span id="req-weights-total" style="font-size: 0.88rem; font-weight: 700; padding: 0.25rem 0.75rem; border-radius: 20px; background: var(--bg); border: 1px solid var(--border);">المجموع: 100%</span>
+            </div>
+            <p>تختلف مكونات وأوزان المفاضلة حسب الجامعة والتخصص. أدخل الدرجات الحالية والأوزان، ويمكنك إضافة اختبارات قبول مخصصة (مثل STEP) أو حذف المكونات حسب شروط كليتك:</p>
+
+            <div id="req-components-container" style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem;">
+                <!-- dynamic component rows populated by gpa.js -->
+            </div>
+
+            <button type="button" class="btn btn-outline btn-sm" id="req-add-component-btn">
+                <i class="fa-solid fa-plus"></i> إضافة اختبار
+            </button>
+        </div>
+
+        <div class="req-grid" style="margin-top: 1.25rem;">
             <div class="req-field">
-                <label for="req-mode-select">ما الاختبار الذي تريد معرفة درجته المطلوبة؟</label>
-                <select id="req-mode-select">
-                    <option value="tahsili" selected>الدرجة المطلوبة في التحصيلي</option>
-                    <option value="qudrat">الدرجة المطلوبة في القدرات</option>
-                    <option value="equal">افتراض نفس الدرجة في القدرات والتحصيلي</option>
+                <label for="req-target-component-select">ما الدرجة التي تريد حسابها؟</label>
+                <select id="req-target-component-select">
+                    <!-- dynamically populated by gpa.js -->
                 </select>
-            </div>
-
-            <div class="req-field">
-                <label for="req-hs-score">درجة الثانوية العامة (%)</label>
-                <input type="number" id="req-hs-score" min="0" max="100" step="0.01" placeholder="مثال: 98.5">
-            </div>
-
-            <div class="req-field">
-                <label for="req-known-score" id="req-known-label">درجة القدرات الحالية (إن وجدت)</label>
-                <input type="number" id="req-known-score" min="0" max="100" step="0.01" placeholder="مثال: 85">
             </div>
 
             <div class="req-field">
                 <label for="req-target-weighted">النسبة الموزونة المستهدفة (%)</label>
                 <input type="number" id="req-target-weighted" min="0" max="100" step="0.01" placeholder="مثال: 90 أو 95">
-            </div>
-        </div>
-
-        <!-- تخصيص أوزان القبول -->
-        <div class="weights-subcard">
-            <h3><i class="fa-solid fa-sliders" style="color:var(--primary);"></i> أوزان القبول بالجامعة (قابلة للتعديل)</h3>
-            <p>تختلف أوزان المفاضلة حسب الجامعة والتخصص. الأرقام أدناه هي مثال شائع، يمكنك تغييرها لتطابق شروط الكلية المستهدفة (يجب أن يكون المجموع 100%):</p>
-            <div class="req-grid" style="margin-bottom:0;">
-                <div class="req-field">
-                    <label for="req-hs-weight">وزن الثانوية (%)</label>
-                    <input type="number" id="req-hs-weight" min="0" max="100" step="1" value="30">
-                </div>
-                <div class="req-field">
-                    <label for="req-q-weight">وزن القدرات (%)</label>
-                    <input type="number" id="req-q-weight" min="0" max="100" step="1" value="30">
-                </div>
-                <div class="req-field">
-                    <label for="req-t-weight">وزن التحصيلي (%)</label>
-                    <input type="number" id="req-t-weight" min="0" max="100" step="1" value="40">
-                </div>
             </div>
         </div>
 
@@ -353,7 +338,10 @@
             </div>
 
             <div style="background: var(--bg); padding: 1.1rem; border-radius: 12px; border: 1px solid var(--border);">
-                <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--primary);">مثال 2: كيف أصل إلى موزونة 95% للكليات الصحية؟</h3>
+                <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--primary);">مثال 2: كيف أصل إلى موزونة 95%؟</h3>
+                <p style="margin-bottom: 0.5rem;">
+                    مثال رياضي باستخدام أوزان 30% ثانوية، 30% قدرات، 40% تحصيلي.
+                </p>
                 <p style="margin-bottom: 0.5rem;">
                     <strong>البيانات:</strong> درجات الطالب: الثانوية 100%، القدرات 90. توزيع أوزان الكلية: (30% ثانوية، 30% قدرات، 40% تحصيلي).
                 </p>
@@ -371,20 +359,24 @@
     <!-- قسم الأسئلة الشائعة FAQ -->
     <section class="card content-section" style="margin-top: 2rem;">
         <div class="section-header" style="text-align: right;">
-            <h2><i class="fa-solid fa-circle-question" style="color:var(--primary);"></i> الأسئلة الشائعة حول الدرجة المطلوبة في القدرات والتحصيلي</h2>
+            <h2><i class="fa-solid fa-circle-question" style="color:var(--primary);"></i> الأسئلة الشائعة حول الدرجة المطلوبة للقبول الجامعي</h2>
         </div>
         <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
             <div class="faq-item" style="margin-bottom: 1.5rem;">
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">كيف أعرف كم أحتاج في التحصيلي؟</h3>
-                <p>أدخل معدل الثانوية ودرجة القدرات المكتسبة والنسبة الموزونة المستهدفة في الحاسبة أعلاه. ستحسب لك الأداة النقاط المتبقية وتقسمها على وزن التحصيلي بالجامعة لتعطيك الدرجة المطلوبة بدقة.</p>
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">كيف أعرف الدرجة التي أحتاجها في اختبارات القبول؟</h3>
+                <p>أدخل مكونات موزونة جامعتك المعتمدة (الثانوية، القدرات، التحصيلي، أو اختبارات مخصصة مثل STEP) مع درجاتك الحالية والنسبة الموزونة المستهدفة، ثم اختر الاختبار المطلوب حسابه لتعطيك الحاسبة الدرجة المطلوبة بدقة مع خطوات تفصيلية.</p>
             </div>
             <div class="faq-item" style="margin-bottom: 1.5rem;">
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">ماذا يعني إذا كانت النتيجة المطلوبة أكبر من 100؟</h3>
-                <p>إذا ظهرت الدرجة المطلوبة أكبر من 100، فهذا يعني رياضياً أن الدرجات الحالية (في الثانوية أو الاختبار الأول) غير كافية للوصول للموزونة المستهدفة حتى لو حصلت على الدرجة الكاملة 100، مما يتطلب العمل على إعادة الاختبار الآخر لرفع درجته أولاً.</p>
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">هل يمكنني إضافة اختبارات قبول مخصصة مثل STEP؟</h3>
+                <p>نعم، تتيح لك الحاسبة المرنة إضافة أي عدد من اختبارات القبول المخصصة وتحديد أوزانها المئوية، لحساب الدرجة المطلوبة في أي اختبار تدخل ضمن مفاضلة الكلية.</p>
             </div>
             <div class="faq-item" style="margin-bottom: 1.5rem;">
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">هل تختلف الأوزان من جامعة لأخرى؟</h3>
-                <p>نعم، تختلف أوزان القبول بالجامعات السعودية بحسب الكلية والتخصص (علمي، صحي، أو أدبي). تتيح لك الحاسبة تعديل الأوزان بسهولة لمطابقة شروط الجامعة التي ترغب بالتقديم عليها.</p>
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">ماذا يعني إذا كانت النتيجة المطلوبة أعلى من الحد الأقصى؟</h3>
+                <p>إذا ظهرت الدرجة المطلوبة أعلى من الحد الأقصى للاختبار، فهذا يعني أن درجاتك الحالية غير كافية للوصول للموزونة المستهدفة حتى لو حصلت على الدرجة الكاملة، وتعرض لك الحاسبة أقصى نسبة موزونة ممكنة بالدرجات الحالية.</p>
+            </div>
+            <div class="faq-item" style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">هل تختلف أوزان القبول من جامعة لأخرى؟</h3>
+                <p>نعم، تختلف أوزان القبول بالجامعات بحسب الكلية والتخصص، وتتيح لك الحاسبة إضافة وتعديل وحذف أوزان المكونات بسهولة بشرط أن يكون مجموع الأوزان 100%.</p>
             </div>
         </div>
     </section>
