@@ -467,17 +467,330 @@
     }
   };
 
+  // ===== حساب الدرجة المطلوبة في القدرات والتحصيلي =====
+  function hayyizCalculateRequiredScore(options) {
+    const {
+      highSchoolScore,
+      targetWeighted,
+      highSchoolWeight = 30,
+      qudratWeight = 30,
+      tahsiliWeight = 40,
+      targetType = "tahsili", // "tahsili" | "qudrat"
+      knownScore = null
+    } = options || {};
+
+    const hsScore = parseFloat(highSchoolScore);
+    const target = parseFloat(targetWeighted);
+    const wHs = parseFloat(highSchoolWeight);
+    const wQ = parseFloat(qudratWeight);
+    const wT = parseFloat(tahsiliWeight);
+    const totalW = wHs + wQ + wT;
+
+    if (isNaN(hsScore) || hsScore < 0 || hsScore > 100) {
+      return { isValid: false, errorMessage: "يرجى إدخال درجة ثانوية صحيحة بين 0 و 100" };
+    }
+    if (isNaN(target) || target < 0 || target > 100) {
+      return { isValid: false, errorMessage: "يرجى إدخال نسبة موزونة مستهدفة بين 0 و 100" };
+    }
+    if (isNaN(wHs) || isNaN(wQ) || isNaN(wT) || wHs < 0 || wQ < 0 || wT < 0) {
+      return { isValid: false, errorMessage: "يرجى إدخال أوزان مئوية صحيحة وأكبر من أو تساوي 0" };
+    }
+    if (Math.abs(totalW - 100) > 0.01) {
+      return {
+        isValid: false,
+        errorMessage: `مجموع أوزان القبول يجب أن يساوي 100% (المجموع الحالي: ${totalW.toFixed(0)}%)`
+      };
+    }
+
+    const isTahsiliTarget = targetType === "tahsili";
+    const targetW = isTahsiliTarget ? wT : wQ;
+    const knownW = isTahsiliTarget ? wQ : wT;
+    const targetTypeName = isTahsiliTarget ? "التحصيلي" : "القدرات";
+    const knownTypeName = isTahsiliTarget ? "القدرات" : "التحصيلي";
+
+    if (targetW <= 0) {
+      return { isValid: false, errorMessage: `وزن اختبار ${targetTypeName} يجب أن يكون أكبر من 0% للحساب.` };
+    }
+
+    const kScore = knownScore !== null && knownScore !== undefined && knownScore !== "" ? parseFloat(knownScore) : null;
+    const hasKnownScore = kScore !== null && !isNaN(kScore);
+
+    if (hasKnownScore && (kScore < 0 || kScore > 100)) {
+      return { isValid: false, errorMessage: `درجة اختبار ${knownTypeName} يجب أن تكون بين 0 و 100` };
+    }
+
+    const hsContrib = hsScore * (wHs / 100);
+    let knownContrib = 0;
+    let requiredScore = 0;
+    let equalAssumption = false;
+    const steps = [];
+
+    steps.push({
+      stepNumber: 1,
+      title: `حساب مساهمة الثانوية العامة (${wHs}%)`,
+      formula: `${hsScore.toFixed(2)} × ${wHs}% = ${hsContrib.toFixed(2)}%`,
+      detail: `تحصل من مدرستك الثانوية على ${hsContrib.toFixed(2)} نقطة مئوية من أصل ${target.toFixed(2)}% مستهدفة.`
+    });
+
+    if (hasKnownScore) {
+      knownContrib = kScore * (knownW / 100);
+      const currentSum = hsContrib + knownContrib;
+      const neededPoints = target - currentSum;
+      requiredScore = (neededPoints / (targetW / 100));
+
+      steps.push({
+        stepNumber: 2,
+        title: `حساب مساهمة اختبار ${knownTypeName} (${knownW}%)`,
+        formula: `${kScore.toFixed(2)} × ${knownW}% = ${knownContrib.toFixed(2)}%`,
+        detail: `تضيف درجتك الحالية في ${knownTypeName} مقدار ${knownContrib.toFixed(2)} نقطة مئوية.`
+      });
+
+      steps.push({
+        stepNumber: 3,
+        title: `حساب النقاط المتبقية المطلوبة للوصول إلى الموزونة (${target.toFixed(2)}%)`,
+        formula: `${target.toFixed(2)} - (${hsContrib.toFixed(2)} + ${knownContrib.toFixed(2)}) = ${neededPoints.toFixed(2)} نقطة`,
+        detail: `إجمالي الموزونة المحققة حتى الآن: ${currentSum.toFixed(2)}%. متبقي لك ${neededPoints.toFixed(2)} نقطة مئوية.`
+      });
+
+      steps.push({
+        stepNumber: 4,
+        title: `حساب الدرجة المطلوبة في ${targetTypeName} (${targetW}%)`,
+        formula: `(${neededPoints.toFixed(2)} ÷ ${targetW}) × 100 = ${requiredScore.toFixed(2)}`,
+        detail: `الدرجة المطلوبة في اختبار ${targetTypeName} لتوفير النقاط المتبقية هي ${requiredScore.toFixed(2)} من 100.`
+      });
+    } else {
+      // إذا لم تُدخل درجة الاختبار المكتمل وقام المستخدم بالحساب
+      equalAssumption = true;
+      const neededPoints = target - hsContrib;
+      const combinedW = knownW + targetW;
+      requiredScore = (neededPoints / (combinedW / 100));
+
+      steps.push({
+        stepNumber: 2,
+        title: `حساب النقاط المتبقية من الاختبارين المعياريين (وزنهما الإجمالي ${combinedW}%)`,
+        formula: `${target.toFixed(2)} - ${hsContrib.toFixed(2)} = ${neededPoints.toFixed(2)} نقطة`,
+        detail: `مطلوب تحصيل ${neededPoints.toFixed(2)} نقطة مئوية عبر اختباري القدرات والتحصيلي معاً.`
+      });
+
+      steps.push({
+        stepNumber: 3,
+        title: `افتراض درجة متكافئة في الاختباريين (${targetTypeName} و ${knownTypeName})`,
+        formula: `(${neededPoints.toFixed(2)} ÷ ${combinedW}) × 100 = ${requiredScore.toFixed(2)}`,
+        detail: `إذا حصلت على نفس الدرجة في الاختباريين، فستحتاج إلى ${requiredScore.toFixed(2)} من 100 في كل منهما للوصول إلى هدفك.`
+      });
+    }
+
+    let rangeStatus = "valid";
+    let isOutOfRange = false;
+    let rangeMessage = null;
+
+    if (requiredScore > 100) {
+      rangeStatus = "too_high";
+      isOutOfRange = true;
+      const excess = (requiredScore - 100).toFixed(2);
+      rangeMessage = `الدرجة المطلوبة (${requiredScore.toFixed(2)}) تتجاوز الحد الأقصى (100). الوصول إلى موزونة ${target.toFixed(2)}% غير ممكن بهذه الدرجات الحالية؛ حتى لو حصلت على 100 كاملة ستكون الموزونة القصوى المحققة ${(hsContrib + knownContrib + (targetW * 1.0)).toFixed(2)}%. بتحتاج ترفع الدرجات الأخرى.`;
+    } else if (requiredScore < 0) {
+      rangeStatus = "too_low";
+      isOutOfRange = true;
+      rangeMessage = `الدرجة المطلوبة أقل من 0 (${requiredScore.toFixed(2)}). هذا يعني أنك حققت النسبة الموزونة المستهدفة (${target.toFixed(2)}%) بالفعل بنتيجة الثانوية و${knownTypeName} الحالية!`;
+    }
+
+    return {
+      isValid: true,
+      targetType,
+      targetTypeName,
+      knownTypeName,
+      highSchoolScore: hsScore,
+      targetWeighted: target,
+      highSchoolWeight: wHs,
+      qudratWeight: wQ,
+      tahsiliWeight: wT,
+      hsContrib,
+      knownContrib,
+      neededWeightedPoints: target - hsContrib - knownContrib,
+      requiredScore,
+      isOutOfRange,
+      rangeStatus,
+      rangeMessage,
+      steps,
+      equalAssumption
+    };
+  }
+
+  // ===== تشغيل صفحة حاسبة الدرجة المطلوبة =====
+  function initRequiredScorePage() {
+    const hsInput = document.getElementById("req-hs-score");
+    const targetInput = document.getElementById("req-target-weighted");
+    const knownInput = document.getElementById("req-known-score");
+    const knownLabel = document.getElementById("req-known-label");
+    const modeSelect = document.getElementById("req-mode-select");
+
+    const hsWeightInput = document.getElementById("req-hs-weight");
+    const qWeightInput = document.getElementById("req-q-weight");
+    const tWeightInput = document.getElementById("req-t-weight");
+
+    const calculateBtn = document.getElementById("req-calculate-btn");
+    const resetBtn = document.getElementById("req-reset-btn");
+    const resultBox = document.getElementById("req-result-box");
+
+    if (!calculateBtn) return;
+
+    function updateModeUI() {
+      const mode = modeSelect ? modeSelect.value : "tahsili";
+      if (knownLabel) {
+        knownLabel.textContent = mode === "tahsili" ? "درجة القدرات الحالية (إن وجدت)" : "درجة التحصيلي الحالية (إن وجدت)";
+      }
+      if (knownInput) {
+        knownInput.placeholder = mode === "tahsili" ? "مثال: 85" : "مثال: 80";
+      }
+    }
+
+    function calculateRequired() {
+      const mode = modeSelect ? modeSelect.value : "tahsili";
+      const options = {
+        highSchoolScore: hsInput ? hsInput.value : "",
+        targetWeighted: targetInput ? targetInput.value : "",
+        highSchoolWeight: hsWeightInput ? hsWeightInput.value : 30,
+        qudratWeight: qWeightInput ? qWeightInput.value : 30,
+        tahsiliWeight: tWeightInput ? tWeightInput.value : 40,
+        targetType: mode,
+        knownScore: knownInput ? knownInput.value.trim() : ""
+      };
+
+      const res = hayyizCalculateRequiredScore(options);
+
+      if (!res.isValid) {
+        alert(res.errorMessage);
+        return;
+      }
+
+      renderRequiredResult(resultBox, res);
+    }
+
+    function renderRequiredResult(box, res) {
+      if (!box) return;
+      box.replaceChildren();
+      box.classList.remove("hidden");
+
+      const scoreCard = document.createElement("div");
+      scoreCard.className = "gpa-result";
+      scoreCard.style.cssText = "margin-top:0; padding:1.25rem;";
+
+      const scoreVal = document.createElement("div");
+      scoreVal.className = "gpa-score";
+
+      if (res.rangeStatus === "too_high") {
+        scoreVal.style.color = "var(--danger)";
+        scoreVal.textContent = res.requiredScore.toFixed(2);
+      } else if (res.rangeStatus === "too_low") {
+        scoreVal.style.color = "var(--success)";
+        scoreVal.textContent = "0.00";
+      } else {
+        scoreVal.style.color = "var(--primary)";
+        scoreVal.textContent = res.requiredScore.toFixed(2);
+      }
+
+      const scoreLabel = document.createElement("div");
+      scoreLabel.className = "gpa-label";
+      scoreLabel.textContent = res.equalAssumption
+        ? `الدرجة المطلوبة في كل من ${res.targetTypeName} و ${res.knownTypeName}`
+        : `الدرجة المطلوبة في اختبار ${res.targetTypeName} من 100`;
+
+      scoreCard.appendChild(scoreVal);
+      scoreCard.appendChild(scoreLabel);
+
+      if (res.isOutOfRange && res.rangeMessage) {
+        const warnBox = document.createElement("div");
+        warnBox.className = res.rangeStatus === "too_high" ? "dash-alert warn" : "dash-alert ok";
+        warnBox.style.cssText = "margin-top:1rem; text-align:right; font-size:0.95rem; line-height:1.7; padding:0.85rem 1rem; border-radius:10px;";
+        warnBox.innerHTML = `<strong><i class="${res.rangeStatus === 'too_high' ? 'fa-solid fa-triangle-exclamation' : 'fa-solid fa-circle-check'}" aria-hidden="true"></i> تنبيه التحقق من النتيجة:</strong><br>${escapeHtml(res.rangeMessage)}`;
+        scoreCard.appendChild(warnBox);
+      }
+
+      ensureShareButtons(scoreCard, res.requiredScore.toFixed(2), `الدرجة المطلوبة في ${res.targetTypeName}`);
+      box.appendChild(scoreCard);
+
+      // قسم الخطوات والمعادلة
+      const stepsSection = document.createElement("div");
+      stepsSection.style.cssText = "margin-top:1.25rem; background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:1.1rem 1.25rem; text-align:right;";
+
+      const stepsTitle = document.createElement("h3");
+      stepsTitle.style.cssText = "font-size:1.05rem; margin:0 0 0.85rem; color:var(--text); font-weight:700;";
+      stepsTitle.innerHTML = '<i class="fa-solid fa-list-ol" style="color:var(--primary);" aria-hidden="true"></i> خطوات الحساب والمعادلة المستخدمة';
+      stepsSection.appendChild(stepsTitle);
+
+      const stepsList = document.createElement("div");
+      stepsList.style.cssText = "display:flex; flex-direction:column; gap:0.75rem;";
+
+      res.steps.forEach((st) => {
+        const item = document.createElement("div");
+        item.style.cssText = "background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:0.75rem 0.9rem;";
+
+        const titleEl = document.createElement("div");
+        titleEl.style.cssText = "font-weight:700; font-size:0.95rem; color:var(--text); margin-bottom:0.25rem;";
+        titleEl.textContent = `الخطوة ${st.stepNumber}: ${st.title}`;
+
+        const formulaEl = document.createElement("div");
+        formulaEl.style.cssText = "font-family:monospace; direction:ltr; text-align:left; background:var(--bg); padding:0.35rem 0.65rem; border-radius:6px; font-size:0.9rem; margin:0.35rem 0; color:var(--primary); font-weight:600;";
+        formulaEl.textContent = st.formula;
+
+        const detailEl = document.createElement("div");
+        detailEl.style.cssText = "font-size:0.88rem; color:var(--text-muted);";
+        detailEl.textContent = st.detail;
+
+        item.appendChild(titleEl);
+        item.appendChild(formulaEl);
+        item.appendChild(detailEl);
+        stepsList.appendChild(item);
+      });
+
+      stepsSection.appendChild(stepsList);
+      box.appendChild(stepsSection);
+
+      // تنبيه اختلاف الأوزان حسب الجامعة
+      const disclaimer = document.createElement("div");
+      disclaimer.style.cssText = "margin-top:1rem; background:color-mix(in srgb, var(--primary) 8%, var(--bg)); border:1px solid var(--border); border-radius:10px; padding:0.85rem 1rem; font-size:0.9rem; line-height:1.7; color:var(--text-muted); text-align:right;";
+      disclaimer.innerHTML = '<strong><i class="fa-solid fa-circle-info" style="color:var(--primary);" aria-hidden="true"></i> ملاحظة هامة حول أوزان القبول الجامعي:</strong><br>تختلف أوزان المفاضلة للثانوية والقدرات والتحصيلي من جامعة لأخرى ومن تخصص لآخر (علمي/ صحي/ إنساني). تأكد دائماً من الأوزان المعتمدة في بوابة القبول الرسمية لجامعتك المستهدفة وقُم بتعديل النسب المئوية في الحاسبة وفقاً لها.';
+      box.appendChild(disclaimer);
+
+      box.scrollIntoView({ behavior: "smooth" });
+    }
+
+    function resetRequired() {
+      if (hsInput) hsInput.value = "";
+      if (targetInput) targetInput.value = "";
+      if (knownInput) knownInput.value = "";
+      if (hsWeightInput) hsWeightInput.value = "30";
+      if (qWeightInput) qWeightInput.value = "30";
+      if (tWeightInput) tWeightInput.value = "40";
+      if (modeSelect) modeSelect.value = "tahsili";
+      if (resultBox) {
+        resultBox.replaceChildren();
+        resultBox.classList.add("hidden");
+      }
+      updateModeUI();
+    }
+
+    if (modeSelect) modeSelect.addEventListener("change", updateModeUI);
+    if (calculateBtn) calculateBtn.addEventListener("click", calculateRequired);
+    if (resetBtn) resetBtn.addEventListener("click", resetRequired);
+
+    updateModeUI();
+  }
+
   // تهيئة المحرك بالاعتماد على الصفحة أو المكون النشط
   function initEngine() {
     const calcCard = document.querySelector(".card[data-calc-page]");
     if (!calcCard) return;
 
-    const pageType = calcCard.getAttribute('data-calc-page'); // first-intermediate, second-secondary, cumulative, weighted ...
+    const pageType = calcCard.getAttribute('data-calc-page'); // first-intermediate, second-secondary, cumulative, weighted, required-score ...
 
     if (pageType === "cumulative") {
       initCumulativePage();
     } else if (pageType === "weighted") {
       initWeightedPage();
+    } else if (pageType === "required-score") {
+      initRequiredScorePage();
     } else {
       initSubjectPage(calcCard);
     }
@@ -1217,6 +1530,7 @@
     window.hayyizCalculateMaxPossibleGpa = hayyizCalculateMaxPossibleGpa;
     window.hayyizCalculateSubjectImpacts = hayyizCalculateSubjectImpacts;
     window.hayyizAnalyzeAcademicTarget = hayyizAnalyzeAcademicTarget;
+    window.hayyizCalculateRequiredScore = hayyizCalculateRequiredScore;
     window.refreshWhatNeedUI = refreshWhatNeedUI;
     window.renderGoalAndWhatIf = renderGoalAndWhatIf;
     window.isBehaviorOrAttendance = isBehaviorOrAttendance;

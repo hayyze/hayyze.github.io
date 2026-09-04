@@ -571,6 +571,107 @@ class TestMockElement {
   assert(manualTask && manualTask.notes === "ملاحظتي الشخصية اليدوية" && manualTask.source !== "gpa-target-analysis", "Case 27: Manual user task details and notes remain completely untouched");
 }
 
+// ===== Required Score Calculator (حاسبة الدرجة المطلوبة في القدرات والتحصيلي) Tests =====
+
+// Case 28: Tahsili required score calculation (Exact numeric verification)
+// Example: HS=98, Qudrat=85, Target=90, Weights: 30% HS, 30% Qudrat, 40% Tahsili
+// Expected Tahsili = (90 - (98*0.30 + 85*0.30)) / 0.40 = (90 - 54.9) / 0.40 = 35.1 / 0.40 = 87.75
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 98,
+    targetWeighted: 90,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "tahsili",
+    knownScore: 85
+  });
+  assert(res.isValid, "Case 28: Tahsili calculation is valid");
+  assert(Math.abs(res.requiredScore - 87.75) < 1e-6, `Case 28: Expected Tahsili score 87.75, got ${res.requiredScore}`);
+  assert(res.hsContrib === 29.4 && res.knownContrib === 25.5, "Case 28: Weighted contribution steps computed accurately");
+}
+
+// Case 29: Qudrat required score calculation (Exact numeric verification)
+// Example: HS=95, Tahsili=80, Target=92, Weights: 30% HS, 40% Qudrat, 30% Tahsili
+// Expected Qudrat = (92 - (95*0.30 + 80*0.30)) / 0.40 = (92 - 52.5) / 0.40 = 39.5 / 0.40 = 98.75
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 95,
+    targetWeighted: 92,
+    highSchoolWeight: 30,
+    qudratWeight: 40,
+    tahsiliWeight: 30,
+    targetType: "qudrat",
+    knownScore: 80
+  });
+  assert(res.isValid, "Case 29: Qudrat calculation is valid");
+  assert(Math.abs(res.requiredScore - 98.75) < 1e-6, `Case 29: Expected Qudrat score 98.75, got ${res.requiredScore}`);
+}
+
+// Case 30: Decimal inputs verification
+// Example: HS=98.5, Qudrat=87.25, Target=92.5, Weights: 30% HS, 30% Qudrat, 40% Tahsili
+// HS contrib = 29.55, Qudrat contrib = 26.175, total known = 55.725
+// Needed points = 92.5 - 55.725 = 36.775
+// Required Tahsili = (36.775 / 0.40) = 91.9375
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 98.5,
+    targetWeighted: 92.5,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "tahsili",
+    knownScore: 87.25
+  });
+  assert(res.isValid, "Case 30: Decimal inputs supported and valid");
+  assert(Math.abs(res.requiredScore - 91.9375) < 1e-6, `Case 30: Expected decimal score 91.9375, got ${res.requiredScore}`);
+}
+
+// Case 31: Out of range result > 100 handling
+// Example: HS=80, Qudrat=70, Target=95, Weights: 30%, 30%, 40%
+// HS contrib = 24, Qudrat contrib = 21, Needed points = 50 -> Required = 125
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 80,
+    targetWeighted: 95,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "tahsili",
+    knownScore: 70
+  });
+  assert(res.isValid && res.isOutOfRange && res.rangeStatus === "too_high", "Case 31: Required score > 100 flagged as too_high");
+  assert(res.rangeMessage.includes("تتجاوز الحد الأقصى"), "Case 31: Range message provides clear Arabic alert");
+}
+
+// Case 32: Out of range result < 0 handling (Target already achieved)
+// Example: HS=100, Qudrat=100, Target=50, Weights: 30%, 30%, 40%
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 100,
+    targetWeighted: 50,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "tahsili",
+    knownScore: 100
+  });
+  assert(res.isValid && res.isOutOfRange && res.rangeStatus === "too_low", "Case 32: Required score < 0 flagged as too_low");
+}
+
+// Case 33: Invalid weight sum validation (Sum != 100)
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 95,
+    targetWeighted: 90,
+    highSchoolWeight: 40,
+    qudratWeight: 40,
+    tahsiliWeight: 40,
+    targetType: "tahsili"
+  });
+  assert(!res.isValid && res.errorMessage.includes("مجموع أوزان القبول يجب أن يساوي 100%"), "Case 33: Invalid weight sum rejected cleanly");
+}
+
 console.log(`\nTests Summary: ${passed} Passed, ${failed} Failed`);
 if (failed > 0) {
   process.exit(1);
