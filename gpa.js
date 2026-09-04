@@ -521,8 +521,8 @@
 
     const targetW = isEqualMode ? (wQ + wT) : (isTahsiliTarget ? wT : wQ);
     const knownW = isEqualMode ? 0 : (isTahsiliTarget ? wQ : wT);
-    const targetTypeName = isEqualMode ? "القدرات والتحصيلي معاً (افتراض درجات متكافئة)" : (isTahsiliTarget ? "التحصيلي" : "القدرات");
-    const knownTypeName = isEqualMode ? "لا يوجد" : (isTahsiliTarget ? "القدرات" : "التحصيلي");
+    const targetTypeName = isEqualMode ? "القدرات والتحصيلي" : (isTahsiliTarget ? "التحصيلي" : "القدرات");
+    const knownTypeName = isEqualMode ? "" : (isTahsiliTarget ? "القدرات" : "التحصيلي");
 
     if (targetW <= 0) {
       return { isValid: false, errorMessage: `وزن اختبار ${targetTypeName} يجب أن يكون أكبر من 0% للحساب.` };
@@ -587,7 +587,7 @@
 
       steps.push({
         stepNumber: 2,
-        title: `حساب النقاط المتبقية من الاختباريين المعياريين (وزنهما الإجمالي ${targetW}%)`,
+        title: `حساب النقاط المتبقية من اختباري القدرات والتحصيلي (وزنهما الإجمالي ${targetW}%)`,
         formula: `${target.toFixed(2)} - ${hsContrib.toFixed(2)} = ${neededPoints.toFixed(2)} نقطة`,
         detail: `مطلوب تحصيل ${neededPoints.toFixed(2)} نقطة مئوية عبر اختباري القدرات والتحصيلي معاً.`
       });
@@ -596,7 +596,7 @@
         stepNumber: 3,
         title: `افتراض درجة متكافئة في اختباري القدرات والتحصيلي`,
         formula: `(${neededPoints.toFixed(2)} ÷ ${targetW}) × 100 = ${requiredScore.toFixed(2)}`,
-        detail: `إذا حصلت على نفس الدرجة في الاختباريين، فستحتاج إلى ${requiredScore.toFixed(2)} من 100 في كل منهما للوصول إلى هدفك.`
+        detail: `إذا حصلت على نفس الدرجة في اختباري القدرات والتحصيلي، فستحتاج إلى ${requiredScore.toFixed(2)} من 100 في كل منهما للوصول إلى هدفك.`
       });
     }
 
@@ -614,7 +614,11 @@
     } else if (requiredScore < 0) {
       rangeStatus = "too_low";
       isOutOfRange = true;
-      rangeMessage = `الدرجة المطلوبة أقل من 0 (${requiredScore.toFixed(2)}). هذا يعني أنك حققت النسبة الموزونة المستهدفة (${target.toFixed(2)}%) بالفعل درجاتك الحالية!`;
+      if (isEqualMode) {
+        rangeMessage = `النسبة الموزونة المستهدفة (${target.toFixed(2)}%) أقل من أو تساوي المساهمة الحالية للثانوية العامة (${hsContrib.toFixed(2)}%). هذا يعني أن هدفك محقق حسابياً قبل احتساب اختباري القدرات والتحصيلي!`;
+      } else {
+        rangeMessage = `مجموع المساهمة الحالية للثانوية العامة واختبار ${knownTypeName} (${(hsContrib + knownContrib).toFixed(2)}%) يتجاوز أو يساوي النسبة المستهدفة (${target.toFixed(2)}%). هذا يعني أن هدفك محقق بالفعل دون الحاجة لدرجة إضافية!`;
+      }
     }
 
     return {
@@ -725,7 +729,8 @@
         scoreVal.textContent = res.requiredScore.toFixed(2);
       } else if (res.rangeStatus === "too_low") {
         scoreVal.style.color = "var(--success)";
-        scoreVal.textContent = "0.00";
+        scoreVal.textContent = "الهدف متحقق بالفعل";
+        scoreVal.style.fontSize = "1.8rem";
       } else {
         scoreVal.style.color = "var(--primary)";
         scoreVal.textContent = res.requiredScore.toFixed(2);
@@ -733,9 +738,13 @@
 
       const scoreLabel = document.createElement("div");
       scoreLabel.className = "gpa-label";
-      scoreLabel.textContent = res.equalAssumption
-        ? `الدرجة المطلوبة في كل من ${res.targetTypeName} و ${res.knownTypeName}`
-        : `الدرجة المطلوبة في اختبار ${res.targetTypeName} من 100`;
+      if (res.rangeStatus === "too_low") {
+        scoreLabel.textContent = "لا تحتاج إلى درجة إضافية للوصول إلى هذا الهدف";
+      } else {
+        scoreLabel.textContent = res.equalAssumption
+          ? `الدرجة المطلوبة في كل من اختباري القدرات والتحصيلي من 100`
+          : `الدرجة المطلوبة في اختبار ${res.targetTypeName} من 100`;
+      }
 
       scoreCard.appendChild(scoreVal);
       scoreCard.appendChild(scoreLabel);

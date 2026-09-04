@@ -741,26 +741,75 @@ class TestMockElement {
   // Required score = 60.60 / 0.70 = 86.57142857...
   assert(res.isValid && res.equalAssumption, "Case 37: Explicit equal mode accepted without requiring knownScore");
   assert(Math.abs(res.requiredScore - (60.6 / 0.7)) < 1e-6, `Case 37: Expected equal required score ~86.5714, got ${res.requiredScore}`);
+  assert(!JSON.stringify(res).includes("لا يوجد"), "Case 37: Equal mode result object never contains 'لا يوجد'");
 }
 
-// Case 38: Strict non-numeric string rejection (e.g., "90abc")
+// Case 38: Strict non-numeric string rejection (e.g., "90abc", "1e2", "--5", "90%")
 {
-  const res1 = global.hayyizCalculateRequiredScore({
-    highSchoolScore: "98abc",
-    targetWeighted: 90,
-    knownScore: 85
+  const badInputs = ["98abc", "abc90", "90%", "1e2", "--5"];
+  let allRejected = true;
+  badInputs.forEach(inp => {
+    const res = global.hayyizCalculateRequiredScore({
+      highSchoolScore: inp,
+      targetWeighted: 90,
+      knownScore: 85
+    });
+    if (res.isValid) allRejected = false;
   });
-  const res2 = global.hayyizCalculateRequiredScore({
-    highSchoolScore: 98,
-    targetWeighted: "90xyz",
-    knownScore: 85
+  assert(allRejected, "Case 38: Strict input validation rejects all malformed non-numeric inputs ('98abc', 'abc90', '90%', '1e2', '--5')");
+}
+
+// Case 39: maxPossibleWeighted logic for Tahsili, Qudrat, and Equal modes
+{
+  const resTahsili = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 90,
+    targetWeighted: 95,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "tahsili",
+    knownScore: 80
   });
-  const res3 = global.hayyizCalculateRequiredScore({
-    highSchoolScore: 98,
-    targetWeighted: 90,
-    knownScore: "85foo"
+  // 90*0.3 + 80*0.3 + 40 = 27 + 24 + 40 = 91.0
+  assert(resTahsili.maxPossibleWeighted === 91.0, `Case 39a: Tahsili max possible weighted score expected 91.0, got ${resTahsili.maxPossibleWeighted}`);
+
+  const resQudrat = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 90,
+    targetWeighted: 95,
+    highSchoolWeight: 30,
+    qudratWeight: 40,
+    tahsiliWeight: 30,
+    targetType: "qudrat",
+    knownScore: 80
   });
-  assert(!res1.isValid && !res2.isValid && !res3.isValid, "Case 38: Strict input validation rejects mixed non-numeric strings ('98abc', '90xyz', '85foo')");
+  // 90*0.3 + 80*0.3 + 40 = 27 + 24 + 40 = 91.0
+  assert(resQudrat.maxPossibleWeighted === 91.0, `Case 39b: Qudrat max possible weighted score expected 91.0, got ${resQudrat.maxPossibleWeighted}`);
+
+  const resEqual = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 90,
+    targetWeighted: 95,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "equal",
+    knownScore: ""
+  });
+  // 90*0.3 + 30 + 40 = 27 + 70 = 97.0
+  assert(resEqual.maxPossibleWeighted === 97.0, `Case 39c: Equal mode max possible weighted score expected 97.0, got ${resEqual.maxPossibleWeighted}`);
+}
+
+// Case 40: too_low message in Equal mode
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 100,
+    targetWeighted: 25,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "equal"
+  });
+  assert(res.isValid && res.rangeStatus === "too_low", "Case 40: Equal mode target < HS contribution flagged as too_low");
+  assert(res.rangeMessage.includes("المساهمة الحالية للثانوية العامة"), "Case 40: Equal mode too_low message accurately cites HS contribution");
 }
 
 // Case 39: Out of range inputs (-1, 101) rejected
