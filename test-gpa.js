@@ -843,6 +843,60 @@ class TestMockElement {
   assert(res.isValid && res.maxPossibleWeighted === 91.0, `Test O: Expected max possible weighted 91.0 across 4 components, got ${res.maxPossibleWeighted}`);
 }
 
+// Test P: Invalid maxScore rejection (<= 0 or NaN)
+{
+  const res1 = global.hayyizCalculateRequiredScore({
+    components: [
+      { name: "الثانوية", score: 90, weight: 50, maxScore: 0 },
+      { name: "القدرات", score: null, weight: 50, maxScore: 100 }
+    ],
+    targetWeighted: 90,
+    targetIndex: 1
+  });
+  const res2 = global.hayyizCalculateRequiredScore({
+    components: [
+      { name: "الثانوية", score: 90, weight: 50, maxScore: "abc" },
+      { name: "القدرات", score: null, weight: 50, maxScore: 100 }
+    ],
+    targetWeighted: 90,
+    targetIndex: 1
+  });
+  assert(!res1.isValid && res1.errorMessage.includes("الدرجة العظمى لمكوّن"), "Test P1: maxScore <= 0 rejected with clear message");
+  assert(!res2.isValid && res2.errorMessage.includes("الدرجة العظمى لمكوّن"), "Test P2: malformed maxScore rejected with clear message");
+}
+
+// Test Q: Rejection when target component already has a score
+{
+  const res = global.hayyizCalculateRequiredScore({
+    components: [
+      { name: "الثانوية العامة", score: 95, weight: 50 },
+      { name: "القدرات العامة", score: 85, weight: 50 }
+    ],
+    targetWeighted: 90,
+    targetIndex: 1
+  });
+  assert(!res.isValid && res.errorMessage.includes("يجب ألا تكون له درجة مدخلة بالفعل"), "Test Q: Target component with pre-existing score rejected cleanly");
+}
+
+// Test R: Custom maxScore != 100 calculation and step formula verification
+// Example: HS=100 (weight 50%, maxScore 100) -> contrib = 50.
+// Custom Test: weight 50%, maxScore 150. Target weighted = 80. Needed points = 30.
+// Required score = (30 / 50) * 150 = 90 out of 150.
+{
+  const res = global.hayyizCalculateRequiredScore({
+    components: [
+      { name: "الثانوية", score: 100, weight: 50, maxScore: 100 },
+      { name: "اختبار مخصص 150", score: null, weight: 50, maxScore: 150 }
+    ],
+    targetWeighted: 80,
+    targetIndex: 1
+  });
+  assert(res.isValid, "Test R: Custom maxScore != 100 calculation valid");
+  assert(Math.abs(res.requiredScore - 90) < 1e-6, `Test R: Expected required score 90/150, got ${res.requiredScore}`);
+  const lastStep = res.steps[res.steps.length - 1];
+  assert(lastStep.formula.includes("× 150 = 90.00"), "Test R: Step formula accurately cites custom maxScore 150");
+}
+
 // UI DOM Interaction Test for new dynamic components UI
 {
   const mockContainer = new TestMockElement('div', 'req-components-container');

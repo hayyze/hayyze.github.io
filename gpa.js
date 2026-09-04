@@ -540,7 +540,7 @@
       return { isValid: false, errorMessage: "يرجى إضافة مكونات النسبة الموزونة بشكل صحيح." };
     }
 
-    // التحقق من صحة المكونات والأسماء والأوزان
+    // التحقق من صحة المكونات والأسماء والأوزان والـ maxScore
     const seenNames = new Set();
     let totalWeight = 0;
 
@@ -561,7 +561,7 @@
       totalWeight += c.weight;
 
       if (isNaN(c.maxScore) || c.maxScore <= 0) {
-        c.maxScore = 100;
+        return { isValid: false, errorMessage: `الدرجة العظمى لمكوّن «${c.name}» غير صحيحة، يجب أن تكون رقماً أكبر من 0.` };
       }
 
       // التحقق من صحة الدرجة المدخلة إذا لم تكن فارغة
@@ -709,6 +709,10 @@
       return { isValid: false, errorMessage: `وزن مكوّن «${targetComp.name}» يجب أن يكون أكبر من 0% للحساب.` };
     }
 
+    if (!isNaN(targetComp.score)) {
+      return { isValid: false, errorMessage: `المكوّن المراد حساب درجته («${targetComp.name}») يجب ألا تكون له درجة مدخلة بالفعل.` };
+    }
+
     let knownContribSum = 0;
     let stepNo = 1;
 
@@ -739,7 +743,9 @@
     steps.push({
       stepNumber: stepNo++,
       title: `حساب الدرجة المطلوبة في ${targetComp.name} (${targetW}%)`,
-      formula: `(${neededPoints.toFixed(2)} ÷ ${targetW}) × 100 = ${requiredScore.toFixed(2)}`,
+      formula: targetComp.maxScore === 100
+        ? `(${neededPoints.toFixed(2)} ÷ ${targetW}) × 100 = ${requiredScore.toFixed(2)}`
+        : `(${neededPoints.toFixed(2)} ÷ ${targetW}) × ${targetComp.maxScore} = ${requiredScore.toFixed(2)}`,
       detail: `الدرجة المطلوبة في اختبار ${targetComp.name} لتوفير النقاط المتبقية هي ${requiredScore.toFixed(2)} من ${targetComp.maxScore}.`
     });
 
