@@ -759,60 +759,7 @@ class TestMockElement {
   assert(allRejected, "Case 38: Strict input validation rejects all malformed non-numeric inputs ('98abc', 'abc90', '90%', '1e2', '--5')");
 }
 
-// Case 39: maxPossibleWeighted logic for Tahsili, Qudrat, and Equal modes
-{
-  const resTahsili = global.hayyizCalculateRequiredScore({
-    highSchoolScore: 90,
-    targetWeighted: 95,
-    highSchoolWeight: 30,
-    qudratWeight: 30,
-    tahsiliWeight: 40,
-    targetType: "tahsili",
-    knownScore: 80
-  });
-  // 90*0.3 + 80*0.3 + 40 = 27 + 24 + 40 = 91.0
-  assert(resTahsili.maxPossibleWeighted === 91.0, `Case 39a: Tahsili max possible weighted score expected 91.0, got ${resTahsili.maxPossibleWeighted}`);
-
-  const resQudrat = global.hayyizCalculateRequiredScore({
-    highSchoolScore: 90,
-    targetWeighted: 95,
-    highSchoolWeight: 30,
-    qudratWeight: 40,
-    tahsiliWeight: 30,
-    targetType: "qudrat",
-    knownScore: 80
-  });
-  // 90*0.3 + 80*0.3 + 40 = 27 + 24 + 40 = 91.0
-  assert(resQudrat.maxPossibleWeighted === 91.0, `Case 39b: Qudrat max possible weighted score expected 91.0, got ${resQudrat.maxPossibleWeighted}`);
-
-  const resEqual = global.hayyizCalculateRequiredScore({
-    highSchoolScore: 90,
-    targetWeighted: 95,
-    highSchoolWeight: 30,
-    qudratWeight: 30,
-    tahsiliWeight: 40,
-    targetType: "equal",
-    knownScore: ""
-  });
-  // 90*0.3 + 30 + 40 = 27 + 70 = 97.0
-  assert(resEqual.maxPossibleWeighted === 97.0, `Case 39c: Equal mode max possible weighted score expected 97.0, got ${resEqual.maxPossibleWeighted}`);
-}
-
-// Case 40: too_low message in Equal mode
-{
-  const res = global.hayyizCalculateRequiredScore({
-    highSchoolScore: 100,
-    targetWeighted: 25,
-    highSchoolWeight: 30,
-    qudratWeight: 30,
-    tahsiliWeight: 40,
-    targetType: "equal"
-  });
-  assert(res.isValid && res.rangeStatus === "too_low", "Case 40: Equal mode target < HS contribution flagged as too_low");
-  assert(res.rangeMessage.includes("المساهمة الحالية للثانوية العامة"), "Case 40: Equal mode too_low message accurately cites HS contribution");
-}
-
-// Case 39: Out of range inputs (-1, 101) rejected
+// Case 39: Out of range inputs (-1, 105) rejected
 {
   const resNegative = global.hayyizCalculateRequiredScore({
     highSchoolScore: -1,
@@ -827,7 +774,60 @@ class TestMockElement {
   assert(!resNegative.isValid && !resTooHigh.isValid, "Case 39: Out-of-range inputs (-1, 105) strictly rejected");
 }
 
-// Case 40: Mathematical accuracy of maxPossibleWeighted in requiredScore > 100 scenario
+// Case 40: maxPossibleWeighted logic for Tahsili, Qudrat, and Equal modes
+{
+  const resTahsili = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 90,
+    targetWeighted: 95,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "tahsili",
+    knownScore: 80
+  });
+  // 90*0.3 + 80*0.3 + 40 = 27 + 24 + 40 = 91.0
+  assert(resTahsili.maxPossibleWeighted === 91.0, `Case 40a: Tahsili max possible weighted score expected 91.0, got ${resTahsili.maxPossibleWeighted}`);
+
+  const resQudrat = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 90,
+    targetWeighted: 95,
+    highSchoolWeight: 30,
+    qudratWeight: 40,
+    tahsiliWeight: 30,
+    targetType: "qudrat",
+    knownScore: 80
+  });
+  // 90*0.3 + 80*0.3 + 40 = 27 + 24 + 40 = 91.0
+  assert(resQudrat.maxPossibleWeighted === 91.0, `Case 40b: Qudrat max possible weighted score expected 91.0, got ${resQudrat.maxPossibleWeighted}`);
+
+  const resEqual = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 90,
+    targetWeighted: 95,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "equal",
+    knownScore: ""
+  });
+  // 90*0.3 + 30 + 40 = 27 + 70 = 97.0
+  assert(resEqual.maxPossibleWeighted === 97.0, `Case 40c: Equal mode max possible weighted score expected 97.0, got ${resEqual.maxPossibleWeighted}`);
+}
+
+// Case 41: too_low message in Equal mode
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 100,
+    targetWeighted: 25,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "equal"
+  });
+  assert(res.isValid && res.rangeStatus === "too_low", "Case 41: Equal mode target < HS contribution flagged as too_low");
+  assert(res.rangeMessage.includes("المساهمة الحالية للثانوية العامة"), "Case 41: Equal mode too_low message accurately cites HS contribution");
+}
+
+// Case 42: Mathematical accuracy of maxPossibleWeighted in requiredScore > 100 scenario
 {
   const res = global.hayyizCalculateRequiredScore({
     highSchoolScore: 80,
@@ -839,11 +839,11 @@ class TestMockElement {
     knownScore: 70
   });
   // HS contrib = 24.0, Qudrat contrib = 21.0, Max Tahsili = 40.0 => Max possible = 85.0
-  assert(res.maxPossibleWeighted === 85.0, `Case 40: Expected max possible weighted score 85.0, got ${res.maxPossibleWeighted}`);
-  assert(res.rangeMessage.includes("85.00%"), "Case 40: Range message accurately cites max possible weighted score 85.00%");
+  assert(res.maxPossibleWeighted === 85.0, `Case 42: Expected max possible weighted score 85.0, got ${res.maxPossibleWeighted}`);
+  assert(res.rangeMessage.includes("85.00%"), "Case 42: Range message accurately cites max possible weighted score 85.00%");
 }
 
-// Case 41: UI DOM Interaction Test (Mode selection changes labels & resets correctly)
+// Case 43: UI DOM Interaction Test (Mode selection changes labels & resets correctly)
 {
   const mockHsInput = new TestMockElement('input', 'req-hs-score');
   const mockTargetInput = new TestMockElement('input', 'req-target-weighted');
@@ -878,22 +878,22 @@ class TestMockElement {
   // Mode 1: Tahsili
   mockModeSelect.value = 'tahsili';
   mockModeSelect.eventListeners['change'] ? mockModeSelect.eventListeners['change'].forEach(fn => fn()) : null;
-  assert(mockKnownLabel.textContent.includes('درجة القدرات الحالية (مطلوبة)'), "Case 41: Tahsili mode updates label to 'درجة القدرات الحالية (مطلوبة)'");
+  assert(mockKnownLabel.textContent.includes('درجة القدرات الحالية (مطلوبة)'), "Case 43a: Tahsili mode updates label to 'درجة القدرات الحالية (مطلوبة)'");
 
   // Mode 2: Qudrat
   mockModeSelect.value = 'qudrat';
   mockModeSelect.eventListeners['change'] ? mockModeSelect.eventListeners['change'].forEach(fn => fn()) : null;
-  assert(mockKnownLabel.textContent.includes('درجة التحصيلي الحالية (مطلوبة)'), "Case 41: Qudrat mode updates label to 'درجة التحصيلي الحالية (مطلوبة)'");
+  assert(mockKnownLabel.textContent.includes('درجة التحصيلي الحالية (مطلوبة)'), "Case 43b: Qudrat mode updates label to 'درجة التحصيلي الحالية (مطلوبة)'");
 
   // Mode 3: Equal
   mockModeSelect.value = 'equal';
   mockModeSelect.eventListeners['change'] ? mockModeSelect.eventListeners['change'].forEach(fn => fn()) : null;
-  assert(mockKnownInput.disabled === true, "Case 41: Equal mode disables knownScore input");
+  assert(mockKnownInput.disabled === true, "Case 43c: Equal mode disables knownScore input");
 
   // Reset button restores clean state
   mockHsInput.value = '95';
   mockResetBtn.click();
-  assert(mockHsInput.value === '' && mockResultBox.classList.contains('hidden'), "Case 41: Reset button clears inputs and hides result box");
+  assert(mockHsInput.value === '' && mockResultBox.classList.contains('hidden'), "Case 43d: Reset button clears inputs and hides result box");
 }
 
 console.log(`\nTests Summary: ${passed} Passed, ${failed} Failed`);

@@ -757,7 +757,13 @@
         scoreCard.appendChild(warnBox);
       }
 
-      ensureShareButtons(scoreCard, res.requiredScore.toFixed(2), `الدرجة المطلوبة في ${res.targetTypeName}`);
+      if (res.rangeStatus === "too_low") {
+        ensureShareButtons(scoreCard, "الهدف متحقق بالفعل", `نتيجة القبول للموزونة المستهدفة (${res.targetWeighted}%)`);
+      } else if (res.rangeStatus === "too_high") {
+        ensureShareButtons(scoreCard, `أقصى موزونة ممكنة: ${res.maxPossibleWeighted.toFixed(2)}%`, `حاسبة الدرجة المطلوبة`);
+      } else {
+        ensureShareButtons(scoreCard, res.requiredScore.toFixed(2), res.equalAssumption ? `الدرجة المطلوبة في كل من اختباري القدرات والتحصيلي` : `الدرجة المطلوبة في ${res.targetTypeName}`);
+      }
       box.appendChild(scoreCard);
 
       // قسم الخطوات والمعادلة
