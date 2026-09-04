@@ -468,6 +468,15 @@
   };
 
   // ===== حساب الدرجة المطلوبة في القدرات والتحصيلي =====
+  function parseStrictNumber(val) {
+    if (val === null || val === undefined) return NaN;
+    const str = String(val).trim();
+    if (str === "") return NaN;
+    if (!/^-?\d+(\.\d+)?$/.test(str)) return NaN;
+    const num = Number(str);
+    return isFinite(num) ? num : NaN;
+  }
+
   function hayyizCalculateRequiredScore(options) {
     const {
       highSchoolScore,
@@ -475,16 +484,15 @@
       highSchoolWeight = 30,
       qudratWeight = 30,
       tahsiliWeight = 40,
-      targetType = "tahsili", // "tahsili" | "qudrat"
+      targetType = "tahsili", // "tahsili" | "qudrat" | "equal"
       knownScore = null
     } = options || {};
 
-    const hsScore = parseFloat(highSchoolScore);
-    const target = parseFloat(targetWeighted);
-    const wHs = parseFloat(highSchoolWeight);
-    const wQ = parseFloat(qudratWeight);
-    const wT = parseFloat(tahsiliWeight);
-    const totalW = wHs + wQ + wT;
+    const hsScore = parseStrictNumber(highSchoolScore);
+    const target = parseStrictNumber(targetWeighted);
+    const wHs = parseStrictNumber(highSchoolWeight);
+    const wQ = parseStrictNumber(qudratWeight);
+    const wT = parseStrictNumber(tahsiliWeight);
 
     if (isNaN(hsScore) || hsScore < 0 || hsScore > 100) {
       return { isValid: false, errorMessage: "يرجى إدخال درجة ثانوية صحيحة بين 0 و 100" };
@@ -495,6 +503,7 @@
     if (isNaN(wHs) || isNaN(wQ) || isNaN(wT) || wHs < 0 || wQ < 0 || wT < 0) {
       return { isValid: false, errorMessage: "يرجى إدخال أوزان مئوية صحيحة وأكبر من أو تساوي 0" };
     }
+    const totalW = wHs + wQ + wT;
     if (Math.abs(totalW - 100) > 0.01) {
       return {
         isValid: false,
@@ -502,27 +511,41 @@
       };
     }
 
+    const isEqualMode = targetType === "equal";
     const isTahsiliTarget = targetType === "tahsili";
-    const targetW = isTahsiliTarget ? wT : wQ;
-    const knownW = isTahsiliTarget ? wQ : wT;
-    const targetTypeName = isTahsiliTarget ? "التحصيلي" : "القدرات";
-    const knownTypeName = isTahsiliTarget ? "القدرات" : "التحصيلي";
+    const isQudratTarget = targetType === "qudrat";
+
+    if (!isEqualMode && !isTahsiliTarget && !isQudratTarget) {
+      return { isValid: false, errorMessage: "يرجى اختيار وضع الحساب المطلوب بشكل صحيح." };
+    }
+
+    const targetW = isEqualMode ? (wQ + wT) : (isTahsiliTarget ? wT : wQ);
+    const knownW = isEqualMode ? 0 : (isTahsiliTarget ? wQ : wT);
+    const targetTypeName = isEqualMode ? "القدرات والتحصيلي معاً (افتراض درجات متكافئة)" : (isTahsiliTarget ? "التحصيلي" : "القدرات");
+    const knownTypeName = isEqualMode ? "لا يوجد" : (isTahsiliTarget ? "القدرات" : "التحصيلي");
 
     if (targetW <= 0) {
       return { isValid: false, errorMessage: `وزن اختبار ${targetTypeName} يجب أن يكون أكبر من 0% للحساب.` };
     }
 
-    const kScore = knownScore !== null && knownScore !== undefined && knownScore !== "" ? parseFloat(knownScore) : null;
-    const hasKnownScore = kScore !== null && !isNaN(kScore);
+    const kScore = parseStrictNumber(knownScore);
+    const hasKnownScore = !isNaN(kScore);
 
-    if (hasKnownScore && (kScore < 0 || kScore > 100)) {
+    if (!isEqualMode && !hasKnownScore) {
+      return {
+        isValid: false,
+        errorMessage: `يرجى إدخال درجة اختبار ${knownTypeName} الحالية للحساب، أو اختر وضع «افتراض نفس الدرجة في القدرات والتحصيلي».`
+      };
+    }
+
+    if (!isEqualMode && (kScore < 0 || kScore > 100)) {
       return { isValid: false, errorMessage: `درجة اختبار ${knownTypeName} يجب أن تكون بين 0 و 100` };
     }
 
     const hsContrib = hsScore * (wHs / 100);
     let knownContrib = 0;
     let requiredScore = 0;
-    let equalAssumption = false;
+    let equalAssumption = isEqualMode;
     const steps = [];
 
     steps.push({
@@ -532,7 +555,7 @@
       detail: `تحصل من مدرستك الثانوية على ${hsContrib.toFixed(2)} نقطة مئوية من أصل ${target.toFixed(2)}% مستهدفة.`
     });
 
-    if (hasKnownScore) {
+    if (!isEqualMode) {
       knownContrib = kScore * (knownW / 100);
       const currentSum = hsContrib + knownContrib;
       const neededPoints = target - currentSum;
@@ -559,23 +582,20 @@
         detail: `الدرجة المطلوبة في اختبار ${targetTypeName} لتوفير النقاط المتبقية هي ${requiredScore.toFixed(2)} من 100.`
       });
     } else {
-      // إذا لم تُدخل درجة الاختبار المكتمل وقام المستخدم بالحساب
-      equalAssumption = true;
       const neededPoints = target - hsContrib;
-      const combinedW = knownW + targetW;
-      requiredScore = (neededPoints / (combinedW / 100));
+      requiredScore = (neededPoints / (targetW / 100));
 
       steps.push({
         stepNumber: 2,
-        title: `حساب النقاط المتبقية من الاختبارين المعياريين (وزنهما الإجمالي ${combinedW}%)`,
+        title: `حساب النقاط المتبقية من الاختباريين المعياريين (وزنهما الإجمالي ${targetW}%)`,
         formula: `${target.toFixed(2)} - ${hsContrib.toFixed(2)} = ${neededPoints.toFixed(2)} نقطة`,
         detail: `مطلوب تحصيل ${neededPoints.toFixed(2)} نقطة مئوية عبر اختباري القدرات والتحصيلي معاً.`
       });
 
       steps.push({
         stepNumber: 3,
-        title: `افتراض درجة متكافئة في الاختباريين (${targetTypeName} و ${knownTypeName})`,
-        formula: `(${neededPoints.toFixed(2)} ÷ ${combinedW}) × 100 = ${requiredScore.toFixed(2)}`,
+        title: `افتراض درجة متكافئة في اختباري القدرات والتحصيلي`,
+        formula: `(${neededPoints.toFixed(2)} ÷ ${targetW}) × 100 = ${requiredScore.toFixed(2)}`,
         detail: `إذا حصلت على نفس الدرجة في الاختباريين، فستحتاج إلى ${requiredScore.toFixed(2)} من 100 في كل منهما للوصول إلى هدفك.`
       });
     }
@@ -584,15 +604,17 @@
     let isOutOfRange = false;
     let rangeMessage = null;
 
+    // حساب أقصى موزونة ممكنة رياضياً
+    const maxPossibleWeighted = hsContrib + knownContrib + (targetW * 1.0);
+
     if (requiredScore > 100) {
       rangeStatus = "too_high";
       isOutOfRange = true;
-      const excess = (requiredScore - 100).toFixed(2);
-      rangeMessage = `الدرجة المطلوبة (${requiredScore.toFixed(2)}) تتجاوز الحد الأقصى (100). الوصول إلى موزونة ${target.toFixed(2)}% غير ممكن بهذه الدرجات الحالية؛ حتى لو حصلت على 100 كاملة ستكون الموزونة القصوى المحققة ${(hsContrib + knownContrib + (targetW * 1.0)).toFixed(2)}%. بتحتاج ترفع الدرجات الأخرى.`;
+      rangeMessage = `الدرجة المطلوبة (${requiredScore.toFixed(2)}) تتجاوز الحد الأقصى (100). الوصول إلى موزونة ${target.toFixed(2)}% غير ممكن بالدرجات الحالية؛ أقصى موزونة يمكن الوصول إليها حتى لو حصلت على 100 كاملة هي ${maxPossibleWeighted.toFixed(2)}%.`;
     } else if (requiredScore < 0) {
       rangeStatus = "too_low";
       isOutOfRange = true;
-      rangeMessage = `الدرجة المطلوبة أقل من 0 (${requiredScore.toFixed(2)}). هذا يعني أنك حققت النسبة الموزونة المستهدفة (${target.toFixed(2)}%) بالفعل بنتيجة الثانوية و${knownTypeName} الحالية!`;
+      rangeMessage = `الدرجة المطلوبة أقل من 0 (${requiredScore.toFixed(2)}). هذا يعني أنك حققت النسبة الموزونة المستهدفة (${target.toFixed(2)}%) بالفعل درجاتك الحالية!`;
     }
 
     return {
@@ -609,6 +631,7 @@
       knownContrib,
       neededWeightedPoints: target - hsContrib - knownContrib,
       requiredScore,
+      maxPossibleWeighted,
       isOutOfRange,
       rangeStatus,
       rangeMessage,
@@ -637,11 +660,29 @@
 
     function updateModeUI() {
       const mode = modeSelect ? modeSelect.value : "tahsili";
-      if (knownLabel) {
-        knownLabel.textContent = mode === "tahsili" ? "درجة القدرات الحالية (إن وجدت)" : "درجة التحصيلي الحالية (إن وجدت)";
-      }
-      if (knownInput) {
-        knownInput.placeholder = mode === "tahsili" ? "مثال: 85" : "مثال: 80";
+      const knownWrap = knownInput ? (knownInput.parentElement || (typeof knownInput.closest === 'function' ? knownInput.closest(".req-field") : null)) : null;
+
+      if (mode === "tahsili") {
+        if (knownWrap) knownWrap.style.display = "";
+        if (knownLabel) knownLabel.textContent = "درجة القدرات الحالية (مطلوبة)";
+        if (knownInput) {
+          knownInput.placeholder = "مثال: 85";
+          knownInput.disabled = false;
+        }
+      } else if (mode === "qudrat") {
+        if (knownWrap) knownWrap.style.display = "";
+        if (knownLabel) knownLabel.textContent = "درجة التحصيلي الحالية (مطلوبة)";
+        if (knownInput) {
+          knownInput.placeholder = "مثال: 80";
+          knownInput.disabled = false;
+        }
+      } else { // "equal"
+        if (knownWrap) knownWrap.style.display = "none";
+        if (knownLabel) knownLabel.textContent = "درجة الاختبار الآخر (غير مطلوبة لافتراض الدرجات المتكافئة)";
+        if (knownInput) {
+          knownInput.value = "";
+          knownInput.disabled = true;
+        }
       }
     }
 
@@ -766,7 +807,7 @@
       if (modeSelect) modeSelect.value = "tahsili";
       if (resultBox) {
         resultBox.replaceChildren();
-        resultBox.classList.add("hidden");
+        if (resultBox.classList) resultBox.classList.add("hidden");
       }
       updateModeUI();
     }
@@ -1531,6 +1572,7 @@
     window.hayyizCalculateSubjectImpacts = hayyizCalculateSubjectImpacts;
     window.hayyizAnalyzeAcademicTarget = hayyizAnalyzeAcademicTarget;
     window.hayyizCalculateRequiredScore = hayyizCalculateRequiredScore;
+    window.initRequiredScorePage = initRequiredScorePage;
     window.refreshWhatNeedUI = refreshWhatNeedUI;
     window.renderGoalAndWhatIf = renderGoalAndWhatIf;
     window.isBehaviorOrAttendance = isBehaviorOrAttendance;
