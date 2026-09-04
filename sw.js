@@ -1,4 +1,4 @@
-const CACHE_NAME = 'heez-v1.9.2';
+const CACHE_NAME = 'heez-v1.9.3';
 
 const ASSETS = [
   './',
@@ -14,12 +14,14 @@ const ASSETS = [
   './third-secondary.html',
   './cumulative.html',
   './weighted.html',
+  './required-score.html',
   './notes.html',
   './draw.html',
   './habits.html',
   './calculator.html',
   './game.html',
   './blog.html',
+  './blog-16.html',
   './about.html',
   './contact.html',
   './terms.html',
