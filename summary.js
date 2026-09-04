@@ -407,12 +407,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const planTitle = document.createElement('h4');
     planTitle.innerHTML = '<i class="fa-solid fa-calendar-check" aria-hidden="true" style="color:var(--color-primary);"></i> خطة اليوم الدراسي';
 
+    const planActions = document.createElement('div');
+    planActions.style.cssText = 'display: flex; align-items: center; gap: 0.6rem;';
+
+    const sharePlanBtn = document.createElement('button');
+    sharePlanBtn.type = 'button';
+    sharePlanBtn.className = 'btn btn-secondary btn-sm';
+    sharePlanBtn.id = 'share-daily-plan-btn';
+    sharePlanBtn.setAttribute('aria-label', 'مشاركة خطة اليوم كصورة');
+    sharePlanBtn.innerHTML = '<i class="fa-solid fa-share-nodes" aria-hidden="true"></i> مشاركة';
+    sharePlanBtn.addEventListener('click', () => {
+        if (typeof hayyizHandleShareDailyPlan === 'function') {
+            hayyizHandleShareDailyPlan(sharePlanBtn);
+        }
+    });
+
     const planLink = document.createElement('a');
     planLink.href = 'todo.html';
     planLink.textContent = 'إدارة المهام';
 
+    planActions.appendChild(sharePlanBtn);
+    planActions.appendChild(planLink);
+
     planHead.appendChild(planTitle);
-    planHead.appendChild(planLink);
+    planHead.appendChild(planActions);
     planCard.appendChild(planHead);
 
     if (planItems && planItems.length > 0) {
@@ -973,3 +991,407 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+/* =========================================================
+ * توليد ومشاركة خطة اليوم كصورة — Hayyiz Canvas Plan Exporter
+ * Client-Side Only - 1080x1350 (4:5 Ratio) PNG/JPG Exporter
+ * ========================================================= */
+
+function hayyizShowToast(msg) {
+    let toast = document.getElementById('dash-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'dash-toast';
+        toast.className = 'notes-toast hidden';
+        toast.setAttribute('role', 'status');
+        toast.setAttribute('aria-live', 'polite');
+        toast.style.cssText = 'position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); background: var(--color-primary); color: #fff; padding: 0.65rem 1.25rem; border-radius: var(--radius-sm); font-size: 0.9rem; font-weight: 600; z-index: 9999; box-shadow: var(--shadow-lg); transition: opacity 0.3s ease;';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.classList.remove('hidden');
+    toast.style.opacity = '1';
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.classList.add('hidden'), 300);
+    }, 2800);
+}
+
+function hayyizDrawRoundRect(ctx, x, y, width, height, radius, fillStyle, strokeStyle, strokeWidth) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+    if (fillStyle) {
+        ctx.fillStyle = fillStyle;
+        ctx.fill();
+    }
+    if (strokeStyle) {
+        ctx.strokeStyle = strokeStyle;
+        ctx.lineWidth = strokeWidth || 1;
+        ctx.stroke();
+    }
+}
+
+function hayyizGenerateDailyPlanCanvas() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1350;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return canvas;
+
+    // Enable smooth text rendering & RTL
+    ctx.direction = 'rtl';
+
+    // 1. Full Canvas Background (Parchment Cream)
+    ctx.fillStyle = '#F4EDE0';
+    ctx.fillRect(0, 0, 1080, 1350);
+
+    // 2. Main Card Container (x: 60, y: 60, w: 960, h: 1210, r: 28)
+    hayyizDrawRoundRect(ctx, 60, 60, 960, 1210, 28, '#FBF7EE', '#E3D8C8', 3);
+
+    // 3. Header Banner (Lapis Lazuli Deep Blue - #1F3A5F)
+    // Custom clip for top rounded corners
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(60 + 28, 60);
+    ctx.lineTo(60 + 960 - 28, 60);
+    ctx.quadraticCurveTo(60 + 960, 60, 60 + 960, 60 + 28);
+    ctx.lineTo(60 + 960, 60 + 210);
+    ctx.lineTo(60, 60 + 210);
+    ctx.lineTo(60, 60 + 28);
+    ctx.quadraticCurveTo(60, 60, 60 + 28, 60);
+    ctx.closePath();
+    ctx.fillStyle = '#1F3A5F';
+    ctx.fill();
+    ctx.restore();
+
+    // Brand Title & Subtitle inside Header
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 54px Cairo, sans-serif';
+    ctx.fillText('حيز', 960, 132);
+
+    ctx.fillStyle = '#EDE5D8';
+    ctx.font = 'bold 28px Cairo, sans-serif';
+    ctx.fillText('خطة اليوم الدراسي', 960, 185);
+
+    // Date String inside Header (Left Side)
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('ar-SA', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    });
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#EDE5D8';
+    ctx.font = '24px Cairo, sans-serif';
+    ctx.fillText(dateStr, 110, 160);
+
+    // 4. Content Section Title
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#1F3A5F';
+    ctx.font = 'bold 30px Cairo, sans-serif';
+    ctx.fillText('المهام والأنشطة المخططة لليوم', 960, 325);
+
+    // 5. Plan Items Rendering
+    const planItems = typeof hayyizGenerateDailyPlan === 'function' ? hayyizGenerateDailyPlan() : [];
+
+    if (!planItems || planItems.length === 0) {
+        // Empty State Box
+        hayyizDrawRoundRect(ctx, 110, 420, 860, 260, 20, '#EDE5D8', '#E3D8C8', 2);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#2A2420';
+        ctx.font = 'bold 32px Cairo, sans-serif';
+        ctx.fillText('لا توجد مهام مخططة لليوم', 540, 530);
+        ctx.fillStyle = '#635850';
+        ctx.font = '24px Cairo, sans-serif';
+        ctx.fillText('أضف مهامك الدراسية ليقوم حيز بتنظيم خطتك تلقائياً.', 540, 585);
+    } else {
+        const startY = 360;
+        const itemBoxHeight = 118;
+        const gapY = 18;
+
+        planItems.forEach((item, idx) => {
+            if (idx >= 5) return; // Cap to max 5 items
+            const boxY = startY + idx * (itemBoxHeight + gapY);
+
+            // Item card box background & border
+            const isPrimary = Boolean(item.isPrimaryNextAction);
+            const bgColor = isPrimary ? '#F4EDE0' : '#FFFFFF';
+            const borderColor = isPrimary ? '#1F3A5F' : '#E3D8C8';
+            const borderWidth = isPrimary ? 3 : 2;
+
+            hayyizDrawRoundRect(ctx, 110, boxY, 860, itemBoxHeight, 16, bgColor, borderColor, borderWidth);
+
+            // Item Metadata (Top Row inside Box)
+            const topRowY = boxY + 40;
+
+            // 1. Status/Badge Tag (Right Side)
+            let badgeBg = '#1F3A5F';
+            let badgeFg = '#FFFFFF';
+            if (item.badgeClass === 'badge-danger') {
+                badgeBg = '#B83A2A';
+            } else if (item.badgeClass === 'badge-warning') {
+                badgeBg = '#C87A1E';
+            } else if (item.badgeClass === 'badge-success') {
+                badgeBg = '#2A7A56';
+            }
+
+            const badgeText = item.badge || 'مهمة';
+            ctx.font = 'bold 20px Cairo, sans-serif';
+            const badgeWidth = ctx.measureText(badgeText).width + 24;
+            const badgeX = 946 - badgeWidth;
+
+            hayyizDrawRoundRect(ctx, badgeX, boxY + 16, badgeWidth, 34, 8, badgeBg, null, 0);
+            ctx.textAlign = 'center';
+            ctx.fillStyle = badgeFg;
+            ctx.fillText(badgeText, badgeX + badgeWidth / 2, boxY + 40);
+
+            // 2. Subject Tag (Next to Badge if subject exists)
+            let curRightX = badgeX - 12;
+            const taskObj = item.task || null;
+            const subjectId = taskObj ? taskObj.subjectId : (item.event ? item.event.subjectId : null);
+            const subjectName = subjectId && typeof hayyizGetSubjectName === 'function' ? hayyizGetSubjectName(subjectId) : null;
+
+            if (subjectName) {
+                ctx.font = 'bold 19px Cairo, sans-serif';
+                const subWidth = ctx.measureText(subjectName).width + 20;
+                const subX = curRightX - subWidth;
+
+                hayyizDrawRoundRect(ctx, subX, boxY + 16, subWidth, 34, 8, '#EDE5D8', '#C8BCA8', 1);
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#1F3A5F';
+                ctx.fillText(subjectName, subX + subWidth / 2, boxY + 40);
+                curRightX = subX - 12;
+            }
+
+            // 3. Duration / Subtitle (Left Side)
+            if (item.subtitle) {
+                ctx.textAlign = 'left';
+                ctx.fillStyle = '#635850';
+                ctx.font = '20px Cairo, sans-serif';
+                ctx.fillText(item.subtitle, 134, topRowY);
+            }
+
+            // Task / Item Title (Bottom Row inside Box)
+            ctx.textAlign = 'right';
+            ctx.fillStyle = '#2A2420';
+            ctx.font = 'bold 24px Cairo, sans-serif';
+
+            // Truncate title cleanly if too long
+            let titleText = item.title || '';
+            const maxTitleWidth = 820;
+            if (ctx.measureText(titleText).width > maxTitleWidth) {
+                while (titleText.length > 3 && ctx.measureText(titleText + '...').width > maxTitleWidth) {
+                    titleText = titleText.slice(0, -1);
+                }
+                titleText += '...';
+            }
+            ctx.fillText(titleText, 946, boxY + 92);
+        });
+    }
+
+    // 6. Real Footer Summary Box (x: 110, y: 1060, w: 860, h: 105)
+    hayyizDrawRoundRect(ctx, 110, 1060, 860, 105, 18, '#EDE5D8', '#E3D8C8', 2);
+
+    const todos = typeof hayyizGetTodos === 'function' ? hayyizGetTodos() : [];
+    const activeCount = todos.filter(t => t && !t.completed).length;
+    const focusMinutes = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
+    const sessionsToday = parseInt(localStorage.getItem('hayyiz-sessions-today') || '0', 10);
+
+    const timeText = focusMinutes > 0
+        ? (Math.floor(focusMinutes / 60) > 0 ? `${Math.floor(focusMinutes / 60)}س ${focusMinutes % 60}د` : `${focusMinutes} دقيقة`)
+        : 'لم تبدأ التركيز بعد';
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#1F3A5F';
+    ctx.font = 'bold 22px Cairo, sans-serif';
+    ctx.fillText(`المهام المتبقية: ${activeCount}`, 940, 1122);
+
+    ctx.textAlign = 'center';
+    ctx.fillText(`وقت التركيز اليوم: ${timeText}`, 540, 1122);
+
+    ctx.textAlign = 'left';
+    ctx.fillText(`جلسات اليوم: ${sessionsToday}`, 140, 1122);
+
+    // 7. Watermark / Footer Branding
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#635850';
+    ctx.font = 'bold 20px Cairo, sans-serif';
+    ctx.fillText('تم التوليد بواسطة حيز — hayyze.github.io', 540, 1225);
+
+    return canvas;
+}
+
+function hayyizOpenShareFallbackModal(canvas, fileNamePng, fileNameJpg) {
+    let modal = document.getElementById('hayyiz-share-modal');
+    if (modal) modal.remove();
+
+    modal = document.createElement('div');
+    modal.id = 'hayyiz-share-modal';
+    modal.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 1rem; backdrop-filter: blur(2px);';
+
+    const card = document.createElement('div');
+    card.style.cssText = 'background: var(--color-surface); border-radius: var(--radius); border: 1px solid var(--color-border); max-width: 440px; width: 100%; padding: 1.5rem; box-shadow: var(--shadow-lg); text-align: center; color: var(--color-text);';
+
+    const title = document.createElement('h3');
+    title.style.cssText = 'margin-0 0 0.5rem; font-size: 1.15rem; color: var(--color-primary);';
+    title.textContent = 'مشاركة خطة اليوم كصورة';
+
+    const desc = document.createElement('p');
+    desc.style.cssText = 'font-size: 0.88rem; color: var(--color-text-secondary); margin-bottom: 1.25rem;';
+    desc.textContent = 'اختر حفظ الصورة على جهازك أو مشاركتها عبر التطبيقات المتاحة:';
+
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display: flex; flex-direction: column; gap: 0.65rem;';
+
+    // 1. Share File Button (If web share available)
+    if (navigator.share) {
+        const shareBtn = document.createElement('button');
+        shareBtn.type = 'button';
+        shareBtn.className = 'btn btn-primary';
+        shareBtn.innerHTML = '<i class="fa-solid fa-share-nodes"></i> مشاركة الصورة';
+        shareBtn.addEventListener('click', () => {
+            canvas.toBlob((blob) => {
+                if (!blob) return;
+                const file = new File([blob], fileNamePng, { type: 'image/png' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    navigator.share({ title: 'خطة اليوم - حيز', files: [file] })
+                        .then(() => {
+                            hayyizShowToast('تم تجهيز الصورة للمشاركة');
+                            modal.remove();
+                        })
+                        .catch(() => {});
+                } else if (navigator.share) {
+                    navigator.share({ title: 'خطة اليوم - حيز', url: window.location.href })
+                        .then(() => modal.remove())
+                        .catch(() => {});
+                }
+            }, 'image/png');
+        });
+        actions.appendChild(shareBtn);
+    }
+
+    // 2. Save PNG Button
+    const savePngBtn = document.createElement('button');
+    savePngBtn.type = 'button';
+    savePngBtn.className = 'btn btn-secondary';
+    savePngBtn.innerHTML = '<i class="fa-solid fa-download"></i> حفظ PNG';
+    savePngBtn.addEventListener('click', () => {
+        canvas.toBlob((blob) => {
+            if (!blob) return;
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileNamePng;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            hayyizShowToast('تم حفظ الصورة على جهازك');
+            modal.remove();
+        }, 'image/png');
+    });
+    actions.appendChild(savePngBtn);
+
+    // 3. Save JPG Button (Quality 0.9)
+    const saveJpgBtn = document.createElement('button');
+    saveJpgBtn.type = 'button';
+    saveJpgBtn.className = 'btn btn-secondary';
+    saveJpgBtn.innerHTML = '<i class="fa-solid fa-file-image"></i> حفظ JPG';
+    saveJpgBtn.addEventListener('click', () => {
+        canvas.toBlob((blob) => {
+            if (!blob) return;
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileNameJpg;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            hayyizShowToast('تم حفظ الصورة على جهازك');
+            modal.remove();
+        }, 'image/jpeg', 0.9);
+    });
+    actions.appendChild(saveJpgBtn);
+
+    // Close Button
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'btn btn-sm';
+    closeBtn.style.cssText = 'margin-top: 0.75rem; background: transparent; border: none; color: var(--color-text-secondary); cursor: pointer; text-decoration: underline;';
+    closeBtn.textContent = 'إلغاء';
+    closeBtn.addEventListener('click', () => modal.remove());
+
+    card.appendChild(title);
+    card.appendChild(desc);
+    card.appendChild(actions);
+    card.appendChild(closeBtn);
+    modal.appendChild(card);
+    document.body.appendChild(modal);
+}
+
+function hayyizHandleShareDailyPlan(triggerBtn) {
+    if (!triggerBtn) return;
+    if (triggerBtn.disabled) return;
+
+    triggerBtn.disabled = true;
+    const originalHtml = triggerBtn.innerHTML;
+    triggerBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري التجهيز...';
+
+    const resetBtn = () => {
+        triggerBtn.disabled = false;
+        triggerBtn.innerHTML = originalHtml;
+    };
+
+    setTimeout(() => {
+        try {
+            const canvas = hayyizGenerateDailyPlanCanvas();
+            const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+            const fileNamePng = `hayyiz-daily-plan-${todayStr}.png`;
+            const fileNameJpg = `hayyiz-daily-plan-${todayStr}.jpg`;
+
+            canvas.toBlob((blob) => {
+                if (!blob) {
+                    hayyizShowToast('تعذر إنشاء صورة الخطة');
+                    resetBtn();
+                    return;
+                }
+
+                const file = new File([blob], fileNamePng, { type: 'image/png' });
+
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    navigator.share({
+                        title: 'خطة اليوم - حيز',
+                        text: 'خطة اليوم الدراسي من حيز',
+                        files: [file]
+                    }).then(() => {
+                        hayyizShowToast('تم تجهيز الصورة للمشاركة');
+                        resetBtn();
+                    }).catch((err) => {
+                        if (err && err.name !== 'AbortError') {
+                            hayyizOpenShareFallbackModal(canvas, fileNamePng, fileNameJpg);
+                        }
+                        resetBtn();
+                    });
+                } else {
+                    hayyizOpenShareFallbackModal(canvas, fileNamePng, fileNameJpg);
+                    resetBtn();
+                }
+            }, 'image/png');
+        } catch (e) {
+            hayyizShowToast('تعذر إنشاء صورة الخطة');
+            resetBtn();
+        }
+    }, 50);
+}
