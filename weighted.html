@@ -31,17 +31,16 @@
     <meta name="referrer" content="strict-origin-when-cross-origin">
 
     <!-- SEO Metadata -->
-    <title>حاسبة النسبة الموزونة للجامعات | احسب موزونتك للقبول | حيز</title>
-    <meta name="description" content="احسب النسبة الموزونة للقبول الجامعي في السعودية بسهولة، أدخل درجات الثانوية العامة واختبار القدرات والتحصيلي مع تخصيص النسب لأي جامعة.">
-    <meta name="keywords" content="حاسبة النسبة الموزونة, حساب النسبة الموزونة, طريقة حساب النسبة الموزونة, حاسبة موزونة الجامعات, النسبة الموزونة للقبول الجامعي">
+    <title>حاسبة النسبة الموزونة للقبول الجامعي | احسب موزونتك للجامعات — حيز</title>
+    <meta name="description" content="احسب النسبة الموزونة للقبول بالجامعات السعودية بسهولة، أدخل درجات التراكمي الثانوي واختبار القدرات العامة والتحصيلي مع تخصيص النسب لكل جامعة وكلية.">
     <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
 
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://hayyze.github.io/weighted.html">
-    <meta property="og:title" content="حاسبة النسبة الموزونة | حيز">
-    <meta property="og:description" content="احسب نسبة القبول الموزونة للجامعات السعودية (ثانوية، قدرات، تحصيلي) وفق معايير كل جامعة.">
+    <meta property="og:title" content="حاسبة النسبة الموزونة للقبول الجامعي | احسب موزونتك للجامعات — حيز">
+    <meta property="og:description" content="احسب نسبة القبول الموزونة للجامعات السعودية (ثانوية، قدرات، تحصيلي) وفق معايير كل جامعة والتخصص المستهدف.">
     <meta property="og:image" content="https://hayyze.github.io/android-chrome-512x512.png">
     <meta property="og:image:width" content="512">
     <meta property="og:image:height" content="512">
@@ -50,8 +49,8 @@
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="حاسبة النسبة الموزونة | حيز">
-    <meta name="twitter:description" content="احسب موزونتك للقبول بالجامعات السعودية بسهولة وتخصيص كامل للأوزان.">
+    <meta name="twitter:title" content="حاسبة النسبة الموزونة للقبول الجامعي | احسب موزونتك للجامعات — حيز">
+    <meta name="twitter:description" content="احسب موزونتك للقبول بالجامعات السعودية بسهولة وتخصيص كامل لأوزان الكليات والمفاضلات.">
     <meta name="twitter:image" content="https://hayyze.github.io/android-chrome-512x512.png">
 
     <link rel="canonical" href="https://hayyze.github.io/weighted.html">
@@ -88,7 +87,7 @@
       }
       .weighted-info strong { color: var(--text); }
       .weighted-info a {
-        color: var(--primary, #4f46e5);
+        color: var(--primary, #18364D);
         font-weight: 600;
         text-decoration: none;
         cursor: pointer;
@@ -132,7 +131,7 @@
       }
       .weighted-row input:focus {
         outline: none;
-        border-color: var(--primary, #4f46e5);
+        border-color: var(--primary, #18364D);
       }
       .weighted-row .pct-wrap,
       .weighted-row .score-wrap {
@@ -177,8 +176,8 @@
         gap: 0.35rem;
       }
       .btn-sm:hover {
-        border-color: var(--primary, #4f46e5);
-        color: var(--primary, #4f46e5);
+        border-color: var(--primary, #18364D);
+        color: var(--primary, #18364D);
       }
       .weighted-remaining {
         margin-top: 0.85rem;
@@ -195,9 +194,9 @@
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
-      "name": "حاسبة النسبة الموزونة للجامعات",
+      "name": "حاسبة النسبة الموزونة للقبول الجامعي",
       "url": "https://hayyze.github.io/weighted.html",
-      "description": "حاسبة تخصيص النسبة الموزونة للقبول بالجامعات السعودية للثانوية العامة واختبارات القدرات والتحصيلي.",
+      "description": "أداة مرنة لاحتساب النسبة الموزونة للقبول بالجامعات السعودية بحسب أوزان الثانوية العامة واختبارات القدرات والتحصيلي.",
       "inLanguage": "ar"
     }
     </script>
@@ -221,6 +220,12 @@
         {
           "@type": "ListItem",
           "position": 3,
+          "name": "القبول الجامعي",
+          "item": "https://hayyze.github.io/gpa.html"
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
           "name": "حاسبة النسبة الموزونة",
           "item": "https://hayyze.github.io/weighted.html"
         }
@@ -237,15 +242,23 @@
           "name": "ما هي النسبة الموزونة للقبول الجامعي؟",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "هي درجة مرجحة تدمج بين معدل الثانوية العامة واختبار القدرات العامة واختبار التحصيلي بنسب تختلف باختلاف الجامعة والمجلس الأكاديمي والتخصص (علمي أم إنساني)."
+            "text": "هي الدرجة المركبة المرجحة التي تعتمدها الجامعات والكليات الحكومية والخاصة للمفاضلة بين المتقدمين، حيث تجمع بين المعدل التراكمي للثانوية العامة واختبار القدرات العامة واختبار التحصيلي بنسب مئوية يحددها مجلس كل جامعة."
           }
         },
         {
           "@type": "Question",
-          "name": "هل يمكن إضافة اختبارات إضافية كاختبار ستيب (STEP) في الحاسبة؟",
+          "name": "هل يمكن تخصيص الأوزان وإضافة اختبارات أخرى كاختبار كفايات اللغة الإنجليزية STEP؟",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "نعم، تتيح حاسبة حيز ميزة إضافة اختيار/اختبار جديد مع تحديد نسبة التكافؤ المئوية الخاصة به بحسب متطلبات الكلية."
+            "text": "نعم، تتيح حاسبة حيز ميزة إضافة اختبار جديد بحرية تامة مع تحديد وزنه المئوي وتعديل أوزان المكونات بما يتوافق مع شروط الكلية المستهدفة."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "ما الفرق بين النسبة الموزونة والمعدل التراكمي الثانوي؟",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "المعدل التراكمي هو النسبة المدرسية الخاصة بالثانوية فقط (أول وثاني وثالث ثانوي)، أما النسبة الموزونة فهي النتيجة التنافسية الشاملة التي تدمج التراكمي الثانوي مع اختبارات المركز الوطني للقياس."
           }
         }
       ]
@@ -260,7 +273,7 @@
             <span class="logo-text">حيز</span>
         </a>
         <button class="menu-toggle" id="menu-toggle" aria-label="فتح القائمة" aria-expanded="false" aria-controls="nav-links"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
-                <nav class="nav-links" id="nav-links">
+        <nav class="nav-links" id="nav-links">
             <a href="index.html" class="nav-btn"><i class="fa-solid fa-house" aria-hidden="true"></i> الرئيسية</a>
             <div class="nav-dropdown active">
                 <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true">
@@ -302,6 +315,8 @@
         <span style="margin: 0 0.4rem;">&gt;</span>
         <a href="gpa.html" style="color: var(--text-muted); text-decoration: none;">حاسبات المعدل</a>
         <span style="margin: 0 0.4rem;">&gt;</span>
+        <span style="color: var(--text-muted);">القبول الجامعي</span>
+        <span style="margin: 0 0.4rem;">&gt;</span>
         <span style="color: var(--text); font-weight: 600;">حاسبة النسبة الموزونة</span>
     </nav>
 
@@ -313,10 +328,10 @@
         </div>
 
         <div class="weighted-info">
-            النسبة الموزونة هي المعيار الأساسي للقبول الجامعي في المملكة العربية السعودية.
-            أدخل درجاتك المكتسبة في الثانوية العامة، القدرات العامة، والتحصيلي، مع ضبط النسب المئوية وفق اشتراطات جامعتك.
+            النسبة الموزونة هي المعيار الأساسي للمفاضلة في القبول الجامعي بالمملكة العربية السعودية.
+            أدخل درجاتك المكتسبة في المعدل التراكمي للثانوية، اختبار القدرات العامة، واختبار التحصيلي، مع ضبط النسب المئوية وفق اشتراطات جامعتك.
             <br>
-            يمكنك حساب درجات المواد بـ <a href="gpa.html">حاسبة المعدل الثانوي</a>، أو معالجة المعدل النهائي عبر <a href="cumulative.html">حاسبة المعدل التراكمي</a>.
+            يمكنك دمج تراكمي سنوات الثانوية عبر <a href="cumulative.html">حاسبة المعدل التراكمي</a>، أو معرفة الدرجة المطلوبة في قياس بواسطة <a href="required-score.html">حاسبة الدرجة المطلوبة</a>.
         </div>
 
         <div class="weighted-section-title">
@@ -355,28 +370,33 @@
     <!-- المحتوى التعليمي -->
     <section class="card content-section" style="margin-top: 2rem;">
         <div class="section-header" style="text-align: right;">
-            <h2><i class="fa-solid fa-circle-info" style="color:var(--primary);"></i> طريقة حساب النسبة الموزونة للقبول الجامعي</h2>
+            <h2><i class="fa-solid fa-circle-info" style="color:var(--primary);"></i> كيف تعمل حاسبة النسبة الموزونة للقبول الجامعي؟</h2>
         </div>
         <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
             <p>
-                تُعد **النسبة الموزونة** المعيار العادل الذي تعتمد عليه الجامعات الحكومية والخاصة والكليات العسكرية بالمركز الوطني للقياس وهيئة تقويم التعليم والتدريب للمفاضلة بين المتقدمين على المقاعد الدراسية.
+                تُعد **النسبة الموزونة** النتيجة التنافسية المركبة التي تستخدمها بوابات القبول الموحد بالجامعات السعودية الحكومية والأهلية والجامعات العسكرية للمفاضلة بمرونة وعدالة بين خريجي الثانوية العامة.
             </p>
-            <h3>نماذج شائعة لأوزان القبول بالجامعات السعودية</h3>
-            <p>تختلف توزيعات النسبة الموزونة بحسب المسار والجامعة، ومن أبرز الأوزان المستعملة:</p>
+
+            <h3>توزيعات أوزان القبول بين الكليات والجامعات</h3>
+            <p>تختلف المعايير المعتمدة بين التخصصات الأكاديمية بحسب شروط كل جامعة:</p>
             <ul style="margin-right: 1.5rem; margin-bottom: 1rem;">
-                <li><strong>التخصصات العلمية والصحية والهندسية:</strong> 30% ثانوية + 30% قدرات + 40% تحصيلي (أو 40% ثانوية + 30% قدرات + 30% تحصيلي).</li>
-                <li><strong>التخصصات النظرية والإنسانية:</strong> 50% ثانوية + 50% قدرات (أو 40% ثانوية + 60% قدرات).</li>
-                <li><strong>مسارات المسابقة الكلية المتقدمة:</strong> قد تتضمن وزنًا لاختبارات اللغة كـ STEP أو المقابلات الشخصية.</li>
+                <li><strong>الكليات الصحية والهندسية والعلمية:</strong> تعتمد عادةً توزيعات مثل (30% ثانوية + 30% قدرات + 40% تحصيلي) أو (40% ثانوية + 30% قدرات + 30% تحصيلي).</li>
+                <li><strong>الكليات النظريّة والإنسانية والشريعة:</strong> تعتمد غالباً على (50% ثانوية + 50% قدرات) أو (40% ثانوية + 60% قدرات).</li>
+                <li><strong>البرامج الخاصة والكليات التقنية:</strong> قد تتطلب دمج وزن خاص لاختبارات اللغة مثل STEP أو المقابلة الشخصية.</li>
             </ul>
 
-            <h3 style="margin-top: 1.5rem;">مثال حسابي للنسبة الموزونة</h3>
-            <p>نفترض أن درجات طالب كالتالي:</p>
-            <div style="background: var(--bg); padding: 1rem; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 1rem;">
-                • المعدل التراكمي للثانوية: 98% (الوزن 30%) ⇐ 98 × 0.30 = 29.4<br>
-                • اختبار القدرات: 85 (الوزن 30%) ⇐ 85 × 0.30 = 25.5<br>
-                • اختبار التحصيلي: 90 (الوزن 40%) ⇐ 90 × 0.40 = 36.0<br>
-                • <strong>النسبة الموزونة النهائية = 29.4 + 25.5 + 36.0 = 90.90%</strong>
+            <h3>مثال حسابي للنسبة الموزونة</h3>
+            <p>نفترض طالب حاصل على البيانات التالية:</p>
+            <div style="background: var(--bg); padding: 1.1rem; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 1rem;">
+                • المعدل التراكمي للثانوية = 96% (بوزن 30%) ⇐ 96 × 0.30 = 28.80<br>
+                • اختبار القدرات العامة = 88 (بوزن 30%) ⇐ 88 × 0.30 = 26.40<br>
+                • اختبار التحصيلي = 92 (بوزن 40%) ⇐ 92 × 0.40 = 36.80<br>
+                • <strong>النسبة الموزونة النهائية = 28.80 + 26.40 + 36.80 = 92.00%</strong>
             </div>
+
+            <p>
+                إذا كنت ترغب في تحديد الدرجة التي تحتاج للوصول إليها في اختبارك القادم للوصول لموزونة محددة (مثل 90% أو 95%)، يمكنك التوجه إلى <a href="required-score.html" style="color:var(--primary); font-weight:600;">حاسبة الدرجة المطلوبة للقبول الجامعي</a>، أو العودة لمراجعة الدرجات المدرسية عبر <a href="gpa.html" style="color:var(--primary); font-weight:600;">مركز حاسبات المعدل</a>.
+            </p>
         </div>
     </section>
 
@@ -387,12 +407,16 @@
         </div>
         <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
             <div class="faq-item" style="margin-bottom: 1.5rem;">
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">هل تختلف النسبة الموزونة بين جامعة وأخرى؟</h3>
-                <p>نعم، يحدد كل مجلس جامعة النسب المخصصة للثانوية والقدرات والتحصيلي حسب الطاقة الاستيعابية وحاجة الكليات، وتوفر حاسبتنا حرية ضبط وتغيير هذه النسب بكل سهولة.</p>
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">ما هي النسبة الموزونة للقبول الجامعي؟</h3>
+                <p>هي الدرجة المركبة المرجحة التي تعتمدها الجامعات والكليات الحكومية والخاصة للمفاضلة بين المتقدمين، حيث تجمع بين المعدل التراكمي للثانوية العامة واختبار القدرات العامة واختبار التحصيلي بنسب مئوية يحددها مجلس كل جامعة.</p>
             </div>
             <div class="faq-item" style="margin-bottom: 1.5rem;">
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">كيف أرفع نسبتي الموزونة إذا انخفضت درجتي في التحصيلي؟</h3>
-                <p>تستطيع إعادة اختبار القدرات والتحصيلي لرفع الدرجة، حيث تحسب الجامعات السعودية الدرجة الأفضل تلقائياً في بوابة القبول الموحد.</p>
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">هل يمكن تخصيص الأوزان وإضافة اختبارات أخرى كاختبار كفايات اللغة الإنجليزية STEP؟</h3>
+                <p>نعم، تتيح حاسبة حيز ميزة إضافة اختبار جديد بحرية تامة مع تحديد وزنه المئوي وتعديل أوزان المكونات بما يتوافق مع شروط الكلية المستهدفة.</p>
+            </div>
+            <div class="faq-item" style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">ما الفرق بين النسبة الموزونة والمعدل التراكمي الثانوي؟</h3>
+                <p>المعدل التراكمي هو النسبة المدرسية الخاصة بالثانوية فقط (أول وثاني وثالث ثانوي)، أما النسبة الموزونة فهي النتيجة التنافسية الشاملة التي تدمج التراكمي الثانوي مع اختبارات المركز الوطني للقياس.</p>
             </div>
         </div>
     </section>
@@ -400,24 +424,24 @@
     <!-- الروابط الداخلية -->
     <section class="card content-section" style="margin-top: 2rem;">
         <div class="section-header" style="text-align: right;">
-            <h2><i class="fa-solid fa-link" style="color:var(--primary);"></i> حاسبات مرحلية وموزونة ذات صلة</h2>
+            <h2><i class="fa-solid fa-link" style="color:var(--primary);"></i> حاسبات ودلائل ذات صلة بالقبول الجامعي</h2>
         </div>
         <div class="tools-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem;">
             <a href="required-score.html" class="tool-card" style="padding: 1.25rem;">
                 <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-bullseye"></i> حاسبة الدرجة المطلوبة</h3>
-                <p style="font-size: 0.85rem;">احسب الدرجة التي تحتاجها في القدرات أو التحصيلي للوصول لموزونتك المستهدفة.</p>
+                <p style="font-size: 0.85rem;">احسب كم تحتاج في القدرات أو التحصيلي للوصول لموزونتك المستهدفة.</p>
             </a>
             <a href="cumulative.html" class="tool-card" style="padding: 1.25rem;">
                 <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-chart-line"></i> حاسبة المعدل التراكمي</h3>
-                <p style="font-size: 0.85rem;">احسب المعدل التراكمي المدرسي قبل إدخاله في النسبة الموزونة.</p>
+                <p style="font-size: 0.85rem;">احسب المعدل التراكمي المدرسي لسنوات الثانوية الثلاث.</p>
             </a>
-            <a href="third-secondary.html" class="tool-card" style="padding: 1.25rem;">
-                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-graduation-cap"></i> حاسبة معدل ثالث ثانوي</h3>
-                <p style="font-size: 0.85rem;">حساب معدل الصف الثالث الثانوي.</p>
+            <a href="blog-16.html" class="tool-card" style="padding: 1.25rem;">
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-newspaper"></i> مقال الموزونة والقياس</h3>
+                <p style="font-size: 0.85rem;">دليل تفصيلي يشرح كيفية حساب النسبة واجتياز القدرات.</p>
             </a>
             <a href="gpa.html" class="tool-card" style="padding: 1.25rem;">
-                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-calculator"></i> حاسبة المعدل الثانوي</h3>
-                <p style="font-size: 0.85rem;">احسب معدلك الفصلي ومواد مرحلة الثانوية العامة.</p>
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-calculator"></i> مركز حاسبات المعدل</h3>
+                <p style="font-size: 0.85rem;">الوصول لكافة حاسبات الدرجات والمراحل الدراسية.</p>
             </a>
         </div>
     </section>
