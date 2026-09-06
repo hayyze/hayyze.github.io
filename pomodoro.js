@@ -736,6 +736,10 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('hayyiz-sessions-today', String(todaySess));
             localStorage.setItem('hayyiz-focus-minutes-today', String(todayMin));
 
+            if (typeof hayyizMaybeSuggestFocusHabit === 'function') {
+                hayyizMaybeSuggestFocusHabit(todaySess);
+            }
+
             // Focus history map
             try {
                 const hist = JSON.parse(localStorage.getItem('hayyiz-focus-history') || '{}');

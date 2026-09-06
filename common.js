@@ -193,6 +193,9 @@ var HAYYIZ_ALLOWED_BACKUP_KEYS = [
     'hayyiz-custom-events',
     'hayyiz-hide-pomo-prompt-today',
     'hayyiz-hide-pomo-prompt-hour',
+    'hayyiz-habit-suggestion-snooze-hour',
+    'hayyiz-habit-suggestion-snooze-day',
+    'hayyiz-habit-suggestion-dismissed',
     'hayyiz-deleted-items'
 ];
 
@@ -298,7 +301,8 @@ function hayyizSanitizeValue(key, rawVal) {
         'hayyiz-session-in-cycle',
         'hayyiz-highscore',
         'hayyiz-current-task-index',
-        'hayyiz-hide-pomo-prompt-hour'
+        'hayyiz-hide-pomo-prompt-hour',
+        'hayyiz-habit-suggestion-snooze-hour'
     ]);
 
     let valStr = typeof rawVal === 'string' ? rawVal : String(rawVal);
@@ -464,6 +468,200 @@ function hayyizSaveJSON(key, value) {
 function hayyizGetHabits() {
     const habits = hayyizParseJSON('hayyiz-habits', []);
     return Array.isArray(habits) ? habits : [];
+}
+
+
+function hayyizNormalizeHabitName(name) {
+    return String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function hayyizHabitExists(name) {
+    const target = hayyizNormalizeHabitName(name);
+    if (!target) return true;
+    return hayyizGetHabits().some((habit) => hayyizNormalizeHabitName(habit && habit.name) === target);
+}
+
+function hayyizAddHabitIfMissing(name) {
+    const cleanName = String(name || '').trim().replace(/\s+/g, ' ');
+    if (!cleanName || hayyizHabitExists(cleanName)) return null;
+
+    const nowMs = Date.now();
+    const habit = {
+        id: typeof hayyizGenerateId === 'function' ? hayyizGenerateId() : ('hb_' + nowMs.toString(36) + Math.random().toString(36).slice(2, 6)),
+        name: cleanName,
+        streak: 0,
+        lastCompleted: null,
+        created: nowMs,
+        updated: nowMs
+    };
+    const habits = hayyizGetHabits();
+    habits.push(habit);
+    hayyizSaveJSON('hayyiz-habits', habits);
+    if (typeof hayyizUploadItem === 'function') {
+        hayyizUploadItem('habits', habit.id, habit);
+    }
+    return habit;
+}
+
+function hayyizGetHabitSuggestionDismissed() {
+    const data = hayyizParseJSON('hayyiz-habit-suggestion-dismissed', {});
+    return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+}
+
+function hayyizCanShowHabitSuggestion(suggestion) {
+    if (!suggestion || !suggestion.key || !suggestion.name || hayyizHabitExists(suggestion.name)) return false;
+
+    const hiddenToday = localStorage.getItem('hayyiz-habit-suggestion-snooze-day');
+    const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+    if (hiddenToday === today) return false;
+
+    const hiddenUntil = parseInt(localStorage.getItem('hayyiz-habit-suggestion-snooze-hour') || '0', 10);
+    if (Number.isFinite(hiddenUntil) && hiddenUntil > Date.now()) return false;
+    if (Number.isFinite(hiddenUntil) && hiddenUntil > 0 && hiddenUntil <= Date.now()) {
+        localStorage.removeItem('hayyiz-habit-suggestion-snooze-hour');
+    }
+
+    if (window.hayyizHabitSuggestionShownInSession) return false;
+
+    const dismissed = hayyizGetHabitSuggestionDismissed();
+    return dismissed[suggestion.key] !== today;
+}
+
+function hayyizDismissHabitSuggestion(key) {
+    if (!key) return;
+    const dismissed = hayyizGetHabitSuggestionDismissed();
+    dismissed[key] = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+    hayyizSaveJSON('hayyiz-habit-suggestion-dismissed', dismissed);
+}
+
+function hayyizSnoozeHabitSuggestions(type) {
+    if (type === 'hour') {
+        localStorage.setItem('hayyiz-habit-suggestion-snooze-hour', String(Date.now() + (60 * 60 * 1000)));
+    } else if (type === 'today') {
+        const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+        localStorage.setItem('hayyiz-habit-suggestion-snooze-day', today);
+    }
+}
+
+function hayyizSuggestHabit(suggestion) {
+    if (!hayyizCanShowHabitSuggestion(suggestion) || !document.body) return false;
+    window.hayyizHabitSuggestionShownInSession = true;
+
+    document.querySelectorAll('.habit-suggestion-overlay').forEach((el) => el.remove());
+
+    const overlay = document.createElement('div');
+    overlay.className = 'task-modal-overlay habit-suggestion-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'habit-suggestion-title');
+
+    const modal = document.createElement('div');
+    modal.className = 'task-modal';
+
+    const title = document.createElement('h3');
+    title.id = 'habit-suggestion-title';
+    title.innerHTML = '<i class="fa-solid fa-fire" style="color: var(--primary);"></i> هل تريد إضافة هذه كعادة؟';
+    modal.appendChild(title);
+
+    const habitName = document.createElement('div');
+    habitName.className = 'task-name';
+    habitName.textContent = suggestion.name;
+    modal.appendChild(habitName);
+
+    const desc = document.createElement('p');
+    desc.style.fontSize = '0.92rem';
+    desc.style.marginBottom = '1rem';
+    desc.textContent = suggestion.reason || 'يبدو أنك تكرر هذا السلوك في أدوات حيز. هل ترغب في تحويله إلى عادة تتابعها يوميًا؟';
+    modal.appendChild(desc);
+
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    actions.style.flexDirection = 'column';
+    actions.style.gap = '0.5rem';
+
+    const closeModal = () => overlay.remove();
+
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn btn-primary';
+    addBtn.innerHTML = '<i class="fa-solid fa-plus"></i> إضافة العادة';
+    addBtn.addEventListener('click', () => {
+        hayyizAddHabitIfMissing(suggestion.name);
+        hayyizDismissHabitSuggestion(suggestion.key);
+        closeModal();
+    });
+    actions.appendChild(addBtn);
+
+    const rejectBtn = document.createElement('button');
+    rejectBtn.type = 'button';
+    rejectBtn.className = 'btn btn-outline';
+    rejectBtn.textContent = 'ليس الآن';
+    rejectBtn.addEventListener('click', () => {
+        hayyizDismissHabitSuggestion(suggestion.key);
+        closeModal();
+    });
+    actions.appendChild(rejectBtn);
+
+    const optionsDivider = document.createElement('div');
+    optionsDivider.style.cssText = 'border-top: 1px dashed var(--border); margin: 0.5rem 0 0.25rem; padding-top: 0.5rem; font-size: 0.82rem; color: var(--text-muted);';
+    optionsDivider.textContent = 'خيارات التأجيل:';
+    actions.appendChild(optionsDivider);
+
+    const suppressGroup = document.createElement('div');
+    suppressGroup.style.cssText = 'display: flex; gap: 0.4rem; justify-content: center; flex-wrap: wrap;';
+
+    const hideHourBtn = document.createElement('button');
+    hideHourBtn.type = 'button';
+    hideHourBtn.className = 'btn btn-secondary btn-sm';
+    hideHourBtn.style.fontSize = '0.8rem';
+    hideHourBtn.textContent = 'عدم العرض لمدة ساعة';
+    hideHourBtn.addEventListener('click', () => {
+        hayyizSnoozeHabitSuggestions('hour');
+        closeModal();
+    });
+    suppressGroup.appendChild(hideHourBtn);
+
+    const hideTodayBtn = document.createElement('button');
+    hideTodayBtn.type = 'button';
+    hideTodayBtn.className = 'btn btn-secondary btn-sm';
+    hideTodayBtn.style.fontSize = '0.8rem';
+    hideTodayBtn.textContent = 'عدم العرض اليوم';
+    hideTodayBtn.addEventListener('click', () => {
+        hayyizSnoozeHabitSuggestions('today');
+        closeModal();
+    });
+    suppressGroup.appendChild(hideTodayBtn);
+
+    actions.appendChild(suppressGroup);
+    modal.appendChild(actions);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeModal();
+    });
+
+    return true;
+}
+
+function hayyizMaybeSuggestFocusHabit(sessionsToday) {
+    const count = parseInt(sessionsToday, 10) || 0;
+    if (count < 2 || count % 2 !== 0) return false;
+    return hayyizSuggestHabit({
+        key: 'daily-focus-session',
+        name: 'جلسة مذاكرة يومية',
+        reason: 'أنجزت أكثر من جلسة تركيز اليوم. هل ترغب في تحويل الاستمرار على جلسة مذاكرة يومية إلى عادة تتابعها؟'
+    });
+}
+
+function hayyizMaybeSuggestTodoHabit(completedToday) {
+    const count = parseInt(completedToday, 10) || 0;
+    if (count < 3 || count % 3 !== 0) return false;
+    return hayyizSuggestHabit({
+        key: 'daily-study-tasks',
+        name: 'إنجاز مهام دراسية يوميًا',
+        reason: 'أنجزت عدة مهام اليوم. هل ترغب في تحويل إنجاز المهام الدراسية اليومية إلى عادة تتابعها؟'
+    });
 }
 
 function hayyizGetHabitTodaySummary(list) {

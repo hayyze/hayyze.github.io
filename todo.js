@@ -554,6 +554,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 hayyizUploadItem('todos', updatedTask.id, updatedTask);
             }
             announceToScreenReader(checkbox.checked ? `تم إكمال المهمة: ${todo.text}` : `تمت إعادة المهمة: ${todo.text}`);
+            if (checkbox.checked && typeof hayyizMaybeSuggestTodoHabit === 'function') {
+                const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+                const completedToday = (typeof hayyizGetTodos === 'function' ? hayyizGetTodos() : todos).filter((t) => t && t.completed && t.completedAt === today).length;
+                hayyizMaybeSuggestTodoHabit(completedToday);
+            }
             renderTodos();
         });
 
