@@ -186,6 +186,7 @@ function getSubjectHubData(subjectId, rawData) {
 function initSubjectPage() {
     const notFoundEl = document.getElementById('subject-not-found');
     const contentEl = document.getElementById('subject-content');
+    const generalViewEl = document.getElementById('subjects-general-view');
 
     if (!notFoundEl || !contentEl) return;
 
@@ -207,6 +208,12 @@ function initSubjectPage() {
 
     const goals = typeof hayyizGetSubjectGoals === 'function' ? hayyizGetSubjectGoals() : [];
 
+    // حالة عدم تحديد أي مادة (عرض نظرة عامة لجميع المواد)
+    if (!subjectId || !subjectId.trim()) {
+        renderGeneralSubjectsView(subjects, todos, exams, focusSessions, rawNotes, goals);
+        return;
+    }
+
     const hubData = getSubjectHubData(subjectId, {
         subjects,
         todos,
@@ -217,16 +224,21 @@ function initSubjectPage() {
     });
 
     if (!hubData) {
+        if (generalViewEl) generalViewEl.style.display = 'none';
         showNotFoundState(subjects);
         return;
     }
 
+    if (generalViewEl) generalViewEl.style.display = 'none';
     notFoundEl.style.display = 'none';
     contentEl.style.display = 'block';
 
     const { subject, openTasks, completedTasks, upcomingExams, pastExams, nearestExam, focusMinutes, focusSessionsCount, recentFocusSessions, notes, goal, attentionItem } = hubData;
 
-    document.title = `${subject.name} | صفحة المادة | حيز`;
+    document.title = `${subject.name} | مساحة المادة | حيز`;
+
+    // تحديث مسار التصفح (Breadcrumbs)
+    updateBreadcrumbs(subject);
 
     const headingEl = document.getElementById('subject-name-heading');
     if (headingEl) headingEl.textContent = subject.name;
@@ -270,11 +282,182 @@ function initSubjectPage() {
     renderNotesSection(subject, notes);
 }
 
+/**
+ * عرض الواجهة العامة لقسم المواد عندما لا يتم تحديد ID في الرابط
+ */
+function renderGeneralSubjectsView(subjects, todos, exams, focusSessions, rawNotes, goals) {
+    const generalViewEl = document.getElementById('subjects-general-view');
+    const contentEl = document.getElementById('subject-content');
+    const notFoundEl = document.getElementById('subject-not-found');
+    const listContainer = document.getElementById('general-subjects-list');
+
+    if (contentEl) contentEl.style.display = 'none';
+    if (notFoundEl) notFoundEl.style.display = 'none';
+    if (generalViewEl) generalViewEl.style.display = 'block';
+
+    document.title = 'المواد الدراسية | حيز';
+    updateBreadcrumbs(null);
+
+    if (!listContainer) return;
+
+    listContainer.textContent = '';
+
+    if (!Array.isArray(subjects) || subjects.length === 0) {
+        const emptyCard = document.createElement('div');
+        emptyCard.className = 'card';
+        emptyCard.style.cssText = 'grid-column: 1 / -1; text-align: center; padding: 2.5rem 1.5rem;';
+
+        const icon = document.createElement('div');
+        icon.style.cssText = 'font-size: 2.5rem; color: var(--primary); margin-bottom: 0.75rem;';
+        icon.innerHTML = '<i class="fa-solid fa-book-open"></i>';
+
+        const h3 = document.createElement('h3');
+        h3.style.cssText = 'font-size: 1.2rem; font-weight: 700; color: var(--deep-ink); margin-bottom: 0.5rem;';
+        h3.textContent = 'لم تقم بإضافة مواد دراسية بعد';
+
+        const p = document.createElement('p');
+        p.style.cssText = 'color: var(--text-muted); font-size: 0.95rem; max-width: 500px; margin: 0 auto 1.25rem auto; line-height: 1.6;';
+        p.textContent = 'يمكنك إضافة موادك الدراسية بسهولة عند إضافة مهمة جديدة وتحديد المادة، لتنشأ لك مساحة خاصة لكل مادة تلقائياً.';
+
+        const addBtn = document.createElement('a');
+        addBtn.href = 'todo.html';
+        addBtn.className = 'btn btn-primary';
+        addBtn.innerHTML = '<i class="fa-solid fa-plus"></i> الذهاب للمهام وإضافة مادة';
+
+        emptyCard.appendChild(icon);
+        emptyCard.appendChild(h3);
+        emptyCard.appendChild(p);
+        emptyCard.appendChild(addBtn);
+
+        listContainer.appendChild(emptyCard);
+        return;
+    }
+
+    subjects.forEach(sub => {
+        if (!sub || !sub.id || !sub.name) return;
+
+        const data = getSubjectHubData(sub.id, {
+            subjects,
+            todos,
+            exams,
+            focusSessions,
+            notes: rawNotes,
+            goals
+        });
+
+        if (!data) return;
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.cssText = 'padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; gap: 1rem; border: 1px solid var(--border-color); transition: transform 0.2s ease, box-shadow 0.2s ease;';
+
+        const top = document.createElement('div');
+
+        const titleHeader = document.createElement('div');
+        titleHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;';
+
+        const title = document.createElement('h3');
+        title.style.cssText = 'font-size: 1.2rem; font-weight: 800; color: var(--deep-ink); margin: 0;';
+
+        const titleLink = document.createElement('a');
+        titleLink.href = `subject.html?id=${encodeURIComponent(sub.id)}`;
+        titleLink.style.cssText = 'color: inherit; text-decoration: none;';
+        titleLink.textContent = sub.name;
+        title.appendChild(titleLink);
+
+        const badge = document.createElement('span');
+        badge.style.cssText = 'font-size: 0.75rem; font-weight: 700; color: var(--primary); background: var(--surface-secondary); padding: 0.2rem 0.5rem; border-radius: 12px;';
+        badge.textContent = `${data.openTasks.length} مهام مفتوحة`;
+
+        titleHeader.appendChild(title);
+        titleHeader.appendChild(badge);
+
+        const statsGrid = document.createElement('div');
+        statsGrid.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); background: var(--surface-secondary); padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem;';
+
+        const focusStat = document.createElement('div');
+        focusStat.innerHTML = `<strong>وقت التركيز:</strong> ${data.focusMinutes} دقيقة`;
+
+        const examStat = document.createElement('div');
+        let examLabel = 'لا يوجد';
+        if (data.nearestExam) {
+            const days = typeof hayyizDaysUntil === 'function' ? hayyizDaysUntil(data.nearestExam.date) : null;
+            examLabel = days === 0 ? 'اليوم' : (days === 1 ? 'غداً' : (days !== null ? `بعد ${days} أَيّام` : data.nearestExam.date));
+        }
+        examStat.innerHTML = `<strong>أقرب اختبار:</strong> ${examLabel}`;
+
+        statsGrid.appendChild(focusStat);
+        statsGrid.appendChild(examStat);
+
+        top.appendChild(titleHeader);
+        top.appendChild(statsGrid);
+
+        const bottom = document.createElement('div');
+        bottom.style.cssText = 'display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: space-between; align-items: center; pt: 0.5rem; border-top: 1px dashed var(--border-color);';
+
+        const openBtn = document.createElement('a');
+        openBtn.href = `subject.html?id=${encodeURIComponent(sub.id)}`;
+        openBtn.className = 'btn btn-primary btn-sm';
+        openBtn.style.cssText = 'flex: 1; text-align: center;';
+        openBtn.innerHTML = '<i class="fa-solid fa-arrow-left"></i> عرض مساحة المادة';
+
+        const focusQuickBtn = document.createElement('a');
+        focusQuickBtn.href = `pomodoro.html?subjectId=${encodeURIComponent(sub.id)}`;
+        focusQuickBtn.className = 'btn btn-secondary btn-sm';
+        focusQuickBtn.title = 'بدء تركيز لهذا المادة';
+        focusQuickBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+
+        bottom.appendChild(openBtn);
+        bottom.appendChild(focusQuickBtn);
+
+        card.appendChild(top);
+        card.appendChild(bottom);
+        listContainer.appendChild(card);
+    });
+}
+
+/**
+ * تحديث مسار التصفح (Breadcrumbs)
+ */
+function updateBreadcrumbs(subject) {
+    const curEl = document.getElementById('breadcrumb-current-subject');
+    const breadcrumbOl = document.getElementById('subject-breadcrumb');
+    if (!breadcrumbOl) return;
+
+    if (!subject) {
+        if (curEl) {
+            curEl.textContent = 'المواد';
+        }
+    } else {
+        if (curEl) {
+            curEl.textContent = '';
+            const link = document.createElement('a');
+            link.href = 'subject.html';
+            link.style.cssText = 'color: var(--text-muted); text-decoration: none;';
+            link.textContent = 'المواد';
+
+            const sep = document.createElement('i');
+            sep.className = 'fa-solid fa-chevron-left';
+            sep.style.cssText = 'font-size: 0.75rem; opacity: 0.6; margin: 0 0.5rem;';
+
+            const subSpan = document.createElement('span');
+            subSpan.style.cssText = 'color: var(--deep-ink); font-weight: 700;';
+            subSpan.textContent = subject.name;
+
+            curEl.appendChild(link);
+            curEl.appendChild(sep);
+            curEl.appendChild(subSpan);
+        }
+    }
+}
+
 function showNotFoundState(subjects) {
     const notFoundEl = document.getElementById('subject-not-found');
     const contentEl = document.getElementById('subject-content');
+    const generalViewEl = document.getElementById('subjects-general-view');
     const availableContainer = document.getElementById('available-subjects-container');
 
+    if (generalViewEl) generalViewEl.style.display = 'none';
     if (notFoundEl) notFoundEl.style.display = 'block';
     if (contentEl) contentEl.style.display = 'none';
 
