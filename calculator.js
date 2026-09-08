@@ -623,21 +623,13 @@
         let dateDisplay = formatDateArabic(ev.date);
         if (ev.time) dateDisplay += ` — ${ev.time}`;
 
-        let badgeHtml = badgeInfo.text;
-        if (ev.type === 'exam' && ev.subjectId) {
-            const subName = typeof hayyizGetSubjectName === 'function' ? hayyizGetSubjectName(ev.subjectId) : (ev.subject || '');
-            if (subName) {
-                badgeHtml = `<a href="subject.html?id=${encodeURIComponent(ev.subjectId)}" style="color: inherit; text-decoration: underline;">${escapeHtml(subName)}</a> · ${badgeInfo.text}`;
-            }
-        }
-
         card.innerHTML = `
             <div class="card-top-row">
                 <div class="card-title-group">
                     <h3 class="card-title">${escapeHtml(ev.name)}</h3>
                     <span class="card-subtitle"><i class="fa-regular fa-calendar"></i> ${dateDisplay}</span>
                 </div>
-                <span class="badge ${badgeInfo.class}">${badgeHtml}</span>
+                <span class="badge ${badgeInfo.class}"></span>
             </div>
 
             ${hasConflict ? `
@@ -673,6 +665,33 @@
                 </div>
             </div>
         `;
+
+        // Populating badge content safely using DOM APIs (No innerHTML string interpolation for subject links)
+        const badgeSpan = card.querySelector('.badge');
+        if (badgeSpan) {
+            badgeSpan.textContent = '';
+            if (ev.type === 'exam' && ev.subjectId) {
+                const subName = typeof hayyizGetSubjectName === 'function' ? hayyizGetSubjectName(ev.subjectId) : (ev.subject || '');
+                if (subName) {
+                    const subLink = document.createElement('a');
+                    subLink.href = `subject.html?id=${encodeURIComponent(ev.subjectId)}`;
+                    subLink.style.cssText = 'color: inherit; text-decoration: underline;';
+                    subLink.textContent = subName;
+                    badgeSpan.appendChild(subLink);
+                    badgeSpan.appendChild(document.createTextNode(' · '));
+                }
+            }
+            const iconI = document.createElement('i');
+            if (ev.type === 'exam') iconI.className = 'fa-solid fa-pen-ruler';
+            else if (ev.type === 'assignment') iconI.className = 'fa-solid fa-file-pen';
+            else if (ev.type === 'personal') iconI.className = 'fa-solid fa-user-clock';
+            else iconI.className = 'fa-solid fa-bookmark';
+
+            const typeText = ev.type === 'exam' ? ' اختبار' : (ev.type === 'assignment' ? ' واجب/مشروع' : (ev.type === 'personal' ? ' موعد شخصي' : ' حدث مخصص'));
+
+            badgeSpan.appendChild(iconI);
+            badgeSpan.appendChild(document.createTextNode(typeText));
+        }
 
         // ربط التفاعلات
         const editBtn = card.querySelector('.btn-edit-event');
