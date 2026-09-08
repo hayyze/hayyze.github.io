@@ -350,7 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             <div class="todo-hero-meta">
                 <span><i class="fa-solid fa-layer-group"></i> أولوية ${priMap[recommendedTask.priority] || 'عادية'}</span>
-                ${subName ? `<span><i class="fa-solid fa-book"></i> ${escapeHtml(subName)}</span>` : ''}
+                ${subName ? `<a href="subject.html?id=${encodeURIComponent(recommendedTask.subjectId)}" style="color: inherit; text-decoration: underline;"><i class="fa-solid fa-book"></i> ${escapeHtml(subName)}</a>` : ''}
                 ${totalMin > 0 ? `<span><i class="fa-solid fa-hourglass-half"></i> ${focusDone}/${totalMin} دقيقة</span>` : (focusDone > 0 ? `<span><i class="fa-solid fa-clock"></i> ${focusDone} دقيقة تركيز</span>` : '')}
             </div>
 
@@ -595,9 +595,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (todo.subjectId && typeof hayyizGetSubjectName === 'function') {
             const subName = hayyizGetSubjectName(todo.subjectId);
             if (subName) {
-                const subSpan = document.createElement('span');
-                subSpan.innerHTML = `<i class="fa-solid fa-book"></i> ${escapeHtml(subName)}`;
-                meta.appendChild(subSpan);
+                const subLink = document.createElement('a');
+                subLink.href = `subject.html?id=${encodeURIComponent(todo.subjectId)}`;
+                subLink.style.cssText = 'color: var(--primary); text-decoration: none; font-weight: 500;';
+                subLink.innerHTML = `<i class="fa-solid fa-book"></i> ${escapeHtml(subName)}`;
+                subLink.addEventListener('click', (e) => e.stopPropagation());
+                meta.appendChild(subLink);
             }
         }
 
@@ -847,6 +850,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial render
     renderTodos();
+
+    // Handling URL parameters (subjectId / taskId / id)
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const paramSubjectId = urlParams.get('subjectId');
+        const paramTaskId = urlParams.get('id') || urlParams.get('taskId');
+
+        if (paramSubjectId) {
+            if (todoSubject) {
+                todoSubject.value = paramSubjectId;
+            }
+            if (extraOptionsDiv && extraOptionsDiv.classList.contains('hidden')) {
+                extraOptionsDiv.classList.remove('hidden');
+                if (toggleOptionsBtn) toggleOptionsBtn.setAttribute('aria-expanded', 'true');
+                if (toggleOptionsText) toggleOptionsText.textContent = 'خيارات أقل';
+            }
+        }
+
+        if (paramTaskId) {
+            const foundTask = todos.find(t => t && String(t.id) === String(paramTaskId));
+            if (foundTask && typeof openTaskModal === 'function') {
+                openTaskModal(foundTask);
+            }
+        }
+    } catch (e) {
+        /* ignore search params error */
+    }
 
     if (typeof hayyizRegisterSyncCallback === 'function') {
         hayyizRegisterSyncCallback('todos', (merged) => {

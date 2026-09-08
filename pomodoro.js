@@ -115,6 +115,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========== Context Management ==========
     function initContextFromParamsAndStorage() {
         const urlParams = new URLSearchParams(window.location.search);
+        const subjectIdFromUrl = urlParams.get('subjectId');
+        const taskIdFromUrl = urlParams.get('taskId');
         const taskFromUrl = urlParams.get('task');
         const eventFromUrl = urlParams.get('event');
 
@@ -125,20 +127,45 @@ document.addEventListener('DOMContentLoaded', () => {
         let eventObj = null;
         try { eventObj = savedEventRaw ? JSON.parse(savedEventRaw) : null; } catch (e) {}
 
-        if (taskFromUrl || savedTaskName) {
-            const title = taskFromUrl || savedTaskName;
-            let taskId = savedTaskId || null;
+        if (subjectIdFromUrl) {
+            let matchedSub = null;
+            if (typeof hayyizGetSubjectById === 'function') {
+                matchedSub = hayyizGetSubjectById(subjectIdFromUrl);
+            }
+            if (!matchedSub && typeof hayyizGetSubjects === 'function') {
+                matchedSub = hayyizGetSubjects().find(s => s && String(s.id) === String(subjectIdFromUrl));
+            }
+            if (matchedSub) {
+                state.context = {
+                    type: 'free',
+                    id: null,
+                    title: matchedSub.name,
+                    subjectId: matchedSub.id
+                };
+                updateContextUI();
+                return;
+            }
+        }
+
+        if (taskIdFromUrl || taskFromUrl || savedTaskId || savedTaskName) {
+            const searchId = taskIdFromUrl || savedTaskId;
+            const searchTitle = taskFromUrl || savedTaskName;
+            let foundTask = null;
             let subjectId = null;
 
-            // Try to find subjectId from todo items
             if (typeof hayyizGetTodos === 'function') {
                 const todos = hayyizGetTodos();
-                const found = todos.find(t => t.text === title || (taskId && t.id === taskId));
-                if (found) {
-                    if (!taskId) taskId = found.id;
-                    subjectId = found.subjectId || null;
+                if (searchId) {
+                    foundTask = todos.find(t => t && String(t.id) === String(searchId));
+                }
+                if (!foundTask && searchTitle) {
+                    foundTask = todos.find(t => t && t.text === searchTitle);
                 }
             }
+
+            const title = foundTask ? foundTask.text : (searchTitle || 'مهمة دراسية');
+            const taskId = foundTask ? foundTask.id : (searchId || null);
+            subjectId = foundTask ? (foundTask.subjectId || null) : null;
 
             state.context = {
                 type: 'task',
@@ -180,6 +207,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 nameEl.textContent = state.context.title;
             } else if (state.context.type === 'event') {
                 nameEl.textContent = `استعداد: ${state.context.title}`;
+            } else if (state.context.subjectId) {
+                nameEl.textContent = `تركيز مادة: ${state.context.title}`;
             } else {
                 nameEl.textContent = 'جلسة تركيز حرة';
             }
@@ -200,6 +229,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else if (state.context.type === 'event') {
                 metaEl.textContent = `مرتبط بحدث التقويم · ${workMin} دقيقة`;
+            } else if (state.context.subjectId) {
+                metaEl.textContent = `مرتبط بمادة ${state.context.title} · ${workMin} دقيقة`;
             } else {
                 metaEl.textContent = `بدون مهمة محددة · ${workMin} دقيقة`;
             }

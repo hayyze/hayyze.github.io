@@ -904,7 +904,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const subList = document.createElement('div');
                     subList.style.cssText = 'display: flex; flex-wrap: wrap; gap: 0.5rem;';
                     subStats.subjects.forEach((s) => {
-                        const tag = document.createElement('span');
+                        const tag = document.createElement(s.id ? 'a' : 'span');
+                        if (s.id) {
+                            tag.href = `subject.html?id=${encodeURIComponent(s.id)}`;
+                            tag.style.textDecoration = 'none';
+                        }
                         tag.className = 'dash-subject-tag';
                         tag.textContent = `${s.name}: ${s.percentage}% — ${s.minutes} دقيقة`;
                         subList.appendChild(tag);
