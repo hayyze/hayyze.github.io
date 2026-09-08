@@ -319,6 +319,7 @@
                     if (dateInput && !dateInput.value) {
                         dateInput.value = getTodayLocalStr();
                     }
+                    updateSubjectFieldVisibility();
                     if (dateInput) dateInput.focus();
                 }
             });
