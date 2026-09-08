@@ -77,35 +77,52 @@ function getSubjectHubData(subjectId, rawData) {
 
     const nearestExam = upcomingExams.length > 0 ? upcomingExams[0] : null;
 
-    // 4. تصفية وحساب جلسات التركيز للمادة
+    // 4. تصفية وحساب جلسات التركيز للمادة (مصدر الحقيقة الوحيد مع إزالة التكرار)
     const subjectTaskIds = new Set(subjectTasks.map(t => String(t.id)));
-    const matchingSessions = focusSessions.filter(s => {
-        if (!s) return false;
+    const seenSessionKeys = new Set();
+    const deduplicatedSessions = [];
+
+    focusSessions.forEach(s => {
+        if (!s) return;
         const snap = s.contextSnapshot;
+        let isMatch = false;
+
         if (snap) {
-            if (snap.subjectId && String(snap.subjectId) === String(subject.id)) return true;
-            if (snap.type === 'task' && snap.id && subjectTaskIds.has(String(snap.id))) return true;
+            if (snap.subjectId && String(snap.subjectId) === String(subject.id)) isMatch = true;
+            else if (snap.type === 'task' && snap.id && subjectTaskIds.has(String(snap.id))) isMatch = true;
         }
-        if (s.subjectId && String(s.subjectId) === String(subject.id)) return true;
-        return false;
+        if (!isMatch && s.subjectId && String(s.subjectId) === String(subject.id)) {
+            isMatch = true;
+        }
+
+        if (isMatch) {
+            const sessionKey = s.id || `${s.timestamp || s.date}_${s.durationMinutes}_${snap ? snap.id : ''}`;
+            if (!seenSessionKeys.has(sessionKey)) {
+                seenSessionKeys.add(sessionKey);
+                deduplicatedSessions.push(s);
+            }
+        }
     });
 
-    matchingSessions.sort((a, b) => {
+    deduplicatedSessions.sort((a, b) => {
         const timeA = a.timestamp ? new Date(a.timestamp).getTime() : (a.date ? new Date(a.date).getTime() : 0);
         const timeB = b.timestamp ? new Date(b.timestamp).getTime() : (b.date ? new Date(b.date).getTime() : 0);
         return timeB - timeA;
     });
 
-    let totalMinutes = parseInt(subject.focusMinutes, 10) || 0;
-    let totalSessions = parseInt(subject.sessions, 10) || 0;
+    let totalMinutes = 0;
+    let totalSessions = 0;
 
-    let logMin = 0;
-    matchingSessions.forEach(s => {
-        logMin += parseInt(s.durationMinutes, 10) || 0;
-    });
-
-    if (logMin > totalMinutes) totalMinutes = logMin;
-    if (matchingSessions.length > totalSessions) totalSessions = matchingSessions.length;
+    if (deduplicatedSessions.length > 0) {
+        totalSessions = deduplicatedSessions.length;
+        deduplicatedSessions.forEach(s => {
+            totalMinutes += parseInt(s.durationMinutes, 10) || 0;
+        });
+    } else {
+        // Fallback للبيانات القديمة قبل إدخال سجل الجلسات المفصل
+        totalMinutes = parseInt(subject.focusMinutes, 10) || 0;
+        totalSessions = parseInt(subject.sessions, 10) || 0;
+    }
 
     // 5. تصفية الملاحظات (أولوية: note.subjectId ثم relatedTaskId -> task.subjectId ثم legacy subject name)
     const subjectNotes = notes.filter(n => {
@@ -116,8 +133,13 @@ function getSubjectHubData(subjectId, rawData) {
         return false;
     });
 
-    // 6. الأهداف الأكاديمية (أولوية: subjectId أو name المطابق واسم المادة)
-    const goal = goals.find(g => g && (String(g.subjectId) === String(subject.id) || g.name === subject.name)) || null;
+    // 6. الأهداف الأكاديمية (أولوية: g.subjectId === subject.id، والاسم للبيانات القديمة فقط)
+    const goal = goals.find(g => {
+        if (!g) return false;
+        if (g.subjectId) return String(g.subjectId) === String(subject.id);
+        if (g.name && g.name === subject.name) return true;
+        return false;
+    }) || null;
 
     // 7. تحديد "ما يحتاج انتباهك الآن" (Attention Item)
     let attentionItem = null;
@@ -154,7 +176,7 @@ function getSubjectHubData(subjectId, rawData) {
         nearestExam,
         focusMinutes: totalMinutes,
         focusSessionsCount: totalSessions,
-        recentFocusSessions: matchingSessions.slice(0, 5),
+        recentFocusSessions: deduplicatedSessions.slice(0, 5),
         notes: subjectNotes,
         goal,
         attentionItem

@@ -42,7 +42,7 @@ function testAssert(cond, msg) {
     }
 }
 
-console.log('=== HAYYIZ SUBJECT HUB INTEGRATION AUDIT SUITE ===\n');
+console.log('=== HAYYIZ SUBJECT HUB INTEGRATION & CSP AUDIT SUITE ===\n');
 
 function resetEnv() {
     localStorage.clear();
@@ -131,7 +131,7 @@ const hubDataNotes = getSubjectHubData(subMath.id, {
 
 testAssert(hubDataNotes.notes.length === 1 && hubDataNotes.notes[0].id === 'n1', 'Req 4: Notes matched strictly by relatedTaskId and subjectId without title string cross-matching');
 
-// TEST 5: Subject Goals matching
+// TEST 5: Subject Goals matching without goal.id === subject.id
 const sampleGoals = [
     { id: 'g1', subjectId: subMath.id, target: 95 },
     { id: subPhys.id, name: 'الفيزياء', target: 90 } // goal.id equals physics subject id, but for physics
@@ -148,30 +148,44 @@ const hubDataGoals = getSubjectHubData(subMath.id, {
 
 testAssert(hubDataGoals.goal && hubDataGoals.goal.target === 95, 'Req 5: Subject goal matched cleanly via subjectId without comparing goal.id to subject.id');
 
-// TEST 6: Focus Sessions sorting and aggregation without double counting
-const sampleSessions = [
-    { id: 'sOld', durationMinutes: 25, timestamp: '2026-01-01T10:00:00Z', contextSnapshot: { subjectId: subMath.id } },
-    { id: 'sNew', durationMinutes: 25, timestamp: '2026-03-01T10:00:00Z', contextSnapshot: { subjectId: subMath.id } }
+// TEST 6: Focus Sessions Deduplication (Single Source of Truth)
+const duplicateSessions = [
+    { id: 'sDup1', durationMinutes: 25, timestamp: '2026-03-01T10:00:00Z', subjectId: subMath.id, contextSnapshot: { subjectId: subMath.id } },
+    { id: 'sDup1', durationMinutes: 25, timestamp: '2026-03-01T10:00:00Z', subjectId: subMath.id, contextSnapshot: { subjectId: subMath.id } }, // Duplicate entry
+    { id: 'sUnique2', durationMinutes: 30, timestamp: '2026-03-02T10:00:00Z', contextSnapshot: { type: 'task', id: 't1', subjectId: subMath.id } }
 ];
 
-const hubDataSessions = getSubjectHubData(subMath.id, {
+const hubDataDeduplicated = getSubjectHubData(subMath.id, {
     subjects: [subMath],
-    todos: [],
+    todos: sampleTodos,
     exams: [],
-    focusSessions: sampleSessions,
+    focusSessions: duplicateSessions,
     notes: [],
     goals: []
 });
 
-testAssert(hubDataSessions.recentFocusSessions[0].id === 'sNew', 'Req 6a: Focus sessions sorted descending by timestamp');
-testAssert(hubDataSessions.focusMinutes >= 50 && hubDataSessions.focusSessionsCount >= 2, 'Req 6b: Focus minutes and session count calculated accurately without inflating');
+testAssert(hubDataDeduplicated.focusSessionsCount === 2, 'Req 6a: Duplicate session entries are deduplicated by ID');
+testAssert(hubDataDeduplicated.focusMinutes === 55, 'Req 6b: Focus minutes accurately calculated as 55 (25+30) without double counting');
 
-// TEST 7: CSP and Inline Script Check
-testAssert(!subjectHtml.includes("'unsafe-inline'") || !subjectHtml.includes("script-src 'self' https://www.googletagmanager.com https://cdn.jsdelivr.net 'unsafe-inline'"), 'Req 7a: CSP script-src meta tag does not contain unsafe-inline');
+// TEST 7: CSP Verification for BOTH script-src AND script-src-elem
+const cspMetaMatch = subjectHtml.match(/<meta\s+http-equiv=["']Content-Security-Policy["']\s+content=["']([\s\S]*?)["']/i);
+testAssert(cspMetaMatch !== null, 'Req 7a: Content-Security-Policy meta tag exists in subject.html');
+
+if (cspMetaMatch) {
+    const cspContent = cspMetaMatch[1];
+
+    // Extract script-src directive
+    const scriptSrcMatch = cspContent.match(/script-src\s+([^;]+)/i);
+    const scriptSrcElemMatch = cspContent.match(/script-src-elem\s+([^;]+)/i);
+
+    const scriptSrcDirectives = (scriptSrcMatch ? scriptSrcMatch[1] : '') + ' ' + (scriptSrcElemMatch ? scriptSrcElemMatch[1] : '');
+
+    testAssert(!scriptSrcDirectives.includes("'unsafe-inline'"), 'Req 7b: Neither script-src nor script-src-elem contains unsafe-inline');
+}
 
 const scriptTagMatches = subjectHtml.match(/<script\b[^>]*>([\s\S]*?)<\/script>/gi) || [];
 const inlineScripts = scriptTagMatches.filter(tag => !tag.includes('src='));
-testAssert(inlineScripts.length === 0, 'Req 7b: subject.html contains zero inline script blocks');
+testAssert(inlineScripts.length === 0, 'Req 7c: subject.html contains zero inline script blocks');
 
 console.log(`===================================`);
 console.log(`SUBJECT HUB AUDIT RESULTS: ${passed} Passed, ${failed} Failed`);
