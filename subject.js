@@ -2,6 +2,14 @@
  * subject.js — صفحة المادة المركزية في منصة حيز (Subject Hub)
  */
 
+if (typeof document !== 'undefined' && document.documentElement) {
+    try {
+        if (localStorage.getItem('hayyiz-theme') === 'dark') {
+            document.documentElement.classList.add('theme-dark');
+        }
+    } catch (e) {}
+}
+
 if (typeof document !== 'undefined' && document.addEventListener) {
     document.addEventListener('DOMContentLoaded', () => {
         try {
@@ -14,6 +22,111 @@ if (typeof document !== 'undefined' && document.addEventListener) {
 
 let currentActiveTaskTab = 'open'; // 'open' | 'done'
 
+/**
+ * دالة نقية ومعزولة لتجميع ومعالجة بيانات المادة
+ */
+function getSubjectHubData(subjectId, rawData) {
+    if (!subjectId || !rawData) return null;
+
+    const subjects = Array.isArray(rawData.subjects) ? rawData.subjects : [];
+    const todos = Array.isArray(rawData.todos) ? rawData.todos : [];
+    const exams = Array.isArray(rawData.exams) ? rawData.exams : [];
+    const focusSessions = Array.isArray(rawData.focusSessions) ? rawData.focusSessions : [];
+    const notes = Array.isArray(rawData.notes) ? rawData.notes : [];
+    const goals = Array.isArray(rawData.goals) ? rawData.goals : [];
+
+    // 1. المطابقة الدقيقة للمادة
+    const subject = subjects.find(s => s && String(s.id) === String(subjectId)) || null;
+    if (!subject) return null;
+
+    // 2. تصفية المهام المخصصة للمادة
+    const subjectTasks = todos.filter(t => t && String(t.subjectId) === String(subject.id));
+    const openTasks = subjectTasks.filter(t => !t.completed && !t.done);
+    const completedTasks = subjectTasks.filter(t => t.completed || t.done);
+
+    // 3. تصفية الاختبارات والتمييز بين القادمة والسابقة
+    const subjectExams = exams.filter(e => {
+        if (!e) return false;
+        if (e.subjectId) return String(e.subjectId) === String(subject.id);
+        if (e.subject) return e.subject === subject.name;
+        return false;
+    });
+
+    const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().split('T')[0];
+    const upcomingExams = [];
+    const pastExams = [];
+
+    subjectExams.forEach(e => {
+        if (!e.date) return;
+        if (e.date >= todayStr) {
+            upcomingExams.push(e);
+        } else {
+            pastExams.push(e);
+        }
+    });
+
+    upcomingExams.sort((a, b) => (a.date > b.date ? 1 : a.date < b.date ? -1 : 0));
+    pastExams.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+
+    const nearestExam = upcomingExams.length > 0 ? upcomingExams[0] : null;
+
+    // 4. تصفية وحساب جلسات التركيز للمادة
+    const subjectTaskIds = new Set(subjectTasks.map(t => String(t.id)));
+    const matchingSessions = focusSessions.filter(s => {
+        if (!s) return false;
+        const snap = s.contextSnapshot;
+        if (snap) {
+            if (snap.subjectId && String(snap.subjectId) === String(subject.id)) return true;
+            if (snap.type === 'task' && snap.id && subjectTaskIds.has(String(snap.id))) return true;
+        }
+        if (s.subjectId && String(s.subjectId) === String(subject.id)) return true;
+        return false;
+    });
+
+    matchingSessions.sort((a, b) => {
+        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : (a.date ? new Date(a.date).getTime() : 0);
+        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : (b.date ? new Date(b.date).getTime() : 0);
+        return timeB - timeA;
+    });
+
+    let totalMinutes = parseInt(subject.focusMinutes, 10) || 0;
+    let totalSessions = parseInt(subject.sessions, 10) || 0;
+
+    let logMin = 0;
+    matchingSessions.forEach(s => {
+        logMin += parseInt(s.durationMinutes, 10) || 0;
+    });
+
+    if (logMin > totalMinutes) totalMinutes = logMin;
+    if (matchingSessions.length > totalSessions) totalSessions = matchingSessions.length;
+
+    // 5. تصفية الملاحظات (أولوية: subjectId ثم relatedTaskId -> subjectId ثم legacy subject name)
+    const subjectNotes = notes.filter(n => {
+        if (!n) return false;
+        if (n.subjectId && String(n.subjectId) === String(subject.id)) return true;
+        if (n.relatedTaskId && subjectTaskIds.has(String(n.relatedTaskId))) return true;
+        if (!n.subjectId && !n.relatedTaskId && n.subject && n.subject === subject.name) return true;
+        return false;
+    });
+
+    // 6. الأهداف الأكاديمية (أولوية: subjectId أو name المطابق واسم المادة)
+    const goal = goals.find(g => g && (String(g.subjectId) === String(subject.id) || g.name === subject.name)) || null;
+
+    return {
+        subject,
+        openTasks,
+        completedTasks,
+        upcomingExams,
+        pastExams,
+        nearestExam,
+        focusMinutes: totalMinutes,
+        focusSessionsCount: totalSessions,
+        recentFocusSessions: matchingSessions.slice(0, 5),
+        notes: subjectNotes,
+        goal
+    };
+}
+
 function initSubjectPage() {
     const notFoundEl = document.getElementById('subject-not-found');
     const contentEl = document.getElementById('subject-content');
@@ -23,25 +136,31 @@ function initSubjectPage() {
     const urlParams = new URLSearchParams(window.location.search);
     const subjectId = urlParams.get('id');
 
-    // جلب المواد المخزنة
     const subjects = typeof hayyizGetSubjects === 'function' ? hayyizGetSubjects() : [];
-    let subject = null;
+    const todos = typeof hayyizGetTodos === 'function' ? hayyizGetTodos() : [];
+    const exams = typeof hayyizGetExams === 'function' ? hayyizGetExams() : [];
+    const focusSessions = typeof hayyizGetFocusSessions === 'function' ? hayyizGetFocusSessions() : [];
 
-    if (subjectId) {
-        // البحث بالـ id أولاً
-        if (typeof hayyizGetSubjectById === 'function') {
-            subject = hayyizGetSubjectById(subjectId);
-        }
-        if (!subject && Array.isArray(subjects)) {
-            subject = subjects.find(s => s && String(s.id) === String(subjectId)) || null;
-        }
-        // كخيار توافق احتياطي: إذا كان المدخل اسم المادة
-        if (!subject && Array.isArray(subjects)) {
-            subject = subjects.find(s => s && s.name === subjectId.trim()) || null;
-        }
+    let rawNotes = [];
+    try {
+        const parsed = JSON.parse(localStorage.getItem('hayyiz-notes') || '[]');
+        rawNotes = Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        rawNotes = [];
     }
 
-    if (!subject) {
+    const goals = typeof hayyizGetSubjectGoals === 'function' ? hayyizGetSubjectGoals() : [];
+
+    const hubData = getSubjectHubData(subjectId, {
+        subjects,
+        todos,
+        exams,
+        focusSessions,
+        notes: rawNotes,
+        goals
+    });
+
+    if (!hubData) {
         showNotFoundState(subjects);
         return;
     }
@@ -49,116 +168,33 @@ function initSubjectPage() {
     notFoundEl.style.display = 'none';
     contentEl.style.display = 'block';
 
-    // تحديث عنوان الصفحة والهيدر
-    const escapeFn = typeof escapeHtml === 'function' ? escapeHtml : (str => str || '');
+    const { subject, openTasks, completedTasks, upcomingExams, nearestExam, focusMinutes, focusSessionsCount, recentFocusSessions, notes, goal } = hubData;
+
     document.title = `${subject.name} | صفحة المادة | حيز`;
 
     const headingEl = document.getElementById('subject-name-heading');
-    if (headingEl) {
-        headingEl.textContent = subject.name;
-    }
+    if (headingEl) headingEl.textContent = subject.name;
+
+    const addBtn = document.getElementById('btn-add-subject-task');
+    if (addBtn) addBtn.href = `todo.html?subjectId=${encodeURIComponent(subject.id)}`;
 
     const focusBtn = document.getElementById('btn-focus-subject');
-    if (focusBtn) {
-        focusBtn.href = `pomodoro.html?subjectId=${encodeURIComponent(subject.id)}`;
-    }
+    if (focusBtn) focusBtn.href = `pomodoro.html?subjectId=${encodeURIComponent(subject.id)}`;
 
-    // جلب البيانات المرتبطة من الأدوات المختلفة
-    const allTodos = typeof hayyizGetTodos === 'function' ? hayyizGetTodos() : [];
-    const allExams = typeof hayyizGetExams === 'function' ? hayyizGetExams() : [];
-    const allSessions = typeof hayyizGetFocusSessions === 'function' ? hayyizGetFocusSessions() : [];
-    const rawNotes = localStorage.getItem('hayyiz-notes');
-    let allNotes = [];
-    try {
-        allNotes = rawNotes ? JSON.parse(rawNotes) : [];
-        if (!Array.isArray(allNotes)) allNotes = [];
-    } catch (e) {
-        allNotes = [];
-    }
-
-    // 1. تصفية المهام
-    const subjectTasks = allTodos.filter(t => {
-        if (!t) return false;
-        if (t.subjectId) return String(t.subjectId) === String(subject.id);
-        if (t.subject) return t.subject === subject.name;
-        return false;
-    });
-
-    const openTasks = subjectTasks.filter(t => !t.completed && !t.done);
-    const doneTasks = subjectTasks.filter(t => t.completed || t.done);
-
-    // 2. تصفية الاختبارات
-    const subjectExams = allExams.filter(e => {
-        if (!e) return false;
-        if (e.subjectId) return String(e.subjectId) === String(subject.id);
-        if (e.subject) return e.subject === subject.name;
-        if (e.name && e.name.includes(subject.name)) return true;
-        return false;
-    });
-
-    // 3. تصفية جلسات التركيز
-    // إما مطابقة مباشرة للـ subjectId في contextSnapshot، أو عبر مهمة تنتمي لهذه المادة
-    const subjectTaskIds = new Set(subjectTasks.map(t => String(t.id)));
-    const subjectSessions = allSessions.filter(s => {
-        if (!s) return false;
-        const snap = s.contextSnapshot;
-        if (snap) {
-            if (snap.subjectId && String(snap.subjectId) === String(subject.id)) return true;
-            if (snap.type === 'task' && snap.id && subjectTaskIds.has(String(snap.id))) return true;
-        }
-        return false;
-    });
-
-    let totalFocusMin = parseInt(subject.focusMinutes, 10) || 0;
-    let totalSessionsCount = parseInt(subject.sessions, 10) || 0;
-
-    // إضافة الدقائق المسجلة في السجل إذا كانت أكبر
-    let logMin = 0;
-    subjectSessions.forEach(s => {
-        logMin += parseInt(s.durationMinutes, 10) || 0;
-    });
-    if (logMin > totalFocusMin) {
-        totalFocusMin = logMin;
-    }
-    if (subjectSessions.length > totalSessionsCount) {
-        totalSessionsCount = subjectSessions.length;
-    }
-
-    // 4. تصفية الملاحظات
-    const subjectNotes = allNotes.filter(n => {
-        if (!n) return false;
-        if (n.subjectId && String(n.subjectId) === String(subject.id)) return true;
-        if (n.subject && n.subject === subject.name) return true;
-        if (n.relatedTaskId && subjectTaskIds.has(String(n.relatedTaskId))) return true;
-        if (n.relatedTask) {
-            const matchesTask = subjectTasks.some(t => t.text === n.relatedTask || t.title === n.relatedTask);
-            if (matchesTask) return true;
-        }
-        return false;
-    });
-
-    // 5. الأهداف الأكاديمية
-    const subjectGoals = typeof hayyizGetSubjectGoals === 'function' ? hayyizGetSubjectGoals() : [];
-    const goal = subjectGoals.find(g => g && (String(g.subjectId) === String(subject.id) || g.name === subject.name || String(g.id) === String(subject.id))) || null;
-
-    // تحديث الهيدر والإحصائيات السريعة
     const statOpenTasks = document.getElementById('stat-open-tasks');
     if (statOpenTasks) statOpenTasks.textContent = openTasks.length;
 
     const statFocusTime = document.getElementById('stat-focus-time');
-    if (statFocusTime) statFocusTime.textContent = `${totalFocusMin} دقيقة`;
+    if (statFocusTime) statFocusTime.textContent = `${focusMinutes} دقيقة`;
 
     const statFocusSessions = document.getElementById('stat-focus-sessions');
-    if (statFocusSessions) statFocusSessions.textContent = `${totalSessionsCount} جلسة`;
+    if (statFocusSessions) statFocusSessions.textContent = `${focusSessionsCount} جلسة`;
 
     const statNearestExam = document.getElementById('stat-nearest-exam');
     if (statNearestExam) {
-        if (subjectExams.length > 0) {
-            // ترتيب حسب التاريخ
-            const sortedExams = [...subjectExams].sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
-            const nearest = sortedExams[0];
-            const daysUntil = typeof hayyizGetDaysUntil === 'function' ? hayyizGetDaysUntil(nearest.date) : null;
-            let label = nearest.name || 'اختبار';
+        if (nearestExam) {
+            const daysUntil = typeof hayyizGetDaysUntil === 'function' ? hayyizGetDaysUntil(nearestExam.date) : null;
+            let label = nearestExam.name || nearestExam.title || 'اختبار';
             if (daysUntil !== null) {
                 if (daysUntil === 0) label += ' (اليوم)';
                 else if (daysUntil === 1) label += ' (غداً)';
@@ -170,17 +206,13 @@ function initSubjectPage() {
         }
     }
 
-    // عرض الأقسام المختلفة
     renderGoalSection(subject, goal);
-    renderTasksSection(subject, openTasks, doneTasks);
-    renderExamsSection(subject, subjectExams);
-    renderFocusSection(subject, subjectSessions, totalFocusMin, totalSessionsCount);
-    renderNotesSection(subject, subjectNotes);
+    renderTasksSection(subject, openTasks, completedTasks);
+    renderExamsSection(subject, upcomingExams);
+    renderFocusSection(subject, recentFocusSessions, focusMinutes, focusSessionsCount);
+    renderNotesSection(subject, notes);
 }
 
-/**
- * عرض حالة "لم يتم العثور على المادة"
- */
 function showNotFoundState(subjects) {
     const notFoundEl = document.getElementById('subject-not-found');
     const contentEl = document.getElementById('subject-content');
@@ -190,7 +222,7 @@ function showNotFoundState(subjects) {
     if (contentEl) contentEl.style.display = 'none';
 
     if (availableContainer) {
-        availableContainer.innerHTML = '';
+        availableContainer.textContent = '';
         if (Array.isArray(subjects) && subjects.length > 0) {
             const p = document.createElement('p');
             p.style.cssText = 'font-weight: 600; margin-bottom: 0.75rem; color: var(--deep-ink); font-size: 0.95rem;';
@@ -213,9 +245,6 @@ function showNotFoundState(subjects) {
     }
 }
 
-/**
- * قسم الهدف الأكاديمي والتقدم
- */
 function renderGoalSection(subject, goal) {
     const wrapper = document.getElementById('goal-section-wrapper');
     const container = document.getElementById('goal-content');
@@ -227,7 +256,7 @@ function renderGoalSection(subject, goal) {
     }
 
     wrapper.style.display = 'block';
-    container.innerHTML = '';
+    container.textContent = '';
 
     const box = document.createElement('div');
     box.style.cssText = 'display: flex; align-items: center; justify-content: space-between; background: var(--surface-secondary); padding: 0.88rem; border-radius: 8px; flex-wrap: wrap; gap: 0.75rem;';
@@ -248,9 +277,6 @@ function renderGoalSection(subject, goal) {
     container.appendChild(box);
 }
 
-/**
- * قسم المهام الدراسية
- */
 function renderTasksSection(subject, openTasks, doneTasks) {
     const container = document.getElementById('subject-tasks-container');
     const openCountEl = document.getElementById('count-open-tab');
@@ -264,7 +290,7 @@ function renderTasksSection(subject, openTasks, doneTasks) {
     if (doneCountEl) doneCountEl.textContent = doneTasks.length;
 
     const renderList = () => {
-        container.innerHTML = '';
+        container.textContent = '';
         const listToRender = currentActiveTaskTab === 'open' ? openTasks : doneTasks;
 
         if (listToRender.length === 0) {
@@ -285,10 +311,9 @@ function renderTasksSection(subject, openTasks, doneTasks) {
             const rightDiv = document.createElement('div');
             rightDiv.style.cssText = 'display: flex; align-items: center; gap: 0.75rem; flex: 1; min-width: 200px;';
 
-            // Checkbox/Icon
             const checkIcon = document.createElement('i');
             checkIcon.className = task.completed || task.done ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle';
-            checkIcon.style.cssText = `font-size: 1.1rem; color: ${task.completed || task.done ? 'var(--primary)' : 'var(--text-muted)'}; cursor: pointer;`;
+            checkIcon.style.cssText = `font-size: 1.1rem; color: ${task.completed || task.done ? 'var(--primary)' : 'var(--text-muted)'};`;
 
             const titleDiv = document.createElement('div');
             const taskText = document.createElement('div');
@@ -318,20 +343,19 @@ function renderTasksSection(subject, openTasks, doneTasks) {
             rightDiv.appendChild(checkIcon);
             rightDiv.appendChild(titleDiv);
 
-            // Actions
             const actionsDiv = document.createElement('div');
             actionsDiv.style.cssText = 'display: flex; gap: 0.5rem; align-items: center;';
 
             const openLink = document.createElement('a');
             openLink.href = `todo.html?id=${encodeURIComponent(task.id)}`;
             openLink.className = 'btn btn-secondary btn-sm';
-            openLink.innerHTML = '<i class="fa-solid fa-arrow-left-long"></i> عرض';
+            openLink.textContent = 'عرض';
 
             if (!task.completed && !task.done) {
                 const focusLink = document.createElement('a');
                 focusLink.href = `pomodoro.html?taskId=${encodeURIComponent(task.id)}`;
                 focusLink.className = 'btn btn-primary btn-sm';
-                focusLink.innerHTML = '<i class="fa-solid fa-play"></i> تركيز';
+                focusLink.textContent = 'تركيز';
                 actionsDiv.appendChild(focusLink);
             }
 
@@ -363,14 +387,11 @@ function renderTasksSection(subject, openTasks, doneTasks) {
     renderList();
 }
 
-/**
- * قسم الاختبارات
- */
 function renderExamsSection(subject, exams) {
     const container = document.getElementById('subject-exams-container');
     if (!container) return;
 
-    container.innerHTML = '';
+    container.textContent = '';
 
     if (exams.length === 0) {
         const empty = document.createElement('div');
@@ -383,10 +404,7 @@ function renderExamsSection(subject, exams) {
     const listDiv = document.createElement('div');
     listDiv.style.cssText = 'display: flex; flex-direction: column; gap: 0.75rem;';
 
-    // ترتيب الاختبارات زمنيًا
-    const sorted = [...exams].sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
-
-    sorted.forEach(exam => {
+    exams.forEach(exam => {
         const card = document.createElement('div');
         card.style.cssText = 'background: var(--surface-secondary); padding: 0.88rem 1rem; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;';
 
@@ -411,7 +429,6 @@ function renderExamsSection(subject, exams) {
                 if (daysUntil === 0) daysSpan.textContent = ' (اليوم)';
                 else if (daysUntil === 1) daysSpan.textContent = ' (غداً)';
                 else if (daysUntil > 1) daysSpan.textContent = ` (متبقي ${daysUntil} أيام)`;
-                else daysSpan.textContent = ' (مكتمل/سابق)';
                 meta.appendChild(daysSpan);
             }
         }
@@ -423,7 +440,7 @@ function renderExamsSection(subject, exams) {
         const calLink = document.createElement('a');
         calLink.href = 'calculator.html';
         calLink.className = 'btn btn-secondary btn-sm';
-        calLink.innerHTML = '<i class="fa-solid fa-calendar-days"></i> فتح التقويم';
+        calLink.textContent = 'فتح التقويم';
 
         actionsDiv.appendChild(calLink);
 
@@ -435,14 +452,11 @@ function renderExamsSection(subject, exams) {
     container.appendChild(listDiv);
 }
 
-/**
- * قسم جلسات التركيز
- */
-function renderFocusSection(subject, sessions, totalMin, totalCount) {
+function renderFocusSection(subject, recentSessions, totalMin, totalCount) {
     const container = document.getElementById('subject-focus-container');
     if (!container) return;
 
-    container.innerHTML = '';
+    container.textContent = '';
 
     const summaryBox = document.createElement('div');
     summaryBox.style.cssText = 'background: var(--surface-secondary); padding: 0.88rem 1rem; border-radius: 8px; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;';
@@ -454,13 +468,13 @@ function renderFocusSection(subject, sessions, totalMin, totalCount) {
     const startLink = document.createElement('a');
     startLink.href = `pomodoro.html?subjectId=${encodeURIComponent(subject.id)}`;
     startLink.className = 'btn btn-primary btn-sm';
-    startLink.innerHTML = '<i class="fa-solid fa-play"></i> بدء جلسة جديدة';
+    startLink.textContent = 'بدء جلسة جديدة';
 
     summaryBox.appendChild(sumText);
     summaryBox.appendChild(startLink);
     container.appendChild(summaryBox);
 
-    if (sessions.length === 0) {
+    if (!recentSessions || recentSessions.length === 0) {
         const empty = document.createElement('p');
         empty.style.cssText = 'text-align: center; color: var(--text-muted); font-size: 0.9rem; margin: 1rem 0;';
         empty.textContent = 'لم يتم تسجيل جلسات تركيز مخصصة لهذه المادة مؤخرًا.';
@@ -471,10 +485,7 @@ function renderFocusSection(subject, sessions, totalMin, totalCount) {
     const listDiv = document.createElement('div');
     listDiv.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem;';
 
-    // عرض أحدث 5 جلسات
-    const recent = [...sessions].slice(0, 5);
-
-    recent.forEach(s => {
+    recentSessions.forEach(s => {
         const item = document.createElement('div');
         item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.88rem; background: var(--card-bg); border-radius: 6px; border: 1px solid var(--border-color); font-size: 0.88rem;';
 
@@ -497,14 +508,11 @@ function renderFocusSection(subject, sessions, totalMin, totalCount) {
     container.appendChild(listDiv);
 }
 
-/**
- * قسم الملاحظات المرتبطة
- */
 function renderNotesSection(subject, notes) {
     const container = document.getElementById('subject-notes-container');
     if (!container) return;
 
-    container.innerHTML = '';
+    container.textContent = '';
 
     if (notes.length === 0) {
         const empty = document.createElement('div');
@@ -549,7 +557,7 @@ function renderNotesSection(subject, notes) {
         openLink.href = `notes.html?id=${encodeURIComponent(note.id)}`;
         openLink.className = 'btn btn-secondary btn-sm';
         openLink.style.cssText = 'padding: 0.2rem 0.5rem; font-size: 0.78rem;';
-        openLink.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> عرض';
+        openLink.textContent = 'عرض';
 
         bottom.appendChild(dateSpan);
         bottom.appendChild(openLink);

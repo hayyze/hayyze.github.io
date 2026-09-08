@@ -851,6 +851,33 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial render
     renderTodos();
 
+    // Handling URL parameters (subjectId / taskId / id)
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const paramSubjectId = urlParams.get('subjectId');
+        const paramTaskId = urlParams.get('id') || urlParams.get('taskId');
+
+        if (paramSubjectId) {
+            if (todoSubject) {
+                todoSubject.value = paramSubjectId;
+            }
+            if (extraOptionsDiv && extraOptionsDiv.classList.contains('hidden')) {
+                extraOptionsDiv.classList.remove('hidden');
+                if (toggleOptionsBtn) toggleOptionsBtn.setAttribute('aria-expanded', 'true');
+                if (toggleOptionsText) toggleOptionsText.textContent = 'خيارات أقل';
+            }
+        }
+
+        if (paramTaskId) {
+            const foundTask = todos.find(t => t && String(t.id) === String(paramTaskId));
+            if (foundTask && typeof openTaskModal === 'function') {
+                openTaskModal(foundTask);
+            }
+        }
+    } catch (e) {
+        /* ignore search params error */
+    }
+
     if (typeof hayyizRegisterSyncCallback === 'function') {
         hayyizRegisterSyncCallback('todos', (merged) => {
             if (Array.isArray(merged)) {
