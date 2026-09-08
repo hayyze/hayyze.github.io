@@ -997,4 +997,13 @@
             .replace(/'/g, '&#039;');
     }
 
+    if (typeof window !== 'undefined') {
+        window._hayyizTestCalendarForm = {
+            saveEventFromForm,
+            editEvent,
+            resetEventForm,
+            updateSubjectFieldVisibility
+        };
+    }
+
 })();

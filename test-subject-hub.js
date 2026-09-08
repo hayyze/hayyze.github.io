@@ -219,59 +219,129 @@ testAssert(hubBio && hubBio.upcomingExams.length === 1 && hubBio.upcomingExams[0
 resetEnv();
 const subChem = hayyizAddSubject('كيمياء');
 
-// 9a. Save Exam with Subject
-const examWithSubject = {
-    id: 'ex_chem_1',
-    name: 'اختبار كيمياء',
-    type: 'exam',
-    date: '2026-10-10',
-    subjectId: subChem.id,
-    subject: subChem.name,
-    updated: Date.now()
-};
-localStorage.setItem('hayyiz-student-exams', JSON.stringify([examWithSubject]));
-const savedExams1 = JSON.parse(localStorage.getItem('hayyiz-student-exams'));
-testAssert(savedExams1[0].subjectId === subChem.id, 'Test 9a: Exam created with subject saves subjectId correctly');
+// Load calculator.js into mock environment
+const calculatorJs = fs.readFileSync('./calculator.js', 'utf8');
 
-// 9b. Save Exam without Subject
-const examWithoutSubject = {
-    id: 'ex_gen_1',
-    name: 'اختبار عام',
-    type: 'exam',
-    date: '2026-10-12',
-    subjectId: null,
-    updated: Date.now()
+// Set up mock DOM elements required for calculator.js
+const mockDomElements = {
+    'event-name-input': { value: '' },
+    'event-type-input': { value: 'exam', addEventListener: () => {} },
+    'event-date-input': { value: '' },
+    'event-time-input': { value: '' },
+    'event-subject-input': { value: '', innerHTML: '', appendChild: () => {} },
+    'event-subject-group': { style: { display: 'none' } },
+    'event-edit-id': { value: '' },
+    'event-storage-key': { value: '' },
+    'form-card-title': { innerHTML: '' },
+    'save-btn-text': { textContent: '' },
+    'event-form-card': { style: { display: 'none' }, scrollIntoView: () => {} },
+    'add-event-form': { reset: () => {}, addEventListener: () => {} },
+    'birthdate-input': { value: '' },
+    'birthdate-btn-lbl': { textContent: '' },
+    'hero-age-val': { textContent: '' },
+    'hero-age-sub': { textContent: '' },
+    'hero-nearest-val': { textContent: '' },
+    'hero-nearest-sub': { textContent: '' },
+    'hero-countdown-val': { textContent: '' },
+    'hero-countdown-sub': { textContent: '' },
+    'hero-week-val': { textContent: '' },
+    'hero-18-sub': { textContent: '' },
+    'past-btn-lbl': { textContent: '' },
+    'events-empty': { style: { display: 'none' } },
+    'group-today-tomorrow': { style: { display: 'none' } },
+    'group-this-week': { style: { display: 'none' } },
+    'group-future': { style: { display: 'none' } },
+    'group-past': { style: { display: 'none' } },
+    'cards-today-tomorrow': { innerHTML: '', appendChild: () => {} },
+    'cards-this-week': { innerHTML: '', appendChild: () => {} },
+    'cards-future': { innerHTML: '', appendChild: () => {} },
+    'cards-past': { innerHTML: '', appendChild: () => {} }
 };
-localStorage.setItem('hayyiz-student-exams', JSON.stringify([examWithoutSubject]));
-const savedExams2 = JSON.parse(localStorage.getItem('hayyiz-student-exams'));
-testAssert(savedExams2[0].subjectId === null, 'Test 9b: Exam created without subject has subjectId set to null');
 
-// 9c. Convert Exam to Assignment -> Removes subjectId
-const convertedAssignment = {
-    id: 'ev_proj_1',
-    name: 'مشروع كيمياء',
-    type: 'assignment',
-    date: '2026-10-15',
-    subjectId: null,
-    updated: Date.now()
+global.document.getElementById = (id) => mockDomElements[id] || null;
+global.document.querySelectorAll = () => [];
+global.document.createTextNode = (txt) => txt;
+global.document.createElement = (tag) => {
+    const el = {
+        value: '',
+        textContent: '',
+        style: {},
+        classList: { add: () => {}, remove: () => {} },
+        appendChild: (c) => el.children.push(c),
+        addEventListener: () => {},
+        children: [],
+        querySelector: (sel) => {
+            return {
+                textContent: '',
+                appendChild: () => {},
+                addEventListener: () => {}
+            };
+        }
+    };
+    return el;
 };
-localStorage.setItem('hayyiz-custom-events', JSON.stringify([convertedAssignment]));
-const savedEvents1 = JSON.parse(localStorage.getItem('hayyiz-custom-events'));
-testAssert(savedEvents1[0].subjectId === null && savedEvents1[0].type === 'assignment', 'Test 9c: Converting exam to assignment clears subjectId to null');
 
-// 9d. Edit Exam and Change Subject
-const editedExam = {
-    id: 'ex_chem_1',
-    name: 'اختبار كيمياء نهائي',
-    type: 'exam',
-    date: '2026-10-10',
-    subjectId: subBio.id,
-    subject: subBio.name,
-    updated: Date.now()
-};
-localStorage.setItem('hayyiz-student-exams', JSON.stringify([editedExam]));
-const savedExams3 = JSON.parse(localStorage.getItem('hayyiz-student-exams'));
-testAssert(savedExams3[0].subjectId === subBio.id, 'Test 9d: Editing exam and changing subject updates subjectId correctly');
+eval(calculatorJs);
+
+const testForm = window._hayyizTestCalendarForm;
+
+// 9a. Direct Form Save: Exam with Subject
+mockDomElements['event-edit-id'].value = '';
+mockDomElements['event-storage-key'].value = '';
+mockDomElements['event-name-input'].value = 'اختبار كيمياء';
+mockDomElements['event-type-input'].value = 'exam';
+mockDomElements['event-date-input'].value = '2026-10-10';
+mockDomElements['event-subject-input'].value = subChem.id;
+
+testForm.saveEventFromForm();
+
+const savedExams1 = JSON.parse(localStorage.getItem('hayyiz-student-exams') || '[]');
+testAssert(savedExams1.length === 1 && savedExams1[0].subjectId === subChem.id, 'Test 9a: Form saveEventFromForm() saves exam with subjectId correctly');
+
+// 9b. Direct Form Save: Exam without Subject
+mockDomElements['event-edit-id'].value = '';
+mockDomElements['event-storage-key'].value = '';
+mockDomElements['event-name-input'].value = 'اختبار عام';
+mockDomElements['event-type-input'].value = 'exam';
+mockDomElements['event-date-input'].value = '2026-10-12';
+mockDomElements['event-subject-input'].value = '';
+
+testForm.saveEventFromForm();
+
+const savedExams2 = JSON.parse(localStorage.getItem('hayyiz-student-exams') || '[]');
+const genExam = savedExams2.find(e => e.name === 'اختبار عام');
+testAssert(genExam && genExam.subjectId === null, 'Test 9b: Form saveEventFromForm() saves exam without subject with subjectId: null');
+
+// 9c. Direct Form Edit: Convert Exam to Assignment -> Removes subjectId and moves storage key
+mockDomElements['event-edit-id'].value = savedExams1[0].id;
+mockDomElements['event-storage-key'].value = 'hayyiz-student-exams';
+mockDomElements['event-name-input'].value = 'تسليم مشروع كيمياء';
+mockDomElements['event-type-input'].value = 'assignment';
+mockDomElements['event-date-input'].value = '2026-10-10';
+mockDomElements['event-subject-input'].value = subChem.id; // leftover select value
+
+testForm.saveEventFromForm();
+
+const updatedExams = JSON.parse(localStorage.getItem('hayyiz-student-exams') || '[]');
+const newEvents = JSON.parse(localStorage.getItem('hayyiz-custom-events') || '[]');
+const convertedEv = newEvents.find(e => e.id === savedExams1[0].id);
+
+testAssert(!updatedExams.some(e => e.id === savedExams1[0].id), 'Test 9c-1: Converted event removed from student-exams');
+testAssert(convertedEv && convertedEv.subjectId === null && convertedEv.type === 'assignment', 'Test 9c-2: Converted event saved in custom-events with subjectId: null');
+
+// 9d. Direct Form Edit: Edit Exam and Change Subject
+mockDomElements['event-edit-id'].value = genExam.id;
+mockDomElements['event-storage-key'].value = 'hayyiz-student-exams';
+mockDomElements['event-name-input'].value = 'اختبار أحياء';
+mockDomElements['event-type-input'].value = 'exam';
+mockDomElements['event-date-input'].value = '2026-10-12';
+mockDomElements['event-subject-input'].value = subBio.id;
+
+testForm.saveEventFromForm();
+
+const finalExams = JSON.parse(localStorage.getItem('hayyiz-student-exams') || '[]');
+const edited = finalExams.find(e => e.id === genExam.id);
+testAssert(edited && edited.subjectId === subBio.id, 'Test 9d: Editing exam and setting new subject updates subjectId correctly');
 
 console.log(`===================================`);
 console.log(`SUBJECT HUB AUDIT RESULTS: ${passed} Passed, ${failed} Failed`);
