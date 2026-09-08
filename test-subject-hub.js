@@ -215,6 +215,64 @@ const hubBio = getSubjectHubData(subBio.id, {
 });
 testAssert(hubBio && hubBio.upcomingExams.length === 1 && hubBio.upcomingExams[0].id === 'ex_bio_1', 'Req 8b: Subject Hub links calendar exam cleanly via subjectId');
 
+// TEST 9: Comprehensive Form Logic Simulation & Storage Validation
+resetEnv();
+const subChem = hayyizAddSubject('كيمياء');
+
+// 9a. Save Exam with Subject
+const examWithSubject = {
+    id: 'ex_chem_1',
+    name: 'اختبار كيمياء',
+    type: 'exam',
+    date: '2026-10-10',
+    subjectId: subChem.id,
+    subject: subChem.name,
+    updated: Date.now()
+};
+localStorage.setItem('hayyiz-student-exams', JSON.stringify([examWithSubject]));
+const savedExams1 = JSON.parse(localStorage.getItem('hayyiz-student-exams'));
+testAssert(savedExams1[0].subjectId === subChem.id, 'Test 9a: Exam created with subject saves subjectId correctly');
+
+// 9b. Save Exam without Subject
+const examWithoutSubject = {
+    id: 'ex_gen_1',
+    name: 'اختبار عام',
+    type: 'exam',
+    date: '2026-10-12',
+    subjectId: null,
+    updated: Date.now()
+};
+localStorage.setItem('hayyiz-student-exams', JSON.stringify([examWithoutSubject]));
+const savedExams2 = JSON.parse(localStorage.getItem('hayyiz-student-exams'));
+testAssert(savedExams2[0].subjectId === null, 'Test 9b: Exam created without subject has subjectId set to null');
+
+// 9c. Convert Exam to Assignment -> Removes subjectId
+const convertedAssignment = {
+    id: 'ev_proj_1',
+    name: 'مشروع كيمياء',
+    type: 'assignment',
+    date: '2026-10-15',
+    subjectId: null,
+    updated: Date.now()
+};
+localStorage.setItem('hayyiz-custom-events', JSON.stringify([convertedAssignment]));
+const savedEvents1 = JSON.parse(localStorage.getItem('hayyiz-custom-events'));
+testAssert(savedEvents1[0].subjectId === null && savedEvents1[0].type === 'assignment', 'Test 9c: Converting exam to assignment clears subjectId to null');
+
+// 9d. Edit Exam and Change Subject
+const editedExam = {
+    id: 'ex_chem_1',
+    name: 'اختبار كيمياء نهائي',
+    type: 'exam',
+    date: '2026-10-10',
+    subjectId: subBio.id,
+    subject: subBio.name,
+    updated: Date.now()
+};
+localStorage.setItem('hayyiz-student-exams', JSON.stringify([editedExam]));
+const savedExams3 = JSON.parse(localStorage.getItem('hayyiz-student-exams'));
+testAssert(savedExams3[0].subjectId === subBio.id, 'Test 9d: Editing exam and changing subject updates subjectId correctly');
+
 console.log(`===================================`);
 console.log(`SUBJECT HUB AUDIT RESULTS: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);
