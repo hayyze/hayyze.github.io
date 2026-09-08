@@ -32,17 +32,16 @@
     <meta name="referrer" content="strict-origin-when-cross-origin">
 
     <!-- SEO Metadata Hub Page -->
-    <title>حاسبة المعدل الثانوي والتراكمي | احسب معدلك بسهولة — حيز</title>
-    <meta name="description" content="حاسبة المعدل الثانوي والتراكمي الشاملة لمنصة حيز: احسب معدل أول، ثاني، وثالث ثانوي، والمعدل التراكمي بنظام المسارات، والنسبة الموزونة للقبول الجامعي بدقة.">
-    <meta name="keywords" content="حاسبة المعدل الثانوي, حاسبة المعدل التراكمي, احسب معدلي الثانوي, حيز">
+    <title>حاسبات المعدل والقبول الجامعي | حيز</title>
+    <meta name="description" content="مركز حاسبات المعدل والقبول الجامعي الشامل لمنصة حيز: حاسبات المرحلة المتوسطة، المرحلة الثانوية، والقبول الجامعي لحساب المعدل التراكمي والنسبة الموزونة بسهولة.">
     <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
 
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://hayyze.github.io/gpa.html">
-    <meta property="og:title" content="حاسبة المعدل الثانوي والتراكمي | احسب معدلك بسهولة — حيز">
-    <meta property="og:description" content="احسب معدلك الثانوي والمعدل التراكمي ونسبتك الموزونة للقبول الجامعي وفق أوزان وزارة التعليم بسهولة ودقة عبر منصة حيز.">
+    <meta property="og:title" content="حاسبات المعدل والقبول الجامعي | حيز">
+    <meta property="og:description" content="مركز حاسبات المعدل والقبول الجامعي الشامل: اختر مرحلتك الدراسية لحساب معدلك الموزون والتراكمي والنسبة الموزونة عبر منصة حيز.">
     <meta property="og:image" content="https://hayyze.github.io/android-chrome-512x512.png">
     <meta property="og:image:width" content="512">
     <meta property="og:image:height" content="512">
@@ -51,8 +50,8 @@
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="حاسبة المعدل الثانوي والتراكمي | احسب معدلك بسهولة — حيز">
-    <meta name="twitter:description" content="احسب معدلك الثانوي والمعدل التراكمي ونسبتك الموزونة للقبول الجامعي بسهولة ودقة عبر منصة حيز.">
+    <meta name="twitter:title" content="حاسبات المعدل والقبول الجامعي | حيز">
+    <meta name="twitter:description" content="مركز حاسبات المعدل والقبول الجامعي الشامل: اختر مرحلتك الدراسية واحسب معدلك بسهولة عبر منصة حيز.">
     <meta name="twitter:image" content="https://hayyze.github.io/android-chrome-512x512.png">
 
     <link rel="canonical" href="https://hayyze.github.io/gpa.html">
@@ -78,70 +77,75 @@
     </script>
 
     <style>
-      .calc-hub-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 1.25rem;
-        margin-top: 1.5rem;
-      }
-      .calc-hub-card {
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        padding: 1.5rem;
+      .main-category-card {
+        background: var(--bg-card);
         border: 1px solid var(--border);
         border-radius: var(--radius, 16px);
-        background: var(--bg-card);
-        color: var(--text);
-        text-decoration: none;
+        padding: 1.75rem;
+        margin-bottom: 1.5rem;
         transition: all 0.25s ease;
       }
-      .calc-hub-card:hover {
+      .main-category-card:hover {
         border-color: var(--primary, #4f46e5);
-        transform: translateY(-4px);
         box-shadow: var(--shadow-lg);
       }
-      .calc-hub-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
-        background: color-mix(in srgb, var(--primary) 12%, transparent);
-        color: var(--primary);
+      .main-category-header {
         display: flex;
         align-items: center;
-        justify-content: center;
-        font-size: 1.5rem;
-        margin-bottom: 1rem;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 0.75rem;
       }
-      .calc-hub-card h3 {
-        font-size: 1.2rem;
-        font-weight: 700;
-        margin-bottom: 0.5rem;
+      .main-category-title {
+        font-size: 1.35rem;
+        font-weight: 800;
         color: var(--text);
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        text-decoration: none;
       }
-      .calc-hub-card p {
-        font-size: 0.9rem;
+      .main-category-title:hover {
+        color: var(--primary);
+      }
+      .main-category-desc {
+        font-size: 0.95rem;
         color: var(--text-muted);
         line-height: 1.6;
-        margin-bottom: 1.2rem;
-        flex-grow: 1;
+        margin-bottom: 1.25rem;
       }
-      .calc-hub-link {
-        font-size: 0.9rem;
-        font-weight: 700;
-        color: var(--primary);
+      .sub-tools-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 0.85rem;
+      }
+      .sub-tool-link {
         display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.85rem 1rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm, 10px);
+        background: var(--bg);
+        color: var(--text);
+        text-decoration: none;
+        font-size: 0.95rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+      }
+      .sub-tool-link:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+        background: color-mix(in srgb, var(--primary) 6%, transparent);
+      }
+      .hub-btn-link {
+        display: inline-flex;
         align-items: center;
         gap: 0.4rem;
-      }
-      .hub-section-title {
-        font-size: 1.3rem;
-        font-weight: 800;
-        margin: 2rem 0 1rem;
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        color: var(--text);
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--primary);
+        text-decoration: none;
       }
     </style>
 
@@ -150,9 +154,9 @@
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
-      "name": "حاسبة المعدل الثانوي وحاسبات المعدل الدراسي",
+      "name": "حاسبات المعدل والقبول الجامعي",
       "url": "https://hayyze.github.io/gpa.html",
-      "description": "مركز حاسبات المعدل الدراسي الشامل لمنصة حيز لحساب المعدل الثانوي، المتوسط، التراكمي، والنسبة الموزونة للقبول الجامعي.",
+      "description": "مركز حاسبات المعدل الدراسي والقبول الجامعي الشامل لمنصة حيز لحساب معدل المتوسط، الثانوي، التراكمي، والنسبة الموزونة.",
       "inLanguage": "ar"
     }
     </script>
@@ -202,7 +206,7 @@
         {
           "@type": "ListItem",
           "position": 2,
-          "name": "حاسبة المعدل الثانوي",
+          "name": "حاسبات المعدل والقبول الجامعي",
           "item": "https://hayyze.github.io/gpa.html"
         }
       ]
@@ -217,7 +221,7 @@
             <span class="logo-text">حيز</span>
         </a>
         <button class="menu-toggle" id="menu-toggle" aria-label="فتح القائمة" aria-expanded="false" aria-controls="nav-links"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
-                <nav class="nav-links" id="nav-links">
+        <nav class="nav-links" id="nav-links">
             <a href="index.html" class="nav-btn"><i class="fa-solid fa-house" aria-hidden="true"></i> الرئيسية</a>
             <div class="nav-dropdown active">
                 <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true">
@@ -262,101 +266,83 @@
 
     <div class="card">
         <div class="section-header">
-            <h1><i class="fa-solid fa-calculator" style="color: var(--primary);"></i> حاسبة المعدل الثانوي وحاسبات المعدل الدراسي</h1>
-            <p class="section-desc">مركز حاسبات المعدل الشامل: اختر الحاسبة المخصصة لمرحلتك الدراسية لحساب معدلك الثانوي، المتوسط، التراكمي، والنسبة الموزونة بدقة</p>
+            <h1><i class="fa-solid fa-calculator" style="color: var(--primary);"></i> حاسبات المعدل والقبول الجامعي</h1>
+            <p class="section-desc">مركز حاسبات المعدل الشامل: اختر قسم المرحلة التعليمية أو أدوات القبول الجامعي للوصول مباشرة للحاسبة المطلوبة</p>
         </div>
 
-        <!-- قسم المرحلة المتوسطة -->
-        <div class="hub-section-title">
-            <i class="fa-solid fa-book-open" style="color: var(--primary);"></i> المرحلة المتوسطة
-        </div>
-        <div class="calc-hub-grid">
-            <a href="first-intermediate.html" class="calc-hub-card">
-                <div>
-                    <div class="calc-hub-icon"><i class="fa-solid fa-cube"></i></div>
-                    <h3>حاسبة معدل أول متوسط</h3>
-                    <p>احسب معدل المواد المقررة للصف الأول المتوسط وفق توزيع الأوزان الرسمي والسلوك والمواظبة.</p>
-                </div>
-                <div class="calc-hub-link">فتح الحاسبة <i class="fa-solid fa-arrow-left"></i></div>
-            </a>
-            <a href="second-intermediate.html" class="calc-hub-card">
-                <div>
-                    <div class="calc-hub-icon"><i class="fa-solid fa-cubes"></i></div>
-                    <h3>حاسبة معدل ثاني متوسط</h3>
-                    <p>احسب معدل الصف الثاني المتوسط بأوزان المواد المعتمدة مع إدخال درجات الفصل الأول والثاني.</p>
-                </div>
-                <div class="calc-hub-link">فتح الحاسبة <i class="fa-solid fa-arrow-left"></i></div>
-            </a>
-            <a href="third-intermediate.html" class="calc-hub-card">
-                <div>
-                    <div class="calc-hub-icon"><i class="fa-solid fa-layer-group"></i></div>
-                    <h3>حاسبة معدل ثالث متوسط</h3>
-                    <p>احسب معدل صف ثالث متوسط شاملاً مادة التفكير الناقد وأوزان الوزارة استعداداً للانتقال للثانوية.</p>
-                </div>
-                <div class="calc-hub-link">فتح الحاسبة <i class="fa-solid fa-arrow-left"></i></div>
-            </a>
+        <!-- 1. قسم المرحلة المتوسطة -->
+        <div class="main-category-card">
+            <div class="main-category-header">
+                <a href="intermediate.html" class="main-category-title">
+                    <i class="fa-solid fa-book-open" style="color: var(--primary);"></i> المرحلة المتوسطة
+                </a>
+                <a href="intermediate.html" class="hub-btn-link">عرض قسم المتوسطة <i class="fa-solid fa-arrow-left"></i></a>
+            </div>
+            <p class="main-category-desc">حاسبات معدل درجات المواد لجميع صفوف المرحلة المتوسطة مع أوزان المواد التقديرية والسلوك والمواظبة.</p>
+            <div class="sub-tools-grid">
+                <a href="first-intermediate.html" class="sub-tool-link">
+                    <span>حاسبة أول متوسط</span>
+                    <i class="fa-solid fa-chevron-left" style="font-size: 0.8rem; color: var(--text-muted);"></i>
+                </a>
+                <a href="second-intermediate.html" class="sub-tool-link">
+                    <span>حاسبة ثاني متوسط</span>
+                    <i class="fa-solid fa-chevron-left" style="font-size: 0.8rem; color: var(--text-muted);"></i>
+                </a>
+                <a href="third-intermediate.html" class="sub-tool-link">
+                    <span>حاسبة ثالث متوسط</span>
+                    <i class="fa-solid fa-chevron-left" style="font-size: 0.8rem; color: var(--text-muted);"></i>
+                </a>
+            </div>
         </div>
 
-        <!-- قسم المرحلة الثانوية -->
-        <div class="hub-section-title">
-            <i class="fa-solid fa-graduation-cap" style="color: var(--primary);"></i> المرحلة الثانوية (مسارات)
-        </div>
-        <div class="calc-hub-grid">
-            <a href="first-secondary.html" class="calc-hub-card">
-                <div>
-                    <div class="calc-hub-icon"><i class="fa-solid fa-school"></i></div>
-                    <h3>حاسبة معدل أول ثانوي</h3>
-                    <p>احسب معدل السنة الأولى المشتركة في الثانوية التي تشكل 20% من معدلك التراكمي النهائي.</p>
-                </div>
-                <div class="calc-hub-link">فتح الحاسبة <i class="fa-solid fa-arrow-left"></i></div>
-            </a>
-            <a href="second-secondary.html" class="calc-hub-card">
-                <div>
-                    <div class="calc-hub-icon"><i class="fa-solid fa-diagram-project"></i></div>
-                    <h3>حاسبة معدل ثاني ثانوي</h3>
-                    <p>احسب معدل ثاني ثانوي لجميع المسارات التخصصية (العام، الحاسب، الصحة، الأعمال، الشرعي) بوزن 40%.</p>
-                </div>
-                <div class="calc-hub-link">فتح الحاسبة <i class="fa-solid fa-arrow-left"></i></div>
-            </a>
-            <a href="third-secondary.html" class="calc-hub-card">
-                <div>
-                    <div class="calc-hub-icon"><i class="fa-solid fa-award"></i></div>
-                    <h3>حاسبة معدل ثالث ثانوي</h3>
-                    <p>احسب معدل سنة التخرج ومشروع البحث بوزن 40% واستعد لمرحلة القبول الجامعي والنسبة الموزونة.</p>
-                </div>
-                <div class="calc-hub-link">فتح الحاسبة <i class="fa-solid fa-arrow-left"></i></div>
-            </a>
+        <!-- 2. قسم المرحلة الثانوية -->
+        <div class="main-category-card">
+            <div class="main-category-header">
+                <a href="secondary.html" class="main-category-title">
+                    <i class="fa-solid fa-graduation-cap" style="color: var(--primary);"></i> المرحلة الثانوية
+                </a>
+                <a href="secondary.html" class="hub-btn-link">عرض قسم الثانوية <i class="fa-solid fa-arrow-left"></i></a>
+            </div>
+            <p class="main-category-desc">حاسبات المعدل لسنوات نظام المسارات الثانوية (الأول المشترك، والمسارات التخصصية لثاني وثالث ثانوي).</p>
+            <div class="sub-tools-grid">
+                <a href="first-secondary.html" class="sub-tool-link">
+                    <span>حاسبة أول ثانوي</span>
+                    <i class="fa-solid fa-chevron-left" style="font-size: 0.8rem; color: var(--text-muted);"></i>
+                </a>
+                <a href="second-secondary.html" class="sub-tool-link">
+                    <span>حاسبة ثاني ثانوي</span>
+                    <i class="fa-solid fa-chevron-left" style="font-size: 0.8rem; color: var(--text-muted);"></i>
+                </a>
+                <a href="third-secondary.html" class="sub-tool-link">
+                    <span>حاسبة ثالث ثانوي</span>
+                    <i class="fa-solid fa-chevron-left" style="font-size: 0.8rem; color: var(--text-muted);"></i>
+                </a>
+            </div>
         </div>
 
-        <!-- قسم المعدلات العامة والجامعية -->
-        <div class="hub-section-title">
-            <i class="fa-solid fa-chart-pie" style="color: var(--primary);"></i> المعدلات العامة والقبول الجامعي
-        </div>
-        <div class="calc-hub-grid">
-            <a href="cumulative.html" class="calc-hub-card">
-                <div>
-                    <div class="calc-hub-icon"><i class="fa-solid fa-chart-line"></i></div>
-                    <h3>حاسبة المعدل التراكمي للثانوية</h3>
-                    <p>دمج واحتساب المعدل التراكمي الشامل لجميع سنوات الثانوية الثلاث بنسب (20% · 40% · 40%).</p>
-                </div>
-                <div class="calc-hub-link">فتح الحاسبة <i class="fa-solid fa-arrow-left"></i></div>
-            </a>
-            <a href="weighted.html" class="calc-hub-card">
-                <div>
-                    <div class="calc-hub-icon"><i class="fa-solid fa-percent"></i></div>
-                    <h3>حاسبة النسبة الموزونة</h3>
-                    <p>احسب نسبتك الموزونة للقبول بالجامعات السعودية بحسب أوزان الثانوية والقدرات والتحصيلي المطلوبة.</p>
-                </div>
-                <div class="calc-hub-link">فتح الحاسبة <i class="fa-solid fa-arrow-left"></i></div>
-            </a>
-            <a href="required-score.html" class="calc-hub-card">
-                <div>
-                    <div class="calc-hub-icon"><i class="fa-solid fa-bullseye"></i></div>
-                    <h3>حاسبة الدرجة المطلوبة للقبول الجامعي</h3>
-                    <p>احسب الدرجة التي تحتاجها في القدرات أو التحصيلي أو أي اختبار قبول مخصص للوصول إلى النسبة الموزونة المستهدفة.</p>
-                </div>
-                <div class="calc-hub-link">فتح الحاسبة <i class="fa-solid fa-arrow-left"></i></div>
-            </a>
+        <!-- 3. قسم القبول الجامعي -->
+        <div class="main-category-card">
+            <div class="main-category-header">
+                <a href="university.html" class="main-category-title">
+                    <i class="fa-solid fa-chart-pie" style="color: var(--primary);"></i> القبول الجامعي
+                </a>
+                <a href="university.html" class="hub-btn-link">عرض قسم القبول <i class="fa-solid fa-arrow-left"></i></a>
+            </div>
+            <p class="main-category-desc">أدوات حساب المعدل التراكمي للشهادة الثانوية والنسبة الموزونة المستهدفة للقبول بالجامعات والدرجة المطلوبة.</p>
+            <div class="sub-tools-grid">
+                <a href="cumulative.html" class="sub-tool-link">
+                    <span>المعدل التراكمي للثانوية</span>
+                    <i class="fa-solid fa-chevron-left" style="font-size: 0.8rem; color: var(--text-muted);"></i>
+                </a>
+                <a href="weighted.html" class="sub-tool-link">
+                    <span>النسبة الموزونة</span>
+                    <i class="fa-solid fa-chevron-left" style="font-size: 0.8rem; color: var(--text-muted);"></i>
+                </a>
+                <a href="required-score.html" class="sub-tool-link">
+                    <span>كم أحتاج للقبول؟</span>
+                    <i class="fa-solid fa-chevron-left" style="font-size: 0.8rem; color: var(--text-muted);"></i>
+                </a>
+            </div>
         </div>
     </div>
 
@@ -389,14 +375,14 @@
                 <p style="margin: 0;">• <strong>السنة الثالثة مسارات (ثالث ثانوي):</strong> تمثل <strong>40%</strong> من التراكمي.</p>
             </div>
 
-            <h3>طريقة استخدام الحاسبة للحصول على نتيجة دقيقة</h3>
+            <h3>طريقة استخدام الحاسبة وفق البيانات المدخلة</h3>
             <p>
                 لتحقيق أقصى فائدة عند حساب معدلك الثانوي في حيز، يحتاج الطالب فقط إلى تجهيز بياناته الدراسية:
             </p>
             <ol style="margin-right: 1.5rem; margin-bottom: 1rem;">
                 <li><strong>اختر صفك الدراسي:</strong> انتقل إلى الصفحة المخصصة لصفك (أول ثانوي، ثاني ثانوي، أو ثالث ثانوي).</li>
                 <li><strong>حدد مسارك والتيرم:</strong> في ثاني وثالث ثانوي، حدد المسار التخصصي (العام، علوم الحاسب والهندسة، الصحة والحياة، إدارة الأعمال، أو الشرعي).</li>
-                <li><strong>أدخل الدرجات:</strong> أدخل الدرجة النهائية المكتسبة في كل مادة من 100. تقوم الحاسبة بتطبيق أوزان المواد الرسمية تلقائيًا.</li>
+                <li><strong>أدخل الدرجات:</strong> أدخل الدرجة النهائية المكتسبة في كل مادة من 100. تقوم الحاسبة بتطبيق أوزان المواد المحددة في إعداد الحاسبة تلقائيًا.</li>
                 <li><strong>انتقل إلى <a href="cumulative.html" style="color:var(--primary); font-weight:600;">حاسبة المعدل التراكمي</a>:</strong> أضف معدلات السنوات الثلاث لمعرفة معدلك التراكمي الإجمالي الجاهز للتقديم الجامعي.</li>
             </ol>
 
