@@ -309,7 +309,9 @@ function renderGeneralSubjectsView(subjects, todos, exams, focusSessions, rawNot
 
         const icon = document.createElement('div');
         icon.style.cssText = 'font-size: 2.5rem; color: var(--primary); margin-bottom: 0.75rem;';
-        icon.innerHTML = '<i class="fa-solid fa-book-open"></i>';
+        const iconI = document.createElement('i');
+        iconI.className = 'fa-solid fa-book-open';
+        icon.appendChild(iconI);
 
         const h3 = document.createElement('h3');
         h3.style.cssText = 'font-size: 1.2rem; font-weight: 700; color: var(--deep-ink); margin-bottom: 0.5rem;';
@@ -322,7 +324,10 @@ function renderGeneralSubjectsView(subjects, todos, exams, focusSessions, rawNot
         const addBtn = document.createElement('a');
         addBtn.href = 'todo.html';
         addBtn.className = 'btn btn-primary';
-        addBtn.innerHTML = '<i class="fa-solid fa-plus"></i> الذهاب للمهام وإضافة مادة';
+        const addBtnI = document.createElement('i');
+        addBtnI.className = 'fa-solid fa-plus';
+        addBtn.appendChild(addBtnI);
+        addBtn.appendChild(document.createTextNode(' الذهاب للمهام وإضافة مادة'));
 
         emptyCard.appendChild(icon);
         emptyCard.appendChild(h3);
@@ -349,7 +354,7 @@ function renderGeneralSubjectsView(subjects, todos, exams, focusSessions, rawNot
 
         const card = document.createElement('div');
         card.className = 'card';
-        card.style.cssText = 'padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; gap: 1rem; border: 1px solid var(--border-color); transition: transform 0.2s ease, box-shadow 0.2s ease;';
+        card.style.cssText = 'padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; gap: 1rem; border: 1px solid var(--border); transition: transform 0.2s ease, box-shadow 0.2s ease;';
 
         const top = document.createElement('div');
 
@@ -376,15 +381,22 @@ function renderGeneralSubjectsView(subjects, todos, exams, focusSessions, rawNot
         statsGrid.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); background: var(--surface-secondary); padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem;';
 
         const focusStat = document.createElement('div');
-        focusStat.innerHTML = `<strong>وقت التركيز:</strong> ${data.focusMinutes} دقيقة`;
+        const focusStrong = document.createElement('strong');
+        focusStrong.textContent = 'وقت التركيز: ';
+        focusStat.appendChild(focusStrong);
+        focusStat.appendChild(document.createTextNode(`${data.focusMinutes} دقيقة`));
 
         const examStat = document.createElement('div');
+        const examStrong = document.createElement('strong');
+        examStrong.textContent = 'أقرب اختبار: ';
+        examStat.appendChild(examStrong);
+
         let examLabel = 'لا يوجد';
         if (data.nearestExam) {
             const days = typeof hayyizDaysUntil === 'function' ? hayyizDaysUntil(data.nearestExam.date) : null;
             examLabel = days === 0 ? 'اليوم' : (days === 1 ? 'غداً' : (days !== null ? `بعد ${days} أَيّام` : data.nearestExam.date));
         }
-        examStat.innerHTML = `<strong>أقرب اختبار:</strong> ${examLabel}`;
+        examStat.appendChild(document.createTextNode(examLabel));
 
         statsGrid.appendChild(focusStat);
         statsGrid.appendChild(examStat);
@@ -393,19 +405,24 @@ function renderGeneralSubjectsView(subjects, todos, exams, focusSessions, rawNot
         top.appendChild(statsGrid);
 
         const bottom = document.createElement('div');
-        bottom.style.cssText = 'display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: space-between; align-items: center; pt: 0.5rem; border-top: 1px dashed var(--border-color);';
+        bottom.style.cssText = 'display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: space-between; align-items: center; padding-top: 0.5rem; border-top: 1px dashed var(--border);';
 
         const openBtn = document.createElement('a');
         openBtn.href = `subject.html?id=${encodeURIComponent(sub.id)}`;
         openBtn.className = 'btn btn-primary btn-sm';
         openBtn.style.cssText = 'flex: 1; text-align: center;';
-        openBtn.innerHTML = '<i class="fa-solid fa-arrow-left"></i> عرض مساحة المادة';
+        const openI = document.createElement('i');
+        openI.className = 'fa-solid fa-arrow-left';
+        openBtn.appendChild(openI);
+        openBtn.appendChild(document.createTextNode(' عرض مساحة المادة'));
 
         const focusQuickBtn = document.createElement('a');
         focusQuickBtn.href = `pomodoro.html?subjectId=${encodeURIComponent(sub.id)}`;
         focusQuickBtn.className = 'btn btn-secondary btn-sm';
         focusQuickBtn.title = 'بدء تركيز لهذا المادة';
-        focusQuickBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+        const focusI = document.createElement('i');
+        focusI.className = 'fa-solid fa-play';
+        focusQuickBtn.appendChild(focusI);
 
         bottom.appendChild(openBtn);
         bottom.appendChild(focusQuickBtn);
@@ -738,7 +755,7 @@ function renderExamsSection(subject, upcomingExams, pastExams) {
 
     upcomingExams.forEach(exam => {
         const card = document.createElement('div');
-        card.style.cssText = 'background: var(--surface-secondary); padding: 0.88rem 1rem; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;';
+        card.style.cssText = 'background: var(--surface-secondary); padding: 0.88rem 1rem; border-radius: 8px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;';
 
         const infoDiv = document.createElement('div');
         const title = document.createElement('div');
@@ -819,7 +836,7 @@ function renderFocusSection(subject, recentSessions, totalMin, totalCount) {
 
     recentSessions.forEach(s => {
         const item = document.createElement('div');
-        item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.88rem; background: var(--card-bg); border-radius: 6px; border: 1px solid var(--border-color); font-size: 0.88rem;';
+        item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.88rem; background: var(--card-bg); border-radius: 6px; border: 1px solid var(--border); font-size: 0.88rem;';
 
         const titleSpan = document.createElement('span');
         titleSpan.style.fontWeight = '600';
@@ -870,7 +887,7 @@ function renderNotesSection(subject, notes) {
 
     notes.forEach(note => {
         const card = document.createElement('div');
-        card.style.cssText = 'background: var(--surface-secondary); padding: 0.88rem; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: space-between; gap: 0.5rem;';
+        card.style.cssText = 'background: var(--surface-secondary); padding: 0.88rem; border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; justify-content: space-between; gap: 0.5rem;';
 
         const top = document.createElement('div');
         const title = document.createElement('div');
@@ -885,7 +902,7 @@ function renderNotesSection(subject, notes) {
         top.appendChild(content);
 
         const bottom = document.createElement('div');
-        bottom.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--border-color); font-size: 0.78rem; color: var(--text-muted);';
+        bottom.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--border); font-size: 0.78rem; color: var(--text-muted);';
 
         const dateSpan = document.createElement('span');
         if (note.created) {
