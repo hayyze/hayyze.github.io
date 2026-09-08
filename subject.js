@@ -23,7 +23,10 @@ if (typeof document !== 'undefined' && document.addEventListener) {
 let currentActiveTaskTab = 'open'; // 'open' | 'done'
 
 /**
- * دالة نقية ومعزولة لتجميع ومعالجة بيانات المادة
+ * دالة نقية ومعزولة لتجميع ومعالجة كافة بيانات المادة
+ * @param {string} subjectId - المعرف الوحيد للمادة
+ * @param {Object} rawData - كائن يحتوي على القوائم الخام: { subjects, todos, exams, focusSessions, notes, goals }
+ * @returns {Object|null}
  */
 function getSubjectHubData(subjectId, rawData) {
     if (!subjectId || !rawData) return null;
@@ -35,8 +38,12 @@ function getSubjectHubData(subjectId, rawData) {
     const notes = Array.isArray(rawData.notes) ? rawData.notes : [];
     const goals = Array.isArray(rawData.goals) ? rawData.goals : [];
 
-    // 1. المطابقة الدقيقة للمادة
-    const subject = subjects.find(s => s && String(s.id) === String(subjectId)) || null;
+    // 1. المطابقة الدقيقة للمادة عبر ID
+    let subject = subjects.find(s => s && String(s.id) === String(subjectId)) || null;
+    if (!subject) {
+        // Fallback توافقي عند تمرير اسم المادة بالخطأ في URL
+        subject = subjects.find(s => s && s.name === String(subjectId).trim()) || null;
+    }
     if (!subject) return null;
 
     // 2. تصفية المهام المخصصة للمادة
@@ -48,7 +55,7 @@ function getSubjectHubData(subjectId, rawData) {
     const subjectExams = exams.filter(e => {
         if (!e) return false;
         if (e.subjectId) return String(e.subjectId) === String(subject.id);
-        if (e.subject) return e.subject === subject.name;
+        if (!e.subjectId && e.subject) return e.subject === subject.name;
         return false;
     });
 
@@ -100,7 +107,7 @@ function getSubjectHubData(subjectId, rawData) {
     if (logMin > totalMinutes) totalMinutes = logMin;
     if (matchingSessions.length > totalSessions) totalSessions = matchingSessions.length;
 
-    // 5. تصفية الملاحظات (أولوية: subjectId ثم relatedTaskId -> subjectId ثم legacy subject name)
+    // 5. تصفية الملاحظات (أولوية: note.subjectId ثم relatedTaskId -> task.subjectId ثم legacy subject name)
     const subjectNotes = notes.filter(n => {
         if (!n) return false;
         if (n.subjectId && String(n.subjectId) === String(subject.id)) return true;
@@ -111,6 +118,32 @@ function getSubjectHubData(subjectId, rawData) {
 
     // 6. الأهداف الأكاديمية (أولوية: subjectId أو name المطابق واسم المادة)
     const goal = goals.find(g => g && (String(g.subjectId) === String(subject.id) || g.name === subject.name)) || null;
+
+    // 7. تحديد "ما يحتاج انتباهك الآن" (Attention Item)
+    let attentionItem = null;
+
+    if (nearestExam) {
+        const daysUntil = typeof hayyizDaysUntil === 'function' ? hayyizDaysUntil(nearestExam.date) : null;
+        if (daysUntil !== null && daysUntil <= 3 && daysUntil >= 0) {
+            attentionItem = {
+                type: 'exam',
+                exam: nearestExam,
+                daysUntil,
+                title: nearestExam.name || nearestExam.title || 'اختبار قريب',
+                subtitle: daysUntil === 0 ? 'الاختبار اليوم! خذ جلسة مراجعة مركزة الآن' : (daysUntil === 1 ? 'الاختبار غداً! أكمل مراجعتك الأخيرة' : `متبقي ${daysUntil} أيام على موعد الاختبار`)
+            };
+        }
+    }
+
+    if (!attentionItem && openTasks.length > 0) {
+        const highTask = openTasks.find(t => t.priority === 'high') || openTasks[0];
+        attentionItem = {
+            type: 'task',
+            task: highTask,
+            title: highTask.text || highTask.title || 'مهمة دراسية',
+            subtitle: highTask.priority === 'high' ? 'مهمة عالية الأولوية بحاجة لإنجاز' : 'المهمة القادمة المقترحة في هذه المادة'
+        };
+    }
 
     return {
         subject,
@@ -123,7 +156,8 @@ function getSubjectHubData(subjectId, rawData) {
         focusSessionsCount: totalSessions,
         recentFocusSessions: matchingSessions.slice(0, 5),
         notes: subjectNotes,
-        goal
+        goal,
+        attentionItem
     };
 }
 
@@ -168,7 +202,7 @@ function initSubjectPage() {
     notFoundEl.style.display = 'none';
     contentEl.style.display = 'block';
 
-    const { subject, openTasks, completedTasks, upcomingExams, nearestExam, focusMinutes, focusSessionsCount, recentFocusSessions, notes, goal } = hubData;
+    const { subject, openTasks, completedTasks, upcomingExams, pastExams, nearestExam, focusMinutes, focusSessionsCount, recentFocusSessions, notes, goal, attentionItem } = hubData;
 
     document.title = `${subject.name} | صفحة المادة | حيز`;
 
@@ -193,7 +227,7 @@ function initSubjectPage() {
     const statNearestExam = document.getElementById('stat-nearest-exam');
     if (statNearestExam) {
         if (nearestExam) {
-            const daysUntil = typeof hayyizGetDaysUntil === 'function' ? hayyizGetDaysUntil(nearestExam.date) : null;
+            const daysUntil = typeof hayyizDaysUntil === 'function' ? hayyizDaysUntil(nearestExam.date) : null;
             let label = nearestExam.name || nearestExam.title || 'اختبار';
             if (daysUntil !== null) {
                 if (daysUntil === 0) label += ' (اليوم)';
@@ -206,9 +240,10 @@ function initSubjectPage() {
         }
     }
 
+    renderAttentionHero(subject, attentionItem);
     renderGoalSection(subject, goal);
     renderTasksSection(subject, openTasks, completedTasks);
-    renderExamsSection(subject, upcomingExams);
+    renderExamsSection(subject, upcomingExams, pastExams);
     renderFocusSection(subject, recentFocusSessions, focusMinutes, focusSessionsCount);
     renderNotesSection(subject, notes);
 }
@@ -243,6 +278,64 @@ function showNotFoundState(subjects) {
             availableContainer.appendChild(list);
         }
     }
+}
+
+/**
+ * قسم "ما يحتاج انتباهك الآن"
+ */
+function renderAttentionHero(subject, attentionItem) {
+    const container = document.getElementById('attention-hero-container');
+    if (!container) return;
+
+    container.textContent = '';
+    if (!attentionItem) return;
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.cssText = 'background: var(--surface-secondary); border-right: 4px solid var(--terracotta); padding: 1.25rem; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;';
+
+    const left = document.createElement('div');
+    const badge = document.createElement('div');
+    badge.style.cssText = 'font-size: 0.8rem; font-weight: 700; color: var(--terracotta); margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.4rem;';
+
+    const icon = document.createElement('i');
+    icon.className = attentionItem.type === 'exam' ? 'fa-solid fa-triangle-exclamation' : 'fa-solid fa-bullseye';
+    badge.appendChild(icon);
+
+    const badgeText = document.createElement('span');
+    badgeText.textContent = 'ما يحتاج انتباهك الآن';
+    badge.appendChild(badgeText);
+
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size: 1.1rem; font-weight: 800; color: var(--deep-ink); margin-bottom: 0.2rem;';
+    title.textContent = attentionItem.title;
+
+    const subtitle = document.createElement('div');
+    subtitle.style.cssText = 'font-size: 0.88rem; color: var(--text-muted);';
+    subtitle.textContent = attentionItem.subtitle;
+
+    left.appendChild(badge);
+    left.appendChild(title);
+    left.appendChild(subtitle);
+
+    const right = document.createElement('div');
+    if (attentionItem.type === 'exam') {
+        const focusBtn = document.createElement('a');
+        focusBtn.href = `pomodoro.html?subjectId=${encodeURIComponent(subject.id)}`;
+        focusBtn.className = 'btn btn-primary btn-sm';
+        focusBtn.textContent = 'بدء مراجعة مركزة';
+        right.appendChild(focusBtn);
+    } else if (attentionItem.type === 'task' && attentionItem.task) {
+        const focusTaskBtn = document.createElement('a');
+        focusTaskBtn.href = `pomodoro.html?taskId=${encodeURIComponent(attentionItem.task.id)}`;
+        focusTaskBtn.className = 'btn btn-primary btn-sm';
+        focusTaskBtn.textContent = 'بدء تركيز للمهمة';
+        right.appendChild(focusTaskBtn);
+    }
+
+    card.appendChild(left);
+    card.appendChild(right);
+    container.appendChild(card);
 }
 
 function renderGoalSection(subject, goal) {
@@ -296,7 +389,20 @@ function renderTasksSection(subject, openTasks, doneTasks) {
         if (listToRender.length === 0) {
             const empty = document.createElement('div');
             empty.style.cssText = 'text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.95rem;';
-            empty.textContent = currentActiveTaskTab === 'open' ? 'لا توجد مهام مفتوحة لهذه المادة حالياً.' : 'لا توجد مهام مكتملة لهذه المادة.';
+
+            const p = document.createElement('p');
+            p.style.margin = '0 0 1rem 0';
+            p.textContent = currentActiveTaskTab === 'open' ? 'لا توجد مهام مفتوحة لهذه المادة حالياً.' : 'لا توجد مهام مكتملة لهذه المادة.';
+            empty.appendChild(p);
+
+            if (currentActiveTaskTab === 'open') {
+                const addLink = document.createElement('a');
+                addLink.href = `todo.html?subjectId=${encodeURIComponent(subject.id)}`;
+                addLink.className = 'btn btn-secondary btn-sm';
+                addLink.textContent = 'أضف أول مهمة للمادة';
+                empty.appendChild(addLink);
+            }
+
             container.appendChild(empty);
             return;
         }
@@ -313,7 +419,17 @@ function renderTasksSection(subject, openTasks, doneTasks) {
 
             const checkIcon = document.createElement('i');
             checkIcon.className = task.completed || task.done ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle';
-            checkIcon.style.cssText = `font-size: 1.1rem; color: ${task.completed || task.done ? 'var(--primary)' : 'var(--text-muted)'};`;
+            checkIcon.style.cssText = `font-size: 1.1rem; color: ${task.completed || task.done ? 'var(--primary)' : 'var(--text-muted)'}; cursor: pointer;`;
+
+            // إمكانية التبديل السريع لحالة الإكمال
+            checkIcon.addEventListener('click', () => {
+                if (typeof hayyizToggleTodoComplete === 'function') {
+                    hayyizToggleTodoComplete(task.id);
+                } else if (typeof hayyizUpdateTask === 'function') {
+                    hayyizUpdateTask(task.id, { completed: !(task.completed || task.done), updated: Date.now() });
+                }
+                initSubjectPage();
+            });
 
             const titleDiv = document.createElement('div');
             const taskText = document.createElement('div');
@@ -387,16 +503,27 @@ function renderTasksSection(subject, openTasks, doneTasks) {
     renderList();
 }
 
-function renderExamsSection(subject, exams) {
+function renderExamsSection(subject, upcomingExams, pastExams) {
     const container = document.getElementById('subject-exams-container');
     if (!container) return;
 
     container.textContent = '';
 
-    if (exams.length === 0) {
+    if (!upcomingExams || upcomingExams.length === 0) {
         const empty = document.createElement('div');
         empty.style.cssText = 'text-align: center; padding: 1.5rem 1rem; color: var(--text-muted); font-size: 0.95rem;';
-        empty.textContent = 'لا توجد اختبارات قادمة مسجلة لهذه المادة في التقويم.';
+
+        const p = document.createElement('p');
+        p.style.margin = '0 0 1rem 0';
+        p.textContent = 'لا توجد اختبارات قادمة مسجلة لهذه المادة.';
+        empty.appendChild(p);
+
+        const calLink = document.createElement('a');
+        calLink.href = 'calculator.html';
+        calLink.className = 'btn btn-secondary btn-sm';
+        calLink.textContent = 'افتح التقويم لإضافة اختبار';
+        empty.appendChild(calLink);
+
         container.appendChild(empty);
         return;
     }
@@ -404,7 +531,7 @@ function renderExamsSection(subject, exams) {
     const listDiv = document.createElement('div');
     listDiv.style.cssText = 'display: flex; flex-direction: column; gap: 0.75rem;';
 
-    exams.forEach(exam => {
+    upcomingExams.forEach(exam => {
         const card = document.createElement('div');
         card.style.cssText = 'background: var(--surface-secondary); padding: 0.88rem 1rem; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;';
 
@@ -421,7 +548,7 @@ function renderExamsSection(subject, exams) {
             dateSpan.textContent = `📅 التاريخ: ${exam.date}`;
             meta.appendChild(dateSpan);
 
-            const daysUntil = typeof hayyizGetDaysUntil === 'function' ? hayyizGetDaysUntil(exam.date) : null;
+            const daysUntil = typeof hayyizDaysUntil === 'function' ? hayyizDaysUntil(exam.date) : null;
             if (daysUntil !== null) {
                 const daysSpan = document.createElement('span');
                 daysSpan.style.fontWeight = '600';
@@ -517,7 +644,18 @@ function renderNotesSection(subject, notes) {
     if (notes.length === 0) {
         const empty = document.createElement('div');
         empty.style.cssText = 'text-align: center; padding: 1.5rem 1rem; color: var(--text-muted); font-size: 0.95rem;';
-        empty.textContent = 'لا توجد ملاحظات مرتبطة بهذه المادة حالياً.';
+
+        const p = document.createElement('p');
+        p.style.margin = '0 0 1rem 0';
+        p.textContent = 'لا توجد ملاحظات مرتبطة بهذه المادة حالياً.';
+        empty.appendChild(p);
+
+        const noteLink = document.createElement('a');
+        noteLink.href = 'notes.html';
+        noteLink.className = 'btn btn-secondary btn-sm';
+        noteLink.textContent = 'اكتب ملاحظة جديدة';
+        empty.appendChild(noteLink);
+
         container.appendChild(empty);
         return;
     }

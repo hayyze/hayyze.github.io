@@ -29,7 +29,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>صفحة المادة | حيز</title>
-    <meta name="description" content="صفحة المادة في حيز — مركز شامل لعرض المهام، الاختبارات القادمة، جلسات التركيز، والملاحظات الخاصة بالمادة الدراسية.">
+    <meta name="description" content="صفحة المادة في حيز — مساحة دراسية مركزية يجمع كل ما يتعلق بالمادة من مهام، اختبارات قادمة، جلسات تركيز، وملاحظات.">
     <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://hayyze.github.io/subject.html">
@@ -38,7 +38,7 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://hayyze.github.io/subject.html">
     <meta property="og:title" content="صفحة المادة | حيز">
-    <meta property="og:description" content="مركز شامل يجمع كل ما يتعلق بالمادة الدراسية من مهام واختبارات وجلسات تركيز وملاحظات.">
+    <meta property="og:description" content="مساحة دراسية مركزية تجمع كل ما يتعلق بالمادة الدراسية من مهام واختبارات وجلسات تركيز وملاحظات.">
     <meta property="og:image" content="https://hayyze.github.io/android-chrome-512x512.png">
     <meta property="og:locale" content="ar_SA">
     <meta property="og:site_name" content="حيز">
@@ -98,7 +98,7 @@
         <div style="font-size: 3rem; color: var(--terracotta); margin-bottom: 1rem;"><i class="fa-solid fa-circle-exclamation"></i></div>
         <h2 style="font-size: 1.4rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--deep-ink);">لم يتم العثور على المادة</h2>
         <p style="color: var(--text-muted); max-width: 500px; margin: 0 auto 1.5rem auto; line-height: 1.6;">
-            المادة المطلوبة غير موجودة أو لم يتم تحديد رمز مادة صحيح. يمكنك العودة إلى قائمة المهام أو لوحة التحكم لاختيار مادة.
+            المادة المطلوبة غير موجودة أو لم يتم تحديد رمز مادة صحيح. يمكنك الانتقال للمهام أو اختيار مادة مسجلة.
         </p>
         <div id="available-subjects-container" style="margin-bottom: 1.5rem;"></div>
         <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
@@ -109,15 +109,15 @@
 
     <!-- المحتوى الرئيسي لصفحة المادة -->
     <div id="subject-content" style="display: none;">
-        <!-- بطاقة البطل / رأس المادة -->
-        <div class="card" style="margin-bottom: 1.5rem; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 1.5rem;">
+        <!-- هيدر المادة الهيكلي البسيط -->
+        <div class="card" style="margin-bottom: 1.5rem; padding: 1.5rem;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
                 <div>
                     <div style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--terracotta); font-weight: 600; background: var(--surface-secondary); padding: 0.25rem 0.75rem; border-radius: 20px; margin-bottom: 0.5rem;">
-                        <i class="fa-solid fa-book"></i> مركز المادة الدراسية
+                        <i class="fa-solid fa-book"></i> مساحة المادة الدراسية
                     </div>
-                    <h1 id="subject-name-heading" style="font-size: 1.8rem; font-weight: 800; color: var(--deep-ink); margin: 0 0 0.5rem 0;">اسم المادة</h1>
-                    <p id="subject-summary-text" style="color: var(--text-muted); font-size: 0.95rem; margin: 0; line-height: 1.5;">ملخص نشاط المادة الدراسية والتركيز المنجز</p>
+                    <h1 id="subject-name-heading" style="font-size: 1.8rem; font-weight: 800; color: var(--deep-ink); margin: 0 0 0.25rem 0;">اسم المادة</h1>
+                    <p style="color: var(--text-muted); font-size: 0.95rem; margin: 0;">مركز العمليات والتركيز للمادة</p>
                 </div>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
                     <a href="todo.html" id="btn-add-subject-task" class="btn btn-secondary btn-sm" title="إضافة مهمة جديدة للمادة"><i class="fa-solid fa-plus"></i> مهمة للمادة</a>
@@ -125,30 +125,33 @@
                 </div>
             </div>
 
-            <!-- إحصائيات سريعة في الهيدر -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px dashed var(--border-color);">
-                <div style="background: var(--surface-secondary); padding: 0.88rem; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">المهام المفتوحة</div>
-                    <div id="stat-open-tasks" style="font-size: 1.3rem; font-weight: 800; color: var(--deep-ink);">0</div>
+            <!-- الشريط الممتد للإحصائيات السريعة -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.88rem; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px dashed var(--border-color);">
+                <div style="background: var(--surface-secondary); padding: 0.75rem; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.2rem;">المهام المفتوحة</div>
+                    <div id="stat-open-tasks" style="font-size: 1.2rem; font-weight: 800; color: var(--deep-ink);">0</div>
                 </div>
-                <div style="background: var(--surface-secondary); padding: 0.88rem; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">أقرب اختبار</div>
-                    <div id="stat-nearest-exam" style="font-size: 0.95rem; font-weight: 700; color: var(--deep-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">لا يوجد</div>
+                <div style="background: var(--surface-secondary); padding: 0.75rem; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.2rem;">أقرب اختبار</div>
+                    <div id="stat-nearest-exam" style="font-size: 0.9rem; font-weight: 700; color: var(--deep-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">لا يوجد</div>
                 </div>
-                <div style="background: var(--surface-secondary); padding: 0.88rem; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">وقت التركيز المنجز</div>
-                    <div id="stat-focus-time" style="font-size: 1.3rem; font-weight: 800; color: var(--primary);">0 دقيقة</div>
+                <div style="background: var(--surface-secondary); padding: 0.75rem; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.2rem;">وقت التركيز</div>
+                    <div id="stat-focus-time" style="font-size: 1.2rem; font-weight: 800; color: var(--primary);">0 دقيقة</div>
                 </div>
-                <div style="background: var(--surface-secondary); padding: 0.88rem; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">جلسات التركيز</div>
-                    <div id="stat-focus-sessions" style="font-size: 1.3rem; font-weight: 800; color: var(--deep-ink);">0 جلسة</div>
+                <div style="background: var(--surface-secondary); padding: 0.75rem; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.2rem;">جلسات التركيز</div>
+                    <div id="stat-focus-sessions" style="font-size: 1.2rem; font-weight: 800; color: var(--deep-ink);">0 جلسة</div>
                 </div>
             </div>
         </div>
 
-        <!-- شبكة الأقسام -->
+        <!-- منطقة "ما يحتاج انتباهك الآن" (Attention Hero) -->
+        <div id="attention-hero-container" style="margin-bottom: 1.5rem;"></div>
+
+        <!-- الأقسام الرئيسية -->
         <div style="display: grid; grid-template-columns: 1fr; gap: 1.5rem;">
-            <!-- قسم الأهداف والتقدم إن وجدا -->
+            <!-- قسم الهدف الأكاديمي -->
             <div id="goal-section-wrapper" class="card" style="display: none; padding: 1.25rem;">
                 <h2 style="font-size: 1.1rem; font-weight: 700; color: var(--deep-ink); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
                     <i class="fa-solid fa-bullseye" style="color: var(--terracotta);"></i> الهدف الأكاديمي والتقدم
@@ -156,7 +159,7 @@
                 <div id="goal-content"></div>
             </div>
 
-            <!-- قسم المهام -->
+            <!-- قسم المهام الدراسية -->
             <div class="card" style="padding: 1.25rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
                     <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--deep-ink); margin: 0; display: flex; align-items: center; gap: 0.5rem;">

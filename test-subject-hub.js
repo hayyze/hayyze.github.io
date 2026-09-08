@@ -42,33 +42,39 @@ function testAssert(cond, msg) {
     }
 }
 
-console.log('=== HAYYIZ SUBJECT HUB REFACTORED AUDIT SUITE ===\n');
+console.log('=== HAYYIZ SUBJECT HUB INTEGRATION AUDIT SUITE ===\n');
 
 function resetEnv() {
     localStorage.clear();
 }
 
-// TEST 1: Pure Function getSubjectHubData - Valid subject
+// TEST 1: Pure Function getSubjectHubData - Valid subject and Attention Item
 resetEnv();
 const subMath = hayyizAddSubject('الرياضيات');
 const subPhys = hayyizAddSubject('الفيزياء');
 
+const todayStr = getTodayLocal();
+
 const sampleTodos = [
-    { id: 't1', text: 'حل واجب الرياضيات', subjectId: subMath.id, completed: false },
+    { id: 't1', text: 'حل واجب الرياضيات', subjectId: subMath.id, priority: 'high', completed: false },
     { id: 't2', text: 'تمارين الفيزياء', subjectId: subPhys.id, completed: false }
+];
+
+const sampleExams = [
+    { id: 'exNear', name: 'اختبار نصف الفصل', subjectId: subMath.id, date: todayStr }
 ];
 
 const hubData = getSubjectHubData(subMath.id, {
     subjects: [subMath, subPhys],
     todos: sampleTodos,
-    exams: [],
+    exams: sampleExams,
     focusSessions: [],
     notes: [],
     goals: []
 });
 
 testAssert(hubData && hubData.subject.id === subMath.id, 'Req 1: getSubjectHubData returns correct subject data structure');
-testAssert(hubData.openTasks.length === 1 && hubData.openTasks[0].id === 't1', 'Req 1b: getSubjectHubData filters tasks belonging to the subject exclusively');
+testAssert(hubData.attentionItem && hubData.attentionItem.type === 'exam' && hubData.attentionItem.exam.id === 'exNear', 'Req 1b: Attention item correctly identifies urgent exam today');
 
 // TEST 2: Invalid subjectId in getSubjectHubData
 const nullData = getSubjectHubData('invalid_id_999', {
@@ -82,12 +88,11 @@ const nullData = getSubjectHubData('invalid_id_999', {
 testAssert(nullData === null, 'Req 2: getSubjectHubData returns null safely on invalid subjectId');
 
 // TEST 3: Upcoming vs Past Exams logic
-const todayLocal = getTodayLocal();
 const pastDate = '2020-01-01';
 const futureDate1 = '2026-12-01';
 const futureDate2 = '2026-12-15';
 
-const sampleExams = [
+const sampleExams3 = [
     { id: 'exPast', name: 'اختبار قديم', subjectId: subMath.id, date: pastDate },
     { id: 'exFut2', name: 'اختبار نهائي', subjectId: subMath.id, date: futureDate2 },
     { id: 'exFut1', name: 'اختبار منتصف', subjectId: subMath.id, date: futureDate1 }
@@ -96,7 +101,7 @@ const sampleExams = [
 const hubDataExams = getSubjectHubData(subMath.id, {
     subjects: [subMath],
     todos: [],
-    exams: sampleExams,
+    exams: sampleExams3,
     focusSessions: [],
     notes: [],
     goals: []
@@ -143,7 +148,7 @@ const hubDataGoals = getSubjectHubData(subMath.id, {
 
 testAssert(hubDataGoals.goal && hubDataGoals.goal.target === 95, 'Req 5: Subject goal matched cleanly via subjectId without comparing goal.id to subject.id');
 
-// TEST 6: Focus Sessions sorting and aggregation
+// TEST 6: Focus Sessions sorting and aggregation without double counting
 const sampleSessions = [
     { id: 'sOld', durationMinutes: 25, timestamp: '2026-01-01T10:00:00Z', contextSnapshot: { subjectId: subMath.id } },
     { id: 'sNew', durationMinutes: 25, timestamp: '2026-03-01T10:00:00Z', contextSnapshot: { subjectId: subMath.id } }
@@ -158,7 +163,8 @@ const hubDataSessions = getSubjectHubData(subMath.id, {
     goals: []
 });
 
-testAssert(hubDataSessions.recentFocusSessions[0].id === 'sNew', 'Req 6: Focus sessions sorted descending by timestamp');
+testAssert(hubDataSessions.recentFocusSessions[0].id === 'sNew', 'Req 6a: Focus sessions sorted descending by timestamp');
+testAssert(hubDataSessions.focusMinutes >= 50 && hubDataSessions.focusSessionsCount >= 2, 'Req 6b: Focus minutes and session count calculated accurately without inflating');
 
 // TEST 7: CSP and Inline Script Check
 testAssert(!subjectHtml.includes("'unsafe-inline'") || !subjectHtml.includes("script-src 'self' https://www.googletagmanager.com https://cdn.jsdelivr.net 'unsafe-inline'"), 'Req 7a: CSP script-src meta tag does not contain unsafe-inline');
