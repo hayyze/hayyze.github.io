@@ -762,6 +762,8 @@
                             date: item.date,
                             time: item.time || '',
                             type: item.type || 'exam',
+                            subjectId: item.subjectId || null,
+                            subject: item.subject || null,
                             _storageKey: STORAGE_KEY_EXAMS
                         });
                     }

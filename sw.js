@@ -1,8 +1,9 @@
-const CACHE_NAME = 'heez-v1.9.5';
+const CACHE_NAME = 'heez-v1.9.6';
 
 const ASSETS = [
   './',
   './index.html',
+  './subject.html',
   './pomodoro.html',
   './todo.html',
   './gpa.html',
@@ -38,6 +39,7 @@ const ASSETS = [
   './auth-ui.js',
   './pomodoro.js',
   './todo.js',
+  './subject.js',
   './gpa.js',
   './notes.js',
   './habits.js',
