@@ -151,6 +151,46 @@
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "ما الفرق بين المعدل السنوي والمعدل التراكمي؟",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "المعدل السنوي يحسب نتيجة مواد سنة دراسية واحدة، بينما يجمع المعدل التراكمي نتائج السنوات الثلاث بنسب محددة للوصول إلى معدل الشهادة الثانوية النهائي."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "كيف تُحسب النسبة التراكمية في حاسبة حيز؟",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "تُحسب النسبة التراكمية وفق إعداد حاسبة حيز الحالي بجمع: (معدل أول ثانوي × 20%) + (معدل ثاني ثانوي × 40%) + (معدل ثالث ثانوي × 40%)."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "هل تتغير المواد باختلاف المسار الثانوي؟",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "نعم، تختلف المقررات المتاحة بحسب المسار المختار (كالمسار العام أو مسار الصحة والحياة)، وتطبق الحاسبة أوزان المقررات المحددة للمسار وفق إعداد حاسبة حيز الحالية."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "هل طريقة الحساب مطابقة لكل الجهات التعليمية؟",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "تستند الحسابات إلى طريقة الأوزان المستخدمة حالياً في حاسبة حيز لتقديم تقدير دراسي للطالب، وتختلف الأوزان والتفاصيل أحياناً بحسب النظام التعليمي أو الجهة المنظمة."
+          }
+        }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       "itemListElement": [
         {
@@ -267,7 +307,56 @@
             </a>
         </div>
     </div>
-</main>
+
+    <!-- دليل ومقدمة المرحلة الثانوية -->
+    <section class="card content-section" style="margin-top: 1.5rem;">
+        <div class="section-header" style="text-align: right;">
+            <h2><i class="fa-solid fa-book-bookmark" style="color:var(--primary);"></i> دليل حاسبات المرحلة الثانوية ونظام المسارات</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+            <p>
+                تضم هذه الصفحة حاسبات المعدل لطلاب المرحلة الثانوية بنظام المسارات، وتشمل الصف الأول الثانوي المشترك والصفين الثاني والثالث ثانوي للمسارات التخصصية.
+            </p>
+            <p>
+                تساعدك هذه الأدوات على حساب المعدل الفصلي والسنوي لكل مرحلة دراسية، ومعرفة كيفية مساهمة درجات كل مادة في المجموع النهائي وفق طريقة الحساب المستخدمة حالياً في حاسبة حيز.
+            </p>
+
+            <h3 style="margin-top: 1.5rem; font-size: 1.2rem;">كيف تستفيد من حاسبات الثانوية خلال رحلتك الدراسية؟</h3>
+            <ul style="margin-right: 1.5rem; margin-bottom: 1rem;">
+                <li><strong><a href="first-secondary.html" style="color:var(--primary); text-decoration:none;">حاسبة أول ثانوي</a>:</strong> تحسب معدل مواد السنة الأولى المشتركة التي تمثل وزن 20% في التراكمي المحدد داخل حاسبة حيز.</li>
+                <li><strong><a href="second-secondary.html" style="color:var(--primary); text-decoration:none;">حاسبة ثاني ثانوي</a>:</strong> تحسب معدل مواد المسارات التخصصية (المسار العام، الحاسب والهندسة، الصحة والحياة، إدارة الأعمال، والشرعي) لطلاب السنة الثانية بوزن 40% في حاسبة حيز.</li>
+                <li><strong><a href="third-secondary.html" style="color:var(--primary); text-decoration:none;">حاسبة ثالث ثانوي</a>:</strong> تحسب معدل سنة التخرج ومشروع التخرج بوزن 40% في حاسبة حيز.</li>
+            </ul>
+            <p>
+                يمكنك حساب معدل كل سنة بشكل منفصل، ثم الانتقال إلى <a href="cumulative.html" style="color:var(--primary); text-decoration:none;">حاسبة المعدل التراكمي</a> لجمع نتائج السنوات الثلاث.
+            </p>
+        </div>
+    </section>
+
+    <!-- الأسئلة الشائعة -->
+    <section class="card content-section" style="margin-top: 1.5rem;">
+        <div class="section-header" style="text-align: right;">
+            <h2><i class="fa-solid fa-circle-question" style="color:var(--primary);"></i> الأسئلة الشائعة حول حاسبات الثانوية</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+            <div class="faq-item" style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">ما الفرق بين المعدل السنوي والمعدل التراكمي؟</h3>
+                <p>المعدل السنوي يحسب نتيجة مواد سنة دراسية واحدة، بينما يجمع المعدل التراكمي نتائج السنوات الثلاث بنسب محددة للوصول إلى معدل الشهادة الثانوية النهائي.</p>
+            </div>
+            <div class="faq-item" style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">كيف تُحسب النسبة التراكمية في حاسبة حيز؟</h3>
+                <p>تُحسب النسبة التراكمية وفق إعداد حاسبة حيز الحالي بجمع: (معدل أول ثانوي × 20%) + (معدل ثاني ثانوي × 40%) + (معدل ثالث ثانوي × 40%).</p>
+            </div>
+            <div class="faq-item" style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">هل تتغير المواد باختلاف المسار الثانوي؟</h3>
+                <p>نعم، تختلف المقررات المتاحة بحسب المسار المختار (كالمسار العام أو مسار الصحة والحياة)، وتطبق الحاسبة أوزان المقررات المحددة للمسار وفق إعداد حاسبة حيز الحالية.</p>
+            </div>
+            <div class="faq-item" style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">هل طريقة الحساب مطابقة لكل الجهات التعليمية؟</h3>
+                <p>تستند الحسابات إلى طريقة الأوزان المستخدمة حالياً في حاسبة حيز لتقديم تقدير دراسي للطالب، وتختلف الأوزان والتفاصيل أحياناً بحسب النظام التعليمي أو الجهة المنظمة.</p>
+            </div>
+        </div>
+    </section>
 
 <footer class="footer">
     <div class="container footer-container">
