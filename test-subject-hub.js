@@ -187,6 +187,34 @@ const scriptTagMatches = subjectHtml.match(/<script\b[^>]*>([\s\S]*?)<\/script>/
 const inlineScripts = scriptTagMatches.filter(tag => !tag.includes('src=') && !tag.includes('application/ld+json'));
 testAssert(inlineScripts.length === 0, 'Req 7c: subject.html contains zero inline script blocks');
 
+// TEST 8: Calendar Exam & Subject Linkage Regression
+resetEnv();
+const subBio = hayyizAddSubject('أحياء');
+const examObj = {
+    id: 'ex_bio_1',
+    name: 'اختبار أحياء',
+    type: 'exam',
+    date: todayStr,
+    subjectId: subBio.id,
+    subject: subBio.name,
+    updated: Date.now()
+};
+localStorage.setItem('hayyiz-student-exams', JSON.stringify([examObj]));
+
+const allCalEvents = hayyizGetAllCalendarEvents();
+const retrievedExam = allCalEvents.find(e => e.id === 'ex_bio_1');
+testAssert(retrievedExam && retrievedExam.subjectId === subBio.id, 'Req 8a: Student calendar event preserves subjectId on load');
+
+const hubBio = getSubjectHubData(subBio.id, {
+    subjects: [subBio],
+    todos: [],
+    exams: hayyizGetExams(),
+    focusSessions: [],
+    notes: [],
+    goals: []
+});
+testAssert(hubBio && hubBio.upcomingExams.length === 1 && hubBio.upcomingExams[0].id === 'ex_bio_1', 'Req 8b: Subject Hub links calendar exam cleanly via subjectId');
+
 console.log(`===================================`);
 console.log(`SUBJECT HUB AUDIT RESULTS: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);

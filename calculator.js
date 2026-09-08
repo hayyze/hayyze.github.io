@@ -261,10 +261,34 @@
         }
     }
 
+    function updateSubjectFieldVisibility(selectedSubjectId) {
+        const typeInput = document.getElementById('event-type-input');
+        const subjectGroup = document.getElementById('event-subject-group');
+        const subjectSelect = document.getElementById('event-subject-input');
+
+        if (!typeInput || !subjectGroup) return;
+
+        const isExam = typeInput.value === 'exam';
+        subjectGroup.style.display = isExam ? 'block' : 'none';
+
+        if (isExam && subjectSelect) {
+            if (typeof hayyizFillSubjectSelect === 'function') {
+                hayyizFillSubjectSelect(subjectSelect, selectedSubjectId || subjectSelect.value || '');
+            }
+        }
+    }
+
     function bindEventFormControls() {
         const form = document.getElementById('add-event-form');
         const cancelBtn = document.getElementById('cancel-event-form-btn');
         const formCard = document.getElementById('event-form-card');
+        const typeInput = document.getElementById('event-type-input');
+
+        if (typeInput) {
+            typeInput.addEventListener('change', () => {
+                updateSubjectFieldVisibility();
+            });
+        }
 
         if (form) {
             form.addEventListener('submit', (e) => {
@@ -307,16 +331,20 @@
         const storageKeyInput = document.getElementById('event-storage-key');
         const formTitle = document.getElementById('form-card-title');
         const saveBtnText = document.getElementById('save-btn-text');
+        const subjectSelect = document.getElementById('event-subject-input');
 
         if (form) form.reset();
         if (editIdInput) editIdInput.value = '';
         if (storageKeyInput) storageKeyInput.value = '';
+        if (subjectSelect) subjectSelect.value = '';
 
         if (formTitle) formTitle.innerHTML = '<i class="fa-solid fa-calendar-plus"></i> إضافة موعد جديد إلى خطك الزمني';
         if (saveBtnText) saveBtnText.textContent = 'إضافة إلى الخط الزمني';
 
         const dateInput = document.getElementById('event-date-input');
         if (dateInput) dateInput.value = getTodayLocalStr();
+
+        updateSubjectFieldVisibility('');
     }
 
     function editEvent(id, storageKey) {
@@ -348,6 +376,8 @@
         if (formTitle) formTitle.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> تعديل الموعد في خطك الزمني';
         if (saveBtnText) saveBtnText.textContent = 'حفظ التغييرات';
 
+        updateSubjectFieldVisibility(target.subjectId || '');
+
         if (formCard) {
             formCard.style.display = 'block';
             formCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -362,6 +392,7 @@
         const typeInput = document.getElementById('event-type-input');
         const dateInput = document.getElementById('event-date-input');
         const timeInput = document.getElementById('event-time-input');
+        const subjectInput = document.getElementById('event-subject-input');
 
         if (!nameInput || !dateInput) return;
 
@@ -374,8 +405,28 @@
 
         const targetKey = (type === 'exam') ? STORAGE_KEY_EXAMS : STORAGE_KEY_EVENTS;
 
+        let subjectId = null;
+        let subjectName = null;
+        if (type === 'exam' && subjectInput && subjectInput.value) {
+            subjectId = subjectInput.value;
+            if (typeof hayyizGetSubjectName === 'function') {
+                subjectName = hayyizGetSubjectName(subjectId) || null;
+            }
+        }
+
         const nowMs = Date.now();
-        const eventObj = { id: editId || ((type === 'exam' ? 'ex_' : 'ev_') + nowMs.toString(36) + Math.random().toString(36).slice(2, 6)), name, type, date, time, updated: nowMs };
+        const eventObj = {
+            id: editId || ((type === 'exam' ? 'ex_' : 'ev_') + nowMs.toString(36) + Math.random().toString(36).slice(2, 6)),
+            name,
+            type,
+            date,
+            time,
+            subjectId: type === 'exam' ? subjectId : null,
+            updated: nowMs
+        };
+        if (type === 'exam' && subjectName) {
+            eventObj.subject = subjectName;
+        }
 
         if (editId) {
             if (oldStorageKey && oldStorageKey !== targetKey) {
@@ -572,13 +623,21 @@
         let dateDisplay = formatDateArabic(ev.date);
         if (ev.time) dateDisplay += ` — ${ev.time}`;
 
+        let badgeHtml = badgeInfo.text;
+        if (ev.type === 'exam' && ev.subjectId) {
+            const subName = typeof hayyizGetSubjectName === 'function' ? hayyizGetSubjectName(ev.subjectId) : (ev.subject || '');
+            if (subName) {
+                badgeHtml = `<a href="subject.html?id=${encodeURIComponent(ev.subjectId)}" style="color: inherit; text-decoration: underline;">${escapeHtml(subName)}</a> · ${badgeInfo.text}`;
+            }
+        }
+
         card.innerHTML = `
             <div class="card-top-row">
                 <div class="card-title-group">
                     <h3 class="card-title">${escapeHtml(ev.name)}</h3>
                     <span class="card-subtitle"><i class="fa-regular fa-calendar"></i> ${dateDisplay}</span>
                 </div>
-                <span class="badge ${badgeInfo.class}">${badgeInfo.text}</span>
+                <span class="badge ${badgeInfo.class}">${badgeHtml}</span>
             </div>
 
             ${hasConflict ? `
