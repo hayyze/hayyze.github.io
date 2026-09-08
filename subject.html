@@ -28,8 +28,8 @@
     <!-- إعدادات أمنية إضافية -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-    <title>صفحة المادة | حيز</title>
-    <meta name="description" content="صفحة المادة في حيز — مساحة دراسية مركزية يجمع كل ما يتعلق بالمادة من مهام، اختبارات قادمة، جلسات تركيز، وملاحظات.">
+    <title>المواد الدراسية | حيز</title>
+    <meta name="description" content="قسم المواد الدراسية في حيز — استعرض موادك الدراسية ومساحاتها الخاصة لتنظيم المهام والاختبارات القادمة وجلسات التركيز والملاحظات لكل مادة.">
     <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://hayyze.github.io/subject.html">
@@ -37,8 +37,8 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://hayyze.github.io/subject.html">
-    <meta property="og:title" content="صفحة المادة | حيز">
-    <meta property="og:description" content="مساحة دراسية مركزية تجمع كل ما يتعلق بالمادة الدراسية من مهام واختبارات وجلسات تركيز وملاحظات.">
+    <meta property="og:title" content="المواد الدراسية | حيز">
+    <meta property="og:description" content="استعرض موادك الدراسية في حيز وتعمق في مساحة كل مادة لتنظيم الواجبات والاختبارات القادمة وساعات التركيز والملاحظات.">
     <meta property="og:image" content="https://hayyze.github.io/android-chrome-512x512.png">
     <meta property="og:locale" content="ar_SA">
     <meta property="og:site_name" content="حيز">
@@ -48,6 +48,27 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
     <link rel="manifest" href="manifest.webmanifest">
+    <!-- Structured Data (Breadcrumbs) -->
+    <script type="application/ld+json" id="subject-breadcrumb-schema">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "الرئيسية",
+          "item": "https://hayyze.github.io/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "المواد",
+          "item": "https://hayyze.github.io/subject.html"
+        }
+      ]
+    }
+    </script>
 </head>
 <body class="theme-light">
 <header class="navbar">
@@ -66,6 +87,7 @@
                 <div class="nav-dropdown-menu">
                     <a href="pomodoro.html" class="dropdown-item"><i class="fa-solid fa-clock" aria-hidden="true"></i> المؤقت</a>
                     <a href="todo.html" class="dropdown-item"><i class="fa-solid fa-list-check" aria-hidden="true"></i> المهام</a>
+                    <a href="subject.html" class="dropdown-item"><i class="fa-solid fa-book" aria-hidden="true"></i> المواد</a>
                     <a href="gpa.html" class="dropdown-item"><i class="fa-solid fa-calculator" aria-hidden="true"></i> حاسبة المعدل</a>
                     <a href="notes.html" class="dropdown-item"><i class="fa-solid fa-note-sticky" aria-hidden="true"></i> الملاحظات</a>
                     <a href="habits.html" class="dropdown-item"><i class="fa-solid fa-fire" aria-hidden="true"></i> العادات</a>
@@ -93,6 +115,53 @@
 </header>
 
 <main class="container main-content" style="padding-top: 1.5rem; padding-bottom: 3rem;">
+    <!-- Breadcrumb Nav -->
+    <nav aria-label="مسار التصفح" style="margin-bottom: 1.25rem;">
+        <ol id="subject-breadcrumb" style="list-style: none; padding: 0; margin: 0; display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; color: var(--text-muted); flex-wrap: wrap;">
+            <li><a href="index.html" style="color: var(--text-muted); text-decoration: none;"><i class="fa-solid fa-house" aria-hidden="true"></i> الرئيسية</a></li>
+            <li><i class="fa-solid fa-chevron-left" style="font-size: 0.75rem; opacity: 0.6;" aria-hidden="true"></i></li>
+            <li id="breadcrumb-current-subject" style="color: var(--deep-ink); font-weight: 700;">المواد</li>
+        </ol>
+    </nav>
+
+    <!-- الواجهة العامة لقسم المواد (عند عدم تحديد ID) -->
+    <div id="subjects-general-view" style="display: none;">
+        <div class="card" style="margin-bottom: 1.5rem; padding: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <div style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--terracotta); font-weight: 600; background: var(--surface-secondary); padding: 0.25rem 0.75rem; border-radius: 20px; margin-bottom: 0.5rem;">
+                        <i class="fa-solid fa-book"></i> المواد الدراسية
+                    </div>
+                    <h1 style="font-size: 1.8rem; font-weight: 800; color: var(--deep-ink); margin: 0 0 0.25rem 0;">قسم المواد الدراسية</h1>
+                    <p style="color: var(--text-muted); font-size: 0.95rem; margin: 0; line-height: 1.6;">
+                        مساحتك المركزية لمتابعة كافة موادك الدراسية، والوصول المباشر إلى مهام واختبارات وملاحظات وساعات تركيز كل مادة.
+                    </p>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                    <a href="todo.html" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus"></i> إضافة / إدارة المواد في المهام</a>
+                </div>
+            </div>
+        </div>
+
+        <div id="general-subjects-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;"></div>
+
+        <!-- نص إرشادي تعريفي بقسم المواد لتعزيز SEO والقيمة للمستخدم -->
+        <div class="card" style="padding: 1.5rem; line-height: 1.8; color: var(--deep-ink);">
+            <h2 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 0.75rem; color: var(--deep-ink); display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fa-solid fa-circle-info" style="color: var(--primary);"></i> عن قسم المواد الدراسية في حيز
+            </h2>
+            <p style="margin-bottom: 0.75rem; font-size: 0.95rem; color: var(--text-muted);">
+                يتيح لك قسم المواد الدراسية في منصة حيز الحصول على رؤية شاملة لكل مادة تدرسها. عند الدخول لمساحة المادة الخاصة، يمكنك متابعة:
+            </p>
+            <ul style="padding-right: 1.25rem; margin: 0 0 0.75rem 0; font-size: 0.95rem; color: var(--text-muted);">
+                <li style="margin-bottom: 0.35rem;"><strong>المهام والواجبات المفتوحة والمكتملة</strong> الخاصة بالمادة.</li>
+                <li style="margin-bottom: 0.35rem;"><strong>جدول الاختبارات القادمة والعد التنازلي</strong> لأقرب اختبار.</li>
+                <li style="margin-bottom: 0.35rem;"><strong>سجل جلسات التركيز المخصصة</strong> وإحصائيات ساعات المذاكرة.</li>
+                <li><strong>الملاحظات والملخصات الدراسية المرتبطة</strong> بالمادة مباشرة.</li>
+            </ul>
+        </div>
+    </div>
+
     <!-- حالة عدم وجود مادة صالحة -->
     <div id="subject-not-found" class="card" style="display: none; text-align: center; padding: 2.5rem 1.5rem;">
         <div style="font-size: 3rem; color: var(--terracotta); margin-bottom: 1rem;"><i class="fa-solid fa-circle-exclamation"></i></div>

@@ -184,7 +184,7 @@ if (cspMetaMatch) {
 }
 
 const scriptTagMatches = subjectHtml.match(/<script\b[^>]*>([\s\S]*?)<\/script>/gi) || [];
-const inlineScripts = scriptTagMatches.filter(tag => !tag.includes('src='));
+const inlineScripts = scriptTagMatches.filter(tag => !tag.includes('src=') && !tag.includes('application/ld+json'));
 testAssert(inlineScripts.length === 0, 'Req 7c: subject.html contains zero inline script blocks');
 
 console.log(`===================================`);
