@@ -343,6 +343,86 @@ const finalExams = JSON.parse(localStorage.getItem('hayyiz-student-exams') || '[
 const edited = finalExams.find(e => e.id === genExam.id);
 testAssert(edited && edited.subjectId === subBio.id, 'Test 9d: Editing exam and setting new subject updates subjectId correctly');
 
+// TEST 10: Explicit Scenarios 1 to 8 Regression
+resetEnv();
+
+// Scenario 1: Subject 1 + 3 linked tasks
+const s1 = hayyizAddSubject('التاريخ');
+const s1Tasks = [
+    { id: 'st1_1', text: 'مراجعة الفصل الأول', subjectId: s1.id, completed: false },
+    { id: 'st1_2', text: 'مراجعة الفصل الثاني', subjectId: s1.id, completed: false },
+    { id: 'st1_3', text: 'تلخيص الفصل الثالث', subjectId: s1.id, completed: false }
+];
+const dataSc1 = getSubjectHubData(s1.id, {
+    subjects: [s1],
+    todos: s1Tasks,
+    exams: [],
+    focusSessions: [],
+    notes: [],
+    goals: []
+});
+testAssert(dataSc1 && dataSc1.openTasks.length === 3, 'Scenario 1: Subject with 3 linked tasks correctly evaluates openTasks count = 3');
+
+// Scenario 2: Subject 2 + overdue task
+const s2 = hayyizAddSubject('الجغرافيا');
+const overdueTask = { id: 'st2_1', text: 'حل الخريطة', subjectId: s2.id, date: '2020-01-01', completed: false };
+const dataSc2 = getSubjectHubData(s2.id, {
+    subjects: [s2],
+    todos: [overdueTask],
+    exams: [],
+    focusSessions: [],
+    notes: [],
+    goals: []
+});
+testAssert(dataSc2 && dataSc2.overdueTasks.length === 1 && dataSc2.statusKey === 'needs_attention', 'Scenario 2: Subject with overdue task yields needs_attention status');
+
+// Scenario 3: Subject 3 + near exam
+const s3 = hayyizAddSubject('اللغة العربية');
+const nearExam = { id: 'ex3_1', name: 'اختبار نحو', subjectId: s3.id, date: todayStr };
+const dataSc3 = getSubjectHubData(s3.id, {
+    subjects: [s3],
+    todos: [],
+    exams: [nearExam],
+    focusSessions: [],
+    notes: [],
+    goals: []
+});
+testAssert(dataSc3 && dataSc3.nearestExam && dataSc3.nearestExam.id === 'ex3_1' && dataSc3.statusKey === 'near_exam', 'Scenario 3: Subject with near exam yields near_exam status');
+
+// Scenario 4: Two subjects with different tasks/exams, verifying no cross-contamination
+const s4a = hayyizAddSubject('الحاسب');
+const s4b = hayyizAddSubject('الإنجليزية');
+const task4a = { id: 't4a', text: 'برمجة مشروع', subjectId: s4a.id, completed: false };
+const task4b = { id: 't4b', text: 'English Homework', subjectId: s4b.id, completed: false };
+const exam4a = { id: 'ex4a', name: 'اختبار عملي حاسب', subjectId: s4a.id, date: '2026-11-01' };
+
+const dataSc4a = getSubjectHubData(s4a.id, { subjects: [s4a, s4b], todos: [task4a, task4b], exams: [exam4a], focusSessions: [], notes: [], goals: [] });
+const dataSc4b = getSubjectHubData(s4b.id, { subjects: [s4a, s4b], todos: [task4a, task4b], exams: [exam4a], focusSessions: [], notes: [], goals: [] });
+
+testAssert(dataSc4a.openTasks.length === 1 && dataSc4a.openTasks[0].id === 't4a' && dataSc4a.nearestExam.id === 'ex4a', 'Scenario 4a: Subject A tasks and exams remain isolated');
+testAssert(dataSc4b.openTasks.length === 1 && dataSc4b.openTasks[0].id === 't4b' && dataSc4b.nearestExam === null, 'Scenario 4b: Subject B contains zero items from Subject A');
+
+// Scenario 5: Task with focusDone > 0 shows progress for the correct subject
+const s5 = hayyizAddSubject('العلوم');
+const taskWithFocus = { id: 't5', text: 'تجربة المختبر', subjectId: s5.id, focusDone: 25, completed: false };
+const dataSc5 = getSubjectHubData(s5.id, { subjects: [s5], todos: [taskWithFocus], exams: [], focusSessions: [], notes: [], goals: [] });
+testAssert(dataSc5 && dataSc5.focusMinutes === 25 && dataSc5.statusKey === 'has_progress', 'Scenario 5: Task with focusDone > 0 correctly attributes focus time and has_progress status to subject');
+
+// Scenario 6: Subject without tasks
+const s6 = hayyizAddSubject('الحديث');
+const dataSc6 = getSubjectHubData(s6.id, { subjects: [s6], todos: [], exams: [], focusSessions: [], notes: [], goals: [] });
+testAssert(dataSc6 && dataSc6.openTasks.length === 0 && dataSc6.statusKey === 'no_active_tasks', 'Scenario 6: Subject without tasks handles empty task list cleanly');
+
+// Scenario 7: Subject without exams
+const s7 = hayyizAddSubject('الفقه');
+const task7 = { id: 't7', text: 'قراءة الدرس', subjectId: s7.id, completed: false };
+const dataSc7 = getSubjectHubData(s7.id, { subjects: [s7], todos: [task7], exams: [], focusSessions: [], notes: [], goals: [] });
+testAssert(dataSc7 && dataSc7.nearestExam === null && dataSc7.statusKey === 'active_tasks', 'Scenario 7: Subject without exams handles null nearestExam gracefully');
+
+// Scenario 8: No subjects at all in system
+const dataSc8 = getSubjectHubData('non_existent', { subjects: [], todos: [], exams: [], focusSessions: [], notes: [], goals: [] });
+testAssert(dataSc8 === null, 'Scenario 8: System with zero subjects returns null safely without throwing errors');
+
 console.log(`===================================`);
 console.log(`SUBJECT HUB AUDIT RESULTS: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);

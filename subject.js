@@ -110,6 +110,11 @@ function getSubjectHubData(subjectId, rawData) {
         return timeB - timeA;
     });
 
+    let taskFocusMinutes = 0;
+    subjectTasks.forEach(t => {
+        taskFocusMinutes += (parseInt(t.focusDone, 10) || 0);
+    });
+
     let totalMinutes = 0;
     let totalSessions = 0;
 
@@ -118,9 +123,10 @@ function getSubjectHubData(subjectId, rawData) {
         deduplicatedSessions.forEach(s => {
             totalMinutes += parseInt(s.durationMinutes, 10) || 0;
         });
+        totalMinutes = Math.max(totalMinutes, taskFocusMinutes);
     } else {
-        // Fallback للبيانات القديمة قبل إدخال سجل الجلسات المفصل
-        totalMinutes = parseInt(subject.focusMinutes, 10) || 0;
+        // Fallback للبيانات القديمة والمهام المسجلة مباشرة
+        totalMinutes = Math.max(parseInt(subject.focusMinutes, 10) || 0, taskFocusMinutes);
         totalSessions = parseInt(subject.sessions, 10) || 0;
     }
 
@@ -167,10 +173,35 @@ function getSubjectHubData(subjectId, rawData) {
         };
     }
 
+    // 8. حساب المهام المتأخرة والحالة الدلالية للمادة (Semantic Subject Status)
+    const overdueTasks = openTasks.filter(t => t && t.date && String(t.date).slice(0, 10) < todayStr);
+    const daysUntilExam = nearestExam ? (typeof hayyizDaysUntil === 'function' ? hayyizDaysUntil(nearestExam.date) : null) : null;
+
+    let statusKey = 'no_active_tasks';
+    let statusLabel = 'لا توجد مهام نشطة';
+
+    if (overdueTasks.length > 0) {
+        statusKey = 'needs_attention';
+        statusLabel = 'تحتاج انتباهًا';
+    } else if (daysUntilExam !== null && daysUntilExam >= 0 && daysUntilExam <= 3) {
+        statusKey = 'near_exam';
+        statusLabel = 'اختبار قريب';
+    } else if (totalMinutes > 0 || completedTasks.length > 0) {
+        statusKey = 'has_progress';
+        statusLabel = 'يوجد تقدم';
+    } else if (openTasks.length > 0) {
+        statusKey = 'active_tasks';
+        statusLabel = 'مهام نشطة';
+    } else {
+        statusKey = 'no_active_tasks';
+        statusLabel = 'لا توجد مهام نشطة';
+    }
+
     return {
         subject,
         openTasks,
         completedTasks,
+        overdueTasks,
         upcomingExams,
         pastExams,
         nearestExam,
@@ -179,7 +210,9 @@ function getSubjectHubData(subjectId, rawData) {
         recentFocusSessions: deduplicatedSessions.slice(0, 5),
         notes: subjectNotes,
         goal,
-        attentionItem
+        attentionItem,
+        statusKey,
+        statusLabel
     };
 }
 
@@ -359,7 +392,7 @@ function renderGeneralSubjectsView(subjects, todos, exams, focusSessions, rawNot
         const top = document.createElement('div');
 
         const titleHeader = document.createElement('div');
-        titleHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;';
+        titleHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;';
 
         const title = document.createElement('h3');
         title.style.cssText = 'font-size: 1.2rem; font-weight: 800; color: var(--deep-ink); margin: 0;';
@@ -371,21 +404,64 @@ function renderGeneralSubjectsView(subjects, todos, exams, focusSessions, rawNot
         title.appendChild(titleLink);
 
         const badge = document.createElement('span');
-        badge.style.cssText = 'font-size: 0.75rem; font-weight: 700; color: var(--primary); background: var(--surface-secondary); padding: 0.2rem 0.5rem; border-radius: 12px;';
-        badge.textContent = `${data.openTasks.length} مهام مفتوحة`;
+        let badgeBg = 'var(--surface-secondary)';
+        let badgeColor = 'var(--deep-ink)';
+
+        if (data.statusKey === 'needs_attention') {
+            badgeBg = 'rgba(182, 83, 59, 0.12)';
+            badgeColor = 'var(--terracotta)';
+        } else if (data.statusKey === 'near_exam') {
+            badgeBg = 'rgba(182, 83, 59, 0.12)';
+            badgeColor = 'var(--terracotta)';
+        } else if (data.statusKey === 'has_progress') {
+            badgeBg = 'rgba(24, 54, 77, 0.1)';
+            badgeColor = 'var(--primary)';
+        } else if (data.statusKey === 'active_tasks') {
+            badgeBg = 'var(--surface-secondary)';
+            badgeColor = 'var(--deep-ink)';
+        } else {
+            badgeBg = 'var(--surface-secondary)';
+            badgeColor = 'var(--text-muted)';
+        }
+
+        badge.style.cssText = `font-size: 0.78rem; font-weight: 700; color: ${badgeColor}; background: ${badgeBg}; padding: 0.25rem 0.6rem; border-radius: 12px;`;
+        badge.textContent = data.statusLabel;
 
         titleHeader.appendChild(title);
         titleHeader.appendChild(badge);
 
         const statsGrid = document.createElement('div');
-        statsGrid.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); background: var(--surface-secondary); padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem;';
+        statsGrid.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; font-size: 0.85rem; color: var(--text-muted); background: var(--surface-secondary); padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem;';
 
+        // 1. المهام المتبقية
+        const openTasksStat = document.createElement('div');
+        const openStrong = document.createElement('strong');
+        openStrong.textContent = 'المهام: ';
+        openTasksStat.appendChild(openStrong);
+        openTasksStat.appendChild(document.createTextNode(data.openTasks.length > 0 ? `${data.openTasks.length} متبقية` : 'لا توجد مهام نشطة'));
+
+        // 2. المهام المتأخرة
+        const overdueStat = document.createElement('div');
+        const overdueStrong = document.createElement('strong');
+        overdueStrong.textContent = 'التأخر: ';
+        overdueStat.appendChild(overdueStrong);
+        if (data.overdueTasks.length > 0) {
+            const overdueSpan = document.createElement('span');
+            overdueSpan.style.cssText = 'color: var(--terracotta); font-weight: 700;';
+            overdueSpan.textContent = `${data.overdueTasks.length} متأخرة`;
+            overdueStat.appendChild(overdueSpan);
+        } else {
+            overdueStat.appendChild(document.createTextNode('لا يوجد'));
+        }
+
+        // 3. وقت التركيز
         const focusStat = document.createElement('div');
         const focusStrong = document.createElement('strong');
-        focusStrong.textContent = 'وقت التركيز: ';
+        focusStrong.textContent = 'التركيز: ';
         focusStat.appendChild(focusStrong);
         focusStat.appendChild(document.createTextNode(`${data.focusMinutes} دقيقة`));
 
+        // 4. أقرب اختبار
         const examStat = document.createElement('div');
         const examStrong = document.createElement('strong');
         examStrong.textContent = 'أقرب اختبار: ';
@@ -394,10 +470,12 @@ function renderGeneralSubjectsView(subjects, todos, exams, focusSessions, rawNot
         let examLabel = 'لا يوجد';
         if (data.nearestExam) {
             const days = typeof hayyizDaysUntil === 'function' ? hayyizDaysUntil(data.nearestExam.date) : null;
-            examLabel = days === 0 ? 'اليوم' : (days === 1 ? 'غداً' : (days !== null ? `بعد ${days} أَيّام` : data.nearestExam.date));
+            examLabel = days === 0 ? 'اليوم' : (days === 1 ? 'غداً' : (days !== null ? `بعد ${days} أيام` : data.nearestExam.date));
         }
         examStat.appendChild(document.createTextNode(examLabel));
 
+        statsGrid.appendChild(openTasksStat);
+        statsGrid.appendChild(overdueStat);
         statsGrid.appendChild(focusStat);
         statsGrid.appendChild(examStat);
 
@@ -414,17 +492,26 @@ function renderGeneralSubjectsView(subjects, todos, exams, focusSessions, rawNot
         const openI = document.createElement('i');
         openI.className = 'fa-solid fa-arrow-left';
         openBtn.appendChild(openI);
-        openBtn.appendChild(document.createTextNode(' عرض مساحة المادة'));
+        openBtn.appendChild(document.createTextNode(' مساحة المادة'));
+
+        const tasksBtn = document.createElement('a');
+        tasksBtn.href = `todo.html?subjectId=${encodeURIComponent(sub.id)}`;
+        tasksBtn.className = 'btn btn-secondary btn-sm';
+        tasksBtn.title = 'عرض مهام المادة';
+        const tasksI = document.createElement('i');
+        tasksI.className = 'fa-solid fa-list-check';
+        tasksBtn.appendChild(tasksI);
 
         const focusQuickBtn = document.createElement('a');
         focusQuickBtn.href = `pomodoro.html?subjectId=${encodeURIComponent(sub.id)}`;
         focusQuickBtn.className = 'btn btn-secondary btn-sm';
-        focusQuickBtn.title = 'بدء تركيز لهذا المادة';
+        focusQuickBtn.title = 'بدء تركيز لهذه المادة';
         const focusI = document.createElement('i');
         focusI.className = 'fa-solid fa-play';
         focusQuickBtn.appendChild(focusI);
 
         bottom.appendChild(openBtn);
+        bottom.appendChild(tasksBtn);
         bottom.appendChild(focusQuickBtn);
 
         card.appendChild(top);
@@ -673,6 +760,16 @@ function renderTasksSection(subject, openTasks, doneTasks) {
                 const prioMap = { high: 'عالية', medium: 'متوسطة', low: 'منخفضة' };
                 prioSpan.textContent = `أولوية: ${prioMap[task.priority] || task.priority}`;
                 metaDiv.appendChild(prioSpan);
+            }
+
+            if (typeof hayyizFormatTaskProgress === 'function') {
+                const prog = hayyizFormatTaskProgress(task);
+                if (prog && prog.hasProgress) {
+                    const progSpan = document.createElement('span');
+                    progSpan.style.cssText = 'color: var(--primary); font-weight: 600;';
+                    progSpan.textContent = `⏱️ ${prog.progressText}`;
+                    metaDiv.appendChild(progSpan);
+                }
             }
 
             titleDiv.appendChild(taskText);
