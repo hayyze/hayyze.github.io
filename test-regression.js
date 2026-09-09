@@ -1004,15 +1004,44 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
 {
     localStorage.clear();
 
-    // 1. Existence of single central decision source function
-    assert(typeof hayyizComputeStudentDecisionState === 'function', 'hayyizComputeStudentDecisionState exists as central decision source');
+    // 1. Existence of single central decision source function & primitives
+    assert(typeof hayyizBuildStudentSnapshot === 'function', 'hayyizBuildStudentSnapshot primitive exists');
+    assert(typeof hayyizRankTasks === 'function', 'hayyizRankTasks primitive exists');
+    assert(typeof hayyizEvaluateDecisions === 'function', 'hayyizEvaluateDecisions primitive exists');
+    assert(typeof hayyizBuildDailyPlan === 'function', 'hayyizBuildDailyPlan primitive exists');
+    assert(typeof hayyizComputeStudentDecisionState === 'function', 'hayyizComputeStudentDecisionState orchestrator exists');
 
-    // 2. Comprehensive state structure returned
-    const emptyEngineState = hayyizComputeStudentDecisionState();
-    assert(emptyEngineState && typeof emptyEngineState === 'object', 'Central decision engine returns state object');
-    assert('primaryDecision' in emptyEngineState && 'dailyPlan' in emptyEngineState && 'recommendation' in emptyEngineState, 'Central state contains primaryDecision, dailyPlan, and recommendation');
+    // 2. Single snapshot creation per compute pass
+    let snapshotCount = 0;
+    const origBuildSnap = hayyizBuildStudentSnapshot;
+    hayyizBuildStudentSnapshot = function(...args) {
+        snapshotCount++;
+        return origBuildSnap.apply(this, args);
+    };
 
-    // 3. Consistency between Summary decision and Daily Plan top primary action
+    snapshotCount = 0;
+    const singlePassState = hayyizComputeStudentDecisionState();
+    assert(snapshotCount === 1, 'Snapshot is created exactly once per central decision calculation pass');
+    hayyizBuildStudentSnapshot = origBuildSnap;
+
+    // 3. primaryDecision, dailyPlan, and recommendation share same snapshot/state
+    assert(singlePassState.primaryDecision !== undefined && singlePassState.dailyPlan !== undefined && singlePassState.recommendation !== undefined, 'Central state contains primaryDecision, dailyPlan, and recommendation');
+
+    // 4. Thin wrappers execute only required primitives without rerun of full pipeline
+    let evalCount = 0;
+    const origEvalDec = hayyizEvaluateDecisions;
+    hayyizEvaluateDecisions = function(...args) {
+        evalCount++;
+        return origEvalDec.apply(this, args);
+    };
+
+    evalCount = 0;
+    hayyizRecommendNext(3);
+    assert(evalCount === 0, 'hayyizRecommendNext wrapper does NOT rerun decision evaluation primitive');
+
+    hayyizEvaluateDecisions = origEvalDec;
+
+    // 5. Consistency between Summary decision and Daily Plan top primary action
     const getOffsetDateStr = (offsetDays) => {
         const base = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
         const parts = base.split('-').map(Number);
@@ -1031,14 +1060,14 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     assert(state1.dailyPlan[0].isPrimaryNextAction === true, 'Top item in daily plan is marked as primary next action');
     assert(state1.dailyPlan[0].title === state1.primaryDecision.actionTitle, 'Decision title matches top daily plan item title exactly');
 
-    // 4. Exclusion of completed tasks from recommendations and plan
+    // 6. Exclusion of completed tasks from recommendations and plan
     hayyizCompleteTask('t_cde_1', 'مهمة عالية الأولوية عاجلة');
     const state2 = hayyizComputeStudentDecisionState();
     assert(!state2.activeTodos.some(t => t.id === 't_cde_1'), 'Completed task excluded from active todos');
     assert(!state2.dailyPlan.some(p => p.task && p.task.id === 't_cde_1'), 'Completed task excluded from daily plan');
     assert(!state2.recommendation.ranked.some(r => r.task.id === 't_cde_1'), 'Completed task excluded from ranked recommendations');
 
-    // 5. Active running focus session priority in central state
+    // 7. Active running focus session priority in central state
     const runningFocusState = {
         mode: 'focus',
         status: 'running',
@@ -1052,7 +1081,7 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     assert(state3.primaryDecision && state3.primaryDecision.id === 'running-focus', 'Active running focus session takes top priority (score 1000) in central decision');
     assert(state3.dailyPlan[0].id === 'plan-running-focus', 'Running focus session is placed at index 0 of daily plan');
 
-    // 6. Urgent exam priority
+    // 8. Urgent exam priority
     localStorage.clear();
     localStorage.setItem('hayyiz-student-exams', JSON.stringify([
         { id: 'ex_cde_urgent', name: 'اختبار غداً', date: getOffsetDateStr(1) }
