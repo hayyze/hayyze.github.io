@@ -22,37 +22,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const today = getToday();
 
-    // المصدر الوحيد للحقيقة للمهام والعادات والتركيز
-    const todos = typeof hayyizGetTodos === 'function'
-        ? hayyizGetTodos()
-        : JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
-    const habits = typeof hayyizGetHabits === 'function'
-        ? hayyizGetHabits()
-        : JSON.parse(localStorage.getItem('hayyiz-habits') || '[]');
+    // الاستعلام من المحرك المركزي الوحيد لحالة الطالب وقراره الدراسي
+    const studentState = typeof hayyizComputeStudentDecisionState === 'function'
+        ? hayyizComputeStudentDecisionState()
+        : null;
+
+    const todos = studentState ? studentState.todos : (
+        typeof hayyizGetTodos === 'function' ? hayyizGetTodos() : JSON.parse(localStorage.getItem('hayyiz-todos') || '[]')
+    );
+    const habits = studentState ? studentState.habits : (
+        typeof hayyizGetHabits === 'function' ? hayyizGetHabits() : JSON.parse(localStorage.getItem('hayyiz-habits') || '[]')
+    );
     const sessionsToday = parseInt(localStorage.getItem('hayyiz-sessions-today') || '0', 10);
-    const focusMinutes = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
+    const focusMinutes = studentState ? studentState.focusMinutesToday : parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
 
-    const activeTodos = todos.filter((t) => t && !t.completed);
-    const completedToday = todos.filter(
-        (t) => t && t.completed && t.completedAt === today
-    ).length;
-    const completedAll = todos.filter((t) => t && t.completed).length;
-    const overdueTodos = activeTodos.filter((t) => t.date && String(t.date).slice(0, 10) < today);
-    const dueTodayTodos = activeTodos.filter((t) => t.date && String(t.date).slice(0, 10) === today);
+    const activeTodos = studentState ? studentState.activeTodos : todos.filter((t) => t && !t.completed);
+    const completedToday = todos.filter((t) => t && t.completed && t.completedAt === today).length;
+    const overdueTodos = studentState ? studentState.overdueTodos : activeTodos.filter((t) => t.date && String(t.date).slice(0, 10) < today);
 
-    const habitTodaySummary = typeof hayyizGetHabitTodaySummary === 'function'
-        ? hayyizGetHabitTodaySummary(habits)
-        : (() => {
-            const completed = habits.filter((h) => h && h.lastCompleted === today).length;
-            const total = habits.length;
-            return {
-                total,
-                completed,
-                remaining: Math.max(0, total - completed),
-                percent: total > 0 ? Math.round((completed / total) * 100) : 0
-            };
-        })();
-    const habitsDoneToday = habitTodaySummary.completed;
+    const habitTodaySummary = studentState ? studentState.habitsSummary : (
+        typeof hayyizGetHabitTodaySummary === 'function' ? hayyizGetHabitTodaySummary(habits) : {
+            total: habits.length,
+            completed: habits.filter((h) => h && h.lastCompleted === today).length,
+            remaining: Math.max(0, habits.length - habits.filter((h) => h && h.lastCompleted === today).length),
+            percent: habits.length > 0 ? Math.round((habits.filter((h) => h && h.lastCompleted === today).length / habits.length) * 100) : 0
+        }
+    );
 
     const hours = Math.floor(focusMinutes / 60);
     const mins = focusMinutes % 60;
@@ -72,33 +67,13 @@ document.addEventListener('DOMContentLoaded', () => {
         month: 'long'
     });
 
-    let recommendation = null;
-    if (typeof hayyizRecommendNext === 'function') {
-        recommendation = hayyizRecommendNext(5);
-    }
+    const recommendation = studentState ? studentState.recommendation : (
+        typeof hayyizRecommendNext === 'function' ? hayyizRecommendNext(5) : null
+    );
 
-    function getNextTasksFallback(list, limit) {
-        const order = { high: 3, medium: 2, low: 1 };
-        return list
-            .filter((t) => t && !t.completed)
-            .slice()
-            .sort((a, b) => {
-                const pDiff = (order[b.priority] || 0) - (order[a.priority] || 0);
-                if (pDiff !== 0) return pDiff;
-                const dateA = a.date ? new Date(a.date).getTime() : Infinity;
-                const dateB = b.date ? new Date(b.date).getTime() : Infinity;
-                if (dateA !== dateB) return dateA - dateB;
-                return (b.created || 0) - (a.created || 0);
-            })
-            .slice(0, limit);
-    }
-
-    const nextTasks = recommendation
-        ? recommendation.ranked.map((r) => r.task)
-        : getNextTasksFallback(todos, 3);
-    const nextTask = recommendation ? recommendation.next : (nextTasks[0] || null);
-    const nextReason = recommendation ? recommendation.reason : '';
-    const isTaskInProgress = recommendation ? recommendation.isInProgress : (nextTask && (parseInt(nextTask.focusDone, 10) || 0) > 0);
+    const nextTask = studentState ? studentState.nextTask : (recommendation ? recommendation.next : (activeTodos[0] || null));
+    const nextReason = studentState ? studentState.nextReason : (recommendation ? recommendation.reason : '');
+    const isTaskInProgress = studentState ? studentState.isInProgress : (nextTask && (parseInt(nextTask.focusDone, 10) || 0) > 0);
 
     const content = document.getElementById('summary-content');
     if (!content) return;
@@ -160,7 +135,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     // 2. ما يحتاج انتباهي الآن (Needs Attention Now)
     // ==========================================
-    const activeFocusState = typeof hayyizGetFocusState === 'function' ? hayyizGetFocusState() : null;
+    const activeFocusState = studentState ? studentState.focusState : (
+        typeof hayyizGetFocusState === 'function' ? hayyizGetFocusState() : null
+    );
     if (activeFocusState && activeFocusState.status === 'running' && activeFocusState.remainingSeconds > 0) {
         const activeFocusBanner = document.createElement('div');
         activeFocusBanner.className = 'dash-attention-banner focus-running';
@@ -194,7 +171,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     // 3. الخطوة التالية (Next Action & Student OS Recommendation - Integrated, Human & Action-First)
     // ==========================================
-    const suggestion = typeof hayyizEvaluateStudentState === 'function' ? hayyizEvaluateStudentState() : null;
+    const suggestion = studentState ? studentState.primaryDecision : (
+        typeof hayyizEvaluateStudentState === 'function' ? hayyizEvaluateStudentState() : null
+    );
     const nowCard = document.createElement('div');
     nowCard.className = 'dash-now-card card';
 
@@ -397,7 +376,9 @@ document.addEventListener('DOMContentLoaded', () => {
     content.appendChild(statsGrid);
 
     // ب) خطة اليوم المترابطة والتكيفية (Adaptive Execution-Oriented Daily Study Plan)
-    const planItems = typeof hayyizGenerateDailyPlan === 'function' ? hayyizGenerateDailyPlan() : [];
+    const planItems = studentState ? studentState.dailyPlan : (
+        typeof hayyizGenerateDailyPlan === 'function' ? hayyizGenerateDailyPlan() : []
+    );
     const planCard = document.createElement('div');
     planCard.className = 'dash-section card';
 

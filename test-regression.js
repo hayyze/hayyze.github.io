@@ -1000,6 +1000,68 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     assert(planScenH.length > 0 && planScenH[0].type === 'pomodoro' && planScenH[0].badge === 'جلسة جارية', 'Scenario H: Active running Pomodoro takes top priority in Daily Plan');
 }
 
+// --- 15. SINGLE CENTRAL DECISION ENGINE REGRESSION TESTS ---
+{
+    localStorage.clear();
+
+    // 1. Existence of single central decision source function
+    assert(typeof hayyizComputeStudentDecisionState === 'function', 'hayyizComputeStudentDecisionState exists as central decision source');
+
+    // 2. Comprehensive state structure returned
+    const emptyEngineState = hayyizComputeStudentDecisionState();
+    assert(emptyEngineState && typeof emptyEngineState === 'object', 'Central decision engine returns state object');
+    assert('primaryDecision' in emptyEngineState && 'dailyPlan' in emptyEngineState && 'recommendation' in emptyEngineState, 'Central state contains primaryDecision, dailyPlan, and recommendation');
+
+    // 3. Consistency between Summary decision and Daily Plan top primary action
+    const getOffsetDateStr = (offsetDays) => {
+        const base = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+        const parts = base.split('-').map(Number);
+        const dt = new Date(parts[0], parts[1] - 1, parts[2] + offsetDays);
+        return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    };
+
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_cde_1', text: 'مهمة عالية الأولوية عاجلة', priority: 'high', date: getOffsetDateStr(-1), completed: false },
+        { id: 't_cde_2', text: 'مهمة عادية', priority: 'low', completed: false }
+    ]));
+
+    const state1 = hayyizComputeStudentDecisionState();
+    assert(state1.primaryDecision !== null, 'Central engine evaluates primary decision');
+    assert(state1.dailyPlan.length > 0, 'Central engine generates daily plan');
+    assert(state1.dailyPlan[0].isPrimaryNextAction === true, 'Top item in daily plan is marked as primary next action');
+    assert(state1.dailyPlan[0].title === state1.primaryDecision.actionTitle, 'Decision title matches top daily plan item title exactly');
+
+    // 4. Exclusion of completed tasks from recommendations and plan
+    hayyizCompleteTask('t_cde_1', 'مهمة عالية الأولوية عاجلة');
+    const state2 = hayyizComputeStudentDecisionState();
+    assert(!state2.activeTodos.some(t => t.id === 't_cde_1'), 'Completed task excluded from active todos');
+    assert(!state2.dailyPlan.some(p => p.task && p.task.id === 't_cde_1'), 'Completed task excluded from daily plan');
+    assert(!state2.recommendation.ranked.some(r => r.task.id === 't_cde_1'), 'Completed task excluded from ranked recommendations');
+
+    // 5. Active running focus session priority in central state
+    const runningFocusState = {
+        mode: 'focus',
+        status: 'running',
+        remainingSeconds: 1200,
+        totalDuration: 1500,
+        endTime: Date.now() + 1200000,
+        context: { type: 'free', id: null, title: 'تركيز جاري حالي' }
+    };
+    hayyizSaveFocusState(runningFocusState);
+    const state3 = hayyizComputeStudentDecisionState();
+    assert(state3.primaryDecision && state3.primaryDecision.id === 'running-focus', 'Active running focus session takes top priority (score 1000) in central decision');
+    assert(state3.dailyPlan[0].id === 'plan-running-focus', 'Running focus session is placed at index 0 of daily plan');
+
+    // 6. Urgent exam priority
+    localStorage.clear();
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_cde_urgent', name: 'اختبار غداً', date: getOffsetDateStr(1) }
+    ]));
+    const state4 = hayyizComputeStudentDecisionState();
+    assert(state4.primaryDecision && state4.primaryDecision.id === 'exam-upcoming', 'Urgent upcoming exam evaluated as primary decision when focus minutes low');
+    assert(state4.dailyPlan[0].event && state4.dailyPlan[0].event.id === 'ex_cde_urgent', 'Urgent exam placed at index 0 of daily plan');
+}
+
 console.log(`\n===================================`);
 console.log(`REGRESSION AUDIT SUMMARY: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);
