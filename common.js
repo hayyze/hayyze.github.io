@@ -1074,7 +1074,7 @@ function hayyizEvaluateDecisions(snapshot, rankedTasks) {
                 actionTitle: nextTask.text,
                 reason: 'أكمل ما بدأت به في الجلسة السابقة',
                 text: `بدأت العمل على مهمة "${nextTask.text}". أكمل جلسة التركيز القادمة لإتمامها.`,
-                actionLabel: 'استكمال جلسة التركيز', actionType: 'pomo-task', task: nextTask, url: 'pomodoro.html'
+                actionLabel: 'استكمال التركيز', actionType: 'pomo-task', task: nextTask, url: 'pomodoro.html'
             });
         } else if (nextTask.priority === 'high') {
             candidates.push({
@@ -1929,7 +1929,12 @@ function hayyizLaunchPomodoro(target, indexHint) {
     localStorage.setItem('hayyiz-current-task-index', String(index >= 0 ? index : -1));
     localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
     localStorage.removeItem('hayyiz-current-event');
-    window.location.href = 'pomodoro.html?task=' + encodeURIComponent(taskText);
+
+    let pomoUrl = 'pomodoro.html?task=' + encodeURIComponent(taskText);
+    if (taskObj.id) {
+        pomoUrl += '&taskId=' + encodeURIComponent(taskObj.id);
+    }
+    window.location.href = pomoUrl;
 }
 
 /**
