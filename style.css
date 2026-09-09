@@ -3358,3 +3358,45 @@ html.theme-dark .notes-dropdowns select {
     padding: 0.3rem 0.75rem;
     font-size: 0.82rem;
 }
+
+/* ===================== SUBJECT HUB UI CLASSES ===================== */
+.subject-status-badge {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.25rem 0.6rem;
+    border-radius: 12px;
+}
+
+.subject-status-needs_attention,
+.subject-status-near_exam {
+    background: color-mix(in srgb, var(--color-danger) 12%, var(--color-surface));
+    color: var(--color-danger);
+}
+
+.subject-status-has_progress,
+.subject-status-active_tasks {
+    background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+    color: var(--color-primary);
+}
+
+.subject-status-no_active_tasks {
+    background: var(--color-surface-alt);
+    color: var(--color-text-secondary);
+}
+
+.subject-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+    background: var(--color-surface-alt);
+    padding: 0.75rem;
+    border-radius: var(--radius-sm);
+    margin-bottom: 0.5rem;
+}
+
+.subject-overdue-text {
+    color: var(--color-danger);
+    font-weight: 700;
+}

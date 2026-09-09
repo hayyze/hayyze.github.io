@@ -508,6 +508,78 @@ const dataUi4Legacy = getSubjectHubData('sub_leg', {
 
 testAssert(dataUi4Legacy && dataUi4Legacy.focusMinutes === 40, 'Test UI-4b: Legacy subject data with focusMinutes fallback renders 40 minutes correctly without NaN');
 
+// TEST 12: Enhanced Specific Integration & Rendering Verification (Goal 4 & 5)
+resetEnv();
+
+// Test 1: Sessions are counted correctly (2 sessions = 50 mins, 2 sessions)
+const subG1 = hayyizAddSubject('الحاسب الآلي');
+const sessG1_1 = { id: 'sg1_1', durationMinutes: 25, timestamp: '2026-03-01T10:00:00Z', contextSnapshot: { subjectId: subG1.id } };
+const sessG1_2 = { id: 'sg1_2', durationMinutes: 25, timestamp: '2026-03-01T11:00:00Z', contextSnapshot: { subjectId: subG1.id } };
+const dataG1 = getSubjectHubData(subG1.id, { subjects: [subG1], todos: [], exams: [], focusSessions: [sessG1_1, sessG1_2], notes: [], goals: [] });
+testAssert(dataG1.focusMinutes === 50 && dataG1.focusSessionsCount === 2, 'Goal 4 Test 1: 2 sessions of 25m yield totalMinutes = 50 and totalSessions = 2 without inflating to 4 or 100');
+
+// Test 2: Task progress does not double-count logged sessions (focusDone = 50, 2 logged sessions of 25 = 50 total)
+const subG2 = hayyizAddSubject('الفيزياء النواة');
+const taskG2 = { id: 'tg2', text: 'حل المسائل', subjectId: subG2.id, focusDone: 50, completed: false };
+const sessG2_1 = { id: 'sg2_1', durationMinutes: 25, timestamp: '2026-03-01T10:00:00Z', contextSnapshot: { type: 'task', id: 'tg2', subjectId: subG2.id } };
+const sessG2_2 = { id: 'sg2_2', durationMinutes: 25, timestamp: '2026-03-01T11:00:00Z', contextSnapshot: { type: 'task', id: 'tg2', subjectId: subG2.id } };
+const dataG2 = getSubjectHubData(subG2.id, { subjects: [subG2], todos: [taskG2], exams: [], focusSessions: [sessG2_1, sessG2_2], notes: [], goals: [] });
+testAssert(dataG2.focusMinutes === 50, 'Goal 4 Test 2: Task focusDone = 50 matching 50m logged sessions yields totalMinutes = 50 (not 100)');
+
+// Test 3: Legacy fallback
+const subG3Legacy = { id: 'sub_g3_leg', name: 'لغة إنجليزية قديمة', focusMinutes: 60, sessions: 3 };
+const dataG3 = getSubjectHubData('sub_g3_leg', { subjects: [subG3Legacy], todos: [], exams: [], focusSessions: [], notes: [], goals: [] });
+testAssert(dataG3.focusMinutes === 60 && dataG3.focusSessionsCount === 3, 'Goal 4 Test 3: Legacy subject fallback correctly returns stored focusMinutes (60) and sessions (3)');
+
+// Test 4: Unlogged task focus (focusDone = 50, logged sessions = 25 -> totalMinutes = 50)
+const subG4 = hayyizAddSubject('الرياضيات المتقدمة');
+const taskG4 = { id: 'tg4', text: 'التفاضل والتكامل', subjectId: subG4.id, focusDone: 50, completed: false };
+const sessG4 = { id: 'sg4_1', durationMinutes: 25, timestamp: '2026-03-01T10:00:00Z', contextSnapshot: { type: 'task', id: 'tg4', subjectId: subG4.id } };
+const dataG4 = getSubjectHubData(subG4.id, { subjects: [subG4], todos: [taskG4], exams: [], focusSessions: [sessG4], notes: [], goals: [] });
+testAssert(dataG4.focusMinutes === 50, 'Goal 4 Test 4: Task focusDone = 50 with only 25m logged sessions adds only unlogged difference (25m) yielding 50 totalMinutes (not 75)');
+
+// Test 5: Different subjects remain isolated
+const subG5a = hayyizAddSubject('مادة س');
+const subG5b = hayyizAddSubject('مادة ص');
+const sessG5a = { id: 'sg5a', durationMinutes: 25, timestamp: '2026-03-01T10:00:00Z', contextSnapshot: { subjectId: subG5a.id } };
+const sessG5b = { id: 'sg5b', durationMinutes: 40, timestamp: '2026-03-01T10:00:00Z', contextSnapshot: { subjectId: subG5b.id } };
+const dataG5a = getSubjectHubData(subG5a.id, { subjects: [subG5a, subG5b], todos: [], exams: [], focusSessions: [sessG5a, sessG5b], notes: [], goals: [] });
+const dataG5b = getSubjectHubData(subG5b.id, { subjects: [subG5a, subG5b], todos: [], exams: [], focusSessions: [sessG5a, sessG5b], notes: [], goals: [] });
+testAssert(dataG5a.focusMinutes === 25 && dataG5b.focusMinutes === 40, 'Goal 4 Test 5: Subject X gets 25m and Subject Y gets 40m without cross-contamination');
+
+// Test 6: Status priority precedence
+const subP1 = hayyizAddSubject('مادة أولوية 1');
+const overdueP1 = { id: 'tp1', text: 'مهمة متأخرة', subjectId: subP1.id, date: '2020-01-01', completed: false };
+const nearExamP1 = { id: 'exp1', name: 'اختبار', subjectId: subP1.id, date: todayStr };
+const dataP1 = getSubjectHubData(subP1.id, { subjects: [subP1], todos: [overdueP1], exams: [nearExamP1], focusSessions: [], notes: [], goals: [] });
+
+const subP2 = hayyizAddSubject('مادة أولوية 2');
+const nearExamP2 = { id: 'exp2', name: 'اختبار مادة 2', subjectId: subP2.id, date: todayStr };
+const dataP2 = getSubjectHubData(subP2.id, { subjects: [subP2], todos: [], exams: [nearExamP2], focusSessions: [], notes: [], goals: [] });
+
+testAssert(dataP1.statusKey === 'needs_attention', 'Goal 4 Test 6a: Overdue task + near exam yields needs_attention status');
+testAssert(dataP2.statusKey === 'near_exam', 'Goal 4 Test 6b: Near exam without overdue yields near_exam status');
+
+// Test 7: Safe progress formatting (focusDone = 25, minutes = 0)
+const taskZeroMin = { id: 'tz', text: 'مهمة بدون وقت كلي', focusDone: 25, minutes: 0 };
+const progZero = hayyizFormatTaskProgress(taskZeroMin);
+testAssert(progZero && progZero.progressText === 'أُنجز 25 دقيقة تركيز' && progZero.percent === null, 'Goal 4 Test 7: Task with focusDone = 25 and minutes = 0 outputs clean text without NaN or Infinity');
+
+// DOM Rendering Test Simulation (Goal 5)
+const mockListContainer = {
+    children: [],
+    textContent: '',
+    appendChild(child) { this.children.push(child); }
+};
+
+mockDomElements['general-subjects-list'] = mockListContainer;
+mockDomElements['subjects-general-view'] = { style: {} };
+mockDomElements['subject-content'] = { style: {} };
+mockDomElements['subject-not-found'] = { style: {} };
+
+renderGeneralSubjectsView([subG1], [], [], [sessG1_1, sessG1_2], [], []);
+testAssert(mockListContainer.children.length === 1, 'Goal 5 DOM Test: renderGeneralSubjectsView populates card into list container');
+
 console.log(`===================================`);
 console.log(`SUBJECT HUB AUDIT RESULTS: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);

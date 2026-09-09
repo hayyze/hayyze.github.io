@@ -418,34 +418,14 @@ function renderGeneralSubjectsView(subjects, todos, exams, focusSessions, rawNot
         title.appendChild(titleLink);
 
         const badge = document.createElement('span');
-        let badgeBg = 'var(--surface-secondary)';
-        let badgeColor = 'var(--deep-ink)';
-
-        if (data.statusKey === 'needs_attention') {
-            badgeBg = 'rgba(182, 83, 59, 0.12)';
-            badgeColor = 'var(--terracotta)';
-        } else if (data.statusKey === 'near_exam') {
-            badgeBg = 'rgba(182, 83, 59, 0.12)';
-            badgeColor = 'var(--terracotta)';
-        } else if (data.statusKey === 'has_progress') {
-            badgeBg = 'rgba(24, 54, 77, 0.1)';
-            badgeColor = 'var(--primary)';
-        } else if (data.statusKey === 'active_tasks') {
-            badgeBg = 'var(--surface-secondary)';
-            badgeColor = 'var(--deep-ink)';
-        } else {
-            badgeBg = 'var(--surface-secondary)';
-            badgeColor = 'var(--text-muted)';
-        }
-
-        badge.style.cssText = `font-size: 0.78rem; font-weight: 700; color: ${badgeColor}; background: ${badgeBg}; padding: 0.25rem 0.6rem; border-radius: 12px;`;
+        badge.className = `subject-status-badge subject-status-${data.statusKey}`;
         badge.textContent = data.statusLabel;
 
         titleHeader.appendChild(title);
         titleHeader.appendChild(badge);
 
         const statsGrid = document.createElement('div');
-        statsGrid.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; font-size: 0.85rem; color: var(--text-muted); background: var(--surface-secondary); padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem;';
+        statsGrid.className = 'subject-stats-grid';
 
         // 1. المهام المتبقية
         const openTasksStat = document.createElement('div');
@@ -461,7 +441,7 @@ function renderGeneralSubjectsView(subjects, todos, exams, focusSessions, rawNot
         overdueStat.appendChild(overdueStrong);
         if (data.overdueTasks.length > 0) {
             const overdueSpan = document.createElement('span');
-            overdueSpan.style.cssText = 'color: var(--terracotta); font-weight: 700;';
+            overdueSpan.className = 'subject-overdue-text';
             overdueSpan.textContent = `${data.overdueTasks.length} متأخرة`;
             overdueStat.appendChild(overdueSpan);
         } else {
