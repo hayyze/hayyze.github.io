@@ -1118,7 +1118,7 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     assert(state6.dailyPlan.some(i => i.type === 'habit'), 'Daily plan contains habit item');
 }
 
-// --- 16. UNIFIED DAY STATUS MODEL REGRESSION SCENARIOS ---
+// --- 16. UNIFIED DAY STATUS MODEL COMPOSITE REGRESSION SCENARIOS (A THROUGH J) ---
 {
     localStorage.clear();
 
@@ -1129,98 +1129,116 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
         return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
     };
 
-    // Scenario 1: Day with no tasks (no_plan)
-    localStorage.clear();
-    const stateNoTask = hayyizComputeStudentDecisionState();
-    assert(stateNoTask.dayStatus.statusKey === 'no_plan', 'Day Status Scenario 1: Empty day produces status "no_plan"');
-
-    // Scenario 2: Day with overdue task (struggling)
+    // Scenario A: 3 overdue tasks + NO near exam
     localStorage.clear();
     localStorage.setItem('hayyiz-todos', JSON.stringify([
-        { id: 't_ds_overdue', text: 'واجب الفيزياء المتأخر', date: getOffsetDateStr(-2), priority: 'high', completed: false }
+        { id: 't_a1', text: 'مهمة متأخرة 1', date: getOffsetDateStr(-3), completed: false },
+        { id: 't_a2', text: 'مهمة متأخرة 2', date: getOffsetDateStr(-2), completed: false },
+        { id: 't_a3', text: 'مهمة متأخرة 3', date: getOffsetDateStr(-1), completed: false }
     ]));
-    const stateOverdue = hayyizComputeStudentDecisionState();
-    assert(stateOverdue.dayStatus.statusKey === 'struggling' && stateOverdue.dayStatus.statusLabel === 'يحتاج استدراك', 'Day Status Scenario 2: Overdue task produces status "struggling"');
+    const stateA = hayyizComputeStudentDecisionState();
+    assert(stateA.dayStatus.statusKey === 'accumulated_pressure', 'Scenario A: 3 overdue tasks produces "accumulated_pressure"');
+    assert(!stateA.dayStatus.description.includes('استحقاق') && !stateA.dayStatus.description.includes('اختبار'), 'Scenario A: Description does NOT claim non-existent near exam');
+    assert(stateA.dayStatus.description.includes('3 مهام متأخرة'), 'Scenario A: Description strictly states overdue tasks count');
 
-    // Scenario 3: Day with partially completed task via focus sessions (active_activity)
-    localStorage.clear();
-    localStorage.setItem('hayyiz-todos', JSON.stringify([
-        { id: 't_ds_partial', text: 'مشروع الرياضيات', focusDone: 30, completed: false }
-    ]));
-    const statePartial = hayyizComputeStudentDecisionState();
-    assert(statePartial.dayStatus.statusKey === 'active_activity' && statePartial.dayStatus.totalPartialFocusMinutes === 30, 'Day Status Scenario 3: Task with partial focus recognizes partial progress instead of unfulfilled task');
-
-    // Scenario 4: Day with clear accomplishment / progress (good)
-    localStorage.clear();
-    const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
-    localStorage.setItem('hayyiz-todos', JSON.stringify([
-        { id: 't_ds_done', text: 'تلخيص الكيمياء', completed: true, completedAt: todayStr }
-    ]));
-    const stateGood = hayyizComputeStudentDecisionState();
-    assert(stateGood.dayStatus.statusKey === 'good' && stateGood.dayStatus.statusLabel === 'يسير بشكل جيد', 'Day Status Scenario 4: Completed task produces status "good"');
-
-    // Scenario 5: Upcoming exam with linked task (upcoming_due with task context)
-    localStorage.clear();
-    const subMath = hayyizAddSubject('رياضيات');
-    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
-        { id: 'ex_ds_linked', name: 'اختبار الرياضيات النهائي', date: getOffsetDateStr(1), subjectId: subMath.id }
-    ]));
-    localStorage.setItem('hayyiz-todos', JSON.stringify([
-        { id: 't_ds_linked', text: 'حل نماذج رياضيات', subjectId: subMath.id, completed: false }
-    ]));
-    const stateExamTask = hayyizComputeStudentDecisionState();
-    assert(stateExamTask.dayStatus.statusKey === 'upcoming_due', 'Day Status Scenario 5: Near exam with linked task correctly produces "upcoming_due"');
-
-    // Scenario 6: Upcoming exam without linked task (upcoming_due with free review context)
+    // Scenario B: 3 overdue tasks + near exam
     localStorage.clear();
     localStorage.setItem('hayyiz-student-exams', JSON.stringify([
-        { id: 'ex_ds_free', name: 'اختبار تاريخ', date: getOffsetDateStr(1) }
+        { id: 'ex_b', name: 'اختبار الكيمياء', date: getOffsetDateStr(1) }
     ]));
-    const stateExamFree = hayyizComputeStudentDecisionState();
-    assert(stateExamFree.dayStatus.statusKey === 'upcoming_due' && stateExamFree.dayStatus.title.includes('اختبار قريب'), 'Day Status Scenario 6: Near exam without linked task produces "upcoming_due" for review');
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_b1', text: 'مهمة متأخرة 1', date: getOffsetDateStr(-3), completed: false },
+        { id: 't_b2', text: 'مهمة متأخرة 2', date: getOffsetDateStr(-2), completed: false },
+        { id: 't_b3', text: 'مهمة متأخرة 3', date: getOffsetDateStr(-1), completed: false }
+    ]));
+    const stateB = hayyizComputeStudentDecisionState();
+    assert(stateB.dayStatus.statusKey === 'accumulated_pressure', 'Scenario B: Overdue tasks + near exam produces "accumulated_pressure"');
+    assert(stateB.dayStatus.description.includes('مهام متأخرة') && stateB.dayStatus.description.includes('اختبار الكيمياء'), 'Scenario B: Description explicitly mentions BOTH overdue tasks and near exam');
 
-    // Scenario 7: Uncompleted habit with urgent task (habit kept distinct)
+    // Scenario C: 7 historical past days (60, 60, 0, 0, 0, 0, 0)
+    localStorage.clear();
+    const histC = {};
+    histC[getOffsetDateStr(-1)] = 60;
+    histC[getOffsetDateStr(-2)] = 60;
+    histC[getOffsetDateStr(-3)] = 0;
+    histC[getOffsetDateStr(-4)] = 0;
+    histC[getOffsetDateStr(-5)] = 0;
+    histC[getOffsetDateStr(-6)] = 0;
+    histC[getOffsetDateStr(-7)] = 0;
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histC));
+    const compC = hayyizGetFocusHistoryComparison(50);
+    assert(compC.hasSufficientData === true, 'Scenario C: Sufficient data recognized when 7 historical days exist');
+    assert(compC.avgMinutes === 17, 'Scenario C: 7-day average calculated as (120/7) = 17 minutes');
+    assert(compC.comparisonText === 'أعلى من معدلك الأسبوعي', 'Scenario C: 50 minutes focus is higher than 17-minute 7-day average');
+
+    // Scenario D: Insufficient history (< 3 days recorded in history object)
+    localStorage.clear();
+    const histD = {};
+    histD[getOffsetDateStr(-1)] = 45;
+    histD[getOffsetDateStr(-2)] = 45;
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histD));
+    const compD = hayyizGetFocusHistoryComparison(30);
+    assert(compD.hasSufficientData === false, 'Scenario D: Less than 3 days in history returns hasSufficientData: false');
+    assert(compD.comparisonText === '', 'Scenario D: No false weekly average claim made');
+
+    // Scenario E: 25 mins focus only + large number of remaining active tasks (5 tasks)
+    localStorage.clear();
+    localStorage.setItem('hayyiz-focus-minutes-today', '25');
+    const fiveTasks = Array.from({ length: 5 }, (_, i) => ({ id: 't_e_' + i, text: 'مهمة متبقية ' + i, completed: false }));
+    localStorage.setItem('hayyiz-todos', JSON.stringify(fiveTasks));
+    const stateE = hayyizComputeStudentDecisionState();
+    assert(stateE.dayStatus.title !== 'إنجاز واستمرارية ممتازة' && !stateE.dayStatus.description.includes('ممتاز'), 'Scenario E: 25 mins focus with 5 remaining tasks does NOT make exaggerated claims like "ممتاز"');
+
+    // Scenario F: Exam tomorrow + linked task has focusDone > 0
+    localStorage.clear();
+    const subPhysics = hayyizAddSubject('فيزياء');
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_f', name: 'اختبار الفيزياء', date: getOffsetDateStr(1), subjectId: subPhysics.id }
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_f', text: 'مراجعة أجهزة الفيزياء', subjectId: subPhysics.id, focusDone: 30, completed: false }
+    ]));
+    const stateF = hayyizComputeStudentDecisionState();
+    assert(stateF.dayStatus.statusKey === 'upcoming_due', 'Scenario F: Near exam with partial progress produces "upcoming_due"');
+    assert(stateF.dayStatus.title.includes('استعداد لاختبار قريب') && stateF.dayStatus.description.includes('30 دقيقة تركيز'), 'Scenario F: Description explicitly acknowledges focus progress made on exam preparation task');
+
+    // Scenario G: Overdue tasks + near exam + low focus today
+    localStorage.clear();
+    localStorage.setItem('hayyiz-focus-minutes-today', '0');
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_g', name: 'اختبار الرياضيات', date: getOffsetDateStr(1) }
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_g1', text: 'واجب متأخر', date: getOffsetDateStr(-2), completed: false }
+    ]));
+    const stateG = hayyizComputeStudentDecisionState();
+    assert(stateG.dayStatus.statusKey === 'accumulated_pressure', 'Scenario G: Overdue task + near exam + low focus produces "accumulated_pressure"');
+
+    // Scenario H: Uncompleted habit + urgent academic task
     localStorage.clear();
     localStorage.setItem('hayyiz-habits', JSON.stringify([
-        { id: 'h_ds_1', title: 'قراءة صفحتين', lastCompleted: '2020-01-01' }
+        { id: 'h_h1', title: 'شرب الماء', lastCompleted: '2020-01-01' }
     ]));
     localStorage.setItem('hayyiz-todos', JSON.stringify([
-        { id: 't_ds_urgent', text: 'مهمة عاجلة جداً', date: getOffsetDateStr(-1), completed: false }
+        { id: 't_h1', text: 'تسليم مشروع الحاسب المتأخر', date: getOffsetDateStr(-1), completed: false }
     ]));
-    const stateHabitTask = hayyizComputeStudentDecisionState();
-    assert(stateHabitTask.dayStatus.statusKey === 'struggling', 'Day Status Scenario 7: Uncompleted habit does not mask urgent/overdue academic task status');
+    const stateH = hayyizComputeStudentDecisionState();
+    assert(stateH.dayStatus.statusKey === 'struggling', 'Scenario H: Uncompleted habit does NOT mask urgent academic overdue status');
 
-    // Scenario 8: Active running Pomodoro session (active_activity)
+    // Scenario I: No tasks, no exams, no habits, no activity
     localStorage.clear();
-    const runningFocusStateDS = {
-        mode: 'focus',
-        status: 'running',
-        remainingSeconds: 1000,
-        totalDuration: 1500,
-        endTime: Date.now() + 1000000,
-        context: { type: 'free', id: null, title: 'تركيز جاري' }
-    };
-    hayyizSaveFocusState(runningFocusStateDS);
-    const stateRunningDS = hayyizComputeStudentDecisionState();
-    assert(stateRunningDS.dayStatus.statusKey === 'active_activity' && stateRunningDS.dayStatus.statusLabel === 'نشاط حالي مستمر', 'Day Status Scenario 8: Running Pomodoro session produces "active_activity" status');
+    const stateI = hayyizComputeStudentDecisionState();
+    assert(stateI.dayStatus.statusKey === 'no_plan', 'Scenario I: Completely empty state produces statusKey "no_plan"');
+    assert(stateI.dayStatus.statusLabel === 'بدون خطة نشطة', 'Scenario I: Label is "بدون خطة نشطة"');
 
-    // Scenario 9: Focus history comparison - Insufficient data (< 3 days)
+    // Scenario J: Active tasks exist but no focus started (focusDone == 0, focusMinutesToday == 0)
     localStorage.clear();
-    const histInsuff = {};
-    histInsuff[getOffsetDateStr(-1)] = 30;
-    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histInsuff));
-    const compInsuff = hayyizGetFocusHistoryComparison(40);
-    assert(compInsuff.hasSufficientData === false, 'Day Status Scenario 9: Insufficient past focus history (< 3 days) produces no false claims');
-
-    // Scenario 10: Focus history comparison - Sufficient data (>= 3 days)
-    localStorage.clear();
-    const histSuff = {};
-    histSuff[getOffsetDateStr(-1)] = 30;
-    histSuff[getOffsetDateStr(-2)] = 30;
-    histSuff[getOffsetDateStr(-3)] = 30;
-    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histSuff));
-    const compSuffHigh = hayyizGetFocusHistoryComparison(50);
-    assert(compSuffHigh.hasSufficientData === true && compSuffHigh.comparisonText === 'أعلى من معدلك الأسبوعي', 'Day Status Scenario 10: Higher focus than 3-day average correctly yields "أعلى من معدلك الأسبوعي"');
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_j1', text: 'قراءة الفصل الأول', focusDone: 0, completed: false }
+    ]));
+    const stateJ = hayyizComputeStudentDecisionState();
+    assert(stateJ.dayStatus.statusKey === 'ready_to_start', 'Scenario J: Unstarted active tasks produce distinct statusKey "ready_to_start"');
+    assert(stateJ.dayStatus.statusLabel === 'جاهز للبدء', 'Scenario J: Label is "جاهز للبدء" (distinct from "no_plan")');
 }
 
 console.log(`\n===================================`);
