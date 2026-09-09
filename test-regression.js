@@ -1118,6 +1118,111 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     assert(state6.dailyPlan.some(i => i.type === 'habit'), 'Daily plan contains habit item');
 }
 
+// --- 16. UNIFIED DAY STATUS MODEL REGRESSION SCENARIOS ---
+{
+    localStorage.clear();
+
+    const getOffsetDateStr = (offsetDays) => {
+        const base = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+        const parts = base.split('-').map(Number);
+        const dt = new Date(parts[0], parts[1] - 1, parts[2] + offsetDays);
+        return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    };
+
+    // Scenario 1: Day with no tasks (no_plan)
+    localStorage.clear();
+    const stateNoTask = hayyizComputeStudentDecisionState();
+    assert(stateNoTask.dayStatus.statusKey === 'no_plan', 'Day Status Scenario 1: Empty day produces status "no_plan"');
+
+    // Scenario 2: Day with overdue task (struggling)
+    localStorage.clear();
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_ds_overdue', text: 'واجب الفيزياء المتأخر', date: getOffsetDateStr(-2), priority: 'high', completed: false }
+    ]));
+    const stateOverdue = hayyizComputeStudentDecisionState();
+    assert(stateOverdue.dayStatus.statusKey === 'struggling' && stateOverdue.dayStatus.statusLabel === 'يحتاج استدراك', 'Day Status Scenario 2: Overdue task produces status "struggling"');
+
+    // Scenario 3: Day with partially completed task via focus sessions (active_activity)
+    localStorage.clear();
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_ds_partial', text: 'مشروع الرياضيات', focusDone: 30, completed: false }
+    ]));
+    const statePartial = hayyizComputeStudentDecisionState();
+    assert(statePartial.dayStatus.statusKey === 'active_activity' && statePartial.dayStatus.totalPartialFocusMinutes === 30, 'Day Status Scenario 3: Task with partial focus recognizes partial progress instead of unfulfilled task');
+
+    // Scenario 4: Day with clear accomplishment / progress (good)
+    localStorage.clear();
+    const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_ds_done', text: 'تلخيص الكيمياء', completed: true, completedAt: todayStr }
+    ]));
+    const stateGood = hayyizComputeStudentDecisionState();
+    assert(stateGood.dayStatus.statusKey === 'good' && stateGood.dayStatus.statusLabel === 'يسير بشكل جيد', 'Day Status Scenario 4: Completed task produces status "good"');
+
+    // Scenario 5: Upcoming exam with linked task (upcoming_due with task context)
+    localStorage.clear();
+    const subMath = hayyizAddSubject('رياضيات');
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_ds_linked', name: 'اختبار الرياضيات النهائي', date: getOffsetDateStr(1), subjectId: subMath.id }
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_ds_linked', text: 'حل نماذج رياضيات', subjectId: subMath.id, completed: false }
+    ]));
+    const stateExamTask = hayyizComputeStudentDecisionState();
+    assert(stateExamTask.dayStatus.statusKey === 'upcoming_due', 'Day Status Scenario 5: Near exam with linked task correctly produces "upcoming_due"');
+
+    // Scenario 6: Upcoming exam without linked task (upcoming_due with free review context)
+    localStorage.clear();
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_ds_free', name: 'اختبار تاريخ', date: getOffsetDateStr(1) }
+    ]));
+    const stateExamFree = hayyizComputeStudentDecisionState();
+    assert(stateExamFree.dayStatus.statusKey === 'upcoming_due' && stateExamFree.dayStatus.title.includes('اختبار قريب'), 'Day Status Scenario 6: Near exam without linked task produces "upcoming_due" for review');
+
+    // Scenario 7: Uncompleted habit with urgent task (habit kept distinct)
+    localStorage.clear();
+    localStorage.setItem('hayyiz-habits', JSON.stringify([
+        { id: 'h_ds_1', title: 'قراءة صفحتين', lastCompleted: '2020-01-01' }
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_ds_urgent', text: 'مهمة عاجلة جداً', date: getOffsetDateStr(-1), completed: false }
+    ]));
+    const stateHabitTask = hayyizComputeStudentDecisionState();
+    assert(stateHabitTask.dayStatus.statusKey === 'struggling', 'Day Status Scenario 7: Uncompleted habit does not mask urgent/overdue academic task status');
+
+    // Scenario 8: Active running Pomodoro session (active_activity)
+    localStorage.clear();
+    const runningFocusStateDS = {
+        mode: 'focus',
+        status: 'running',
+        remainingSeconds: 1000,
+        totalDuration: 1500,
+        endTime: Date.now() + 1000000,
+        context: { type: 'free', id: null, title: 'تركيز جاري' }
+    };
+    hayyizSaveFocusState(runningFocusStateDS);
+    const stateRunningDS = hayyizComputeStudentDecisionState();
+    assert(stateRunningDS.dayStatus.statusKey === 'active_activity' && stateRunningDS.dayStatus.statusLabel === 'نشاط حالي مستمر', 'Day Status Scenario 8: Running Pomodoro session produces "active_activity" status');
+
+    // Scenario 9: Focus history comparison - Insufficient data (< 3 days)
+    localStorage.clear();
+    const histInsuff = {};
+    histInsuff[getOffsetDateStr(-1)] = 30;
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histInsuff));
+    const compInsuff = hayyizGetFocusHistoryComparison(40);
+    assert(compInsuff.hasSufficientData === false, 'Day Status Scenario 9: Insufficient past focus history (< 3 days) produces no false claims');
+
+    // Scenario 10: Focus history comparison - Sufficient data (>= 3 days)
+    localStorage.clear();
+    const histSuff = {};
+    histSuff[getOffsetDateStr(-1)] = 30;
+    histSuff[getOffsetDateStr(-2)] = 30;
+    histSuff[getOffsetDateStr(-3)] = 30;
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histSuff));
+    const compSuffHigh = hayyizGetFocusHistoryComparison(50);
+    assert(compSuffHigh.hasSufficientData === true && compSuffHigh.comparisonText === 'أعلى من معدلك الأسبوعي', 'Day Status Scenario 10: Higher focus than 3-day average correctly yields "أعلى من معدلك الأسبوعي"');
+}
+
 console.log(`\n===================================`);
 console.log(`REGRESSION AUDIT SUMMARY: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);
