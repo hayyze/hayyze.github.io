@@ -120,16 +120,43 @@ document.addEventListener('DOMContentLoaded', () => {
     content.replaceChildren();
 
     // ==========================================
-    // 1. اليوم (Today Header)
+    // 1. اليوم (Today Header with Day Status Badge & Explanation)
     // ==========================================
     const greet = document.createElement('div');
     greet.className = 'dash-greeting';
+
+    const greetTop = document.createElement('div');
+    greetTop.style.cssText = 'display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;';
+
     const greetTitle = document.createElement('h3');
+    greetTitle.style.cssText = 'margin: 0;';
     greetTitle.textContent = greeting + ' 👋';
+    greetTop.appendChild(greetTitle);
+
+    const dayStatus = studentState ? studentState.dayStatus : null;
+    if (dayStatus) {
+        const statusBadge = document.createElement('span');
+        statusBadge.className = 'dash-now-tag ' + (dayStatus.cssClass || '');
+        statusBadge.style.cssText = 'font-size: 0.82rem; padding: 0.25rem 0.6rem; border-radius: 12px; font-weight: 700; background: var(--color-surface-alt); border: 1px solid var(--color-border); color: var(--color-primary);';
+        statusBadge.textContent = 'حالة اليوم: ' + dayStatus.statusLabel;
+        greetTop.appendChild(statusBadge);
+    }
+
+    greet.appendChild(greetTop);
+
     const greetDate = document.createElement('p');
-    greetDate.textContent = dateLabel;
-    greet.appendChild(greetTitle);
+    greetDate.style.cssText = 'margin: 0.35rem 0 0; color: var(--color-text-secondary); font-size: 0.88rem;';
+
+    let subtitleText = dateLabel;
+    if (dayStatus && dayStatus.title) {
+        subtitleText += ` · ${dayStatus.title}`;
+    }
+    if (dayStatus && dayStatus.historyComparison && dayStatus.historyComparison.hasSufficientData && dayStatus.historyComparison.comparisonText) {
+        subtitleText += ` (${dayStatus.historyComparison.comparisonText})`;
+    }
+    greetDate.textContent = subtitleText;
     greet.appendChild(greetDate);
+
     content.appendChild(greet);
 
     // ==========================================

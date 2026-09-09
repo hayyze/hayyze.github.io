@@ -1258,14 +1258,215 @@ function hayyizBuildDailyPlan(snapshot, rankedTasks, primaryDecision) {
 }
 
 /**
+ * حساب مقارنة التركيز اليومي مع التاريخ الأسبوعي البسيط (7 أيام سابقة)
+ */
+function hayyizGetFocusHistoryComparison(focusMinutesToday) {
+    try {
+        const hist = hayyizParseJSON('hayyiz-focus-history', {});
+        let totalPastMinutes = 0;
+        let recordedInWindowCount = 0;
+
+        const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+        const parts = todayStr.split('-').map(Number);
+
+        // جمع دقائق التركيز وفحص وجود السجلات للـ 7 أيام السابقة بالكامل (ضمن النافذة فقط)
+        for (let i = 1; i <= 7; i++) {
+            const d = new Date(parts[0], parts[1] - 1, parts[2] - i);
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            const key = `${y}-${m}-${dd}`;
+
+            if (hist[key] !== undefined) {
+                recordedInWindowCount++;
+                totalPastMinutes += (parseInt(hist[key], 10) || 0);
+            }
+        }
+
+        // يتطلب وجود 3 أيام مسجلة على الأقل داخل نافذة الأيام السبعة السابقة فقط
+        if (recordedInWindowCount < 3) {
+            return { hasSufficientData: false, comparisonText: '', avgMinutes: 0 };
+        }
+
+        // المتوسط يُحسب دائماً على الأيام السبعة السابقة بالكامل
+        const avgMinutes = Math.round(totalPastMinutes / 7);
+        let comparisonText = '';
+
+        if (focusMinutesToday >= Math.round(avgMinutes * 1.2) && focusMinutesToday >= 20) {
+            comparisonText = 'أعلى من معدلك الأسبوعي';
+        } else if (focusMinutesToday >= Math.round(avgMinutes * 0.7)) {
+            comparisonText = 'ضمن معدلك المعتاد';
+        } else if (focusMinutesToday > 0) {
+            comparisonText = 'أقل من معدلك المعتاد';
+        } else {
+            comparisonText = 'لم تبدأ التركيز بعد اليوم';
+        }
+
+        return {
+            hasSufficientData: true,
+            comparisonText,
+            avgMinutes,
+            validDaysCount: 7
+        };
+    } catch (e) {
+        return { hasSufficientData: false, comparisonText: '', avgMinutes: 0 };
+    }
+}
+
+/**
+ * استخراج حالة يوم الطالب الموحدة بناءً على الإشارات الحقيقية
+ */
+function hayyizComputeDayStatus(snapshot) {
+    const snap = snapshot || hayyizBuildStudentSnapshot();
+    const today = snap.today;
+    const completedToday = snap.todos.filter((t) => t && t.completed && t.completedAt === today).length;
+    const tasksWithPartialFocus = snap.activeTodos.filter((t) => (parseInt(t.focusDone, 10) || 0) > 0);
+
+    let totalPartialFocusMinutes = 0;
+    tasksWithPartialFocus.forEach((t) => {
+        totalPartialFocusMinutes += (parseInt(t.focusDone, 10) || 0);
+    });
+
+    const isRunningFocus = Boolean(
+        snap.focusState && snap.focusState.status === 'running' && snap.focusState.remainingSeconds > 0
+    );
+
+    const upcomingExamsNear = snap.exams.filter((ex) => {
+        if (!ex || ex.done || !ex.date) return false;
+        const d = hayyizDaysUntil(String(ex.date).slice(0, 10));
+        return d !== null && d >= 0 && d <= 2;
+    });
+
+    const historyComparison = hayyizGetFocusHistoryComparison(snap.focusMinutesToday);
+
+    let statusKey = 'no_plan';
+    let statusLabel = 'بدون خطة نشطة';
+    let title = 'لا توجد خطة عمل محددة اليوم';
+    let description = 'أضف مهامك أو جدول اختباراتك لتبدأ تنظيم يومك بشكل واضح.';
+    let cssClass = 'status-neutral';
+
+    // 1. نشاط جاري الآن
+    if (isRunningFocus) {
+        statusKey = 'active_activity';
+        statusLabel = 'نشاط حالي مستمر';
+        const ctxTitle = snap.focusState.context ? snap.focusState.context.title : 'جلسة تركيز';
+        title = 'جلسة تركيز جارية الآن';
+        description = `أنت في منتصف جلسة تركيز ("${ctxTitle}"). واصل تركيزك للحفاظ على الاستمرارية.`;
+        cssClass = 'status-active';
+    }
+    // 2. ضغط متراكم (3+ مهام متأخرة أو مهام متأخرة + اختبار قريب)
+    else if (snap.overdueTodos.length >= 3 || (snap.overdueTodos.length >= 1 && upcomingExamsNear.length >= 1 && snap.focusMinutesToday < snap.workMin)) {
+        statusKey = 'accumulated_pressure';
+        statusLabel = 'ضغط متراكم';
+
+        const hasNearExams = upcomingExamsNear.length >= 1;
+        if (hasNearExams) {
+            title = 'تراكم في المهام والاستحقاقات';
+            description = `لديك ${snap.overdueTodos.length} مهام متأخرة مع وجود استحقاق قريب (${upcomingExamsNear[0].name}). البدء بأصغر مهمة يقلل الضغط تدريجياً.`;
+        } else {
+            title = 'تراكم في المهام المتأخرة';
+            description = `لديك ${snap.overdueTodos.length} مهام متأخرة عن موعدها. البدء بأصغر مهمة يقلل الضغط تدريجياً.`;
+        }
+        cssClass = 'status-danger';
+    }
+    // 3. تأخر في بعض المهام (1-2 مهمة متأخرة)
+    else if (snap.overdueTodos.length > 0) {
+        statusKey = 'struggling';
+        statusLabel = 'يحتاج استدراك';
+        title = 'تأخر في بعض المهام';
+        description = `لديك ${snap.overdueTodos.length} مهمة متأخرة عن موعدها. خذ جلسة تركيز واحدة لاستعادة السيطرة.`;
+        cssClass = 'status-warning';
+    }
+    // 4. اختبار قريب (استحقاق قريب)
+    else if (upcomingExamsNear.length > 0) {
+        statusKey = 'upcoming_due';
+        statusLabel = 'استحقاق قريب';
+        const ex = upcomingExamsNear[0];
+        const d = hayyizDaysUntil(String(ex.date).slice(0, 10));
+        const dayLabel = d === 0 ? 'اليوم' : (d === 1 ? 'غداً' : 'بعد يومين');
+
+        const linkedTaskWithFocus = snap.activeTodos.find((t) => {
+            if (!t || (parseInt(t.focusDone, 10) || 0) <= 0) return false;
+            if (ex.subjectId && t.subjectId === ex.subjectId) return true;
+            if (t.eventId && t.eventId === ex.id) return true;
+            if (ex.name && t.text && t.text.includes(ex.name)) return true;
+            return false;
+        });
+
+        if (linkedTaskWithFocus) {
+            title = `استعداد لاختبار قريب (${ex.name})`;
+            description = `لديك اختبار ${dayLabel} وقد أنجزت ${linkedTaskWithFocus.focusDone} دقيقة تركيز على مهمة الاستعداد ("${linkedTaskWithFocus.text}"). استمر في المراجعة.`;
+        } else {
+            title = `اختبار قريب (${ex.name})`;
+            description = `لديك اختبار ${dayLabel}. الاستعداد المبكر يمنحك ثقة وأداء أفضل.`;
+        }
+        cssClass = 'status-info';
+    }
+    // 5. تقدم جاري على مهمة بدأت فيها جلسات تركيز
+    else if (tasksWithPartialFocus.length > 0) {
+        statusKey = 'active_activity';
+        statusLabel = 'تقدم جاري';
+        title = 'عمل قيد التنفيذ';
+        description = `أُنجزت ${totalPartialFocusMinutes} دقيقة تركيز على مهام قيد التنفيذ. استكمال الجلسات يوصلك للإنجاز الكامل.`;
+        cssClass = 'status-active';
+    }
+    // 6. يوم يسير بشكل جيد (مهام مكتملة أو تقدم حقيقي)
+    else if (completedToday > 0 || (snap.focusMinutesToday >= snap.workMin && snap.activeTodos.length <= 3) || (snap.habitsSummary.total > 0 && snap.habitsSummary.completed === snap.habitsSummary.total && snap.activeTodos.length === 0)) {
+        statusKey = 'good';
+        statusLabel = 'يسير بشكل جيد';
+
+        if (completedToday > 0) {
+            title = 'تقدم وإنجاز محرز';
+            description = `أكملت ${completedToday} مهام اليوم` + (snap.focusMinutesToday > 0 ? ` مع ${snap.focusMinutesToday} دقيقة تركيز.` : '.');
+        } else if (snap.focusMinutesToday >= snap.workMin) {
+            title = 'بداية تركيز جيدة';
+            description = `أنجزت ${snap.focusMinutesToday} دقيقة تركيز اليوم. واصل الجلسات لإكمال مهامك.`;
+        } else {
+            title = 'يوم متوازن';
+            description = 'أكملت جميع عاداتك اليومية بنجاح.';
+        }
+        cssClass = 'status-success';
+    }
+    // 7. توجد مهام نشطة جاهزة للبدء ولم تبدأ بعد
+    else if (snap.activeTodos.length > 0) {
+        statusKey = 'ready_to_start';
+        statusLabel = 'جاهز للبدء';
+        title = 'لديك مهام تنتظر البدء';
+        description = `لديك ${snap.activeTodos.length} مهام محددة. اختر أول مهمة وابدأ جلسة التركيز الأولى.`;
+        cssClass = 'status-neutral';
+    }
+    // 8. لا توجد خطة أو عمل محدد
+    else {
+        statusKey = 'no_plan';
+        statusLabel = 'بدون خطة نشطة';
+        title = 'لا توجد خطة عمل محددة اليوم';
+        description = 'أضف مهامك أو جدول اختباراتك لتبدأ تنظيم يومك بشكل واضح.';
+        cssClass = 'status-neutral';
+    }
+
+    return {
+        statusKey,
+        statusLabel,
+        title,
+        description,
+        cssClass,
+        completedToday,
+        tasksWithPartialFocusCount: tasksWithPartialFocus.length,
+        totalPartialFocusMinutes,
+        historyComparison
+    };
+}
+
+/**
  * 5. المنسق المركزي لحالة الطالب ورؤية القرار الموحدة (Orchestrator Function)
- * Snapshot → Rank Tasks → Evaluate Decisions → Daily Plan → Unified State
+ * Snapshot → Rank Tasks → Evaluate Decisions → Daily Plan → Day Status → Unified State
  */
 function hayyizComputeStudentDecisionState() {
     const snapshot = hayyizBuildStudentSnapshot();
     const taskRanking = hayyizRankTasks(snapshot);
     const evaluation = hayyizEvaluateDecisions(snapshot, taskRanking.rankedTasks);
     const dailyPlan = hayyizBuildDailyPlan(snapshot, taskRanking.rankedTasks, evaluation.primaryDecision);
+    const dayStatus = hayyizComputeDayStatus(snapshot);
 
     const getRecommendations = (limit) => {
         const max = typeof limit === 'number' ? limit : 5;
@@ -1302,6 +1503,7 @@ function hayyizComputeStudentDecisionState() {
         candidates: evaluation.candidates,
         primaryDecision: evaluation.primaryDecision,
         dailyPlan,
+        dayStatus,
         recommendation,
         getRecommendations
     };
