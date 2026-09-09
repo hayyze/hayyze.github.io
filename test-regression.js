@@ -1000,6 +1000,124 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     assert(planScenH.length > 0 && planScenH[0].type === 'pomodoro' && planScenH[0].badge === 'جلسة جارية', 'Scenario H: Active running Pomodoro takes top priority in Daily Plan');
 }
 
+// --- 15. SINGLE CENTRAL DECISION ENGINE REGRESSION TESTS ---
+{
+    localStorage.clear();
+
+    // 1. Existence of single central decision source function & primitives
+    assert(typeof hayyizBuildStudentSnapshot === 'function', 'hayyizBuildStudentSnapshot primitive exists');
+    assert(typeof hayyizRankTasks === 'function', 'hayyizRankTasks primitive exists');
+    assert(typeof hayyizEvaluateDecisions === 'function', 'hayyizEvaluateDecisions primitive exists');
+    assert(typeof hayyizBuildDailyPlan === 'function', 'hayyizBuildDailyPlan primitive exists');
+    assert(typeof hayyizComputeStudentDecisionState === 'function', 'hayyizComputeStudentDecisionState orchestrator exists');
+
+    // 2. Single snapshot creation per compute pass
+    let snapshotCount = 0;
+    const origBuildSnap = hayyizBuildStudentSnapshot;
+    hayyizBuildStudentSnapshot = function(...args) {
+        snapshotCount++;
+        return origBuildSnap.apply(this, args);
+    };
+
+    snapshotCount = 0;
+    const singlePassState = hayyizComputeStudentDecisionState();
+    assert(snapshotCount === 1, 'Snapshot is created exactly once per central decision calculation pass');
+    hayyizBuildStudentSnapshot = origBuildSnap;
+
+    // 3. primaryDecision, dailyPlan, and recommendation share same snapshot/state
+    assert(singlePassState.primaryDecision !== undefined && singlePassState.dailyPlan !== undefined && singlePassState.recommendation !== undefined, 'Central state contains primaryDecision, dailyPlan, and recommendation');
+
+    // 4. Thin wrappers execute only required primitives without rerun of full pipeline
+    let evalCount = 0;
+    const origEvalDec = hayyizEvaluateDecisions;
+    hayyizEvaluateDecisions = function(...args) {
+        evalCount++;
+        return origEvalDec.apply(this, args);
+    };
+
+    evalCount = 0;
+    hayyizRecommendNext(3);
+    assert(evalCount === 0, 'hayyizRecommendNext wrapper does NOT rerun decision evaluation primitive');
+
+    hayyizEvaluateDecisions = origEvalDec;
+
+    // 5. Consistency between Summary decision and Daily Plan top primary action
+    const getOffsetDateStr = (offsetDays) => {
+        const base = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+        const parts = base.split('-').map(Number);
+        const dt = new Date(parts[0], parts[1] - 1, parts[2] + offsetDays);
+        return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    };
+
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_cde_1', text: 'مهمة عالية الأولوية عاجلة', priority: 'high', date: getOffsetDateStr(-1), completed: false },
+        { id: 't_cde_2', text: 'مهمة عادية', priority: 'low', completed: false }
+    ]));
+
+    const state1 = hayyizComputeStudentDecisionState();
+    assert(state1.primaryDecision !== null, 'Central engine evaluates primary decision');
+    assert(state1.dailyPlan.length > 0, 'Central engine generates daily plan');
+    assert(state1.dailyPlan[0].isPrimaryNextAction === true, 'Top item in daily plan is marked as primary next action');
+    assert(state1.dailyPlan[0].title === state1.primaryDecision.actionTitle, 'Decision title matches top daily plan item title exactly');
+
+    // 6. Exclusion of completed tasks from recommendations and plan
+    hayyizCompleteTask('t_cde_1', 'مهمة عالية الأولوية عاجلة');
+    const state2 = hayyizComputeStudentDecisionState();
+    assert(!state2.activeTodos.some(t => t.id === 't_cde_1'), 'Completed task excluded from active todos');
+    assert(!state2.dailyPlan.some(p => p.task && p.task.id === 't_cde_1'), 'Completed task excluded from daily plan');
+    assert(!state2.recommendation.ranked.some(r => r.task.id === 't_cde_1'), 'Completed task excluded from ranked recommendations');
+
+    // 7. Active running focus session priority in central state
+    const runningFocusState = {
+        mode: 'focus',
+        status: 'running',
+        remainingSeconds: 1200,
+        totalDuration: 1500,
+        endTime: Date.now() + 1200000,
+        context: { type: 'free', id: null, title: 'تركيز جاري حالي' }
+    };
+    hayyizSaveFocusState(runningFocusState);
+    const state3 = hayyizComputeStudentDecisionState();
+    assert(state3.primaryDecision && state3.primaryDecision.id === 'running-focus', 'Active running focus session takes top priority (score 1000) in central decision');
+    assert(state3.dailyPlan[0].id === 'plan-running-focus', 'Running focus session is placed at index 0 of daily plan');
+
+    // 8. Urgent exam priority
+    localStorage.clear();
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_cde_urgent', name: 'اختبار غداً', date: getOffsetDateStr(1) }
+    ]));
+    const state4 = hayyizComputeStudentDecisionState();
+    assert(state4.primaryDecision && state4.primaryDecision.id === 'exam-upcoming', 'Urgent upcoming exam evaluated as primary decision when focus minutes low');
+    assert(state4.dailyPlan[0].event && state4.dailyPlan[0].event.id === 'ex_cde_urgent', 'Urgent exam placed at index 0 of daily plan');
+
+    // 9. Near exam + overdue task combined priority
+    localStorage.clear();
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_comb', name: 'اختبار الفيزياء', date: getOffsetDateStr(5) }
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_comb_overdue', text: 'واجب كيمياء متأخر', date: getOffsetDateStr(-3), priority: 'high', completed: false }
+    ]));
+    const state5 = hayyizComputeStudentDecisionState();
+    assert(state5.primaryDecision && state5.primaryDecision.id === 'task-overdue', 'Overdue task prioritizes over distant exam');
+
+    // 10. Multi-type items in daily plan (todo, exam, habit)
+    localStorage.clear();
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_multi_1', text: 'مهمة 1', priority: 'high', completed: false }
+    ]));
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_multi_1', name: 'اختبار اليوم', date: getOffsetDateStr(0) }
+    ]));
+    localStorage.setItem('hayyiz-habits', JSON.stringify([
+        { id: 'h_multi_1', title: 'عادة يومية', lastCompleted: '2020-01-01' }
+    ]));
+    const state6 = hayyizComputeStudentDecisionState();
+    assert(state6.dailyPlan.some(i => i.type === 'todo'), 'Daily plan contains todo item');
+    assert(state6.dailyPlan.some(i => i.type === 'exam'), 'Daily plan contains exam item');
+    assert(state6.dailyPlan.some(i => i.type === 'habit'), 'Daily plan contains habit item');
+}
+
 console.log(`\n===================================`);
 console.log(`REGRESSION AUDIT SUMMARY: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);

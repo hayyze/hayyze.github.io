@@ -875,22 +875,60 @@ function hayyizScoreTask(task, context) {
     return { score, reasons: reasons.slice(0, 2), task, isInProgress };
 }
 
+/* ---------- محرك التوصية والقرار المركزي — Student OS Pipeline ---------- */
+
 /**
- * يعيد أفضل مهمة للبدء + قائمة مرتبة.
- * @returns {{ next: object|null, reason: string, isInProgress: boolean, ranked: Array, allActive: Array }}
+ * 1. جمع البيانات مرة واحدة فقط (Data Snapshot Builder)
  */
-function hayyizRecommendNext(limit) {
+function hayyizBuildStudentSnapshot() {
+    const today = getTodayLocal();
+    const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
+    const focusMinutesToday = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
+
     const todos = hayyizGetTodos();
-    const active = todos.filter((t) => t && !t.completed);
+    const activeTodos = todos.filter((t) => t && !t.completed);
+    const overdueTodos = activeTodos.filter((t) => t.date && String(t.date).slice(0, 10) < today);
+    const dueTodayTodos = activeTodos.filter((t) => t.date && String(t.date).slice(0, 10) === today);
+
+    const habits = hayyizGetHabits();
+    const habitsSummary = hayyizGetHabitTodaySummary(habits);
+
+    const exams = hayyizGetExams();
+    const subjects = hayyizGetSubjects();
+    const subjectGoals = hayyizGetSubjectGoals();
+    const focusState = hayyizGetFocusState();
+
+    return {
+        today,
+        workMin,
+        focusMinutesToday,
+        todos,
+        activeTodos,
+        overdueTodos,
+        dueTodayTodos,
+        habits,
+        habitsSummary,
+        exams,
+        subjects,
+        subjectGoals,
+        focusState
+    };
+}
+
+/**
+ * 2. ترتيب المهام بناءً على الـ Snapshot (Task Ranking Engine)
+ */
+function hayyizRankTasks(snapshot) {
+    const snap = snapshot || hayyizBuildStudentSnapshot();
     const ctx = {
-        today: getTodayLocal(),
-        exams: hayyizGetExams(),
-        subjects: hayyizGetSubjects(),
-        subjectGoals: hayyizGetSubjectGoals(),
-        workMin: parseInt(localStorage.getItem("hayyiz-pref-work") || "25", 10) || 25
+        today: snap.today,
+        exams: snap.exams,
+        subjects: snap.subjects,
+        subjectGoals: snap.subjectGoals,
+        workMin: snap.workMin
     };
 
-    const ranked = active
+    const rankedTasks = snap.activeTodos
         .map((t) => hayyizScoreTask(t, ctx))
         .filter((r) => r.score > -Infinity)
         .sort((a, b) => {
@@ -898,31 +936,36 @@ function hayyizRecommendNext(limit) {
             return (b.task.created || 0) - (a.task.created || 0);
         });
 
-    const max = typeof limit === "number" ? limit : 5;
-    const top = ranked.slice(0, max);
-    const next = top[0] || null;
+    const topRankedTask = rankedTasks[0] || null;
+    const nextTask = topRankedTask ? topRankedTask.task : (snap.activeTodos[0] || null);
+    const nextReason = topRankedTask ? topRankedTask.reasons.join(' · ') : '';
+    const isInProgress = topRankedTask ? Boolean(topRankedTask.isInProgress) : (nextTask && (parseInt(nextTask.focusDone, 10) || 0) > 0);
 
     return {
-        next: next ? next.task : null,
-        reason: next ? next.reasons.join(" · ") : "",
-        isInProgress: next ? !!next.isInProgress : false,
-        ranked: top,
-        allActive: active
+        rankedTasks,
+        topRankedTask,
+        nextTask,
+        nextReason,
+        isInProgress
     };
 }
 
 /**
- * محرك التقييم المركزي لحالة الطالب (Rule Engine)
- * يقيم بيانات الطالب الحالية محلياً دون أطراف خارجية أو AI
+ * 3. تقييم حالات واختيار القرار الرئيسي بناءً على الـ Snapshot والمهام المرتبة (Decision Evaluation Engine)
  */
-function hayyizEvaluateStudentState() {
-    const today = getTodayLocal();
-    const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
+function hayyizEvaluateDecisions(snapshot, rankedTasks) {
+    const snap = snapshot || hayyizBuildStudentSnapshot();
+    const ranked = rankedTasks || hayyizRankTasks(snap).rankedTasks;
+    const topRankedTask = ranked[0] || null;
+    const nextTask = topRankedTask ? topRankedTask.task : (snap.activeTodos[0] || null);
+    const nextReason = topRankedTask ? topRankedTask.reasons.join(' · ') : '';
+    const isInProgress = topRankedTask ? Boolean(topRankedTask.isInProgress) : (nextTask && (parseInt(nextTask.focusDone, 10) || 0) > 0);
+
     const candidates = [];
 
-    const focusState = hayyizGetFocusState();
-    if (focusState && focusState.status === 'running' && focusState.remainingSeconds > 0) {
-        const ctxTitle = focusState.context ? focusState.context.title : 'جلسة تركيز';
+    // أ) جلسة تركيز جارية
+    if (snap.focusState && snap.focusState.status === 'running' && snap.focusState.remainingSeconds > 0) {
+        const ctxTitle = snap.focusState.context ? snap.focusState.context.title : 'جلسة تركيز';
         candidates.push({
             score: 1000, id: 'running-focus', type: 'pomodoro', badge: 'جلسة جارية',
             title: 'اقتراح حيز',
@@ -933,18 +976,8 @@ function hayyizEvaluateStudentState() {
         });
     }
 
-    const exams = hayyizGetExams();
-    const todos = hayyizGetTodos();
-    const habits = hayyizGetHabits();
-    const habitsSummary = hayyizGetHabitTodaySummary(habits);
-    const focusMinutesToday = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
-
-    const activeTodos = todos.filter((t) => t && !t.completed);
-    const overdueTodos = activeTodos.filter((t) => t.date && String(t.date).slice(0, 10) < today);
-    const rec = hayyizRecommendNext(1);
-    const nextTask = rec ? rec.next : (activeTodos[0] || null);
-
-    const upcomingExams = exams.filter((e) => e && !e.done && e.date);
+    // ب) اختبار قريب
+    const upcomingExams = snap.exams.filter((e) => e && !e.done && e.date);
     let nearestExam = null, minDays = Infinity;
     upcomingExams.forEach((e) => {
         const d = hayyizDaysUntil(String(e.date).slice(0, 10));
@@ -954,11 +987,10 @@ function hayyizEvaluateStudentState() {
         }
     });
 
-    if (nearestExam && focusMinutesToday < workMin) {
+    if (nearestExam && snap.focusMinutesToday < snap.workMin) {
         const daysText = minDays === 0 ? 'اليوم' : (minDays === 1 ? 'غداً' : `بعد ${minDays} أيام`);
 
-        // التحقق من وجود مهمة مرتبطة فعلياً بهذا الاختبار تجنباً لاختلاق علاقات وهمية
-        const relatedTask = activeTodos.find((t) => {
+        const relatedTask = snap.activeTodos.find((t) => {
             if (!t) return false;
             if (nearestExam.subjectId && t.subjectId === nearestExam.subjectId) return true;
             if (t.eventId && t.eventId === nearestExam.id) return true;
@@ -971,7 +1003,7 @@ function hayyizEvaluateStudentState() {
             ? `مرتبطة باختبار قريب (${nearestExam.name}) ${daysText}`
             : `لديك اختبار قريب (${nearestExam.name}) ${daysText}`;
         const textMsg = `لديك اختبار قريب (${nearestExam.name}) ${daysText}، ولم تبدأ جلسة دراسة كافية اليوم.` +
-            (relatedTask ? ` ابدأ جلسة ${workMin} دقيقة لمهمتك المرتبطة ("${relatedTask.text}").` : ` ابدأ جلسة تركيز مدتها ${workMin} دقيقة للمراجعة.`);
+            (relatedTask ? ` ابدأ جلسة ${snap.workMin} دقيقة لمهمتك المرتبطة ("${relatedTask.text}").` : ` ابدأ جلسة تركيز مدتها ${snap.workMin} دقيقة للمراجعة.`);
         candidates.push({
             score: 150 + (7 - minDays) * 15, id: 'exam-upcoming', type: 'exam', badge: 'اختبار قريب',
             title: 'اقتراح حيز',
@@ -986,21 +1018,23 @@ function hayyizEvaluateStudentState() {
         });
     }
 
-    if (overdueTodos.length > 0) {
-        const topOverdue = overdueTodos[0];
+    // ج) مهام متأخرة
+    if (snap.overdueTodos.length > 0) {
+        const topOverdue = snap.overdueTodos[0];
         const daysOverdue = Math.abs(hayyizDaysUntil(String(topOverdue.date).slice(0, 10)) || 1);
         candidates.push({
             score: 130 + Math.min(daysOverdue * 10, 50) + (topOverdue.priority === 'high' ? 30 : 10),
             id: 'task-overdue', type: 'todo', badge: 'مهام متأخرة', title: 'اقتراح حيز',
             actionTitle: topOverdue.text,
-            reason: `مهمة متأخرة عن موعد استحقاقها (${overdueTodos.length} مهام متأخرة)`,
-            text: `لديك ${overdueTodos.length} مهام متأخرة عن موعدها. يفضل البدء بمهمة "${topOverdue.text}" لإنجازها أولاً وتجنب تراكم المهام.`,
+            reason: `مهمة متأخرة عن موعد استحقاقها (${snap.overdueTodos.length} مهام متأخرة)`,
+            text: `لديك ${snap.overdueTodos.length} مهام متأخرة عن موعدها. يفضل البدء بمهمة "${topOverdue.text}" لإنجازها أولاً وتجنب تراكم المهام.`,
             actionLabel: 'ابدأ التركيز عليها', actionType: 'pomo-task', task: topOverdue, url: 'pomodoro.html'
         });
     }
 
+    // د) مهمة قيد التنفيذ أو عالية الأولوية
     if (nextTask) {
-        if (rec && rec.isInProgress) {
+        if (isInProgress) {
             candidates.push({
                 score: 140, id: 'task-in-progress', type: 'todo', badge: 'قيد التنفيذ', title: 'اقتراح حيز',
                 actionTitle: nextTask.text,
@@ -1012,60 +1046,59 @@ function hayyizEvaluateStudentState() {
             candidates.push({
                 score: 95, id: 'high-priority-task', type: 'todo', badge: 'أولوية عالية', title: 'اقتراح حيز',
                 actionTitle: nextTask.text,
-                reason: rec && rec.reason ? rec.reason : 'أعلى مهمة أولوية حالياً',
+                reason: nextReason ? nextReason : 'أعلى مهمة أولوية حالياً',
                 text: `لديك مهمة عالية الأولوية "${nextTask.text}". ابدأ بها الآن لتحقيق أقصى تقدم في خطتك الدراسية.`,
                 actionLabel: 'ابدأ جلسة تركيز', actionType: 'pomo-task', task: nextTask, url: 'pomodoro.html'
             });
         }
     }
 
-    if (habitsSummary.remaining > 0) {
-        const uncompletedHabit = habits.find((h) => h && h.lastCompleted !== today);
+    // هـ) عادات غير مكتملة
+    if (snap.habitsSummary.remaining > 0) {
+        const uncompletedHabit = snap.habits.find((h) => h && h.lastCompleted !== snap.today);
         const habitName = uncompletedHabit ? uncompletedHabit.title : 'عاداتك اليومية';
         candidates.push({
-            score: 65 + Math.min(habitsSummary.remaining * 10, 25), id: 'habit-due', type: 'habit', badge: 'عادات اليوم',
+            score: 65 + Math.min(snap.habitsSummary.remaining * 10, 25), id: 'habit-due', type: 'habit', badge: 'عادات اليوم',
             title: 'اقتراح حيز',
             actionTitle: habitName,
-            reason: `متبقي ${habitsSummary.remaining} عادات لم تنجزها اليوم`,
-            text: `متبقي لديك ${habitsSummary.remaining} عادات لم تنجزها اليوم ("${habitName}"). أتمها للحفاظ على استمراريتك وسلسلة الإنجاز!`,
+            reason: `متبقي ${snap.habitsSummary.remaining} عادات لم تنجزها اليوم`,
+            text: `متبقي لديك ${snap.habitsSummary.remaining} عادات لم تنجزها اليوم ("${habitName}"). أتمها للحفاظ على استمراريتك وسلسلة الإنجاز!`,
             actionLabel: 'انتقل للعادات', actionType: 'url', url: 'habits.html'
         });
     }
 
     candidates.sort((a, b) => b.score - a.score);
-    const winner = candidates[0] || null;
-    return winner && winner.score >= 50 ? winner : null;
+    const winnerCandidate = candidates[0] || null;
+    const primaryDecision = (winnerCandidate && winnerCandidate.score >= 50) ? winnerCandidate : null;
+
+    return {
+        candidates,
+        primaryDecision
+    };
 }
 
 /**
- * توليد خطة اليوم المترابطة والتكيفية المركزّة (Adaptive Daily Study Plan Aggregator)
- * تشتق بالكامل حتمياً من حالة الطالب وتقتصر على 3 إلى 5 عناصر تنفيية أساسية لليوم فقط
+ * 4. بناء الخطة اليومية التكيفية بناءً على الـ Snapshot والمهام المرتبة والقرار الرئيسي (Daily Plan Builder)
  */
-function hayyizGenerateDailyPlan() {
-    const today = getTodayLocal();
-    const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
+function hayyizBuildDailyPlan(snapshot, rankedTasks, primaryDecision) {
+    const snap = snapshot || hayyizBuildStudentSnapshot();
+    const ranked = rankedTasks || hayyizRankTasks(snap).rankedTasks;
+    const topDecision = primaryDecision !== undefined ? primaryDecision : hayyizEvaluateDecisions(snap, ranked).primaryDecision;
+
     const planItems = [];
     const itemIdsSeen = new Set();
 
-    // 1. تقييم القرار الأهم من Student OS (Primary Next Action)
-    const topDecision = typeof hayyizEvaluateStudentState === 'function' ? hayyizEvaluateStudentState() : null;
-
-    // 2. الاختبارات القادمة التي تحتاج إلى تنفيذ اليوم فقط (اليوم أو غداً <= 2 يوم)
-    const exams = hayyizGetExams();
-    const urgentExams = exams.filter((ex) => {
+    const urgentExams = snap.exams.filter((ex) => {
         if (!ex || ex.done || !ex.date) return false;
         const d = hayyizDaysUntil(String(ex.date).slice(0, 10));
         return d !== null && d >= 0 && d <= 2;
     });
 
-    // 3. جلب أفضل المهام المرشحة (تقتصر على أفضل 3-5 مهام فقط)
-    const todos = hayyizGetTodos();
-    const activeTodos = todos.filter((t) => t && !t.completed);
-    const rec = typeof hayyizRecommendNext === 'function' ? hayyizRecommendNext(5) : null;
-    const rankedTasks = rec && rec.ranked ? rec.ranked : activeTodos.slice(0, 5).map((t) => ({ task: t, score: 10 }));
+    const topRankedForPlan = ranked.length > 0
+        ? ranked.slice(0, 5)
+        : snap.activeTodos.slice(0, 5).map((t) => ({ task: t, score: 10 }));
 
-    // إضافة المهام المصنفة إلى الخطة مع صياغة صادقة للمدة الزمنية
-    rankedTasks.forEach((r, idx) => {
+    topRankedForPlan.forEach((r, idx) => {
         const t = r.task;
         if (!t) return;
         const itemId = 'plan-task-' + (t.id || t.text);
@@ -1077,7 +1110,7 @@ function hayyizGenerateDailyPlan() {
         const isHigh = t.priority === 'high';
         const focusDone = parseInt(t.focusDone, 10) || 0;
         const hasExplicitDuration = Boolean(t.minutes && parseInt(t.minutes, 10) > 0);
-        const totalMin = hasExplicitDuration ? parseInt(t.minutes, 10) : workMin;
+        const totalMin = hasExplicitDuration ? parseInt(t.minutes, 10) : snap.workMin;
         const remainingMin = Math.max(0, totalMin - focusDone);
 
         let badgeText = 'مهمة';
@@ -1096,7 +1129,6 @@ function hayyizGenerateDailyPlan() {
             badgeClass = 'badge-warning';
         }
 
-        // صياغة الوقت بصدق ودقة
         let timeSubtitle = '';
         if (hasExplicitDuration) {
             if (focusDone > 0 && remainingMin > 0) {
@@ -1110,7 +1142,7 @@ function hayyizGenerateDailyPlan() {
             if (focusDone > 0) {
                 timeSubtitle = `أُنجز ${focusDone} دقيقة تركيز`;
             } else {
-                timeSubtitle = `جلسة ${workMin} دقيقة مقترحة`;
+                timeSubtitle = `جلسة ${snap.workMin} دقيقة مقترحة`;
             }
         }
 
@@ -1135,7 +1167,6 @@ function hayyizGenerateDailyPlan() {
         itemIdsSeen.add(itemId);
     });
 
-    // إضافة الاختبارات القريبة جداً فقط (اليوم وغداً)
     urgentExams.forEach((ex) => {
         const d = hayyizDaysUntil(String(ex.date).slice(0, 10));
         const itemId = 'plan-exam-' + ex.id;
@@ -1162,9 +1193,7 @@ function hayyizGenerateDailyPlan() {
         itemIdsSeen.add(itemId);
     });
 
-    // إضافة عادة واحدة كحد أقصى إذا توفر متسع في الخطة
-    const habits = hayyizGetHabits();
-    const pendingHabits = habits.filter((h) => h && h.lastCompleted !== today);
+    const pendingHabits = snap.habits.filter((h) => h && h.lastCompleted !== snap.today);
     if (pendingHabits.length > 0 && planItems.length < 4) {
         const h = pendingHabits[0];
         const itemId = 'plan-habit-' + h.id;
@@ -1186,10 +1215,8 @@ function hayyizGenerateDailyPlan() {
         }
     }
 
-    // ترتيب العناصر حسب الأولوية
     planItems.sort((a, b) => b.priority - a.priority);
 
-    // ربط وتأكيد خيار Student OS (Primary Next Action) في بداية الخطة (Index 0)
     if (topDecision) {
         if (topDecision.id === 'running-focus') {
             const runningItem = {
@@ -1227,8 +1254,90 @@ function hayyizGenerateDailyPlan() {
         }
     }
 
-    // اقتصار الخطة بشكل قاطع وصارم على 3 إلى 5 عناصر تنفيية فقط
     return planItems.slice(0, 5);
+}
+
+/**
+ * 5. المنسق المركزي لحالة الطالب ورؤية القرار الموحدة (Orchestrator Function)
+ * Snapshot → Rank Tasks → Evaluate Decisions → Daily Plan → Unified State
+ */
+function hayyizComputeStudentDecisionState() {
+    const snapshot = hayyizBuildStudentSnapshot();
+    const taskRanking = hayyizRankTasks(snapshot);
+    const evaluation = hayyizEvaluateDecisions(snapshot, taskRanking.rankedTasks);
+    const dailyPlan = hayyizBuildDailyPlan(snapshot, taskRanking.rankedTasks, evaluation.primaryDecision);
+
+    const getRecommendations = (limit) => {
+        const max = typeof limit === 'number' ? limit : 5;
+        const top = taskRanking.rankedTasks.slice(0, max);
+        const next = top[0] || null;
+        return {
+            next: next ? next.task : null,
+            reason: next ? next.reasons.join(' · ') : '',
+            isInProgress: next ? !!next.isInProgress : false,
+            ranked: top,
+            allActive: snapshot.activeTodos
+        };
+    };
+
+    const recommendation = getRecommendations(5);
+
+    return {
+        snapshot,
+        today: snapshot.today,
+        todos: snapshot.todos,
+        activeTodos: snapshot.activeTodos,
+        overdueTodos: snapshot.overdueTodos,
+        dueTodayTodos: snapshot.dueTodayTodos,
+        habits: snapshot.habits,
+        habitsSummary: snapshot.habitsSummary,
+        exams: snapshot.exams,
+        focusState: snapshot.focusState,
+        focusMinutesToday: snapshot.focusMinutesToday,
+        workMin: snapshot.workMin,
+        rankedTasks: taskRanking.rankedTasks,
+        nextTask: taskRanking.nextTask,
+        nextReason: taskRanking.nextReason,
+        isInProgress: taskRanking.isInProgress,
+        candidates: evaluation.candidates,
+        primaryDecision: evaluation.primaryDecision,
+        dailyPlan,
+        recommendation,
+        getRecommendations
+    };
+}
+
+/**
+ * 6. Thin Compatibility Wrappers
+ * تضمن التوافقية الكاملة دون تشغيل مراحل غير ضرورية من المحرك
+ */
+function hayyizRecommendNext(limit) {
+    const snapshot = hayyizBuildStudentSnapshot();
+    const taskRanking = hayyizRankTasks(snapshot);
+    const max = typeof limit === 'number' ? limit : 5;
+    const top = taskRanking.rankedTasks.slice(0, max);
+    const next = top[0] || null;
+    return {
+        next: next ? next.task : null,
+        reason: next ? next.reasons.join(' · ') : '',
+        isInProgress: next ? !!next.isInProgress : false,
+        ranked: top,
+        allActive: snapshot.activeTodos
+    };
+}
+
+function hayyizEvaluateStudentState() {
+    const snapshot = hayyizBuildStudentSnapshot();
+    const taskRanking = hayyizRankTasks(snapshot);
+    const evaluation = hayyizEvaluateDecisions(snapshot, taskRanking.rankedTasks);
+    return evaluation.primaryDecision;
+}
+
+function hayyizGenerateDailyPlan() {
+    const snapshot = hayyizBuildStudentSnapshot();
+    const taskRanking = hayyizRankTasks(snapshot);
+    const evaluation = hayyizEvaluateDecisions(snapshot, taskRanking.rankedTasks);
+    return hayyizBuildDailyPlan(snapshot, taskRanking.rankedTasks, evaluation.primaryDecision);
 }
 
 /* ---------- Focus Engine Data Layer Helpers ---------- */
