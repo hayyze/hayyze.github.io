@@ -175,6 +175,22 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             localStorage.setItem('hayyiz-current-task', title);
             if (taskId) localStorage.setItem('hayyiz-current-task-id', taskId);
+
+            if (foundTask) {
+                const workMin = workInput ? (parseInt(workInput.value, 10) || 25) : 25;
+                const totalMinutes = foundTask.minutes ? parseInt(foundTask.minutes, 10) : null;
+                const plan = {
+                    text: foundTask.text,
+                    id: foundTask.id,
+                    index: todos.findIndex(t => t && t.id === foundTask.id),
+                    subjectId: foundTask.subjectId || null,
+                    totalMinutes: totalMinutes && totalMinutes > 0 ? totalMinutes : null,
+                    focusDone: foundTask.focusDone ? parseInt(foundTask.focusDone, 10) || 0 : 0,
+                    sessionsDone: foundTask.sessionsDone ? parseInt(foundTask.sessionsDone, 10) || 0 : 0,
+                    sessionsNeeded: totalMinutes && totalMinutes > 0 ? Math.ceil(totalMinutes / workMin) : null
+                };
+                localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
+            }
         } else if (eventFromUrl || (eventObj && eventObj.name)) {
             const title = eventFromUrl || eventObj.name;
             state.context = {

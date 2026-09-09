@@ -244,6 +244,62 @@ const taskBFresh = hayyizGetTaskById('t_dist_B');
 assert(taskAFresh.focusDone === 25, 'Test 10: Task A focusDone updated to 25');
 assert(taskBFresh.focusDone === 0, 'Test 10: Task B focusDone strictly unchanged (0)');
 
+// -------------------------------------------------------------
+// Test 11: Task ID precedence when task text is duplicate or index differs
+// -------------------------------------------------------------
+localStorage.clear();
+hayyizEnsureDataShape();
+const taskDup1 = { id: 't_dup_1', text: 'مراجعة الباب الأول', priority: 'high', focusDone: 0, completed: false };
+const taskDup2 = { id: 't_dup_2', text: 'مراجعة الباب الأول', priority: 'medium', focusDone: 0, completed: false };
+hayyizSaveTodos([taskDup1, taskDup2]);
+
+// Launch via taskId for the second task (index 1)
+hayyizLaunchPomodoro(taskDup2, 0); // passing indexHint 0 intentionally to test that taskId takes precedence over index
+assert(localStorage.getItem('hayyiz-current-task-id') === 't_dup_2', 'Test 11: taskId t_dup_2 takes priority over indexHint');
+
+// Apply result via taskId
+hayyizApplyFocusResult({ workMin: 25, taskId: 't_dup_2', taskText: 'مراجعة الباب الأول' });
+assert(hayyizGetTaskById('t_dup_1').focusDone === 0, 'Test 11: Duplicate task t_dup_1 remains 0');
+assert(hayyizGetTaskById('t_dup_2').focusDone === 25, 'Test 11: Exact target task t_dup_2 receives 25 mins focus');
+
+// -------------------------------------------------------------
+// Test 12: End-to-End Integration Flow: Launch URL -> Pomodoro context init -> Focus completion -> Student Decision Re-evaluation
+// -------------------------------------------------------------
+localStorage.clear();
+hayyizEnsureDataShape();
+const e2eTask = { id: 't_e2e_12', text: 'مذاكرة الفلسفة الأخيرة', priority: 'high', minutes: 50, focusDone: 0, completed: false };
+hayyizSaveTodos([e2eTask]);
+
+// Step 1: Decision evaluation recommends e2eTask
+const e2eState1 = hayyizComputeStudentDecisionState();
+assert(e2eState1.primaryDecision.task.id === 't_e2e_12', 'Test 12 Step 1: Decision selects e2eTask');
+assert(e2eState1.primaryDecision.actionLabel === 'ابدأ جلسة تركيز', 'Test 12 Step 1: Action label is "ابدأ جلسة تركيز"');
+
+// Step 2: User clicks action -> hayyizLaunchPomodoro generates URL with &taskId=t_e2e_12
+hayyizLaunchPomodoro(e2eTask, 0);
+
+// Simulate Pomodoro page receiving URL parameter ?taskId=t_e2e_12
+const urlTaskId = 't_e2e_12';
+const foundInPomodoro = hayyizGetTaskById(urlTaskId);
+assert(foundInPomodoro && foundInPomodoro.text === 'مذاكرة الفلسفة الأخيرة', 'Test 12 Step 2: Pomodoro resolves exact task via URL taskId');
+
+// Step 3: Session completes -> hayyizApplyFocusResult applies focus session
+hayyizApplyFocusResult({ workMin: 25, taskId: foundInPomodoro.id, taskText: foundInPomodoro.text });
+
+// Step 4: Re-evaluate Student Decision State upon return to Dashboard
+const e2eState2 = hayyizComputeStudentDecisionState();
+assert(e2eState2.primaryDecision.task.id === 't_e2e_12', 'Test 12 Step 4: e2eTask remains primary decision as it is in-progress');
+assert(e2eState2.primaryDecision.actionLabel === 'استكمال التركيز', 'Test 12 Step 4: Action label updated to "استكمال التركيز"');
+assert(e2eState2.primaryDecision.taskProgress.progressText === 'أُنجز 25 من 50 دقيقة (50%)', 'Test 12 Step 4: Dashboard reflects 50% partial progress');
+
+// Step 5: Complete second session and mark complete
+hayyizApplyFocusResult({ workMin: 25, taskId: foundInPomodoro.id, taskText: foundInPomodoro.text });
+hayyizCompleteTask(foundInPomodoro.id, foundInPomodoro.text);
+
+// Step 6: Re-evaluate Decision State after task completion
+const e2eState3 = hayyizComputeStudentDecisionState();
+assert(e2eState3.primaryDecision === null || (e2eState3.primaryDecision.task && e2eState3.primaryDecision.task.id !== 't_e2e_12'), 'Test 12 Step 6: Completed task strictly removed from Next Action decision');
+
 console.log(`\n===================================`);
 console.log(`EXECUTION CYCLE SUITE SUMMARY: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);
