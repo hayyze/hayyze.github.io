@@ -1089,6 +1089,33 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     const state4 = hayyizComputeStudentDecisionState();
     assert(state4.primaryDecision && state4.primaryDecision.id === 'exam-upcoming', 'Urgent upcoming exam evaluated as primary decision when focus minutes low');
     assert(state4.dailyPlan[0].event && state4.dailyPlan[0].event.id === 'ex_cde_urgent', 'Urgent exam placed at index 0 of daily plan');
+
+    // 9. Near exam + overdue task combined priority
+    localStorage.clear();
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_comb', name: 'اختبار الفيزياء', date: getOffsetDateStr(5) }
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_comb_overdue', text: 'واجب كيمياء متأخر', date: getOffsetDateStr(-3), priority: 'high', completed: false }
+    ]));
+    const state5 = hayyizComputeStudentDecisionState();
+    assert(state5.primaryDecision && state5.primaryDecision.id === 'task-overdue', 'Overdue task prioritizes over distant exam');
+
+    // 10. Multi-type items in daily plan (todo, exam, habit)
+    localStorage.clear();
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_multi_1', text: 'مهمة 1', priority: 'high', completed: false }
+    ]));
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_multi_1', name: 'اختبار اليوم', date: getOffsetDateStr(0) }
+    ]));
+    localStorage.setItem('hayyiz-habits', JSON.stringify([
+        { id: 'h_multi_1', title: 'عادة يومية', lastCompleted: '2020-01-01' }
+    ]));
+    const state6 = hayyizComputeStudentDecisionState();
+    assert(state6.dailyPlan.some(i => i.type === 'todo'), 'Daily plan contains todo item');
+    assert(state6.dailyPlan.some(i => i.type === 'exam'), 'Daily plan contains exam item');
+    assert(state6.dailyPlan.some(i => i.type === 'habit'), 'Daily plan contains habit item');
 }
 
 console.log(`\n===================================`);
