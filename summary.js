@@ -151,11 +151,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dayStatus && dayStatus.title) {
         subtitleText += ` · ${dayStatus.title}`;
     }
-    if (dayStatus && dayStatus.historyComparison && dayStatus.historyComparison.hasSufficientData && dayStatus.historyComparison.comparisonText) {
-        subtitleText += ` (${dayStatus.historyComparison.comparisonText})`;
-    }
     greetDate.textContent = subtitleText;
     greet.appendChild(greetDate);
+
+    if (dayStatus && dayStatus.description) {
+        const greetDesc = document.createElement('p');
+        greetDesc.style.cssText = 'margin: 0.25rem 0 0; color: var(--color-text); font-size: 0.92rem; font-weight: 600; line-height: 1.5;';
+        let descText = dayStatus.description;
+        if (dayStatus.historyComparison && dayStatus.historyComparison.hasSufficientData && dayStatus.historyComparison.comparisonText) {
+            descText += ` (${dayStatus.historyComparison.comparisonText})`;
+        }
+        greetDesc.textContent = descText;
+        greet.appendChild(greetDesc);
+    }
 
     content.appendChild(greet);
 
@@ -226,11 +234,24 @@ document.addEventListener('DOMContentLoaded', () => {
         nowTitle.textContent = suggestion.actionTitle || suggestion.text;
         nowCard.appendChild(nowTitle);
 
-        if (suggestion.reason) {
-            const reasonEl = document.createElement('div');
-            reasonEl.className = 'dash-now-reason';
-            reasonEl.textContent = suggestion.reason;
-            nowCard.appendChild(reasonEl);
+        if (suggestion.reason || (suggestion.task && (parseInt(suggestion.task.focusDone, 10) || 0) > 0)) {
+            let reasonText = suggestion.reason || '';
+            if (suggestion.task) {
+                const done = parseInt(suggestion.task.focusDone, 10) || 0;
+                const total = parseInt(suggestion.task.minutes, 10) || 0;
+                if (done > 0) {
+                    const progStr = total > 0
+                        ? `التقدم الحالي: أُنجز ${done} من ${total} دقيقة (${Math.round((done / total) * 100)}%)`
+                        : `التقدم الحالي: أُنجز ${done} دقيقة تركيز`;
+                    reasonText = reasonText ? `${reasonText} · ${progStr}` : progStr;
+                }
+            }
+            if (reasonText) {
+                const reasonEl = document.createElement('div');
+                reasonEl.className = 'dash-now-reason';
+                reasonEl.textContent = reasonText;
+                nowCard.appendChild(reasonEl);
+            }
         }
 
         const nowActions = document.createElement('div');
@@ -280,8 +301,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (nextTask.minutes) {
             const done = nextTask.focusDone ? parseInt(nextTask.focusDone, 10) || 0 : 0;
             const total = parseInt(nextTask.minutes, 10) || 0;
-            if (done > 0 && total > 0) metaParts.push(done + '/' + total + ' د');
-            else metaParts.push(nextTask.minutes + ' د');
+            if (done > 0 && total > 0) {
+                const pct = Math.round((done / total) * 100);
+                metaParts.push(`أُنجز ${done} من ${total} دقيقة (${pct}%)`);
+            } else {
+                metaParts.push(nextTask.minutes + ' دقيقة');
+            }
+        } else if (nextTask.focusDone) {
+            const done = parseInt(nextTask.focusDone, 10) || 0;
+            if (done > 0) metaParts.push(`أُنجز ${done} دقيقة تركيز`);
         }
         if (nextTask.date) {
             const d = String(nextTask.date).slice(0, 10);

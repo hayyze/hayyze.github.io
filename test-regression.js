@@ -1290,6 +1290,107 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     assert(compN.hasSufficientData === true, 'Test N: Sufficiency decided strictly by 3 entries inside window');
 }
 
+// --- 17. FINE-TUNED DAILY SUMMARY COMPOSITE SCENARIOS (1 TO 8) ---
+{
+    localStorage.clear();
+
+    const getOffsetDateStr = (offsetDays) => {
+        const base = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+        const parts = base.split('-').map(Number);
+        const dt = new Date(parts[0], parts[1] - 1, parts[2] + offsetDays);
+        return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    };
+
+    // Scenario 1: Near exam + overdue task + low focus
+    localStorage.clear();
+    localStorage.setItem('hayyiz-focus-minutes-today', '10');
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_comp_1', name: 'اختبار الرياضيات النهائي', date: getOffsetDateStr(1) }
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_comp_1', text: 'واجب الفيزياء المتأخر', date: getOffsetDateStr(-2), completed: false }
+    ]));
+    const stateComp1 = hayyizComputeStudentDecisionState();
+    assert(stateComp1.dayStatus.statusKey === 'accumulated_pressure', 'Composite Scenario 1: Near exam + overdue task + low focus yields accumulated_pressure status');
+    assert(stateComp1.primaryDecision !== null && (stateComp1.primaryDecision.id === 'exam-upcoming' || stateComp1.primaryDecision.id === 'task-overdue'), 'Composite Scenario 1: Near exam + overdue task yields urgent primary decision');
+
+    // Scenario 2: In-progress task + near exam
+    localStorage.clear();
+    const subChem = hayyizAddSubject('كيمياء');
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_comp_2', name: 'اختبار الكيمياء', date: getOffsetDateStr(1), subjectId: subChem.id }
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_comp_2', text: 'مراجعة الباب الأول كيمياء', subjectId: subChem.id, minutes: 50, focusDone: 25, completed: false }
+    ]));
+    const stateComp2 = hayyizComputeStudentDecisionState();
+    assert(stateComp2.dayStatus.statusKey === 'upcoming_due', 'Composite Scenario 2: In-progress exam preparation yields upcoming_due status');
+    assert(stateComp2.dayStatus.description.includes('25 دقيقة تركيز'), 'Composite Scenario 2: Description acknowledges exact partial focus progress');
+
+    // Scenario 3: Good achievement today + future tasks
+    localStorage.clear();
+    const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_comp_3a', text: 'مهمة منجزة 1', completed: true, completedAt: todayStr },
+        { id: 't_comp_3b', text: 'مهمة منجزة 2', completed: true, completedAt: todayStr },
+        { id: 't_comp_3c', text: 'مهمة مستقبلية', date: getOffsetDateStr(3), completed: false }
+    ]));
+    const stateComp3 = hayyizComputeStudentDecisionState();
+    assert(stateComp3.dayStatus.statusKey === 'good', 'Composite Scenario 3: Good achievement today with completed tasks yields good status');
+    assert(stateComp3.dayStatus.completedToday === 2, 'Composite Scenario 3: Completed tasks count is accurately set to 2');
+
+    // Scenario 4: Uncompleted habit + all study tasks completed
+    localStorage.clear();
+    localStorage.setItem('hayyiz-habits', JSON.stringify([
+        { id: 'h_comp_4', title: 'القراءة اليومية', lastCompleted: '2020-01-01' }
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_comp_4', text: 'مهمة منجزة اليوم', completed: true, completedAt: todayStr }
+    ]));
+    const stateComp4 = hayyizComputeStudentDecisionState();
+    assert(stateComp4.dayStatus.statusKey === 'good', 'Composite Scenario 4: Uncompleted habit with all study tasks finished yields good day status');
+
+    // Scenario 5: No tasks + no near exam
+    localStorage.clear();
+    const stateComp5 = hayyizComputeStudentDecisionState();
+    assert(stateComp5.dayStatus.statusKey === 'no_plan', 'Composite Scenario 5: No tasks + no near exam yields no_plan status');
+    assert(stateComp5.primaryDecision === null, 'Composite Scenario 5: No artificial or fake recommendation invented');
+
+    // Scenario 6: Active running focus session
+    localStorage.clear();
+    hayyizSaveFocusState({
+        mode: 'focus',
+        status: 'running',
+        remainingSeconds: 900,
+        totalDuration: 1500,
+        endTime: Date.now() + 900000,
+        context: { type: 'free', id: null, title: 'تركيز لغة عربية' }
+    });
+    const stateComp6 = hayyizComputeStudentDecisionState();
+    assert(stateComp6.dayStatus.statusKey === 'active_activity', 'Composite Scenario 6: Active running focus session yields active_activity day status');
+    assert(stateComp6.primaryDecision.id === 'running-focus', 'Composite Scenario 6: Running focus session takes top priority');
+
+    // Scenario 7: Task started -> closed -> returned to summary
+    localStorage.clear();
+    const taskComp7 = { id: 't_comp_7', text: 'حل واجب البرمجة', focusDone: 0, completed: false };
+    hayyizSaveTodos([taskComp7]);
+    hayyizApplyFocusResult({ workMin: 25, taskId: 't_comp_7', taskText: 'حل واجب البرمجة' });
+    const stateComp7 = hayyizComputeStudentDecisionState();
+    const taskSaved7 = hayyizGetTaskById('t_comp_7');
+    assert(taskSaved7.focusDone === 25 && taskSaved7.completed === false, 'Composite Scenario 7: Task remains saved with 25 mins focus logged when user returns to summary');
+    assert(stateComp7.dayStatus.statusKey === 'active_activity', 'Composite Scenario 7: Summary reflects active in-progress work correctly');
+
+    // Scenario 8: Repeated page reloads without doubling stats
+    localStorage.clear();
+    hayyizEnsureTodayStats();
+    localStorage.setItem('hayyiz-focus-minutes-today', '25');
+    localStorage.setItem('hayyiz-sessions-today', '1');
+    hayyizEnsureTodayStats();
+    hayyizEnsureTodayStats();
+    const stateComp8 = hayyizComputeStudentDecisionState();
+    assert(stateComp8.focusMinutesToday === 25, 'Composite Scenario 8: Stats remain exactly 25 minutes after multiple page reloads');
+}
+
 console.log(`\n===================================`);
 console.log(`REGRESSION AUDIT SUMMARY: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);
