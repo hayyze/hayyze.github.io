@@ -1263,18 +1263,13 @@ function hayyizBuildDailyPlan(snapshot, rankedTasks, primaryDecision) {
 function hayyizGetFocusHistoryComparison(focusMinutesToday) {
     try {
         const hist = hayyizParseJSON('hayyiz-focus-history', {});
-        const recordedDaysCount = Object.keys(hist).length;
-
-        // يتطلب وجود سجلات تاريخية مقبولة على الأقل (3 أيام مسجلة)
-        if (recordedDaysCount < 3) {
-            return { hasSufficientData: false, comparisonText: '', avgMinutes: 0 };
-        }
-
         let totalPastMinutes = 0;
+        let recordedInWindowCount = 0;
+
         const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
         const parts = todayStr.split('-').map(Number);
 
-        // جمع دقائق التركيز للـ 7 أيام السابقة بالكامل (مع احتساب الأيام التي بدون تركيز بـ 0)
+        // جمع دقائق التركيز وفحص وجود السجلات للـ 7 أيام السابقة بالكامل (ضمن النافذة فقط)
         for (let i = 1; i <= 7; i++) {
             const d = new Date(parts[0], parts[1] - 1, parts[2] - i);
             const y = d.getFullYear();
@@ -1283,8 +1278,14 @@ function hayyizGetFocusHistoryComparison(focusMinutesToday) {
             const key = `${y}-${m}-${dd}`;
 
             if (hist[key] !== undefined) {
+                recordedInWindowCount++;
                 totalPastMinutes += (parseInt(hist[key], 10) || 0);
             }
+        }
+
+        // يتطلب وجود 3 أيام مسجلة على الأقل داخل نافذة الأيام السبعة السابقة فقط
+        if (recordedInWindowCount < 3) {
+            return { hasSufficientData: false, comparisonText: '', avgMinutes: 0 };
         }
 
         // المتوسط يُحسب دائماً على الأيام السبعة السابقة بالكامل

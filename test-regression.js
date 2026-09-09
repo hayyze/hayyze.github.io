@@ -1239,6 +1239,55 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     const stateJ = hayyizComputeStudentDecisionState();
     assert(stateJ.dayStatus.statusKey === 'ready_to_start', 'Scenario J: Unstarted active tasks produce distinct statusKey "ready_to_start"');
     assert(stateJ.dayStatus.statusLabel === 'جاهز للبدء', 'Scenario J: Label is "جاهز للبدء" (distinct from "no_plan")');
+
+    // Test K: 3 history entries, but ALL older than 7 days (outside window)
+    localStorage.clear();
+    const histK = {};
+    histK[getOffsetDateStr(-10)] = 60;
+    histK[getOffsetDateStr(-11)] = 60;
+    histK[getOffsetDateStr(-12)] = 60;
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histK));
+    const compK = hayyizGetFocusHistoryComparison(40);
+    assert(compK.hasSufficientData === false, 'Test K: 3 entries older than 7 days result in hasSufficientData: false');
+    assert(compK.comparisonText === '', 'Test K: No false weekly comparison text displayed when all entries are outside window');
+
+    // Test L: 2 entries inside past 7 days + 1 entry outside window
+    localStorage.clear();
+    const histL = {};
+    histL[getOffsetDateStr(-1)] = 30;
+    histL[getOffsetDateStr(-2)] = 30;
+    histL[getOffsetDateStr(-15)] = 60;
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histL));
+    const compL = hayyizGetFocusHistoryComparison(30);
+    assert(compL.hasSufficientData === false, 'Test L: 2 entries in window + 1 outside window results in hasSufficientData: false');
+
+    // Test M: 7 valid history entries inside past 7 days (60, 60, 0, 0, 0, 0, 0)
+    localStorage.clear();
+    const histM = {};
+    histM[getOffsetDateStr(-1)] = 60;
+    histM[getOffsetDateStr(-2)] = 60;
+    histM[getOffsetDateStr(-3)] = 0;
+    histM[getOffsetDateStr(-4)] = 0;
+    histM[getOffsetDateStr(-5)] = 0;
+    histM[getOffsetDateStr(-6)] = 0;
+    histM[getOffsetDateStr(-7)] = 0;
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histM));
+    const compM = hayyizGetFocusHistoryComparison(50);
+    assert(compM.hasSufficientData === true, 'Test M: 7 valid days in window yield hasSufficientData: true');
+    assert(compM.avgMinutes === 17, 'Test M: Average is 17 minutes (120/7)');
+    assert(compM.comparisonText === 'أعلى من معدلك الأسبوعي', 'Test M: 50 mins focus is higher than 17-minute 7-day average');
+
+    // Test N: 3 entries inside past 7 days window + extra entries outside window
+    localStorage.clear();
+    const histN = {};
+    histN[getOffsetDateStr(-1)] = 30;
+    histN[getOffsetDateStr(-2)] = 30;
+    histN[getOffsetDateStr(-3)] = 30;
+    histN[getOffsetDateStr(-10)] = 50;
+    histN[getOffsetDateStr(-20)] = 50;
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histN));
+    const compN = hayyizGetFocusHistoryComparison(50);
+    assert(compN.hasSufficientData === true, 'Test N: Sufficiency decided strictly by 3 entries inside window');
 }
 
 console.log(`\n===================================`);
