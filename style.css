@@ -3400,3 +3400,8 @@ html.theme-dark .notes-dropdowns select {
     color: var(--color-danger);
     font-weight: 700;
 }
+
+.subject-task-progress {
+    color: var(--color-primary);
+    font-weight: 600;
+}

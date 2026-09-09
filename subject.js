@@ -114,12 +114,13 @@ function getSubjectHubData(subjectId, rawData) {
     let totalSessions = 0;
 
     if (deduplicatedSessions.length > 0) {
+        // المصدر الأساسي الموثوق: سجل جلسات التركيز التفصيلية المفلترة والمزالة منها التكرارات
         totalSessions = deduplicatedSessions.length;
         deduplicatedSessions.forEach(s => {
             totalMinutes += parseInt(s.durationMinutes, 10) || 0;
         });
 
-        // احتساب أي دقائق تركيز في المهام غير مغطاة بجلسات في السجل لضمان الدقة وتجنب العد المزدوج
+        // إضافة أي دقائق تركيز في المهام لم تُسجل كجلسات تفصيلية لضمان عدم الضياع وعدم العد المزدوج
         subjectTasks.forEach(t => {
             const taskFocus = parseInt(t.focusDone, 10) || 0;
             if (taskFocus > 0) {
@@ -135,13 +136,20 @@ function getSubjectHubData(subjectId, rawData) {
             }
         });
     } else {
-        // Fallback للبيانات القديمة والمهام المسجلة مباشرة دون سجل جلسات تفصيلي
-        let taskFocusMinutes = 0;
-        subjectTasks.forEach(t => {
-            taskFocusMinutes += (parseInt(t.focusDone, 10) || 0);
-        });
-        totalMinutes = Math.max(parseInt(subject.focusMinutes, 10) || 0, taskFocusMinutes);
-        totalSessions = parseInt(subject.sessions, 10) || 0;
+        // عند عدم وجود سجل جلسات تفصيلي: استخدام المصدر التاريخي الرسمي أولاً
+        const legacySubjectMinutes = parseInt(subject.focusMinutes, 10) || 0;
+        if (legacySubjectMinutes > 0) {
+            totalMinutes = legacySubjectMinutes;
+            totalSessions = parseInt(subject.sessions, 10) || 0;
+        } else {
+            // استخدام مجموع focusDone للمهام كمصدر إحاطة حتمي فقط عند غياب دقائق المادة
+            let taskFocusMinutes = 0;
+            subjectTasks.forEach(t => {
+                taskFocusMinutes += (parseInt(t.focusDone, 10) || 0);
+            });
+            totalMinutes = taskFocusMinutes;
+            totalSessions = 0; // عدم اختلاق عدد جلسات غير معروف
+        }
     }
 
     // 5. تصفية الملاحظات (أولوية: note.subjectId ثم relatedTaskId -> task.subjectId ثم legacy subject name)
@@ -760,7 +768,7 @@ function renderTasksSection(subject, openTasks, doneTasks) {
                 const prog = hayyizFormatTaskProgress(task);
                 if (prog && prog.hasProgress) {
                     const progSpan = document.createElement('span');
-                    progSpan.style.cssText = 'color: var(--primary); font-weight: 600;';
+                    progSpan.className = 'subject-task-progress';
                     progSpan.textContent = `⏱️ ${prog.progressText}`;
                     metaDiv.appendChild(progSpan);
                 }
