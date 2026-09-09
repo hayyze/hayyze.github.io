@@ -2240,6 +2240,126 @@ input[type="radio"] {
     margin-top: 0.5rem;
 }
 
+/* ===================== DAILY SUMMARY UI CLASSES ===================== */
+.dash-greeting-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.dash-greeting-title {
+    margin: 0;
+    font-size: 1.35rem;
+    color: var(--color-text);
+}
+
+.dash-day-status {
+    font-size: 0.82rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 12px;
+    font-weight: 700;
+    background: var(--color-surface-alt);
+    border: 1px solid var(--color-border);
+    color: var(--color-primary);
+}
+
+.dash-day-status.status-active {
+    background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+    color: var(--color-primary);
+}
+
+.dash-day-status.status-danger {
+    background: color-mix(in srgb, var(--color-danger) 15%, var(--color-surface));
+    color: var(--color-danger);
+    border-color: color-mix(in srgb, var(--color-danger) 30%, transparent);
+}
+
+.dash-day-status.status-warning {
+    background: color-mix(in srgb, var(--color-warning) 18%, var(--color-surface));
+    color: var(--color-warning);
+    border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
+}
+
+.dash-day-status.status-info {
+    background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+    color: var(--color-primary);
+}
+
+.dash-day-status.status-success {
+    background: color-mix(in srgb, var(--color-success) 15%, var(--color-surface));
+    color: var(--color-success);
+    border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+}
+
+.dash-greeting-date {
+    margin: 0.35rem 0 0;
+    color: var(--color-text-secondary);
+    font-size: 0.88rem;
+}
+
+.dash-greeting-description {
+    margin: 0.25rem 0 0;
+    color: var(--color-text);
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+.dash-plan-summary-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+    background: var(--color-surface);
+    padding: 0.6rem 0.85rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+}
+
+.dash-plan-summary-items {
+    display: flex;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.dash-summary-item-active i.icon-primary,
+.dash-summary-exam-span {
+    color: var(--color-primary);
+}
+
+.dash-empty-plan-box {
+    padding: 1.25rem;
+    text-align: center;
+    color: var(--color-text-secondary);
+}
+
+.dash-empty-plan-title {
+    display: block;
+    font-size: 1rem;
+    color: var(--color-text);
+    margin-bottom: 0.35rem;
+}
+
+.dash-empty-plan-desc {
+    font-size: 0.88rem;
+    margin: 0 0 1rem;
+}
+
+.dash-empty-plan-actions {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
 /* Dashboard Component Styles - Action First & Human Centered */
 .dash-attention-banner {
     padding: 0.9rem 1.15rem;

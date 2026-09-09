@@ -616,6 +616,40 @@ function hayyizDeleteTask(id) {
 }
 
 /** صيغة التواريخ النسبية والسياقية للمهام */
+/**
+ * تنسيق تقدم المهمة بصورة آمنة ومفهومة للاستخدام في العرض واختبارات التكامل
+ */
+function hayyizFormatTaskProgress(task) {
+    if (!task) return null;
+    const done = parseInt(task.focusDone, 10) || 0;
+    const total = parseInt(task.minutes, 10) || 0;
+    if (done <= 0) {
+        return {
+            hasProgress: false,
+            done: 0,
+            total: total > 0 ? total : 0,
+            percent: null,
+            progressText: '',
+            progressMeta: total > 0 ? `${total} دقيقة` : ''
+        };
+    }
+
+    const hasValidTotal = total > 0 && Number.isFinite(total);
+    const percent = hasValidTotal ? Math.round((done / total) * 100) : null;
+    const progressText = hasValidTotal
+        ? `أُنجز ${done} من ${total} دقيقة (${percent}%)`
+        : `أُنجز ${done} دقيقة تركيز`;
+
+    return {
+        hasProgress: true,
+        done,
+        total: hasValidTotal ? total : 0,
+        percent: hasValidTotal ? percent : null,
+        progressText,
+        progressMeta: progressText
+    };
+}
+
 function hayyizFormatRelativeDueDate(dateStr) {
     if (!dateStr) return { label: 'بدون موعد', isOverdue: false, days: null, cssClass: 'due-none' };
     const dateOnly = String(dateStr).slice(0, 10);
@@ -1070,6 +1104,10 @@ function hayyizEvaluateDecisions(snapshot, rankedTasks) {
     candidates.sort((a, b) => b.score - a.score);
     const winnerCandidate = candidates[0] || null;
     const primaryDecision = (winnerCandidate && winnerCandidate.score >= 50) ? winnerCandidate : null;
+
+    if (primaryDecision && primaryDecision.task) {
+        primaryDecision.taskProgress = hayyizFormatTaskProgress(primaryDecision.task);
+    }
 
     return {
         candidates,

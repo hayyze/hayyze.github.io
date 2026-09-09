@@ -1290,6 +1290,227 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     assert(compN.hasSufficientData === true, 'Test N: Sufficiency decided strictly by 3 entries inside window');
 }
 
+// --- 18. DOM INTEGRATION RENDERING TESTS (DOM-1, DOM-2, DOM-3, DOM-4) ---
+{
+    localStorage.clear();
+
+    // Helper to construct a lightweight simulated DOM node for summary rendering verification
+    function createMockElement(tagName) {
+        const children = [];
+        const attributes = {};
+        const classList = new Set();
+        let textContent = '';
+        let innerHTML = '';
+
+        function findChild(parent, predicate) {
+            for (const c of parent.children) {
+                if (c && typeof c === 'object') {
+                    if (predicate(c)) return c;
+                    const nested = findChild(c, predicate);
+                    if (nested) return nested;
+                }
+            }
+            return null;
+        }
+
+        function findAllChildren(parent, predicate, matches) {
+            for (const c of parent.children) {
+                if (c && typeof c === 'object') {
+                    if (predicate(c)) matches.push(c);
+                    findAllChildren(c, predicate, matches);
+                }
+            }
+        }
+
+        const el = {
+            tagName: (tagName || 'DIV').toUpperCase(),
+            children,
+            attributes,
+            style: {},
+            classList: {
+                add: (...names) => names.forEach(n => classList.add(n)),
+                remove: (...names) => names.forEach(n => classList.delete(n)),
+                contains: (name) => classList.has(name),
+                toggle: (name, force) => {
+                    if (force === true) classList.add(name);
+                    else if (force === false) classList.delete(name);
+                    else if (classList.has(name)) classList.delete(name);
+                    else classList.add(name);
+                    return classList.has(name);
+                },
+                toString: () => Array.from(classList).join(' ')
+            },
+            get className() { return Array.from(classList).join(' '); },
+            set className(val) {
+                classList.clear();
+                if (val) String(val).split(/\s+/).filter(Boolean).forEach(n => classList.add(n));
+            },
+            get textContent() {
+                if (textContent) return textContent;
+                return children.map(c => typeof c === 'string' ? c : c.textContent).join('');
+            },
+            set textContent(val) {
+                textContent = String(val);
+                children.length = 0;
+            },
+            get innerHTML() { return innerHTML || textContent; },
+            set innerHTML(val) {
+                innerHTML = String(val);
+                textContent = String(val).replace(/<[^>]*>/g, '');
+            },
+            appendChild: (child) => {
+                if (child) children.push(child);
+                return child;
+            },
+            replaceChildren: (...newChildren) => {
+                children.length = 0;
+                textContent = '';
+                innerHTML = '';
+                newChildren.forEach(c => children.push(c));
+            },
+            setAttribute: (k, v) => { attributes[k] = String(v); },
+            getAttribute: (k) => attributes[k] || null,
+            querySelector: (sel) => {
+                if (sel.startsWith('.')) {
+                    const cls = sel.slice(1);
+                    return findChild(el, c => c && c.classList && typeof c.classList.contains === 'function' && c.classList.contains(cls));
+                }
+                return null;
+            },
+            querySelectorAll: (sel) => {
+                const matches = [];
+                findAllChildren(el, c => {
+                    if (sel.startsWith('.') && c && c.classList && typeof c.classList.contains === 'function' && c.classList.contains(sel.slice(1))) {
+                        matches.push(c);
+                    }
+                }, matches);
+                return matches;
+            },
+            addEventListener: () => {}
+        };
+
+        return el;
+    }
+
+    const mockContent = createMockElement('div');
+    mockContent.id = 'summary-content';
+
+    const listeners = [];
+    const prevDoc = global.document;
+    global.document = {
+        readyState: 'complete',
+        getElementById: (id) => (id === 'summary-content' ? mockContent : null),
+        createElement: (tag) => createMockElement(tag),
+        querySelector: () => null,
+        querySelectorAll: () => [],
+        addEventListener: (event, fn) => {
+            listeners.push({ event, fn });
+        }
+    };
+
+    function runDOMContentLoaded() {
+        listeners.forEach(l => {
+            if (l.event === 'DOMContentLoaded') l.fn();
+        });
+    }
+
+    // Test DOM-1: Day Status rendering (statusLabel, title, description in DOM)
+    localStorage.clear();
+    const getOffsetDateStr = (offsetDays) => {
+        const base = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+        const parts = base.split('-').map(Number);
+        const dt = new Date(parts[0], parts[1] - 1, parts[2] + offsetDays);
+        return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    };
+
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_dom1_1', text: 'مهمة متأخرة 1', date: getOffsetDateStr(-2), completed: false },
+        { id: 't_dom1_2', text: 'مهمة متأخرة 2', date: getOffsetDateStr(-3), completed: false },
+        { id: 't_dom1_3', text: 'مهمة متأخرة 3', date: getOffsetDateStr(-1), completed: false }
+    ]));
+
+    eval(summaryJs);
+    runDOMContentLoaded();
+
+    const statusBadgeEl = mockContent.querySelector('.dash-day-status');
+    const greetingDateEl = mockContent.querySelector('.dash-greeting-date');
+    const greetingDescEl = mockContent.querySelector('.dash-greeting-description');
+
+    assert(statusBadgeEl !== null && statusBadgeEl.textContent.includes('حالة اليوم: ضغط متراكم'), 'Test DOM-1: dayStatus.statusLabel appears in DOM in correct badge element');
+    assert(greetingDateEl !== null && greetingDateEl.textContent.includes('تراكم في المهام المتأخرة'), 'Test DOM-1: dayStatus.title appears in DOM in subtitle element');
+    assert(greetingDescEl !== null && greetingDescEl.textContent.includes('3 مهام متأخرة عن موعدها'), 'Test DOM-1: dayStatus.description appears in DOM in description element');
+
+    // Test DOM-2: Historical comparison presence conditional on sufficient data
+    // Case 2a: Sufficient data -> comparisonText appears in description
+    localStorage.clear();
+    listeners.length = 0; // Clear listeners before re-evaluating summaryJs
+    const histSufficient = {};
+    for (let i = 1; i <= 7; i++) {
+        histSufficient[getOffsetDateStr(-i)] = 40;
+    }
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histSufficient));
+    localStorage.setItem('hayyiz-focus-minutes-today', '60');
+    localStorage.setItem('hayyiz-sessions-day', getOffsetDateStr(0));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_dom2', text: 'مهمة اليوم', completed: false }
+    ]));
+
+    mockContent.replaceChildren();
+    eval(summaryJs);
+    runDOMContentLoaded();
+
+    const descWithHist = mockContent.querySelector('.dash-greeting-description');
+    assert(descWithHist !== null && descWithHist.textContent.includes('أعلى من معدلك الأسبوعي'), 'Test DOM-2a: comparisonText appears in description when hasSufficientData is true');
+
+    // Case 2b: Insufficient data -> NO comparisonText in description
+    localStorage.clear();
+    listeners.length = 0;
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify({}));
+    localStorage.setItem('hayyiz-focus-minutes-today', '60');
+    localStorage.setItem('hayyiz-sessions-day', getOffsetDateStr(0));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_dom2b', text: 'مهمة اليوم', completed: false }
+    ]));
+
+    mockContent.replaceChildren();
+    eval(summaryJs);
+    runDOMContentLoaded();
+
+    const descWithoutHist = mockContent.querySelector('.dash-greeting-description');
+    const hasComparisonText = descWithoutHist ? descWithoutHist.textContent.includes('معدلك') : false;
+    assert(!hasComparisonText, 'Test DOM-2b: comparisonText is omitted from description when hasSufficientData is false');
+
+    // Test DOM-3: Task Progress formatting (done=25, minutes=50 -> "أُنجز 25 من 50 دقيقة (50%)", done=25, minutes=null -> "أُنجز 25 دقيقة تركيز", no NaN/Infinity)
+    const progWithTotal = hayyizFormatTaskProgress({ focusDone: 25, minutes: 50 });
+    assert(progWithTotal.progressText === 'أُنجز 25 من 50 دقيقة (50%)', 'Test DOM-3: Formats task progress with valid total percentage correctly');
+
+    const progWithoutTotal = hayyizFormatTaskProgress({ focusDone: 25, minutes: null });
+    assert(progWithoutTotal.progressText === 'أُنجز 25 دقيقة تركيز', 'Test DOM-3: Safe formatting without total duration ("أُنجز 25 دقيقة تركيز")');
+
+    const progInvalid = hayyizFormatTaskProgress({ focusDone: 25, minutes: 'abc' });
+    assert(!progInvalid.progressText.includes('NaN') && !progInvalid.progressText.includes('Infinity') && progInvalid.progressText === 'أُنجز 25 دقيقة تركيز', 'Test DOM-3: Prevents NaN and Infinity in progress formatting');
+
+    // Test DOM-4: Absence of duplicated information
+    localStorage.clear();
+    listeners.length = 0;
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histSufficient));
+    localStorage.setItem('hayyiz-focus-minutes-today', '60');
+    localStorage.setItem('hayyiz-sessions-day', getOffsetDateStr(0));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_dom4', text: 'مهمة اليوم', completed: false }
+    ]));
+
+    mockContent.replaceChildren();
+    eval(summaryJs);
+    runDOMContentLoaded();
+
+    const greetingText = mockContent.querySelector('.dash-greeting') ? mockContent.querySelector('.dash-greeting').textContent : '';
+    const occurrences = (greetingText.match(/أعلى من معدلك الأسبوعي/g) || []).length;
+    assert(occurrences === 1, 'Test DOM-4: comparisonText appears exactly once without duplicate repetition in greeting');
+
+    global.document = prevDoc;
+}
+
 // --- 17. FINE-TUNED DAILY SUMMARY COMPOSITE SCENARIOS (1 TO 8) ---
 {
     localStorage.clear();

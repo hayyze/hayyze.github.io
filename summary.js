@@ -126,18 +126,17 @@ document.addEventListener('DOMContentLoaded', () => {
     greet.className = 'dash-greeting';
 
     const greetTop = document.createElement('div');
-    greetTop.style.cssText = 'display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;';
+    greetTop.className = 'dash-greeting-top';
 
     const greetTitle = document.createElement('h3');
-    greetTitle.style.cssText = 'margin: 0;';
+    greetTitle.className = 'dash-greeting-title';
     greetTitle.textContent = greeting + ' 👋';
     greetTop.appendChild(greetTitle);
 
     const dayStatus = studentState ? studentState.dayStatus : null;
     if (dayStatus) {
         const statusBadge = document.createElement('span');
-        statusBadge.className = 'dash-now-tag ' + (dayStatus.cssClass || '');
-        statusBadge.style.cssText = 'font-size: 0.82rem; padding: 0.25rem 0.6rem; border-radius: 12px; font-weight: 700; background: var(--color-surface-alt); border: 1px solid var(--color-border); color: var(--color-primary);';
+        statusBadge.className = 'dash-day-status ' + (dayStatus.cssClass || '');
         statusBadge.textContent = 'حالة اليوم: ' + dayStatus.statusLabel;
         greetTop.appendChild(statusBadge);
     }
@@ -145,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
     greet.appendChild(greetTop);
 
     const greetDate = document.createElement('p');
-    greetDate.style.cssText = 'margin: 0.35rem 0 0; color: var(--color-text-secondary); font-size: 0.88rem;';
+    greetDate.className = 'dash-greeting-date';
 
     let subtitleText = dateLabel;
     if (dayStatus && dayStatus.title) {
@@ -156,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (dayStatus && dayStatus.description) {
         const greetDesc = document.createElement('p');
-        greetDesc.style.cssText = 'margin: 0.25rem 0 0; color: var(--color-text); font-size: 0.92rem; font-weight: 600; line-height: 1.5;';
+        greetDesc.className = 'dash-greeting-description';
         let descText = dayStatus.description;
         if (dayStatus.historyComparison && dayStatus.historyComparison.hasSufficientData && dayStatus.historyComparison.comparisonText) {
             descText += ` (${dayStatus.historyComparison.comparisonText})`;
@@ -237,12 +236,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (suggestion.reason || (suggestion.task && (parseInt(suggestion.task.focusDone, 10) || 0) > 0)) {
             let reasonText = suggestion.reason || '';
             if (suggestion.task) {
-                const done = parseInt(suggestion.task.focusDone, 10) || 0;
-                const total = parseInt(suggestion.task.minutes, 10) || 0;
-                if (done > 0) {
-                    const progStr = total > 0
-                        ? `التقدم الحالي: أُنجز ${done} من ${total} دقيقة (${Math.round((done / total) * 100)}%)`
-                        : `التقدم الحالي: أُنجز ${done} دقيقة تركيز`;
+                const prog = suggestion.taskProgress || (typeof hayyizFormatTaskProgress === 'function' ? hayyizFormatTaskProgress(suggestion.task) : null);
+                if (prog && prog.hasProgress) {
+                    const progStr = `التقدم الحالي: ${prog.progressText}`;
                     reasonText = reasonText ? `${reasonText} · ${progStr}` : progStr;
                 }
             }
@@ -298,18 +294,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const sn = hayyizGetSubjectName(nextTask.subjectId);
             if (sn) metaParts.push(sn);
         }
-        if (nextTask.minutes) {
-            const done = nextTask.focusDone ? parseInt(nextTask.focusDone, 10) || 0 : 0;
-            const total = parseInt(nextTask.minutes, 10) || 0;
-            if (done > 0 && total > 0) {
-                const pct = Math.round((done / total) * 100);
-                metaParts.push(`أُنجز ${done} من ${total} دقيقة (${pct}%)`);
-            } else {
-                metaParts.push(nextTask.minutes + ' دقيقة');
-            }
-        } else if (nextTask.focusDone) {
-            const done = parseInt(nextTask.focusDone, 10) || 0;
-            if (done > 0) metaParts.push(`أُنجز ${done} دقيقة تركيز`);
+        const nextTaskProg = typeof hayyizFormatTaskProgress === 'function' ? hayyizFormatTaskProgress(nextTask) : null;
+        if (nextTaskProg && nextTaskProg.hasProgress) {
+            metaParts.push(nextTaskProg.progressText);
+        } else if (nextTask.minutes) {
+            metaParts.push(nextTask.minutes + ' دقيقة');
         }
         if (nextTask.date) {
             const d = String(nextTask.date).slice(0, 10);
@@ -455,14 +444,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // ملخص التقدم لخطة اليوم
         const planSummaryRow = document.createElement('div');
         planSummaryRow.className = 'dash-plan-summary-bar';
-        planSummaryRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.85rem; font-size: 0.85rem; color: var(--color-text-secondary); background: var(--color-surface); padding: 0.6rem 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border);';
 
         const summaryLeft = document.createElement('div');
-        summaryLeft.style.cssText = 'display: flex; gap: 0.85rem; flex-wrap: wrap; font-weight: 600; color: var(--color-text);';
+        summaryLeft.className = 'dash-plan-summary-items';
 
         const activeCount = activeTodos.length;
-        summaryLeft.innerHTML = `<span><i class="fa-solid fa-list-check" style="color: var(--color-primary);"></i> ${activeCount > 0 ? activeCount + ' مهام متبقية' : 'جميع المهام مكتملة'}</span>` +
-                                `<span><i class="fa-solid fa-stopwatch" style="color: var(--color-primary);"></i> ${focusMinutes > 0 ? focusMinutes + ' دقيقة تركيز اليوم' : 'لم تبدأ التركيز بعد'}</span>`;
+        summaryLeft.innerHTML = `<span class="dash-summary-item-active"><i class="fa-solid fa-list-check icon-primary"></i> ${activeCount > 0 ? activeCount + ' مهام متبقية' : 'جميع المهام مكتملة'}</span>` +
+                                `<span class="dash-summary-item-active"><i class="fa-solid fa-stopwatch icon-primary"></i> ${focusMinutes > 0 ? focusMinutes + ' دقيقة تركيز اليوم' : 'لم تبدأ التركيز بعد'}</span>`;
 
         const summaryRowExams = typeof hayyizGetCalendarSummary === 'function' ? hayyizGetCalendarSummary().nearestEvent : null;
         if (summaryRowExams) {
@@ -470,7 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (daysToEx !== null && daysToEx >= 0 && daysToEx <= 7) {
                 const exLabel = daysToEx === 0 ? 'اختبار اليوم' : (daysToEx === 1 ? 'اختبار غداً' : `اختبار بعد ${daysToEx} أيام`);
                 const examSpan = document.createElement('span');
-                examSpan.style.color = 'var(--color-primary)';
+                examSpan.className = 'dash-summary-exam-span';
                 examSpan.innerHTML = `<i class="fa-solid fa-graduation-cap"></i> ${exLabel} (${escapeHtml(summaryRowExams.name)})`;
                 summaryLeft.appendChild(examSpan);
             }
@@ -544,18 +532,18 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         // حالة الخطة الفارغة (Empty State)
         const emptyPlanBox = document.createElement('div');
-        emptyPlanBox.style.cssText = 'padding: 1.25rem; text-align: center; color: var(--color-text-secondary);';
+        emptyPlanBox.className = 'dash-empty-plan-box';
 
         const emptyTitle = document.createElement('strong');
-        emptyTitle.style.cssText = 'display: block; font-size: 1rem; color: var(--color-text); margin-bottom: 0.35rem;';
+        emptyTitle.className = 'dash-empty-plan-title';
         emptyTitle.textContent = 'لا توجد مهام مخططة لليوم';
 
         const emptyDesc = document.createElement('p');
-        emptyDesc.style.cssText = 'font-size: 0.88rem; margin: 0 0 1rem;';
+        emptyDesc.className = 'dash-empty-plan-desc';
         emptyDesc.textContent = 'أضف مهامك أو مواعيد اختباراتك ليقوم حيز بتنظيم خطتك الدراسية التكيفية تلقائياً.';
 
         const emptyActions = document.createElement('div');
-        emptyActions.style.cssText = 'display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap;';
+        emptyActions.className = 'dash-empty-plan-actions';
 
         const addTasksBtn = document.createElement('a');
         addTasksBtn.href = 'todo.html';
