@@ -423,6 +423,91 @@ testAssert(dataSc7 && dataSc7.nearestExam === null && dataSc7.statusKey === 'act
 const dataSc8 = getSubjectHubData('non_existent', { subjects: [], todos: [], exams: [], focusSessions: [], notes: [], goals: [] });
 testAssert(dataSc8 === null, 'Scenario 8: System with zero subjects returns null safely without throwing errors');
 
+// TEST 11: Render & Display Integration Tests (UI-1 through UI-4)
+resetEnv();
+
+// Test UI-1: Pre-calculated properties ready for direct rendering
+const subUi1 = hayyizAddSubject('التوحيد');
+const taskUi1Overdue = { id: 'tUi1_1', text: 'حفظ المتن', subjectId: subUi1.id, date: '2020-01-01', completed: false };
+const examUi1Near = { id: 'exUi1_1', name: 'اختبار توحيد', subjectId: subUi1.id, date: todayStr };
+
+const dataUi1 = getSubjectHubData(subUi1.id, {
+    subjects: [subUi1],
+    todos: [taskUi1Overdue],
+    exams: [examUi1Near],
+    focusSessions: [],
+    notes: [],
+    goals: []
+});
+
+testAssert(dataUi1.statusLabel === 'تحتاج انتباهًا', 'Test UI-1a: getSubjectHubData produces ready-to-render statusLabel directly');
+testAssert(dataUi1.openTasks.length === 1 && dataUi1.overdueTasks.length === 1, 'Test UI-1b: getSubjectHubData calculates openTasks and overdueTasks directly');
+testAssert(typeof dataUi1.focusMinutes === 'number' && dataUi1.nearestExam.id === 'exUi1_1', 'Test UI-1c: focusMinutes and nearestExam ready without view recalculation');
+
+// Test UI-2: Progress formatting without NaN/Infinity
+const subUi2 = hayyizAddSubject('الفلسفة');
+const taskUi2 = { id: 'tUi2', text: 'قراءة الفصل', subjectId: subUi2.id, focusDone: 25, minutes: 50, completed: false };
+const dataUi2 = getSubjectHubData(subUi2.id, {
+    subjects: [subUi2],
+    todos: [taskUi2],
+    exams: [],
+    focusSessions: [],
+    notes: [],
+    goals: []
+});
+
+const progFormatted = hayyizFormatTaskProgress(taskUi2);
+testAssert(dataUi2.focusMinutes === 25, 'Test UI-2a: Subject hub focusMinutes matches task focusDone = 25');
+testAssert(progFormatted && progFormatted.percent === 50 && Number.isFinite(progFormatted.percent), 'Test UI-2b: Progress percentage is a valid finite number (50%)');
+testAssert(progFormatted.progressText.includes('25 من 50 دقيقة') && !progFormatted.progressText.includes('NaN'), 'Test UI-2c: Progress text formatted cleanly without NaN or Infinity');
+
+// Test UI-3: Isolation of task focus progress between subjects
+const subUi3a = hayyizAddSubject('مادة أ');
+const subUi3b = hayyizAddSubject('مادة ب');
+const taskUi3a = { id: 't3a', text: 'مهمة مادة أ', subjectId: subUi3a.id, focusDone: 30, completed: false };
+
+const dataUi3a = getSubjectHubData(subUi3a.id, { subjects: [subUi3a, subUi3b], todos: [taskUi3a], exams: [], focusSessions: [], notes: [], goals: [] });
+const dataUi3b = getSubjectHubData(subUi3b.id, { subjects: [subUi3a, subUi3b], todos: [taskUi3a], exams: [], focusSessions: [], notes: [], goals: [] });
+
+testAssert(dataUi3a.focusMinutes === 30, 'Test UI-3a: Subject A correctly reflects 30 focus minutes');
+testAssert(dataUi3b.focusMinutes === 0, 'Test UI-3b: Subject B focus minutes remain 0 without leaking progress from Subject A');
+
+// Test UI-4: Single Source of Truth for Focus Time & Double Counting Prevention
+const subUi4 = hayyizAddSubject('الكيمياء العضوية');
+const taskUi4 = { id: 't4', text: 'تفاعلات الألكينات', subjectId: subUi4.id, focusDone: 25, completed: false };
+
+// Session recorded in focusSessions AND focusDone updated on task
+const loggedSession = {
+    id: 's_ui4_1',
+    durationMinutes: 25,
+    timestamp: new Date().toISOString(),
+    contextSnapshot: { type: 'task', id: 't4', subjectId: subUi4.id }
+};
+
+const dataUi4 = getSubjectHubData(subUi4.id, {
+    subjects: [subUi4],
+    todos: [taskUi4],
+    exams: [],
+    focusSessions: [loggedSession],
+    notes: [],
+    goals: []
+});
+
+testAssert(dataUi4.focusMinutes === 25, 'Test UI-4a: Focus time does NOT double-count when session is in both focusSessions and task.focusDone (remains 25)');
+
+// Legacy fallback test
+const subUi4Legacy = { id: 'sub_leg', name: 'مادة قديمة', focusMinutes: 40, sessions: 1 };
+const dataUi4Legacy = getSubjectHubData('sub_leg', {
+    subjects: [subUi4Legacy],
+    todos: [],
+    exams: [],
+    focusSessions: [],
+    notes: [],
+    goals: []
+});
+
+testAssert(dataUi4Legacy && dataUi4Legacy.focusMinutes === 40, 'Test UI-4b: Legacy subject data with focusMinutes fallback renders 40 minutes correctly without NaN');
+
 console.log(`===================================`);
 console.log(`SUBJECT HUB AUDIT RESULTS: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);

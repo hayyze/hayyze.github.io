@@ -110,11 +110,6 @@ function getSubjectHubData(subjectId, rawData) {
         return timeB - timeA;
     });
 
-    let taskFocusMinutes = 0;
-    subjectTasks.forEach(t => {
-        taskFocusMinutes += (parseInt(t.focusDone, 10) || 0);
-    });
-
     let totalMinutes = 0;
     let totalSessions = 0;
 
@@ -123,9 +118,28 @@ function getSubjectHubData(subjectId, rawData) {
         deduplicatedSessions.forEach(s => {
             totalMinutes += parseInt(s.durationMinutes, 10) || 0;
         });
-        totalMinutes = Math.max(totalMinutes, taskFocusMinutes);
+
+        // احتساب أي دقائق تركيز في المهام غير مغطاة بجلسات في السجل لضمان الدقة وتجنب العد المزدوج
+        subjectTasks.forEach(t => {
+            const taskFocus = parseInt(t.focusDone, 10) || 0;
+            if (taskFocus > 0) {
+                let loggedTaskMinutes = 0;
+                deduplicatedSessions.forEach(s => {
+                    const snap = s.contextSnapshot;
+                    if (snap && snap.type === 'task' && String(snap.id) === String(t.id)) {
+                        loggedTaskMinutes += parseInt(s.durationMinutes, 10) || 0;
+                    }
+                });
+                const unloggedTaskMinutes = Math.max(0, taskFocus - loggedTaskMinutes);
+                totalMinutes += unloggedTaskMinutes;
+            }
+        });
     } else {
-        // Fallback للبيانات القديمة والمهام المسجلة مباشرة
+        // Fallback للبيانات القديمة والمهام المسجلة مباشرة دون سجل جلسات تفصيلي
+        let taskFocusMinutes = 0;
+        subjectTasks.forEach(t => {
+            taskFocusMinutes += (parseInt(t.focusDone, 10) || 0);
+        });
         totalMinutes = Math.max(parseInt(subject.focusMinutes, 10) || 0, taskFocusMinutes);
         totalSessions = parseInt(subject.sessions, 10) || 0;
     }
