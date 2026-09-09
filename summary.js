@@ -102,7 +102,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (task.id) localStorage.setItem('hayyiz-current-task-id', task.id);
         localStorage.setItem('hayyiz-current-task-index', String(index));
         localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
-        window.location.href = 'pomodoro.html?task=' + encodeURIComponent(task.text);
+        let pomoUrl = 'pomodoro.html?task=' + encodeURIComponent(task.text);
+        if (task.id) pomoUrl += '&taskId=' + encodeURIComponent(task.id);
+        window.location.href = pomoUrl;
     }
 
     function escapeHtml(str) {
