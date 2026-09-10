@@ -2570,10 +2570,9 @@ function hayyizComputeMultiDayPlan(config) {
     let statusLabel = 'خطة متوازنة';
     const isCapacityExceeded = totalUnallocatedMinutes > 0;
 
-    const allocatableDaysCount = allocatableDates.length;
     if (daysRemaining === 0) {
         overallStatus = 'final_day';
-        statusLabel = 'اليوم الأخير قبل الهدف';
+        statusLabel = 'اليوم — موعد الهدف';
     } else if (isCapacityExceeded) {
         overallStatus = 'overloaded';
         statusLabel = `الوقت المتاح لا يكفي لإكمال جميع المهام قبل الموعد (عجز: ${totalUnallocatedMinutes} د)`;
