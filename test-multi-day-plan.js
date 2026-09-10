@@ -464,6 +464,126 @@ const getOffsetDateStr = (offsetDays) => {
     assert(reopened.dailyCapacityMinutes === 180, 'Point 3: Re-opened plan maintains 180 capacity as Single Source of Truth');
 }
 
+// Test A: 120 min/day + 180 min work + 2 allocatable days
+{
+    localStorage.clear();
+    const targetId = 'ex_test_a';
+    const targetDate = getOffsetDateStr(3); // Days 0, 1 allocatable, Day 2 Buffer, Day 3 Target
+    const task = { id: 't_a_180', text: 'عمل 180 دقيقة', eventId: targetId, minutes: 180, completed: false };
+    hayyizSaveTodos([task]);
+
+    const plan = hayyizComputeMultiDayPlan({
+        targetId,
+        targetName: 'Test A',
+        targetDate,
+        dailyCapacityMinutes: 120
+    });
+
+    assert(plan.schedule.every(s => s.plannedMinutes <= 120), 'Test A: No day plannedMinutes exceeds 120');
+    assert(plan.totalPlannedMinutes === 180, 'Test A: totalPlannedMinutes === 180');
+    assert(plan.totalUnallocatedMinutes === 0, 'Test A: totalUnallocatedMinutes === 0');
+}
+
+// Test B: 120 min/day + 300 min work + 2 allocatable days
+{
+    localStorage.clear();
+    const targetId = 'ex_test_b';
+    const targetDate = getOffsetDateStr(3); // Days 0, 1 allocatable (240 total capacity)
+    const task = { id: 't_b_300', text: 'عمل 300 دقيقة', eventId: targetId, minutes: 300, completed: false };
+    hayyizSaveTodos([task]);
+
+    const plan = hayyizComputeMultiDayPlan({
+        targetId,
+        targetName: 'Test B',
+        targetDate,
+        dailyCapacityMinutes: 120
+    });
+
+    assert(plan.schedule.every(s => s.plannedMinutes <= 120), 'Test B: No day plannedMinutes exceeds 120');
+    assert(plan.totalPlannedMinutes === 240, 'Test B: totalPlannedMinutes === 240');
+    assert(plan.totalUnallocatedMinutes === 60, 'Test B: totalUnallocatedMinutes === 60');
+}
+
+// Test C: 120 min/day + 360 min work + 2 allocatable days
+{
+    localStorage.clear();
+    const targetId = 'ex_test_c';
+    const targetDate = getOffsetDateStr(3); // Days 0, 1 allocatable (240 total capacity)
+    const task = { id: 't_c_360', text: 'عمل 360 دقيقة', eventId: targetId, minutes: 360, completed: false };
+    hayyizSaveTodos([task]);
+
+    const plan = hayyizComputeMultiDayPlan({
+        targetId,
+        targetName: 'Test C',
+        targetDate,
+        dailyCapacityMinutes: 120
+    });
+
+    assert(plan.schedule.every(s => s.plannedMinutes <= 120), 'Test C: No day plannedMinutes exceeds 120');
+    assert(plan.totalPlannedMinutes === 240, 'Test C: totalPlannedMinutes === 240');
+    assert(plan.totalUnallocatedMinutes === 120, 'Test C: totalUnallocatedMinutes === 120');
+}
+
+// Test D: Task splitting preserving single task entity and taskId
+{
+    localStorage.clear();
+    const targetId = 'ex_test_d';
+    const targetDate = getOffsetDateStr(3);
+    const task = { id: 't_d_split', text: 'مهمة واحدة تنقسم', eventId: targetId, minutes: 180, completed: false };
+    hayyizSaveTodos([task]);
+
+    hayyizComputeMultiDayPlan({
+        targetId,
+        targetName: 'Test D',
+        targetDate,
+        dailyCapacityMinutes: 120
+    });
+
+    const todos = hayyizGetTodos();
+    assert(todos.length === 1 && todos[0].id === 't_d_split', 'Test D: Single task entity preserved in LocalStorage without cloning');
+}
+
+// Test E: Mathematical Identity: totalRequiredMinutes === totalPlannedMinutes + totalUnallocatedMinutes
+{
+    localStorage.clear();
+    const targetId = 'ex_test_e';
+    const targetDate = getOffsetDateStr(3);
+    const tasks = [
+        { id: 't_e_1', text: 'مهمة 100د', eventId: targetId, minutes: 100, completed: false },
+        { id: 't_e_2', text: 'مهمة 250د', eventId: targetId, minutes: 250, completed: false }
+    ];
+    hayyizSaveTodos(tasks);
+
+    const plan = hayyizComputeMultiDayPlan({
+        targetId,
+        targetName: 'Test E',
+        targetDate,
+        dailyCapacityMinutes: 120
+    });
+
+    assert(plan.totalRequiredMinutes === plan.totalPlannedMinutes + plan.totalUnallocatedMinutes, 'Test E: totalRequiredMinutes === totalPlannedMinutes + totalUnallocatedMinutes strictly holds');
+}
+
+// Test F: Overloaded status corresponds to totalUnallocatedMinutes > 0
+{
+    localStorage.clear();
+    const targetId = 'ex_test_f';
+    const targetDate = getOffsetDateStr(3);
+    const task = { id: 't_f_overload', text: 'عمل 400 دقيقة', eventId: targetId, minutes: 400, completed: false };
+    hayyizSaveTodos([task]);
+
+    const plan = hayyizComputeMultiDayPlan({
+        targetId,
+        targetName: 'Test F',
+        targetDate,
+        dailyCapacityMinutes: 120
+    });
+
+    assert(plan.status === 'overloaded', 'Test F: Plan status is overloaded');
+    assert(plan.isCapacityExceeded === true, 'Test F: isCapacityExceeded is true');
+    assert(plan.totalUnallocatedMinutes > 0, 'Test F: totalUnallocatedMinutes is greater than 0');
+}
+
 console.log(`\n===================================`);
 console.log(`RIGOROUS MULTI-DAY PLAN TEST SUITE SUMMARY: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);

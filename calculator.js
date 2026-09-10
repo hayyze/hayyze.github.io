@@ -1092,14 +1092,17 @@
         metaBar.style.cssText = 'display: flex; gap: 1rem; flex-wrap: wrap; justify-content: space-between; align-items: center; background: var(--bg); padding: 0.85rem 1rem; border-radius: var(--radius-sm, 10px); margin-bottom: 1rem; border: 1px solid var(--border);';
 
         const daysText = plan.daysRemaining === 0 ? 'اليوم المستحق!' : (plan.daysRemaining === 1 ? 'متبقي يوم واحد' : `متبقي ${plan.daysRemaining} أيام`);
+        const plannedMin = plan.totalPlannedMinutes || 0;
+        const unallocatedMin = plan.totalUnallocatedMinutes || 0;
+
         metaBar.innerHTML = `
             <div>
                 <strong style="font-size: 1.05rem; color: var(--text);">${escapeHtml(plan.targetName)}</strong>
-                <span style="font-size: 0.85rem; color: var(--text-muted); display: block;">${formatDateArabic(plan.targetDate)} · ${daysText}</span>
+                <span style="font-size: 0.85rem; color: var(--text-muted); display: block;">${formatDateArabic(plan.targetDate)} · ${daysText} · القدرة: ${plan.dailyCapacityMinutes} د/يوم</span>
             </div>
             <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                <span class="badge badge-exam">${escapeHtml(plan.statusLabel)}</span>
-                <span class="status-item-sub">${plan.openTasksCount} مهام متبقية (${plan.totalRequiredMinutes} دقيقة)</span>
+                <span class="badge ${plan.isCapacityExceeded ? 'badge-assignment' : 'badge-exam'}">${escapeHtml(plan.statusLabel)}</span>
+                <span class="status-item-sub">المطلوب: ${plan.totalRequiredMinutes}د | الموزع: ${plannedMin}د ${unallocatedMin > 0 ? `| العجز غير الموزع: ${unallocatedMin}د` : ''}</span>
             </div>
         `;
         container.appendChild(metaBar);

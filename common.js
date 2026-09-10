@@ -2469,13 +2469,16 @@ function hayyizComputeMultiDayPlan(config) {
         return (a.created || 0) - (b.created || 0);
     });
 
+    let totalPlannedMinutes = 0;
+    let totalUnallocatedMinutes = 0;
+
     if (sortedOpenTasks.length > 0 && allocatableDates.length > 0) {
         let currentAllocIdx = 0;
         sortedOpenTasks.forEach((t) => {
             let taskRemainingMin = Math.max(15, (parseInt(t.minutes, 10) || workMinDefault) - (parseInt(t.focusDone, 10) || 0));
 
             while (taskRemainingMin > 0) {
-                // البحث عن أول يوم متاح بدءاً من المؤشر الحالي لديه سعة متبقية
+                // البحث عن أول يوم متاح بدءاً من المؤشر الحالي لديه سعة متبقية دون تجاوز capacityPerDay
                 let bestDate = null;
 
                 for (let k = 0; k < allocatableDates.length; k++) {
@@ -2489,44 +2492,35 @@ function hayyizComputeMultiDayPlan(config) {
                     }
                 }
 
-                // إذا كانت جميع الأيام ممتلئة حتى القدرة اليومية، نختار اليوم المتاح بأقل حمل لإدخال الفائض (overload)
+                // إذا كانت جميع الأيام ممتلئة حتى القدرة اليومية بالكامل، فإن المتبقي لا يمكن استيعابه ضمن السعة
                 if (!bestDate) {
-                    let minPlanned = Infinity;
-                    for (let i = 0; i < allocatableDates.length; i++) {
-                        const d = allocatableDates[i];
-                        const dayObj = dayScheduleMap[d];
-                        if (dayObj.plannedMinutes < minPlanned) {
-                            minPlanned = dayObj.plannedMinutes;
-                            bestDate = d;
-                        }
-                    }
+                    totalUnallocatedMinutes += taskRemainingMin;
+                    taskRemainingMin = 0;
+                    break;
                 }
 
                 const targetDayObj = dayScheduleMap[bestDate];
                 const availableSpace = Math.max(0, capacityPerDay - targetDayObj.plannedMinutes);
 
-                // تخصيص إما المساحة المتاحة بالكامل أو المتبقي من المهمة
-                let allocatedMin = 0;
-                if (availableSpace > 0) {
-                    allocatedMin = Math.min(taskRemainingMin, availableSpace);
-                } else {
-                    // السعة ممتلئة في جميع الأيام، نضع المتبقي كاملاً في اليوم الأقل حملاً
-                    allocatedMin = taskRemainingMin;
+                // تخصيص المساحة المتاحة فقط دون تجاوز capacityPerDay
+                const allocatedMin = Math.min(taskRemainingMin, availableSpace);
+
+                if (allocatedMin > 0) {
+                    targetDayObj.tasks.push({
+                        taskId: t.id,
+                        text: t.text,
+                        priority: t.priority || 'medium',
+                        totalMinutes: parseInt(t.minutes, 10) || workMinDefault,
+                        focusDone: parseInt(t.focusDone, 10) || 0,
+                        remainingMinutes: allocatedMin,
+                        isSplit: allocatedMin < (parseInt(t.minutes, 10) || workMinDefault),
+                        completed: Boolean(t.completed)
+                    });
+
+                    targetDayObj.plannedMinutes += allocatedMin;
+                    totalPlannedMinutes += allocatedMin;
+                    taskRemainingMin -= allocatedMin;
                 }
-
-                targetDayObj.tasks.push({
-                    taskId: t.id,
-                    text: t.text,
-                    priority: t.priority || 'medium',
-                    totalMinutes: parseInt(t.minutes, 10) || workMinDefault,
-                    focusDone: parseInt(t.focusDone, 10) || 0,
-                    remainingMinutes: allocatedMin,
-                    isSplit: allocatedMin < (parseInt(t.minutes, 10) || workMinDefault),
-                    completed: Boolean(t.completed)
-                });
-
-                targetDayObj.plannedMinutes += allocatedMin;
-                taskRemainingMin -= allocatedMin;
 
                 // التدوير لليوم التالي عند امتلاء اليوم الحالي
                 if (targetDayObj.plannedMinutes >= capacityPerDay) {
@@ -2574,14 +2568,15 @@ function hayyizComputeMultiDayPlan(config) {
 
     let overallStatus = 'active';
     let statusLabel = 'خطة متوازنة';
+    const isCapacityExceeded = totalUnallocatedMinutes > 0;
 
     const allocatableDaysCount = allocatableDates.length;
     if (daysRemaining === 0) {
         overallStatus = 'final_day';
         statusLabel = 'اليوم الأخير قبل الهدف';
-    } else if (allocatableDaysCount > 0 && totalRequiredMinutes > allocatableDaysCount * capacityPerDay) {
+    } else if (isCapacityExceeded) {
         overallStatus = 'overloaded';
-        statusLabel = 'يحتاج تكثيف ساعات العمل';
+        statusLabel = `الوقت المتاح لا يكفي لإكمال جميع المهام قبل الموعد (عجز: ${totalUnallocatedMinutes} د)`;
     } else if (openTasks.length === 0 && linkedTasks.length > 0) {
         overallStatus = 'completed';
         statusLabel = 'أُنجزت جميع المهام بنجاح 🎉';
@@ -2605,6 +2600,9 @@ function hayyizComputeMultiDayPlan(config) {
         openTasksCount: openTasks.length,
         completedTasksCount: completedTasks.length,
         totalRequiredMinutes,
+        totalPlannedMinutes,
+        totalUnallocatedMinutes,
+        isCapacityExceeded,
         completedMinutes,
         schedule,
         createdAt: Date.now(),
