@@ -885,11 +885,19 @@ function renderExamsSection(subject, upcomingExams, pastExams) {
         infoDiv.appendChild(meta);
 
         const actionsDiv = document.createElement('div');
+        actionsDiv.style.cssText = 'display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center;';
+
+        const multiPlanLink = document.createElement('a');
+        multiPlanLink.href = `calculator.html?planTargetId=${encodeURIComponent(exam.id || '')}&targetDate=${encodeURIComponent(exam.date || '')}&subjectId=${encodeURIComponent(subject.id || '')}`;
+        multiPlanLink.className = 'btn btn-primary btn-sm';
+        multiPlanLink.innerHTML = '<i class="fa-solid fa-calendar-days"></i> خطة عدة أيام';
+
         const calLink = document.createElement('a');
         calLink.href = 'calculator.html';
         calLink.className = 'btn btn-secondary btn-sm';
         calLink.textContent = 'فتح التقويم';
 
+        actionsDiv.appendChild(multiPlanLink);
         actionsDiv.appendChild(calLink);
 
         card.appendChild(infoDiv);

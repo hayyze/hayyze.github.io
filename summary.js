@@ -387,6 +387,51 @@ document.addEventListener('DOMContentLoaded', () => {
     content.appendChild(nowCard);
 
     // ==========================================
+    // 3.5 الخطة متعددة الأيام النشطة (Active Multi-Day Study Plan)
+    // ==========================================
+    try {
+        const multiPlans = typeof hayyizGetMultiDayPlans === 'function' ? hayyizGetMultiDayPlans() : {};
+        const activeMultiPlans = Object.values(multiPlans).filter(p => p && p.status !== 'impossible' && p.daysRemaining >= 0 && p.openTasksCount > 0);
+
+        if (activeMultiPlans.length > 0) {
+            const topMultiPlan = activeMultiPlans[0];
+            const multiPlanCard = document.createElement('div');
+            multiPlanCard.className = 'dash-section card';
+            multiPlanCard.style.cssText = 'border-right: 4px solid var(--color-primary); background: var(--color-surface);';
+
+            const mHead = document.createElement('div');
+            mHead.className = 'dash-section-head';
+
+            const mTitle = document.createElement('h4');
+            mTitle.innerHTML = `<i class="fa-solid fa-calendar-days" aria-hidden="true" style="color:var(--color-primary);"></i> خطة متعددة الأيام: ${escapeHtml(topMultiPlan.targetName)}`;
+
+            const planUrl = `calculator.html?planTargetId=${encodeURIComponent(topMultiPlan.targetId)}&targetDate=${encodeURIComponent(topMultiPlan.targetDate || '')}&subjectId=${encodeURIComponent(topMultiPlan.subjectId || '')}`;
+
+            const mLink = document.createElement('a');
+            mLink.href = planUrl;
+            mLink.textContent = 'جدول الأيام الكامل';
+
+            mHead.appendChild(mTitle);
+            mHead.appendChild(mLink);
+            multiPlanCard.appendChild(mHead);
+
+            const mBody = document.createElement('div');
+            mBody.style.cssText = 'display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; font-size: 0.9rem;';
+
+            const daysRemText = topMultiPlan.daysRemaining === 0 ? 'اليوم المستحق!' : (topMultiPlan.daysRemaining === 1 ? 'متبقي يوم واحد' : `متبقي ${topMultiPlan.daysRemaining} أيام`);
+            mBody.innerHTML = `
+                <div>
+                    <span style="color: var(--color-text-secondary); display: block;">${topMultiPlan.openTasksCount} مهام متبقية · ${topMultiPlan.totalRequiredMinutes} دقيقة إجمالية</span>
+                    <strong style="color: var(--color-primary);">${daysRemText} حتى ${escapeHtml(topMultiPlan.targetName)}</strong>
+                </div>
+                <a href="${planUrl}" class="btn btn-secondary btn-sm"><i class="fa-solid fa-timeline"></i> عرض التوزيع عبر الأيام</a>
+            `;
+            multiPlanCard.appendChild(mBody);
+            content.appendChild(multiPlanCard);
+        }
+    } catch (e) {}
+
+    // ==========================================
     // 4. التقدم وخطة اليوم (Progress & Today's Plan)
     // ==========================================
 
