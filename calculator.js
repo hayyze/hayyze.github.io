@@ -1053,6 +1053,10 @@
         sec.style.display = 'block';
         sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
+        if (capacitySelect && plan.dailyCapacityMinutes) {
+            capacitySelect.value = String(plan.dailyCapacityMinutes);
+        }
+
         renderMultiDayPlanCards(container, plan, config);
 
         const closeBtn = document.getElementById('close-multi-plan-btn');

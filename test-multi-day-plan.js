@@ -350,6 +350,120 @@ const getOffsetDateStr = (offsetDays) => {
     assert(allPlans['ex_plan_2'].targetName === 'الخطة الثانية فيزياء', 'Scenario L: Plan 2 retrieved accurately by targetId');
 }
 
+// Scenario M: Point 1 - Strict Data Linking (Excluding Fuzzy/Text Matching)
+{
+    localStorage.clear();
+    const examA = 'ex_A';
+    const examB = 'ex_B';
+
+    const tasks = [
+        { id: 't_link_1', text: 'دراسة كيمياء لاختبار A', eventId: examA, minutes: 30, completed: false },
+        { id: 't_link_2', text: 'دراسة فيزياء لاختبار B', eventId: examB, minutes: 40, completed: false },
+        { id: 't_link_3', text: 'ملاحظات حول اختبار A العامة', minutes: 50, completed: false } // Mentioning 'اختبار A' in text but NO eventId
+    ];
+    hayyizSaveTodos(tasks);
+
+    const planA = hayyizComputeMultiDayPlan({
+        targetId: examA,
+        targetName: 'اختبار A',
+        targetDate: getOffsetDateStr(3)
+    });
+
+    assert(planA.totalTasksCount === 1, 'Point 1: Strict Linking includes only 1 task explicitly linked via eventId');
+    assert(planA.schedule.some(s => s.tasks.some(t => t.taskId === 't_link_1')), 'Point 1: Task linked to eventId ex_A is included');
+    assert(!planA.schedule.some(s => s.tasks.some(t => t.taskId === 't_link_2')), 'Point 1: Task linked to eventId ex_B is excluded');
+    assert(!planA.schedule.some(s => s.tasks.some(t => t.taskId === 't_link_3')), 'Point 1: Task mentioning targetName in text without explicit eventId/goalId is strictly EXCLUDED');
+}
+
+// Scenario N: Point 2 - Replanning Boundaries Preserve Past Schedule History
+{
+    localStorage.clear();
+    const targetId = 'ex_past_preserve';
+    const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+    const pastDate = getOffsetDateStr(-2); // 2 days in the past
+    const targetDate = getOffsetDateStr(3);
+
+    // Save initial plan with an item in the past
+    const initialPlan = {
+        targetId,
+        targetName: 'اختبار الحفظ التاريخي',
+        targetDate,
+        dailyCapacityMinutes: 120,
+        status: 'active',
+        daysRemaining: 3,
+        totalTasksCount: 2,
+        openTasksCount: 1,
+        completedTasksCount: 1,
+        totalRequiredMinutes: 60,
+        completedMinutes: 60,
+        schedule: [
+            {
+                date: pastDate,
+                isToday: false,
+                isTargetDay: false,
+                isBufferDay: false,
+                plannedMinutes: 60,
+                capacityMinutes: 120,
+                tasksCount: 1,
+                tasks: [{ taskId: 't_past_done', text: 'مهمة منجزة في الماضي', remainingMinutes: 60, completed: true }],
+                dayStatus: 'balanced',
+                dayStatusLabel: 'متوازن'
+            }
+        ]
+    };
+    const plansObj = {};
+    plansObj[targetId] = initialPlan;
+    hayyizSaveMultiDayPlans(plansObj);
+
+    // Add a new open task for the future
+    const futureTask = { id: 't_future_open', text: 'مهمة مستقبلية جديدة', eventId: targetId, minutes: 90, completed: false };
+    hayyizSaveTodos([futureTask]);
+
+    // Reevaluate multi-day plan
+    const replanned = hayyizReevaluateMultiDayPlan(targetId);
+
+    const pastItemInReplanned = replanned.schedule.find(s => s.date === pastDate);
+    assert(pastItemInReplanned !== undefined, 'Point 2: Past schedule date (-2 days) exists in re-planned schedule');
+    assert(pastItemInReplanned.plannedMinutes === 60, 'Point 2: Past schedule planned minutes remain exactly 60');
+    assert(pastItemInReplanned.tasks[0].taskId === 't_past_done', 'Point 2: Past scheduled task identity is preserved');
+
+    const todayOrFutureItem = replanned.schedule.find(s => s.date >= todayStr && s.tasks.some(t => t.taskId === 't_future_open'));
+    assert(todayOrFutureItem !== undefined, 'Point 2: Future task scheduled strictly in today or future days');
+}
+
+// Scenario O: Point 3 - Capacity Single Source of Truth & Re-Opening
+{
+    localStorage.clear();
+    const targetId = 'ex_capacity_ssot';
+    const targetDate = getOffsetDateStr(4);
+    const task = { id: 't_cap_180', text: 'مهمة 180 دقيقة سعة', eventId: targetId, minutes: 180, completed: false };
+    hayyizSaveTodos([task]);
+
+    // 1. Create plan with 120 mins capacity
+    const plan120 = hayyizComputeMultiDayPlan({
+        targetId,
+        targetName: 'اختبار السعة الموحدة',
+        targetDate,
+        dailyCapacityMinutes: 120
+    });
+    assert(plan120.dailyCapacityMinutes === 120, 'Point 3: Initial plan has dailyCapacityMinutes === 120');
+    assert(plan120.schedule[0].plannedMinutes === 120, 'Point 3: Day 0 allocated 120 mins under 120 capacity');
+
+    // 2. Change capacity to 180 mins
+    const plan180 = hayyizComputeMultiDayPlan({
+        targetId,
+        targetName: 'اختبار السعة الموحدة',
+        targetDate,
+        dailyCapacityMinutes: 180
+    });
+    assert(plan180.dailyCapacityMinutes === 180, 'Point 3: Updated plan has dailyCapacityMinutes === 180');
+    assert(plan180.schedule[0].plannedMinutes === 180, 'Point 3: Day 0 allocated full 180 mins under 180 capacity');
+
+    // 3. Re-open plan without passing config capacity and ensure it preserves 180
+    const reopened = hayyizGetMultiDayPlan(targetId);
+    assert(reopened.dailyCapacityMinutes === 180, 'Point 3: Re-opened plan maintains 180 capacity as Single Source of Truth');
+}
+
 console.log(`\n===================================`);
 console.log(`RIGOROUS MULTI-DAY PLAN TEST SUITE SUMMARY: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);

@@ -2390,10 +2390,10 @@ function hayyizComputeMultiDayPlan(config) {
             return String(t.eventId) === targetId;
         }
         // إذا كانت المهمة مرتبطة بهدف معين
-        if (t.goalId && String(t.goalId) === targetId) return true;
-        // إذا كان نص المهمة يذكر اسم الهدف/الاختبار صراحة
-        if (targetName && t.text && t.text.includes(targetName)) return true;
-        // عند تمكين ربط المادة صراحة بالتهيئات دون وجود eventId صريح لاختبار آخر
+        if (t.goalId) {
+            return String(t.goalId) === targetId;
+        }
+        // عند تمكين ربط المادة صراحة بالتهيئات دون وجود eventId/goalId صريح لاختبار آخر
         if (config.includeSubjectTasks && subjectId && t.subjectId && String(t.subjectId) === String(subjectId)) {
             return true;
         }
@@ -2418,6 +2418,13 @@ function hayyizComputeMultiDayPlan(config) {
             totalRequiredMinutes += Math.max(0, total - done);
         }
     });
+
+    // فحص وجود خطة سابقة للاحتفاظ بأيام الماضي ثابتة
+    const existingPlansMap = hayyizGetMultiDayPlans();
+    const existingPlan = existingPlansMap[targetId] || null;
+    const pastScheduleItems = (existingPlan && Array.isArray(existingPlan.schedule))
+        ? existingPlan.schedule.filter((s) => s && s.date && s.date < today)
+        : [];
 
     // 3. تحديد أيام التوزيع ويوم المراجعة (D-1) ويوم الهدف (D)
     // D هو targetDate (تاريخ الهدف/الاختبار). ليس buffer day ولا يُجدول فيه عمل عادي إلا إذا كان daysRemaining === 0
@@ -2529,7 +2536,7 @@ function hayyizComputeMultiDayPlan(config) {
         });
     }
 
-    const schedule = dates.map((d) => {
+    const futureSchedule = dates.map((d) => {
         const item = dayScheduleMap[d];
         let dayStatus = 'balanced';
         let dayStatusLabel = 'متوازن';
@@ -2561,6 +2568,9 @@ function hayyizComputeMultiDayPlan(config) {
             dayStatusLabel
         };
     });
+
+    // دمج عناصر الماضي الثابتة التي سبقت تاريخ اليوم مع جدول المستقبل
+    const schedule = [...pastScheduleItems, ...futureSchedule];
 
     let overallStatus = 'active';
     let statusLabel = 'خطة متوازنة';
