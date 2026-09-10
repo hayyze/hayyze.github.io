@@ -2463,26 +2463,28 @@ function hayyizComputeMultiDayPlan(config) {
     });
 
     if (sortedOpenTasks.length > 0 && allocatableDates.length > 0) {
+        let currentAllocIdx = 0;
         sortedOpenTasks.forEach((t) => {
             let taskRemainingMin = Math.max(15, (parseInt(t.minutes, 10) || workMinDefault) - (parseInt(t.focusDone, 10) || 0));
 
             while (taskRemainingMin > 0) {
-                // البحث عن يوم متاح بداخل allocatableDates لديه سعة متبقية
+                // البحث عن أول يوم متاح بدءاً من المؤشر الحالي لديه سعة متبقية
                 let bestDate = null;
-                let minPlanned = Infinity;
 
-                for (let i = 0; i < allocatableDates.length; i++) {
-                    const d = allocatableDates[i];
+                for (let k = 0; k < allocatableDates.length; k++) {
+                    const candidateIdx = (currentAllocIdx + k) % allocatableDates.length;
+                    const d = allocatableDates[candidateIdx];
                     const dayObj = dayScheduleMap[d];
-                    const remainingCap = capacityPerDay - dayObj.plannedMinutes;
-                    if (remainingCap > 0 && dayObj.plannedMinutes < minPlanned) {
-                        minPlanned = dayObj.plannedMinutes;
+                    if (dayObj.plannedMinutes < capacityPerDay) {
                         bestDate = d;
+                        currentAllocIdx = candidateIdx;
+                        break;
                     }
                 }
 
-                // إذا كانت جميع الأيام المتاحة ممتلئة حتى القدرة اليومية، نختار اليوم المتاح بأقل حمل لإدخال الفائض (overload)
+                // إذا كانت جميع الأيام ممتلئة حتى القدرة اليومية، نختار اليوم المتاح بأقل حمل لإدخال الفائض (overload)
                 if (!bestDate) {
+                    let minPlanned = Infinity;
                     for (let i = 0; i < allocatableDates.length; i++) {
                         const d = allocatableDates[i];
                         const dayObj = dayScheduleMap[d];
@@ -2518,6 +2520,11 @@ function hayyizComputeMultiDayPlan(config) {
 
                 targetDayObj.plannedMinutes += allocatedMin;
                 taskRemainingMin -= allocatedMin;
+
+                // التدوير لليوم التالي عند امتلاء اليوم الحالي
+                if (targetDayObj.plannedMinutes >= capacityPerDay) {
+                    currentAllocIdx = (currentAllocIdx + 1) % allocatableDates.length;
+                }
             }
         });
     }
