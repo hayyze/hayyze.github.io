@@ -1164,6 +1164,35 @@
         // Actionable deficit notice when capacity is exceeded
         if (plan.isCapacityExceeded && unallocatedMin > 0) {
             const deficitSessions = calcPomoSessions(unallocatedMin);
+
+            let firstOpenTaskId = null;
+            if (plan.schedule && plan.schedule.length > 0) {
+                for (const dayItem of plan.schedule) {
+                    if (dayItem.tasks && dayItem.tasks.length > 0) {
+                        const found = dayItem.tasks.find(t => t && t.taskId && !t.completed);
+                        if (found) {
+                            firstOpenTaskId = found.taskId;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!firstOpenTaskId && typeof hayyizGetTodos === 'function') {
+                const todos = hayyizGetTodos();
+                const openLinked = todos.find(t => t && !t.completed && (
+                    (t.eventId && String(t.eventId) === String(config.targetId)) ||
+                    (t.goalId && String(t.goalId) === String(config.targetId)) ||
+                    (config.subjectId && t.subjectId && String(t.subjectId) === String(config.subjectId))
+                ));
+                if (openLinked) {
+                    firstOpenTaskId = openLinked.id;
+                }
+            }
+
+            const pomoUrl = firstOpenTaskId
+                ? `pomodoro.html?taskId=${encodeURIComponent(firstOpenTaskId)}`
+                : 'pomodoro.html';
+
             const deficitCard = document.createElement('div');
             deficitCard.className = 'multi-plan-deficit-notice';
             deficitCard.innerHTML = `
@@ -1177,7 +1206,7 @@
                     ننصح باستخدام مؤقت بومودورو لإنجاز جلسات التركيز المطلوبة مباشرة دون تراكم.
                 </div>
                 <div>
-                    <a href="pomodoro.html${config.targetId ? '?taskId=' + encodeURIComponent(config.targetId) : ''}" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem; margin-top: 0.2rem;">
+                    <a href="${pomoUrl}" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem; margin-top: 0.2rem;">
                         <i class="fa-solid fa-play"></i> ابدأ جلسة التركيز الآن
                     </a>
                 </div>
