@@ -2475,7 +2475,7 @@ function hayyizComputeMultiDayPlan(config) {
     if (sortedOpenTasks.length > 0 && allocatableDates.length > 0) {
         let currentAllocIdx = 0;
         sortedOpenTasks.forEach((t) => {
-            let taskRemainingMin = Math.max(15, (parseInt(t.minutes, 10) || workMinDefault) - (parseInt(t.focusDone, 10) || 0));
+            let taskRemainingMin = Math.max(0, (parseInt(t.minutes, 10) || workMinDefault) - (parseInt(t.focusDone, 10) || 0));
 
             while (taskRemainingMin > 0) {
                 // البحث عن أول يوم متاح بدءاً من المؤشر الحالي لديه سعة متبقية دون تجاوز capacityPerDay

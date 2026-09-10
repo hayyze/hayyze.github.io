@@ -584,6 +584,30 @@ const getOffsetDateStr = (offsetDays) => {
     assert(plan.totalUnallocatedMinutes > 0, 'Test F: totalUnallocatedMinutes is greater than 0');
 }
 
+// Test G: Exact actual remaining time <15 minutes (5 minutes remaining)
+{
+    localStorage.clear();
+    const targetId = 'ex_test_under_15';
+    const targetDate = getOffsetDateStr(3);
+    const task = { id: 't_under_15', text: 'مهمة بقي منها 5 دقائق', eventId: targetId, minutes: 20, focusDone: 15, completed: false };
+    hayyizSaveTodos([task]);
+
+    const plan = hayyizComputeMultiDayPlan({
+        targetId,
+        targetName: 'Test Under 15 Min',
+        targetDate,
+        dailyCapacityMinutes: 120
+    });
+
+    assert(plan.totalRequiredMinutes === 5, 'Test G: totalRequiredMinutes is exactly 5 (20 - 15)');
+    assert(plan.totalPlannedMinutes === 5, 'Test G: totalPlannedMinutes is exactly 5 when capacity is available');
+    assert(plan.totalUnallocatedMinutes === 0, 'Test G: totalUnallocatedMinutes is 0');
+    assert(plan.totalRequiredMinutes === plan.totalPlannedMinutes + plan.totalUnallocatedMinutes, 'Test G: Mathematical identity strictly holds for <15 min task');
+
+    const scheduledTask = plan.schedule[0].tasks.find(t => t.taskId === 't_under_15');
+    assert(scheduledTask !== undefined && scheduledTask.remainingMinutes === 5, 'Test G: Scheduled task piece remainingMinutes is exactly 5 (no 15 min artificial floor)');
+}
+
 console.log(`\n===================================`);
 console.log(`RIGOROUS MULTI-DAY PLAN TEST SUITE SUMMARY: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);
