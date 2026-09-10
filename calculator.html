@@ -743,6 +743,30 @@
             </form>
         </div>
 
+        <!-- MULTI-DAY STUDY PLAN SECTION (الخطة الدراسية متعددة الأيام) -->
+        <section id="multi-day-plan-section" class="card" style="display: none; border-right: 4px solid var(--primary, #4f46e5); margin-bottom: 1rem;">
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
+                <div>
+                    <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--text); margin: 0 0 0.25rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fa-solid fa-calendar-days" style="color: var(--primary, #4f46e5);"></i> الخطة الدراسية متعددة الأيام
+                    </h2>
+                    <p class="section-desc" style="margin: 0;">توزيع حقيقي لعمل المذاكرة والمهام عبر الأيام حتى موعد هدفك أو اختبارك القادم</p>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                    <button type="button" id="reevaluate-multi-plan-btn" class="action-btn-mini" title="إعادة توزيع الخطة المستقبلية بناءً على التقدم الحالي">
+                        <i class="fa-solid fa-rotate"></i> إعادة التخطيط التكيفي
+                    </button>
+                    <button type="button" id="close-multi-plan-btn" class="action-btn-mini" style="color: var(--text-muted);">
+                        <i class="fa-solid fa-xmark"></i> إغلاق
+                    </button>
+                </div>
+            </div>
+
+            <div id="multi-day-plan-content">
+                <!-- Populated dynamically by calculator.js -->
+            </div>
+        </section>
+
         <!-- STUDENT TIMELINE (الخط الزمني المباشر للطالب) -->
         <main class="timeline-section" aria-label="الخط الزمني الدراسي">
 

@@ -225,6 +225,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (changedTask && changedTask.id && typeof hayyizUploadItem === 'function') {
             hayyizUploadItem('todos', changedTask.id, changedTask);
         }
+        if (typeof hayyizReevaluateMultiDayPlan === 'function') {
+            try { hayyizReevaluateMultiDayPlan(); } catch (e) {}
+        }
     }
 
     function refreshSelects() {

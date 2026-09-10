@@ -191,6 +191,7 @@ var HAYYIZ_ALLOWED_BACKUP_KEYS = [
     'hayyiz-birthdate',
     'hayyiz-student-exams',
     'hayyiz-custom-events',
+    'hayyiz-multi-day-plans',
     'hayyiz-hide-pomo-prompt-today',
     'hayyiz-hide-pomo-prompt-hour',
     'hayyiz-deleted-items'
@@ -284,6 +285,7 @@ function hayyizSanitizeValue(key, rawVal) {
         'hayyiz-gpa-snapshot',
         'hayyiz-academic-goal',
         'hayyiz-daily-goal',
+        'hayyiz-multi-day-plans',
         'hayyiz-deleted-items'
     ]);
 
@@ -900,6 +902,26 @@ function hayyizScoreTask(task, context) {
             score += 14;
         }
     }
+
+    // الخطة متعددة الأيام — إذا كانت المهمة مجدولة لليوم في خطة متعددة الأيام نشطة
+    try {
+        const multiDayPlans = hayyizGetMultiDayPlans();
+        const todayStr = ctx.today || getTodayLocal();
+        Object.keys(multiDayPlans).forEach((pid) => {
+            const p = multiDayPlans[pid];
+            if (p && Array.isArray(p.schedule)) {
+                const todayItem = p.schedule.find((s) => s.date === todayStr);
+                if (todayItem && Array.isArray(todayItem.tasks)) {
+                    if (todayItem.tasks.some((st) => st.taskId === task.id)) {
+                        score += 25;
+                        if (!isInProgress && reasons.length < 2) {
+                            reasons.push("مجدولة لليوم في خطتك متعددة الأيام");
+                        }
+                    }
+                }
+            }
+        });
+    } catch (e) {}
 
     if (reasons.length === 0) {
         if (task.priority === "high") reasons.push("هي أعلى مهمة أولوية حالياً");
@@ -2275,6 +2297,286 @@ function hayyizSubjectImpact(subjects, index, newGrade) {
         hypothetical,
         delta: hypothetical - real
     };
+}
+
+/* ---------- الخطة متعددة الأيام — Multi-Day Study Plan Engine ---------- */
+
+function hayyizGetMultiDayPlans() {
+    hayyizEnsureDataShape();
+    const plans = hayyizParseJSON('hayyiz-multi-day-plans', {});
+    return (plans && typeof plans === 'object' && !Array.isArray(plans)) ? plans : {};
+}
+
+function hayyizSaveMultiDayPlans(plans) {
+    const cleanPlans = (plans && typeof plans === 'object' && !Array.isArray(plans)) ? plans : {};
+    hayyizSaveJSON('hayyiz-multi-day-plans', cleanPlans);
+    if (typeof hayyizUploadItem === 'function') {
+        hayyizUploadItem('multi-day-plans', 'plans', cleanPlans);
+    }
+}
+
+function hayyizGetMultiDayPlan(targetId) {
+    if (!targetId) return null;
+    const plans = hayyizGetMultiDayPlans();
+    return plans[targetId] || null;
+}
+
+/**
+ * حساب وإنشاء/تحديث خطة دراسية متعددة الأيام لهدف أو اختبار معين.
+ * تعتمد على المهام الحقيقية في hayyiz-todos ولا تُنشئ أي نسخ موازية للمهام.
+ */
+function hayyizComputeMultiDayPlan(config) {
+    if (!config || !config.targetId || !config.targetDate) return null;
+
+    const today = getTodayLocal();
+    const targetId = String(config.targetId);
+    const targetDate = String(config.targetDate).slice(0, 10);
+    const targetName = config.targetName || config.title || 'هدف دراسي';
+    const targetType = config.targetType || 'exam';
+    const subjectId = config.subjectId || null;
+    const capacityPerDay = parseInt(config.dailyCapacityMinutes, 10) || 120; // الحد الأقصى لدقائق اليوم
+
+    const daysRemaining = hayyizDaysUntil(targetDate);
+    if (daysRemaining === null || daysRemaining < 0) {
+        return {
+            targetId,
+            targetName,
+            targetType,
+            targetDate,
+            subjectId,
+            status: 'impossible',
+            statusLabel: 'منتهي الموعد',
+            daysRemaining: daysRemaining || -1,
+            totalTasksCount: 0,
+            completedTasksCount: 0,
+            totalRequiredMinutes: 0,
+            completedMinutes: 0,
+            schedule: [],
+            updatedAt: Date.now()
+        };
+    }
+
+    // 1. حساب مصفوفة التواريخ المتاحة من اليوم وحتى موعد الاستحقاق (شاملة)
+    const dates = [];
+    const parts = today.split('-').map(Number);
+    const startObj = new Date(parts[0], parts[1] - 1, parts[2]);
+
+    for (let i = 0; i <= daysRemaining; i++) {
+        const d = new Date(startObj);
+        d.setDate(d.getDate() + i);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        dates.push(`${y}-${m}-${dd}`);
+    }
+
+    // 2. تجميع المهام الحقيقية المفتوحة والمكتملة المرتبطة بهذا الهدف/الاختبار/المادة
+    const todos = hayyizGetTodos();
+    const linkedTasks = todos.filter((t) => {
+        if (!t) return false;
+        if (t.eventId) {
+            return String(t.eventId) === targetId;
+        }
+        if (subjectId && t.subjectId && String(t.subjectId) === String(subjectId)) return true;
+        if (targetName && t.text && t.text.includes(targetName)) return true;
+        return false;
+    });
+
+    const openTasks = linkedTasks.filter((t) => !t.completed);
+    const completedTasks = linkedTasks.filter((t) => t.completed);
+
+    const workMinDefault = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
+
+    let totalRequiredMinutes = 0;
+    let completedMinutes = 0;
+
+    linkedTasks.forEach((t) => {
+        const total = parseInt(t.minutes, 10) || workMinDefault;
+        const done = parseInt(t.focusDone, 10) || 0;
+        if (t.completed) {
+            completedMinutes += Math.max(total, done);
+        } else {
+            completedMinutes += Math.min(done, total);
+            totalRequiredMinutes += Math.max(0, total - done);
+        }
+    });
+
+    // 3. خوارزمية توزيع الحمل على الأيام المتاحة
+    // - يوم مراجعة هامشي قبل الاختبار إذا كانت الأيام المتاحة >= 2
+    const totalDaysCount = dates.length;
+    const hasBufferDay = totalDaysCount >= 2;
+    const allocatableDaysCount = hasBufferDay ? totalDaysCount - 1 : totalDaysCount;
+
+    // ترتيب المهام المفتوحة بحسب الأولوية والاستحقاق
+    const sortedOpenTasks = [...openTasks].sort((a, b) => {
+        const priMap = { high: 3, medium: 2, low: 1 };
+        const pA = priMap[a.priority] || 2;
+        const pB = priMap[b.priority] || 2;
+        if (pB !== pA) return pB - pA;
+        return (a.created || 0) - (b.created || 0);
+    });
+
+    const dayScheduleMap = {};
+    dates.forEach((d, idx) => {
+        dayScheduleMap[d] = {
+            date: d,
+            dayIndex: idx,
+            isBufferDay: hasBufferDay && idx === totalDaysCount - 1,
+            isToday: d === today,
+            tasks: [],
+            plannedMinutes: 0
+        };
+    });
+
+    // التوزيع العادل والمرحلي على الأيام المتاحة
+    if (sortedOpenTasks.length > 0) {
+        let currentDayIdx = 0;
+        sortedOpenTasks.forEach((t) => {
+            const reqMin = Math.max(15, (parseInt(t.minutes, 10) || workMinDefault) - (parseInt(t.focusDone, 10) || 0));
+
+            // البحث عن يوم مناسب يتسع للمهمة أو يمتلك أقل حمل
+            let targetDayIdx = currentDayIdx;
+            if (allocatableDaysCount > 1) {
+                // تدوير الخيارات لإيجاد اليوم الأنسب من بين الأيام المخصصة للعمل
+                let minLoad = Infinity;
+                for (let k = 0; k < allocatableDaysCount; k++) {
+                    const candidateIdx = (currentDayIdx + k) % allocatableDaysCount;
+                    const candidateDate = dates[candidateIdx];
+                    const dayLoad = dayScheduleMap[candidateDate].plannedMinutes;
+                    if (dayLoad < minLoad) {
+                        minLoad = dayLoad;
+                        targetDayIdx = candidateIdx;
+                    }
+                }
+            }
+
+            const chosenDate = dates[targetDayIdx];
+            dayScheduleMap[chosenDate].tasks.push({
+                taskId: t.id,
+                text: t.text,
+                priority: t.priority || 'medium',
+                totalMinutes: parseInt(t.minutes, 10) || workMinDefault,
+                focusDone: parseInt(t.focusDone, 10) || 0,
+                remainingMinutes: reqMin,
+                completed: Boolean(t.completed)
+            });
+            dayScheduleMap[chosenDate].plannedMinutes += reqMin;
+
+            // تقدم المؤشر لليوم التالي
+            if (allocatableDaysCount > 1) {
+                currentDayIdx = (targetDayIdx + 1) % allocatableDaysCount;
+            }
+        });
+    }
+
+    const schedule = dates.map((d) => {
+        const item = dayScheduleMap[d];
+        let dayStatus = 'balanced';
+        let dayStatusLabel = 'متوازن';
+
+        if (item.isBufferDay) {
+            dayStatus = 'review_buffer';
+            dayStatusLabel = 'هامش مراجعة وتأهب';
+        } else if (item.plannedMinutes > capacityPerDay) {
+            dayStatus = 'heavy';
+            dayStatusLabel = 'حمل مرتفع';
+        } else if (item.plannedMinutes === 0) {
+            dayStatus = 'free';
+            dayStatusLabel = 'استراحة / بدون مهام';
+        }
+
+        return {
+            date: d,
+            isToday: item.isToday,
+            isBufferDay: item.isBufferDay,
+            plannedMinutes: item.plannedMinutes,
+            tasksCount: item.tasks.length,
+            tasks: item.tasks,
+            dayStatus,
+            dayStatusLabel
+        };
+    });
+
+    let overallStatus = 'active';
+    let statusLabel = 'خطة متوازنة';
+
+    if (daysRemaining === 0) {
+        overallStatus = 'final_day';
+        statusLabel = 'اليوم الأخير قبل الهدف';
+    } else if (totalRequiredMinutes > allocatableDaysCount * capacityPerDay) {
+        overallStatus = 'overloaded';
+        statusLabel = 'يحتاج تكثيف ساعات العمل';
+    } else if (openTasks.length === 0 && linkedTasks.length > 0) {
+        overallStatus = 'completed';
+        statusLabel = 'أُنجزت جميع المهام بنجاح 🎉';
+    } else if (linkedTasks.length === 0) {
+        overallStatus = 'no_tasks';
+        statusLabel = 'لا توجد مهام مرتبطة بعد';
+    }
+
+    const plan = {
+        targetId,
+        targetName,
+        targetType,
+        targetDate,
+        subjectId,
+        dailyCapacityMinutes: capacityPerDay,
+        status: overallStatus,
+        statusLabel,
+        daysRemaining,
+        hasBufferDay,
+        totalTasksCount: linkedTasks.length,
+        openTasksCount: openTasks.length,
+        completedTasksCount: completedTasks.length,
+        totalRequiredMinutes,
+        completedMinutes,
+        schedule,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+    };
+
+    const existingPlans = hayyizGetMultiDayPlans();
+    existingPlans[targetId] = plan;
+    hayyizSaveMultiDayPlans(existingPlans);
+
+    return plan;
+}
+
+/**
+ * إعادة تقييم وتحديث الخطة المستقبلية دون المساس بالماضي أو المهام المكتملة
+ */
+function hayyizReevaluateMultiDayPlan(targetId) {
+    if (!targetId) {
+        // إعادة تقييم جميع الخطط النشطة
+        const plans = hayyizGetMultiDayPlans();
+        Object.keys(plans).forEach((id) => {
+            const p = plans[id];
+            if (p && p.targetDate) {
+                hayyizComputeMultiDayPlan({
+                    targetId: p.targetId,
+                    targetName: p.targetName,
+                    targetType: p.targetType,
+                    targetDate: p.targetDate,
+                    subjectId: p.subjectId,
+                    dailyCapacityMinutes: p.dailyCapacityMinutes
+                });
+            }
+        });
+        return hayyizGetMultiDayPlans();
+    }
+
+    const plans = hayyizGetMultiDayPlans();
+    const existing = plans[targetId];
+    if (!existing) return null;
+
+    return hayyizComputeMultiDayPlan({
+        targetId: existing.targetId,
+        targetName: existing.targetName,
+        targetType: existing.targetType,
+        targetDate: existing.targetDate,
+        subjectId: existing.subjectId,
+        dailyCapacityMinutes: existing.dailyCapacityMinutes
+    });
 }
 
 /* ---------- تقويم الطالب — Calendar Data Layer ---------- */

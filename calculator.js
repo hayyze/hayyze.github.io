@@ -56,6 +56,21 @@
         if (typeof initAuthListener === 'function') {
             initAuthListener();
         }
+
+        // قراءة المعاملات من الرابط للفتح المباشر لخطة عدة أيام
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const planTargetId = urlParams.get('planTargetId');
+            const targetDate = urlParams.get('targetDate');
+            const subjectId = urlParams.get('subjectId');
+            if (planTargetId) {
+                showMultiDayPlanUI({
+                    targetId: planTargetId,
+                    targetDate: targetDate || '',
+                    subjectId: subjectId || null
+                });
+            }
+        } catch (e) {}
     }
 
     /* =========================================================
@@ -646,6 +661,9 @@
 
             <div class="card-action-bar">
                 <div class="card-quick-links">
+                    <button type="button" class="action-btn-mini btn-multi-plan" data-id="${ev.id}" data-name="${escapeHtml(ev.name)}" data-date="${ev.date}" data-type="${ev.type}" data-subject="${ev.subjectId || ''}" title="إنشاء/عرض خطة متعددة الأيام">
+                        <i class="fa-solid fa-calendar-week"></i> خطة عدة أيام
+                    </button>
                     <button type="button" class="action-btn-mini btn-convert-todo" data-id="${ev.id}" data-key="${ev._storageKey}" title="تحويل إلى مهمة في قائمة المهام">
                         <i class="fa-solid fa-list-check"></i> تحويل لمهمة
                     </button>
@@ -699,6 +717,19 @@
         const deleteBtn = card.querySelector('.btn-delete-event');
         const todoBtn = card.querySelector('.btn-convert-todo');
         const pomoBtn = card.querySelector('.btn-start-pomo');
+        const multiPlanBtn = card.querySelector('.btn-multi-plan');
+
+        if (multiPlanBtn) {
+            multiPlanBtn.addEventListener('click', () => {
+                showMultiDayPlanUI({
+                    targetId: ev.id,
+                    targetName: ev.name,
+                    targetDate: ev.date,
+                    targetType: ev.type,
+                    subjectId: ev.subjectId || null
+                });
+            });
+        }
 
         if (editBtn) {
             editBtn.addEventListener('click', () => editEvent(ev.id, ev._storageKey));
@@ -997,12 +1028,159 @@
             .replace(/'/g, '&#039;');
     }
 
+    function showMultiDayPlanUI(config) {
+        if (!config || !config.targetId) return;
+
+        const sec = document.getElementById('multi-day-plan-section');
+        const container = document.getElementById('multi-day-plan-content');
+        if (!sec || !container) return;
+
+        let plan = typeof hayyizGetMultiDayPlan === 'function' ? hayyizGetMultiDayPlan(config.targetId) : null;
+        if (!plan || (config.targetDate && plan.targetDate !== config.targetDate)) {
+            if (typeof hayyizComputeMultiDayPlan === 'function') {
+                plan = hayyizComputeMultiDayPlan(config);
+            }
+        }
+
+        if (!plan) return;
+
+        sec.style.display = 'block';
+        sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+        renderMultiDayPlanCards(container, plan, config);
+
+        const closeBtn = document.getElementById('close-multi-plan-btn');
+        if (closeBtn) {
+            closeBtn.onclick = () => { sec.style.display = 'none'; };
+        }
+
+        const reevalBtn = document.getElementById('reevaluate-multi-plan-btn');
+        if (reevalBtn) {
+            reevalBtn.onclick = () => {
+                if (typeof hayyizComputeMultiDayPlan === 'function') {
+                    const fresh = hayyizComputeMultiDayPlan(config);
+                    renderMultiDayPlanCards(container, fresh, config);
+                }
+            };
+        }
+    }
+
+    function renderMultiDayPlanCards(container, plan, config) {
+        container.innerHTML = '';
+
+        const metaBar = document.createElement('div');
+        metaBar.style.cssText = 'display: flex; gap: 1rem; flex-wrap: wrap; justify-content: space-between; align-items: center; background: var(--bg); padding: 0.85rem 1rem; border-radius: var(--radius-sm, 10px); margin-bottom: 1rem; border: 1px solid var(--border);';
+
+        const daysText = plan.daysRemaining === 0 ? 'اليوم المستحق!' : (plan.daysRemaining === 1 ? 'متبقي يوم واحد' : `متبقي ${plan.daysRemaining} أيام`);
+        metaBar.innerHTML = `
+            <div>
+                <strong style="font-size: 1.05rem; color: var(--text);">${escapeHtml(plan.targetName)}</strong>
+                <span style="font-size: 0.85rem; color: var(--text-muted); display: block;">${formatDateArabic(plan.targetDate)} · ${daysText}</span>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <span class="badge badge-exam">${escapeHtml(plan.statusLabel)}</span>
+                <span class="status-item-sub">${plan.openTasksCount} مهام متبقية (${plan.totalRequiredMinutes} دقيقة)</span>
+            </div>
+        `;
+        container.appendChild(metaBar);
+
+        if (!plan.schedule || plan.schedule.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.className = 'empty-state';
+            emptyMsg.style.padding = '1.5rem';
+            emptyMsg.innerHTML = `
+                <i class="fa-solid fa-clipboard-list"></i>
+                <h3>لا توجد مهام دراسية مرتبطة بهذا الهدف حالياً</h3>
+                <p>أضف مهام جديدة وحدد مادتها أو اربطها بهذا الموعد ليقوم النظام بتوزيع الحمل عبر الأيام آلياً.</p>
+                <a href="todo.html" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus"></i> إضافة مهام للمادة</a>
+            `;
+            container.appendChild(emptyMsg);
+            return;
+        }
+
+        const grid = document.createElement('div');
+        grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.85rem;';
+
+        plan.schedule.forEach((dayItem) => {
+            const card = document.createElement('div');
+            card.style.cssText = 'background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm, 12px); padding: 0.85rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.6rem;';
+            if (dayItem.isToday) card.style.borderColor = 'var(--primary, #4f46e5)';
+
+            const topRow = document.createElement('div');
+            topRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem;';
+
+            const dateLabel = document.createElement('strong');
+            dateLabel.style.fontSize = '0.9rem';
+            dateLabel.style.color = 'var(--text)';
+            dateLabel.textContent = (dayItem.isToday ? 'اليوم · ' : '') + formatDateArabic(dayItem.date);
+
+            const statusBadge = document.createElement('span');
+            statusBadge.className = dayItem.isBufferDay ? 'badge badge-personal' : 'badge badge-assignment';
+            statusBadge.style.fontSize = '0.75rem';
+            statusBadge.textContent = dayItem.dayStatusLabel;
+
+            topRow.appendChild(dateLabel);
+            topRow.appendChild(statusBadge);
+            card.appendChild(topRow);
+
+            const taskList = document.createElement('div');
+            taskList.style.cssText = 'display: flex; flex-direction: column; gap: 0.4rem; flex: 1;';
+
+            if (dayItem.tasks.length === 0) {
+                const freeText = document.createElement('span');
+                freeText.style.cssText = 'font-size: 0.82rem; color: var(--text-muted); font-style: italic;';
+                freeText.textContent = dayItem.isBufferDay ? 'مخصص للمراجعة النهائية والتأهب' : 'يوم راحة أو بدون مهام جديدة';
+                taskList.appendChild(freeText);
+            } else {
+                dayItem.tasks.forEach((t) => {
+                    const taskRow = document.createElement('div');
+                    taskRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; background: var(--bg-card); padding: 0.35rem 0.5rem; border-radius: 6px; border: 1px solid var(--border);';
+
+                    const tTitle = document.createElement('span');
+                    tTitle.style.cssText = 'font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px;';
+                    tTitle.textContent = t.text;
+
+                    const tMin = document.createElement('span');
+                    tMin.style.cssText = 'color: var(--text-muted); font-size: 0.78rem;';
+                    tMin.textContent = `${t.remainingMinutes}د`;
+
+                    taskRow.appendChild(tTitle);
+                    taskRow.appendChild(tMin);
+                    taskList.appendChild(taskRow);
+                });
+            }
+            card.appendChild(taskList);
+
+            const footerRow = document.createElement('div');
+            footerRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--text-muted); border-top: 1px dashed var(--border); padding-top: 0.4rem;';
+
+            const loadText = document.createElement('span');
+            loadText.textContent = `الحمل: ${dayItem.plannedMinutes} دقيقة`;
+
+            footerRow.appendChild(loadText);
+            if (dayItem.isToday && dayItem.tasks.length > 0) {
+                const focusBtn = document.createElement('a');
+                focusBtn.href = `pomodoro.html?taskId=${encodeURIComponent(dayItem.tasks[0].taskId)}`;
+                focusBtn.className = 'action-btn-mini';
+                focusBtn.style.cssText = 'padding: 0.2rem 0.5rem; font-size: 0.75rem;';
+                focusBtn.innerHTML = '<i class="fa-solid fa-play"></i> تركيز اليوم';
+                footerRow.appendChild(focusBtn);
+            }
+            card.appendChild(footerRow);
+
+            grid.appendChild(card);
+        });
+
+        container.appendChild(grid);
+    }
+
     if (typeof window !== 'undefined') {
         window._hayyizTestCalendarForm = {
             saveEventFromForm,
             editEvent,
             resetEventForm,
-            updateSubjectFieldVisibility
+            updateSubjectFieldVisibility,
+            showMultiDayPlanUI
         };
     }
 
