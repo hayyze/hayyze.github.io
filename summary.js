@@ -405,8 +405,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const mTitle = document.createElement('h4');
             mTitle.innerHTML = `<i class="fa-solid fa-calendar-days" aria-hidden="true" style="color:var(--color-primary);"></i> خطة متعددة الأيام: ${escapeHtml(topMultiPlan.targetName)}`;
 
+            const planUrl = `calculator.html?planTargetId=${encodeURIComponent(topMultiPlan.targetId)}&targetDate=${encodeURIComponent(topMultiPlan.targetDate || '')}&subjectId=${encodeURIComponent(topMultiPlan.subjectId || '')}`;
+
             const mLink = document.createElement('a');
-            mLink.href = 'calculator.html';
+            mLink.href = planUrl;
             mLink.textContent = 'جدول الأيام الكامل';
 
             mHead.appendChild(mTitle);
@@ -422,7 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span style="color: var(--color-text-secondary); display: block;">${topMultiPlan.openTasksCount} مهام متبقية · ${topMultiPlan.totalRequiredMinutes} دقيقة إجمالية</span>
                     <strong style="color: var(--color-primary);">${daysRemText} حتى ${escapeHtml(topMultiPlan.targetName)}</strong>
                 </div>
-                <a href="calculator.html" class="btn btn-secondary btn-sm"><i class="fa-solid fa-timeline"></i> عرض التوزيع عبر الأيام</a>
+                <a href="${planUrl}" class="btn btn-secondary btn-sm"><i class="fa-solid fa-timeline"></i> عرض التوزيع عبر الأيام</a>
             `;
             multiPlanCard.appendChild(mBody);
             content.appendChild(multiPlanCard);

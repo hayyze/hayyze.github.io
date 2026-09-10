@@ -1033,7 +1033,13 @@
 
         const sec = document.getElementById('multi-day-plan-section');
         const container = document.getElementById('multi-day-plan-content');
+        const capacitySelect = document.getElementById('multi-plan-capacity-input');
         if (!sec || !container) return;
+
+        if (capacitySelect) {
+            const savedCap = localStorage.getItem('hayyiz-pref-daily-capacity') || '120';
+            capacitySelect.value = savedCap;
+        }
 
         let plan = typeof hayyizGetMultiDayPlan === 'function' ? hayyizGetMultiDayPlan(config.targetId) : null;
         if (!plan || (config.targetDate && plan.targetDate !== config.targetDate)) {
@@ -1058,7 +1064,17 @@
         if (reevalBtn) {
             reevalBtn.onclick = () => {
                 if (typeof hayyizComputeMultiDayPlan === 'function') {
-                    const fresh = hayyizComputeMultiDayPlan(config);
+                    const capVal = capacitySelect ? capacitySelect.value : null;
+                    const fresh = hayyizComputeMultiDayPlan(Object.assign({}, config, { dailyCapacityMinutes: capVal }));
+                    renderMultiDayPlanCards(container, fresh, config);
+                }
+            };
+        }
+
+        if (capacitySelect) {
+            capacitySelect.onchange = () => {
+                if (typeof hayyizComputeMultiDayPlan === 'function') {
+                    const fresh = hayyizComputeMultiDayPlan(Object.assign({}, config, { dailyCapacityMinutes: capacitySelect.value }));
                     renderMultiDayPlanCards(container, fresh, config);
                 }
             };

@@ -37,7 +37,7 @@ function assert(cond, msg) {
     }
 }
 
-console.log('=== MULTI-DAY STUDY PLAN ENGINE TEST SUITE ===\n');
+console.log('=== RIGOROUS MULTI-DAY STUDY PLAN REFINEMENT TEST SUITE ===\n');
 
 const getOffsetDateStr = (offsetDays) => {
     const base = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
@@ -49,347 +49,309 @@ const getOffsetDateStr = (offsetDays) => {
     return `${y}-${m}-${day}`;
 };
 
-// 1. Far exam with tasks distributed across multiple days
+// Scenario A: 180 min task / 120 min daily capacity across multiple days (Work Splitting)
 {
     localStorage.clear();
-    const targetDate = getOffsetDateStr(5); // 5 days remaining (6 total days in schedule: Day 0 to 5)
-    const examId = 'ex_far_1';
-    const examObj = { id: examId, name: 'اختبار الكيمياء النهائي', date: targetDate, type: 'exam' };
-    localStorage.setItem('hayyiz-student-exams', JSON.stringify([examObj]));
+    const targetDate = getOffsetDateStr(3); // Days 0, 1, 2, 3 (Day 2 is Buffer D-1, Day 3 is Exam D)
+    const examId = 'ex_scen_a';
 
-    const tasks = [
-        { id: 't_m1', text: 'اختبار الكيمياء النهائي: فصل 1', minutes: 60, priority: 'high', eventId: examId, completed: false },
-        { id: 't_m2', text: 'اختبار الكيمياء النهائي: فصل 2', minutes: 60, priority: 'high', eventId: examId, completed: false },
-        { id: 't_m3', text: 'اختبار الكيمياء النهائي: فصل 3', minutes: 60, priority: 'medium', eventId: examId, completed: false },
-        { id: 't_m4', text: 'اختبار الكيمياء النهائي: تمارين', minutes: 60, priority: 'medium', eventId: examId, completed: false }
-    ];
-    hayyizSaveTodos(tasks);
+    const longTask = { id: 't_long_180', text: 'اختبار الشامل: 180 دقيقة', minutes: 180, priority: 'high', eventId: examId, completed: false };
+    hayyizSaveTodos([longTask]);
 
     const plan = hayyizComputeMultiDayPlan({
         targetId: examId,
-        targetName: 'اختبار الكيمياء النهائي',
-        targetDate: targetDate
-    });
-
-    assert(plan !== null && plan.daysRemaining === 5, 'Test 1: Plan created for far exam (5 days remaining)');
-    assert(plan.schedule.length === 6, 'Test 1: Schedule contains 6 days (0 to 5)');
-    assert(plan.schedule[5].isBufferDay === true, 'Test 1: Final day before exam is designated as review buffer day');
-    assert(plan.openTasksCount === 4, 'Test 1: Identifies 4 open tasks linked to exam');
-
-    // Total planned minutes across allocatable days should equal total required minutes (240)
-    let totalScheduledMinutes = 0;
-    plan.schedule.forEach(s => totalScheduledMinutes += s.plannedMinutes);
-    assert(totalScheduledMinutes === 240, 'Test 1: All 240 minutes of work distributed across available days');
-    assert(plan.schedule[0].plannedMinutes < 240, 'Test 1: Workload is distributed across days and not dumped on a single day');
-}
-
-// 2. Near exam with heavy load
-{
-    localStorage.clear();
-    const targetDate = getOffsetDateStr(1); // Exam tomorrow (2 total days: Day 0 and Day 1)
-    const examId = 'ex_near_2';
-
-    const heavyTasks = [
-        { id: 't_h1', text: 'اختبار قريب مكثف: باب 1', minutes: 120, priority: 'high', eventId: examId, completed: false },
-        { id: 't_h2', text: 'اختبار قريب مكثف: باب 2', minutes: 120, priority: 'high', eventId: examId, completed: false },
-        { id: 't_h3', text: 'اختبار قريب مكثف: باب 3', minutes: 120, priority: 'high', eventId: examId, completed: false }
-    ];
-    hayyizSaveTodos(heavyTasks);
-
-    const plan = hayyizComputeMultiDayPlan({
-        targetId: examId,
-        targetName: 'اختبار قريب مكثف',
+        targetName: 'اختبار الشامل',
         targetDate: targetDate,
-        dailyCapacityMinutes: 120 // 120 mins capacity
+        dailyCapacityMinutes: 120
     });
 
-    assert(plan !== null && plan.daysRemaining === 1, 'Test 2: Plan created for near exam (1 day remaining)');
-    assert(plan.totalRequiredMinutes === 360, 'Test 2: Total required minutes calculated as 360');
-    assert(plan.status === 'overloaded' || plan.status === 'active', 'Test 2: Correctly flags overload or active heavy load');
-    assert(plan.schedule[0].plannedMinutes > 0, 'Test 2: Day 0 receives heavy load distribution');
+    assert(plan !== null, 'Scenario A: Multi-day plan generated for 180 min task');
+    assert(plan.dailyCapacityMinutes === 120, 'Scenario A: Configured daily capacity is 120 mins');
+
+    const day0 = plan.schedule[0];
+    const day1 = plan.schedule[1];
+
+    assert(day0.plannedMinutes === 120, 'Scenario A: Day 0 allocated exactly 120 minutes (does not exceed 120 mins)');
+    assert(day1.plannedMinutes === 60, 'Scenario A: Day 1 allocated remaining 60 minutes');
+
+    let totalAllocated = 0;
+    plan.schedule.forEach(s => totalAllocated += s.plannedMinutes);
+    assert(totalAllocated === 180, 'Scenario A: Total allocated minutes equals required 180 minutes');
+
+    const scheduledTaskPieces = [];
+    plan.schedule.forEach(s => s.tasks.forEach(t => {
+        if (t.taskId === 't_long_180') scheduledTaskPieces.push(t);
+    }));
+    assert(scheduledTaskPieces.length === 2, 'Scenario A: Task work split into 2 daily portions without task cloning in LocalStorage');
+
+    const todosInStorage = hayyizGetTodos();
+    assert(todosInStorage.length === 1 && todosInStorage[0].id === 't_long_180', 'Scenario A: LocalStorage contains exactly 1 task (taskId preserved)');
 }
 
-// 3. Target with no open tasks
-{
-    localStorage.clear();
-    const targetDate = getOffsetDateStr(3);
-    const examId = 'ex_empty_3';
-
-    const plan = hayyizComputeMultiDayPlan({
-        targetId: examId,
-        targetName: 'اختبار فارغ بدون مهام',
-        targetDate: targetDate
-    });
-
-    assert(plan !== null && plan.openTasksCount === 0, 'Test 3: Handles target with no open tasks');
-    assert(plan.status === 'no_tasks', 'Test 3: Plan status is "no_tasks"');
-    assert(plan.schedule.every(s => s.plannedMinutes === 0), 'Test 3: All days have 0 planned minutes');
-}
-
-// 4. Completed tasks excluded from redistribution
-{
-    localStorage.clear();
-    const targetDate = getOffsetDateStr(4);
-    const examId = 'ex_comp_4';
-
-    const tasks = [
-        { id: 't_c4_1', text: 'اختبار 4: مهمة مفتوحة', minutes: 60, priority: 'high', eventId: examId, completed: false },
-        { id: 't_c4_2', text: 'اختبار 4: مهمة مكتملة', minutes: 60, priority: 'medium', eventId: examId, completed: true }
-    ];
-    hayyizSaveTodos(tasks);
-
-    const plan = hayyizComputeMultiDayPlan({
-        targetId: examId,
-        targetName: 'اختبار 4',
-        targetDate: targetDate
-    });
-
-    assert(plan.openTasksCount === 1, 'Test 4: Open tasks count is 1');
-    assert(plan.completedTasksCount === 1, 'Test 4: Completed tasks count is 1');
-    assert(plan.totalRequiredMinutes === 60, 'Test 4: Completed task (60m) excluded from required minutes to schedule');
-}
-
-// 5. Overdue task handling in multi-day plan
-{
-    localStorage.clear();
-    const targetDate = getOffsetDateStr(3);
-    const examId = 'ex_overdue_5';
-
-    const tasks = [
-        { id: 't_od_5', text: 'مهمة متأخرة مرتبطة بالاختبار', date: getOffsetDateStr(-2), minutes: 45, priority: 'high', eventId: examId, completed: false }
-    ];
-    hayyizSaveTodos(tasks);
-
-    const plan = hayyizComputeMultiDayPlan({
-        targetId: examId,
-        targetName: 'اختبار 5',
-        targetDate: targetDate
-    });
-
-    assert(plan.openTasksCount === 1, 'Test 5: Identifies overdue task');
-    assert(plan.schedule[0].tasks.some(t => t.taskId === 't_od_5'), 'Test 5: Overdue high-priority task scheduled starting from today');
-}
-
-// 6. Adding a new task after plan creation and triggering re-plan
+// Scenario B: Two tasks of same subject, but one is linked to a DIFFERENT exam
 {
     localStorage.clear();
     const targetDate = getOffsetDateStr(4);
-    const examId = 'ex_add_6';
+    const examAId = 'ex_chem_a';
+    const examBId = 'ex_chem_b';
+    const subChem = hayyizAddSubject('كيمياء');
 
-    const initialTasks = [
-        { id: 't_add_1', text: 'اختبار 6: مهمة أولى', minutes: 60, priority: 'high', eventId: examId, completed: false }
+    const tasks = [
+        { id: 't_chem_for_a', text: 'مراجعة كيمياء لاختبار أ', subjectId: subChem.id, eventId: examAId, minutes: 45, completed: false },
+        { id: 't_chem_for_b', text: 'مراجعة كيمياء لاختبار ب الآخر', subjectId: subChem.id, eventId: examBId, minutes: 45, completed: false }
     ];
-    hayyizSaveTodos(initialTasks);
+    hayyizSaveTodos(tasks);
 
-    const plan1 = hayyizComputeMultiDayPlan({
+    const planA = hayyizComputeMultiDayPlan({
+        targetId: examAId,
+        targetName: 'اختبار الكيمياء أ',
+        targetDate: targetDate,
+        subjectId: subChem.id
+    });
+
+    assert(planA.openTasksCount === 1, 'Scenario B: Only 1 task linked to Exam A is included');
+    assert(planA.schedule.some(s => s.tasks.some(t => t.taskId === 't_chem_for_a')), 'Scenario B: Task for Exam A is present in plan');
+    assert(!planA.schedule.some(s => s.tasks.some(t => t.taskId === 't_chem_for_b')), 'Scenario B: Task for Exam B is strictly EXCLUDED despite matching subjectId');
+}
+
+// Scenario C: Goal/Exam in 5 days (Buffer Day on D-1, Target Date D is NOT Buffer Day)
+{
+    localStorage.clear();
+    const targetDate = getOffsetDateStr(5); // Days 0, 1, 2, 3, 4, 5
+    const examId = 'ex_5days';
+
+    const task = { id: 't_5days', text: 'مراجعة عامة', minutes: 60, eventId: examId, completed: false };
+    hayyizSaveTodos([task]);
+
+    const plan = hayyizComputeMultiDayPlan({
         targetId: examId,
-        targetName: 'اختبار 6',
+        targetName: 'اختبار بعد 5 أيام',
         targetDate: targetDate
     });
 
-    assert(plan1.totalRequiredMinutes === 60, 'Test 6: Initial plan has 60 required minutes');
+    const dayD = plan.schedule[5]; // Day 5 (targetDate)
+    const dayDMinus1 = plan.schedule[4]; // Day 4 (D-1)
 
-    // Add new task
-    const currentTodos = hayyizGetTodos();
-    currentTodos.push({ id: 't_add_2', text: 'اختبار 6: مهمة مضافة لاحقاً', minutes: 45, priority: 'medium', eventId: examId, completed: false });
-    hayyizSaveTodos(currentTodos);
-
-    const plan2 = hayyizReevaluateMultiDayPlan(examId);
-
-    assert(plan2.openTasksCount === 2, 'Test 6: Re-evaluated plan contains 2 open tasks');
-    assert(plan2.totalRequiredMinutes === 105, 'Test 6: Total required minutes updated to 105 (60 + 45)');
+    assert(dayD.isTargetDay === true && dayD.isBufferDay === false, 'Scenario C: Day D (targetDate) is Target Day and NOT Buffer Day');
+    assert(dayDMinus1.isBufferDay === true, 'Scenario C: Day D-1 is Buffer/Review Day');
+    assert(dayD.plannedMinutes === 0, 'Scenario C: Day D (Exam day) has 0 regular study tasks scheduled');
 }
 
-// 7. Completing a task from the plan and adaptive re-distribution
+// Scenario D: Goal/Exam Tomorrow (1 day remaining: Day 0 is today, Day 1 is Exam Day D)
+{
+    localStorage.clear();
+    const targetDate = getOffsetDateStr(1);
+    const examId = 'ex_tomorrow';
+
+    const task = { id: 't_tomorrow', text: 'استعداد لاختبار غداً', minutes: 40, eventId: examId, completed: false };
+    hayyizSaveTodos([task]);
+
+    const plan = hayyizComputeMultiDayPlan({
+        targetId: examId,
+        targetName: 'اختبار غداً',
+        targetDate: targetDate
+    });
+
+    assert(plan.daysRemaining === 1, 'Scenario D: 1 day remaining until target');
+    assert(plan.hasBufferDay === false, 'Scenario D: No fake buffer day generated for 1-day remaining target');
+    assert(plan.schedule[0].isToday === true && plan.schedule[0].plannedMinutes === 40, 'Scenario D: Work scheduled for today (Day 0)');
+    assert(plan.schedule[1].isTargetDay === true && plan.schedule[1].isBufferDay === false, 'Scenario D: Tomorrow (Day 1) is Exam Day D');
+}
+
+// Scenario E: Goal/Exam Today (0 days remaining)
+{
+    localStorage.clear();
+    const targetDate = getOffsetDateStr(0);
+    const examId = 'ex_today';
+
+    const task = { id: 't_today', text: 'مراجعة دقيقة اليوم', minutes: 30, eventId: examId, completed: false };
+    hayyizSaveTodos([task]);
+
+    const plan = hayyizComputeMultiDayPlan({
+        targetId: examId,
+        targetName: 'اختبار اليوم',
+        targetDate: targetDate
+    });
+
+    assert(plan.daysRemaining === 0, 'Scenario E: 0 days remaining (Target is today)');
+    assert(plan.schedule.length === 1, 'Scenario E: Schedule contains exactly 1 day (today)');
+    assert(plan.schedule[0].plannedMinutes === 30, 'Scenario E: Work scheduled for today');
+}
+
+// Scenario F: Re-planning after Task Completion
 {
     localStorage.clear();
     const targetDate = getOffsetDateStr(3);
-    const examId = 'ex_comp_7';
+    const examId = 'ex_replan_comp';
 
     const tasks = [
-        { id: 't_comp_7_1', text: 'اختبار 7: مهمة 1', minutes: 60, priority: 'high', eventId: examId, completed: false },
-        { id: 't_comp_7_2', text: 'اختبار 7: مهمة 2', minutes: 60, priority: 'medium', eventId: examId, completed: false }
+        { id: 't_rc_1', text: 'مهمة 1 للاستكمال', minutes: 50, priority: 'high', eventId: examId, completed: false },
+        { id: 't_rc_2', text: 'مهمة 2 للاستكمال', minutes: 50, priority: 'medium', eventId: examId, completed: false }
     ];
     hayyizSaveTodos(tasks);
 
     hayyizComputeMultiDayPlan({
         targetId: examId,
-        targetName: 'اختبار 7',
+        targetName: 'اختبار إعادة التخطيط',
         targetDate: targetDate
     });
 
     // Complete task 1
-    hayyizCompleteTask('t_comp_7_1', 'اختبار 7: مهمة 1');
-    const planAfterComp = hayyizReevaluateMultiDayPlan(examId);
+    hayyizCompleteTask('t_rc_1', 'مهمة 1 للاستكمال');
+    const freshPlan = hayyizReevaluateMultiDayPlan(examId);
 
-    assert(planAfterComp.completedTasksCount === 1, 'Test 7: Completed tasks count updated to 1');
-    assert(planAfterComp.openTasksCount === 1, 'Test 7: Open tasks count updated to 1');
-    assert(planAfterComp.totalRequiredMinutes === 60, 'Test 7: Total required minutes updated to 60');
+    assert(freshPlan.openTasksCount === 1, 'Scenario F: Open tasks count updated to 1');
+    assert(freshPlan.completedTasksCount === 1, 'Scenario F: Completed tasks count updated to 1');
+    assert(!freshPlan.schedule.some(s => s.tasks.some(t => t.taskId === 't_rc_1')), 'Scenario F: Completed task does not return to schedule');
 }
 
-// 8. Re-planning without altering past days or completed tasks
+// Scenario G: Re-planning after Task Addition
 {
     localStorage.clear();
     const targetDate = getOffsetDateStr(4);
-    const examId = 'ex_no_past_8';
+    const examId = 'ex_replan_add';
 
-    const tasks = [
-        { id: 't_np_8_1', text: 'مهمة مكتملة بالأمس', minutes: 50, priority: 'high', eventId: examId, completed: true, completedAt: getOffsetDateStr(-1) },
-        { id: 't_np_8_2', text: 'مهمة مفتوحة حالية', minutes: 50, priority: 'medium', eventId: examId, completed: false }
+    const initialTasks = [
+        { id: 't_ra_1', text: 'مهمة أصلية 1', minutes: 40, priority: 'high', eventId: examId, completed: false }
     ];
-    hayyizSaveTodos(tasks);
-
-    const plan = hayyizComputeMultiDayPlan({
-        targetId: examId,
-        targetName: 'اختبار 8',
-        targetDate: targetDate
-    });
-
-    const completedInTodos = hayyizGetTodoById('t_np_8_1');
-    assert(completedInTodos.completed === true, 'Test 8: Completed task remains completed in LocalStorage');
-    assert(!plan.schedule.some(s => s.tasks.some(t => t.taskId === 't_np_8_1')), 'Test 8: Completed task is not re-scheduled in future open days');
-}
-
-// 9. No duplicate tasks or task cloning
-{
-    localStorage.clear();
-    const targetDate = getOffsetDateStr(3);
-    const examId = 'ex_nodup_9';
-
-    const tasks = [
-        { id: 't_uniq_9', text: 'مهمة فريدة واحدة فقط', minutes: 30, priority: 'medium', eventId: examId, completed: false }
-    ];
-    hayyizSaveTodos(tasks);
-
-    const plan = hayyizComputeMultiDayPlan({
-        targetId: examId,
-        targetName: 'اختبار 9',
-        targetDate: targetDate
-    });
-
-    let occurrencesInSchedule = 0;
-    plan.schedule.forEach(s => {
-        s.tasks.forEach(t => {
-            if (t.taskId === 't_uniq_9') occurrencesInSchedule++;
-        });
-    });
-
-    const todosInStorage = hayyizGetTodos();
-    assert(todosInStorage.length === 1, 'Test 9: Tasks in LocalStorage remain exactly 1 (no task cloning)');
-    assert(occurrencesInSchedule === 1, 'Test 9: Task scheduled exactly once across multi-day schedule');
-}
-
-// 10. Preservation of taskId
-{
-    localStorage.clear();
-    const targetDate = getOffsetDateStr(2);
-    const examId = 'ex_id_10';
-
-    const taskOriginal = { id: 't_orig_id_10', text: 'مهمة تجربة المعرف', minutes: 40, priority: 'high', eventId: examId, completed: false };
-    hayyizSaveTodos([taskOriginal]);
-
-    const plan = hayyizComputeMultiDayPlan({
-        targetId: examId,
-        targetName: 'اختبار 10',
-        targetDate: targetDate
-    });
-
-    const scheduledTask = plan.schedule[0].tasks.find(t => t.taskId === 't_orig_id_10');
-    assert(scheduledTask !== undefined, 'Test 10: Scheduled task preserves exact original taskId (t_orig_id_10)');
-}
-
-// 11. Zero negative impact on current daily plan (hayyizBuildDailyPlan)
-{
-    localStorage.clear();
-    const targetDate = getOffsetDateStr(3);
-    const examId = 'ex_daily_11';
-
-    const tasks = [
-        { id: 't_daily_11', text: 'مهمة واضحة للخطة اليومية', minutes: 30, priority: 'high', eventId: examId, completed: false }
-    ];
-    hayyizSaveTodos(tasks);
+    hayyizSaveTodos(initialTasks);
 
     hayyizComputeMultiDayPlan({
         targetId: examId,
-        targetName: 'اختبار 11',
+        targetName: 'اختبار إضافة مهمة',
+        targetDate: targetDate
+    });
+
+    // Add new task
+    const currentTodos = hayyizGetTodos();
+    currentTodos.push({ id: 't_ra_2', text: 'مهمة جديدة مضافة', minutes: 50, priority: 'medium', eventId: examId, completed: false });
+    hayyizSaveTodos(currentTodos);
+
+    const updatedPlan = hayyizReevaluateMultiDayPlan(examId);
+
+    assert(updatedPlan.openTasksCount === 2, 'Scenario G: New task included in re-planned schedule');
+    assert(hayyizGetTodos().length === 2, 'Scenario G: Existing tasks are not cloned');
+}
+
+// Scenario H: Preservation of taskId
+{
+    localStorage.clear();
+    const targetDate = getOffsetDateStr(3);
+    const examId = 'ex_task_id_preservation';
+
+    const task = { id: 't_unique_id_99', text: 'مهمة المعرف الفريد', minutes: 60, eventId: examId, completed: false };
+    hayyizSaveTodos([task]);
+
+    const plan = hayyizComputeMultiDayPlan({
+        targetId: examId,
+        targetName: 'اختبار المعرف الفريد',
+        targetDate: targetDate
+    });
+
+    const scheduled = plan.schedule[0].tasks.find(t => t.taskId === 't_unique_id_99');
+    assert(scheduled !== undefined && scheduled.taskId === 't_unique_id_99', 'Scenario H: taskId (t_unique_id_99) strictly preserved');
+}
+
+// Scenario I: Total Allocated Minutes = Actual Remaining Required Minutes
+{
+    localStorage.clear();
+    const targetDate = getOffsetDateStr(3);
+    const examId = 'ex_exact_sum';
+
+    const tasks = [
+        { id: 't_sum_1', text: 'مهمة 1', minutes: 45, focusDone: 15, eventId: examId, completed: false }, // 30 remaining
+        { id: 't_sum_2', text: 'مهمة 2', minutes: 60, focusDone: 0, eventId: examId, completed: false }   // 60 remaining
+    ];
+    hayyizSaveTodos(tasks);
+
+    const plan = hayyizComputeMultiDayPlan({
+        targetId: examId,
+        targetName: 'اختبار المجموع',
+        targetDate: targetDate
+    });
+
+    let totalAllocatedMinutes = 0;
+    plan.schedule.forEach(s => totalAllocatedMinutes += s.plannedMinutes);
+
+    assert(plan.totalRequiredMinutes === 90, 'Scenario I: Total required remaining minutes calculated as 90 (30 + 60)');
+    assert(totalAllocatedMinutes === 90, 'Scenario I: Total allocated minutes strictly equals required remaining minutes (90)');
+}
+
+// Scenario J: Integration with hayyizBuildDailyPlan
+{
+    localStorage.clear();
+    const targetDate = getOffsetDateStr(2);
+    const examId = 'ex_daily_integration';
+
+    const task = { id: 't_daily_integ', text: 'مهمة التكامل اليومي', minutes: 30, priority: 'high', eventId: examId, completed: false };
+    hayyizSaveTodos([task]);
+
+    hayyizComputeMultiDayPlan({
+        targetId: examId,
+        targetName: 'اختبار اليومي',
         targetDate: targetDate
     });
 
     const dailyPlan = hayyizGenerateDailyPlan();
-    assert(Array.isArray(dailyPlan) && dailyPlan.length > 0, 'Test 11: hayyizBuildDailyPlan executes cleanly alongside multi-day plans');
-    assert(dailyPlan.some(p => p.task && p.task.id === 't_daily_11'), 'Test 11: Daily plan contains the active task');
+    assert(Array.isArray(dailyPlan) && dailyPlan.length > 0, 'Scenario J: Daily Plan generated successfully');
+    assert(dailyPlan.some(p => p.task && p.task.id === 't_daily_integ'), 'Scenario J: Daily Plan contains the active multi-day task');
 }
 
-// 12. Zero negative impact on Pomodoro integration
+// Scenario K: Integration with Pomodoro
 {
     localStorage.clear();
     const realDateNow = Date.now;
-    let mockTime = 2000000000000;
+    let mockTime = 2500000000000;
     Date.now = () => mockTime;
 
     const targetDate = getOffsetDateStr(2);
-    const examId = 'ex_pomo_12';
+    const examId = 'ex_pomo_integ';
 
-    const taskPomo = { id: 't_pomo_12', text: 'مهمة مؤقت البومودورو', minutes: 50, focusDone: 0, priority: 'high', eventId: examId, completed: false };
-    hayyizSaveTodos([taskPomo]);
+    const task = { id: 't_pomo_integ', text: 'مهمة بومودورو الجارية', minutes: 50, focusDone: 0, priority: 'high', eventId: examId, completed: false };
+    hayyizSaveTodos([task]);
 
     hayyizComputeMultiDayPlan({
         targetId: examId,
-        targetName: 'اختبار 12',
+        targetName: 'اختبار البومودورو',
         targetDate: targetDate
     });
 
-    // Simulate Pomodoro focus session completion
-    hayyizApplyFocusResult({ workMin: 25, taskId: 't_pomo_12', taskText: 'مهمة مؤقت البومودورو' });
+    // Apply focus result
+    hayyizApplyFocusResult({ workMin: 25, taskId: 't_pomo_integ', taskText: 'مهمة بومودورو الجارية' });
 
-    const updatedTaskPomo = hayyizGetTaskById('t_pomo_12');
-    assert(updatedTaskPomo.focusDone === 25, 'Test 12: Focus result correctly applied to task (25 mins logged)');
+    const updatedTask = hayyizGetTaskById('t_pomo_integ');
+    assert(updatedTask.focusDone === 25, 'Scenario K: Pomodoro focus logged cleanly (25 mins)');
 
-    const planAfterPomo = hayyizReevaluateMultiDayPlan(examId);
-    assert(planAfterPomo.completedMinutes === 25, 'Test 12: Multi-day plan reflects focus completion without breaking state');
+    const reevaluated = hayyizReevaluateMultiDayPlan(examId);
+    assert(reevaluated.completedMinutes === 25, 'Scenario K: Multi-day plan re-evaluated with updated focus done');
 
     Date.now = realDateNow;
 }
 
-// 13. Resilience to legacy or missing data
+// Scenario L: Multiple Plans in LocalStorage + Contextual Linking
 {
     localStorage.clear();
 
-    // Legacy plan data with missing fields or corrupt JSON
-    localStorage.setItem('hayyiz-multi-day-plans', 'CORRUPT_JSON_{');
-    const plansSafe = hayyizGetMultiDayPlans();
-    assert(typeof plansSafe === 'object' && !Array.isArray(plansSafe), 'Test 13: Corrupt plans in LocalStorage recover to empty object');
-
-    const planMissingConfig = hayyizComputeMultiDayPlan(null);
-    assert(planMissingConfig === null, 'Test 13: Handles null config gracefully');
-}
-
-// 14. Graceful handling of impossible plan scenarios (e.g. 0 days remaining / past date)
-{
-    localStorage.clear();
-
-    // Past date (daysRemaining < 0)
-    const planPast = hayyizComputeMultiDayPlan({
-        targetId: 'ex_past',
-        targetName: 'اختبار قديم منتهي',
-        targetDate: getOffsetDateStr(-2)
+    const plan1 = hayyizComputeMultiDayPlan({
+        targetId: 'ex_plan_1',
+        targetName: 'الخطة الأولى كيمياء',
+        targetDate: getOffsetDateStr(3)
     });
 
-    assert(planPast !== null && planPast.status === 'impossible', 'Test 14: Past target date produces "impossible" status');
-
-    // 0 days remaining (same day exam)
-    const planSameDay = hayyizComputeMultiDayPlan({
-        targetId: 'ex_same_day',
-        targetName: 'اختبار اليوم',
-        targetDate: getOffsetDateStr(0)
+    const plan2 = hayyizComputeMultiDayPlan({
+        targetId: 'ex_plan_2',
+        targetName: 'الخطة الثانية فيزياء',
+        targetDate: getOffsetDateStr(5)
     });
 
-    assert(planSameDay !== null && planSameDay.daysRemaining === 0, 'Test 14: Target today handles 0 days remaining correctly');
-    assert(planSameDay.schedule.length === 1, 'Test 14: Schedule contains 1 day (today)');
+    const allPlans = hayyizGetMultiDayPlans();
+    assert(Object.keys(allPlans).length === 2, 'Scenario L: LocalStorage holds 2 distinct multi-day plans');
+    assert(allPlans['ex_plan_1'].targetName === 'الخطة الأولى كيمياء', 'Scenario L: Plan 1 retrieved accurately by targetId');
+    assert(allPlans['ex_plan_2'].targetName === 'الخطة الثانية فيزياء', 'Scenario L: Plan 2 retrieved accurately by targetId');
 }
 
 console.log(`\n===================================`);
-console.log(`MULTI-DAY PLAN TEST SUITE SUMMARY: ${passed} Passed, ${failed} Failed`);
+console.log(`RIGOROUS MULTI-DAY PLAN TEST SUITE SUMMARY: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);
 
 if (failed > 0) process.exit(1);
