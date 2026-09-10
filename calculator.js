@@ -1034,11 +1034,21 @@
         const sec = document.getElementById('multi-day-plan-section');
         const container = document.getElementById('multi-day-plan-content');
         const capacitySelect = document.getElementById('multi-plan-capacity-input');
+        const capacityCustom = document.getElementById('multi-plan-capacity-custom');
         if (!sec || !container) return;
 
+        const savedCap = localStorage.getItem('hayyiz-pref-daily-capacity') || '120';
         if (capacitySelect) {
-            const savedCap = localStorage.getItem('hayyiz-pref-daily-capacity') || '120';
-            capacitySelect.value = savedCap;
+            if (['60', '120', '180', '240'].includes(String(savedCap))) {
+                capacitySelect.value = String(savedCap);
+                if (capacityCustom) capacityCustom.style.display = 'none';
+            } else {
+                capacitySelect.value = 'custom';
+                if (capacityCustom) {
+                    capacityCustom.value = String(savedCap);
+                    capacityCustom.style.display = 'inline-block';
+                }
+            }
         }
 
         let plan = typeof hayyizGetMultiDayPlan === 'function' ? hayyizGetMultiDayPlan(config.targetId) : null;
@@ -1053,11 +1063,24 @@
         sec.style.display = 'block';
         sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-        if (capacitySelect && plan.dailyCapacityMinutes) {
-            capacitySelect.value = String(plan.dailyCapacityMinutes);
-        }
-
         renderMultiDayPlanCards(container, plan, config);
+
+        const getSelectedCapacity = () => {
+            if (!capacitySelect) return 120;
+            if (capacitySelect.value === 'custom') {
+                const val = capacityCustom ? parseInt(capacityCustom.value, 10) : 120;
+                return (val && val > 0) ? val : 120;
+            }
+            return parseInt(capacitySelect.value, 10) || 120;
+        };
+
+        const updatePlanForCapacity = () => {
+            if (typeof hayyizComputeMultiDayPlan === 'function') {
+                const capVal = getSelectedCapacity();
+                const fresh = hayyizComputeMultiDayPlan(Object.assign({}, config, { dailyCapacityMinutes: capVal }));
+                renderMultiDayPlanCards(container, fresh, config);
+            }
+        };
 
         const closeBtn = document.getElementById('close-multi-plan-btn');
         if (closeBtn) {
@@ -1066,27 +1089,63 @@
 
         const reevalBtn = document.getElementById('reevaluate-multi-plan-btn');
         if (reevalBtn) {
-            reevalBtn.onclick = () => {
-                if (typeof hayyizComputeMultiDayPlan === 'function') {
-                    const capVal = capacitySelect ? capacitySelect.value : null;
-                    const fresh = hayyizComputeMultiDayPlan(Object.assign({}, config, { dailyCapacityMinutes: capVal }));
-                    renderMultiDayPlanCards(container, fresh, config);
-                }
-            };
+            reevalBtn.onclick = updatePlanForCapacity;
         }
 
         if (capacitySelect) {
             capacitySelect.onchange = () => {
-                if (typeof hayyizComputeMultiDayPlan === 'function') {
-                    const fresh = hayyizComputeMultiDayPlan(Object.assign({}, config, { dailyCapacityMinutes: capacitySelect.value }));
-                    renderMultiDayPlanCards(container, fresh, config);
+                if (capacitySelect.value === 'custom') {
+                    if (capacityCustom) {
+                        capacityCustom.style.display = 'inline-block';
+                        capacityCustom.focus();
+                    }
+                } else {
+                    if (capacityCustom) capacityCustom.style.display = 'none';
+                    updatePlanForCapacity();
                 }
             };
+        }
+
+        if (capacityCustom) {
+            capacityCustom.onchange = updatePlanForCapacity;
         }
     }
 
     function renderMultiDayPlanCards(container, plan, config) {
         container.innerHTML = '';
+
+        const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
+        const calcPomoSessions = (min) => {
+            if (typeof hayyizCalculateFocusSessions === 'function') {
+                return hayyizCalculateFocusSessions(min, workMin);
+            }
+            if (!min || min <= 0) return 0;
+            return Math.ceil(min / workMin);
+        };
+        const formatPomoSessions = (min) => {
+            if (typeof hayyizFormatFocusSessions === 'function') {
+                return hayyizFormatFocusSessions(min, workMin);
+            }
+            const count = calcPomoSessions(min);
+            if (count === 0) return '0 جلسات';
+            if (count === 1) return 'جلسة واحدة';
+            if (count === 2) return 'جلستان';
+            if (count >= 3 && count <= 10) return `${count} جلسات`;
+            return `${count} جلسة`;
+        };
+
+        const TASK_TYPE_LABELS = {
+            assignment: 'واجب',
+            exam: 'اختبار',
+            review: 'مراجعة',
+            practice: 'حل أسئلة',
+            memorization: 'حفظ',
+            project: 'مشروع',
+            research: 'بحث',
+            reading: 'قراءة',
+            summary: 'تلخيص',
+            general: 'عام'
+        };
 
         const metaBar = document.createElement('div');
         metaBar.style.cssText = 'display: flex; gap: 1rem; flex-wrap: wrap; justify-content: space-between; align-items: center; background: var(--bg); padding: 0.85rem 1rem; border-radius: var(--radius-sm, 10px); margin-bottom: 1rem; border: 1px solid var(--border);';
@@ -1094,18 +1153,72 @@
         const daysText = plan.daysRemaining === 0 ? 'اليوم المستحق!' : (plan.daysRemaining === 1 ? 'متبقي يوم واحد' : `متبقي ${plan.daysRemaining} أيام`);
         const plannedMin = plan.totalPlannedMinutes || 0;
         const unallocatedMin = plan.totalUnallocatedMinutes || 0;
+        const totalReqSessions = calcPomoSessions(plan.totalRequiredMinutes);
 
         metaBar.innerHTML = `
             <div>
                 <strong style="font-size: 1.05rem; color: var(--text);">${escapeHtml(plan.targetName)}</strong>
-                <span style="font-size: 0.85rem; color: var(--text-muted); display: block;">${formatDateArabic(plan.targetDate)} · ${daysText} · القدرة: ${plan.dailyCapacityMinutes} د/يوم</span>
+                <span style="font-size: 0.85rem; color: var(--text-muted); display: block;">${formatDateArabic(plan.targetDate)} · ${daysText} · القدرة: ${plan.dailyCapacityMinutes} د/يوم (جلسة بومودورو: ${workMin}د)</span>
             </div>
             <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                 <span class="badge ${plan.isCapacityExceeded ? 'badge-assignment' : 'badge-exam'}">${escapeHtml(plan.statusLabel)}</span>
-                <span class="status-item-sub">المطلوب: ${plan.totalRequiredMinutes}د | الموزع: ${plannedMin}د ${unallocatedMin > 0 ? `| العجز غير الموزع: ${unallocatedMin}د` : ''}</span>
+                <span class="status-item-sub">المطلوب: ${plan.totalRequiredMinutes}د (≈ ${totalReqSessions} جلسات) | الموزع: ${plannedMin}د ${unallocatedMin > 0 ? `| العجز غير الموزع: ${unallocatedMin}د` : ''}</span>
             </div>
         `;
         container.appendChild(metaBar);
+
+        // Actionable deficit notice when capacity is exceeded
+        if (plan.isCapacityExceeded && unallocatedMin > 0) {
+            const deficitSessions = calcPomoSessions(unallocatedMin);
+
+            let firstOpenTaskId = null;
+            if (plan.schedule && plan.schedule.length > 0) {
+                for (const dayItem of plan.schedule) {
+                    if (dayItem.tasks && dayItem.tasks.length > 0) {
+                        const found = dayItem.tasks.find(t => t && t.taskId && !t.completed);
+                        if (found) {
+                            firstOpenTaskId = found.taskId;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!firstOpenTaskId && typeof hayyizGetTodos === 'function') {
+                const todos = hayyizGetTodos();
+                const openLinked = todos.find(t => t && !t.completed && (
+                    (t.eventId && String(t.eventId) === String(config.targetId)) ||
+                    (t.goalId && String(t.goalId) === String(config.targetId)) ||
+                    (config.subjectId && t.subjectId && String(t.subjectId) === String(config.subjectId))
+                ));
+                if (openLinked) {
+                    firstOpenTaskId = openLinked.id;
+                }
+            }
+
+            const pomoUrl = firstOpenTaskId
+                ? `pomodoro.html?taskId=${encodeURIComponent(firstOpenTaskId)}`
+                : 'pomodoro.html';
+
+            const deficitCard = document.createElement('div');
+            deficitCard.className = 'multi-plan-deficit-notice';
+            deficitCard.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; color: var(--danger, #ef4444);">
+                    <i class="fa-solid fa-triangle-exclamation"></i> لا تكفي الأيام المتاحة لإنجاز جميع المهام ضمن قدرتك اليومية (${plan.dailyCapacityMinutes} د/يوم)
+                </div>
+                <div style="font-size: 0.88rem; color: var(--text);">
+                    المتبقي غير الموزع: <strong>${unallocatedMin} دقيقة</strong> (تحتاج تقريبًا <strong>${formatPomoSessions(unallocatedMin)}</strong> إضافة لإنهاء جميع المهام).
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted);">
+                    ننصح باستخدام مؤقت بومودورو لإنجاز جلسات التركيز المطلوبة مباشرة دون تراكم.
+                </div>
+                <div>
+                    <a href="${pomoUrl}" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem; margin-top: 0.2rem;">
+                        <i class="fa-solid fa-play"></i> ابدأ جلسة التركيز الآن
+                    </a>
+                </div>
+            `;
+            container.appendChild(deficitCard);
+        }
 
         if (!plan.schedule || plan.schedule.length === 0) {
             const emptyMsg = document.createElement('div');
@@ -1159,15 +1272,29 @@
                     const taskRow = document.createElement('div');
                     taskRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; background: var(--bg-card); padding: 0.35rem 0.5rem; border-radius: 6px; border: 1px solid var(--border);';
 
+                    const typeBadgeText = TASK_TYPE_LABELS[t.taskType] || TASK_TYPE_LABELS.general;
+                    const sessStr = formatPomoSessions(t.remainingMinutes);
+
+                    const tLeft = document.createElement('div');
+                    tLeft.style.cssText = 'display: flex; align-items: center; gap: 0.35rem; overflow: hidden;';
+
+                    const tBadge = document.createElement('span');
+                    tBadge.className = 'badge badge-custom';
+                    tBadge.style.cssText = 'font-size: 0.7rem; padding: 0.1rem 0.35rem; flex-shrink: 0;';
+                    tBadge.textContent = typeBadgeText;
+
                     const tTitle = document.createElement('span');
-                    tTitle.style.cssText = 'font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px;';
+                    tTitle.style.cssText = 'font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;';
                     tTitle.textContent = t.text;
 
-                    const tMin = document.createElement('span');
-                    tMin.style.cssText = 'color: var(--text-muted); font-size: 0.78rem;';
-                    tMin.textContent = `${t.remainingMinutes}د`;
+                    tLeft.appendChild(tBadge);
+                    tLeft.appendChild(tTitle);
 
-                    taskRow.appendChild(tTitle);
+                    const tMin = document.createElement('span');
+                    tMin.style.cssText = 'color: var(--text-muted); font-size: 0.75rem; flex-shrink: 0;';
+                    tMin.textContent = `${t.remainingMinutes}د · ${sessStr}`;
+
+                    taskRow.appendChild(tLeft);
                     taskRow.appendChild(tMin);
                     taskList.appendChild(taskRow);
                 });
@@ -1177,8 +1304,9 @@
             const footerRow = document.createElement('div');
             footerRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--text-muted); border-top: 1px dashed var(--border); padding-top: 0.4rem;';
 
+            const daySessionsStr = formatPomoSessions(dayItem.plannedMinutes);
             const loadText = document.createElement('span');
-            loadText.textContent = `الحمل: ${dayItem.plannedMinutes} دقيقة`;
+            loadText.textContent = `الحمل: ${dayItem.plannedMinutes} دقيقة (≈ ${daySessionsStr})`;
 
             footerRow.appendChild(loadText);
             if (dayItem.isToday && dayItem.tasks.length > 0) {

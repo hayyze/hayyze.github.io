@@ -756,12 +756,13 @@
                     <div style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem;">
                         <label for="multi-plan-capacity-input" style="font-weight: 600; color: var(--text-muted);">القدرة اليومية:</label>
                         <select id="multi-plan-capacity-input" class="calc-input" style="padding: 0.25rem 0.5rem; font-size: 0.85rem; width: auto;">
-                            <option value="60">60 دقيقة / يوم</option>
-                            <option value="90">90 دقيقة / يوم</option>
-                            <option value="120" selected>120 دقيقة / يوم</option>
-                            <option value="180">180 دقيقة / يوم</option>
-                            <option value="240">240 دقيقة / يوم</option>
+                            <option value="60">خفيف (60 دقيقة / يوم)</option>
+                            <option value="120" selected>متوازن (120 دقيقة / يوم)</option>
+                            <option value="180">مكثف (180 دقيقة / يوم)</option>
+                            <option value="240">متقدم (240 دقيقة / يوم)</option>
+                            <option value="custom">مخصص...</option>
                         </select>
+                        <input type="number" id="multi-plan-capacity-custom" class="calc-input" style="display: none; padding: 0.25rem 0.5rem; font-size: 0.85rem; width: 80px;" min="15" max="1440" placeholder="الدقائق">
                     </div>
                     <button type="button" id="reevaluate-multi-plan-btn" class="action-btn-mini" title="إعادة توزيع الخطة المستقبلية بناءً على التقدم الحالي">
                         <i class="fa-solid fa-rotate"></i> إعادة التخطيط التكيفي

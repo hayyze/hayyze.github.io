@@ -1606,6 +1606,29 @@ function hayyizGenerateDailyPlan() {
 /* ---------- Focus Engine Data Layer Helpers ---------- */
 
 /**
+ * حساب عدد جلسات التركيز المطلوبة بناءً على الدقائق وتفضيلات البومودورو
+ */
+function hayyizCalculateFocusSessions(minutes, workMinOverride) {
+    if (!minutes || minutes <= 0) return 0;
+    const workMin = typeof workMinOverride === 'number' && workMinOverride > 0
+        ? workMinOverride
+        : (parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25);
+    return Math.ceil(minutes / workMin);
+}
+
+/**
+ * تنسيق عدد جلسات التركيز باللغة العربية
+ */
+function hayyizFormatFocusSessions(minutes, workMinOverride) {
+    const count = hayyizCalculateFocusSessions(minutes, workMinOverride);
+    if (count === 0) return '0 جلسات';
+    if (count === 1) return 'جلسة واحدة';
+    if (count === 2) return 'جلستان';
+    if (count >= 3 && count <= 10) return `${count} جلسات`;
+    return `${count} جلسة`;
+}
+
+/**
  * التأكد من إعادة تهيئة إحصائيات اليوم عند تغير التاريخ
  */
 function hayyizEnsureTodayStats() {
@@ -2383,6 +2406,7 @@ function hayyizComputeMultiDayPlan(config) {
 
     // 2. ربط دقيق ومستهدف للمهام الحقيقية (المفتوحة والمكتملة)
     const todos = hayyizGetTodos();
+    const includeSubjectTasks = config.includeSubjectTasks !== false;
     const linkedTasks = todos.filter((t) => {
         if (!t) return false;
         // إذا كانت المهمة مرتبطة صراحة باختبار/حدث معين، يجب أن تطابق targetId فقط
@@ -2393,8 +2417,8 @@ function hayyizComputeMultiDayPlan(config) {
         if (t.goalId) {
             return String(t.goalId) === targetId;
         }
-        // عند تمكين ربط المادة صراحة بالتهيئات دون وجود eventId/goalId صريح لاختبار آخر
-        if (config.includeSubjectTasks && subjectId && t.subjectId && String(t.subjectId) === String(subjectId)) {
+        // عند عدم وجود ربط صريح بحدث/هدف آخر وكان للمستهدف أو المادة subjectId
+        if (includeSubjectTasks && subjectId && t.subjectId && String(t.subjectId) === String(subjectId)) {
             return true;
         }
         return false;
@@ -2509,6 +2533,7 @@ function hayyizComputeMultiDayPlan(config) {
                     targetDayObj.tasks.push({
                         taskId: t.id,
                         text: t.text,
+                        taskType: t.taskType || 'general',
                         priority: t.priority || 'medium',
                         totalMinutes: parseInt(t.minutes, 10) || workMinDefault,
                         focusDone: parseInt(t.focusDone, 10) || 0,

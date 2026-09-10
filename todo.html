@@ -181,8 +181,34 @@
                 </button>
             </div>
 
+            <!-- QUICK TASK TYPE SHORTCUTS -->
+            <div id="task-type-shortcuts" class="task-type-shortcuts" style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.75rem;" role="region" aria-label="اختصارات نوع المهمة السريعة">
+                <span style="font-size: 0.82rem; color: var(--text-muted); align-self: center; margin-left: 0.2rem;">النوع السريع:</span>
+                <button type="button" class="btn-type-shortcut active" data-type="assignment"><i class="fa-solid fa-pen-to-square"></i> واجب</button>
+                <button type="button" class="btn-type-shortcut" data-type="exam"><i class="fa-solid fa-graduation-cap"></i> اختبار</button>
+                <button type="button" class="btn-type-shortcut" data-type="review"><i class="fa-solid fa-rotate"></i> مراجعة</button>
+                <button type="button" class="btn-type-shortcut" data-type="practice"><i class="fa-solid fa-pencil"></i> حل أسئلة</button>
+                <button type="button" class="btn-type-shortcut" data-type="memorization"><i class="fa-solid fa-brain"></i> حفظ</button>
+                <button type="button" class="btn-type-shortcut" data-type="project"><i class="fa-solid fa-diagram-project"></i> مشروع</button>
+            </div>
+
             <!-- COLLAPSIBLE DETAILED OPTIONS -->
             <div id="todo-extra-options" class="todo-options hidden" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--border);">
+                <div class="option-field">
+                    <label for="todo-task-type">نوع المهمة</label>
+                    <select id="todo-task-type">
+                        <option value="assignment" selected>واجب</option>
+                        <option value="exam">اختبار</option>
+                        <option value="review">مراجعة</option>
+                        <option value="practice">حل أسئلة</option>
+                        <option value="memorization">حفظ</option>
+                        <option value="project">مشروع</option>
+                        <option value="research">بحث</option>
+                        <option value="reading">قراءة</option>
+                        <option value="summary">تلخيص</option>
+                        <option value="general">عام</option>
+                    </select>
+                </div>
                 <div class="option-field">
                     <label for="todo-priority">الأولوية</label>
                     <select id="todo-priority">
@@ -280,6 +306,21 @@
                 </div>
 
                 <div class="todo-options" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.85rem;">
+                    <div class="option-field">
+                        <label for="modal-input-task-type">نوع المهمة</label>
+                        <select id="modal-input-task-type">
+                            <option value="assignment">واجب</option>
+                            <option value="exam">اختبار</option>
+                            <option value="review">مراجعة</option>
+                            <option value="practice">حل أسئلة</option>
+                            <option value="memorization">حفظ</option>
+                            <option value="project">مشروع</option>
+                            <option value="research">بحث</option>
+                            <option value="reading">قراءة</option>
+                            <option value="summary">تلخيص</option>
+                            <option value="general">عام</option>
+                        </select>
+                    </div>
                     <div class="option-field">
                         <label for="modal-input-priority">الأولوية</label>
                         <select id="modal-input-priority">

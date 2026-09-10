@@ -350,29 +350,145 @@ const getOffsetDateStr = (offsetDays) => {
     assert(allPlans['ex_plan_2'].targetName === 'الخطة الثانية فيزياء', 'Scenario L: Plan 2 retrieved accurately by targetId');
 }
 
-// Scenario M: Point 1 - Strict Data Linking (Excluding Fuzzy/Text Matching)
+// Scenario Task Types & Focus Sessions Math Verification
 {
     localStorage.clear();
-    const examA = 'ex_A';
-    const examB = 'ex_B';
+    const targetDate = getOffsetDateStr(3);
+    const examId = 'ex_task_type_and_sessions';
+
+    // Pomodoro work pref set to 25
+    localStorage.setItem('hayyiz-pref-work', '25');
 
     const tasks = [
-        { id: 't_link_1', text: 'دراسة كيمياء لاختبار A', eventId: examA, minutes: 30, completed: false },
-        { id: 't_link_2', text: 'دراسة فيزياء لاختبار B', eventId: examB, minutes: 40, completed: false },
-        { id: 't_link_3', text: 'ملاحظات حول اختبار A العامة', minutes: 50, completed: false } // Mentioning 'اختبار A' in text but NO eventId
+        { id: 't_tt_1', text: 'واجب رياضيات', taskType: 'assignment', minutes: 25, focusDone: 0, eventId: examId, completed: false }, // 25 remaining / 25 = 1 session
+        { id: 't_tt_2', text: 'اختبار مراجعة', taskType: 'exam', minutes: 26, focusDone: 0, eventId: examId, completed: false },        // 26 / 25 = 2 sessions
+        { id: 't_tt_3', text: 'حل أسئلة سريع', taskType: 'practice', minutes: 5, focusDone: 0, eventId: examId, completed: false },        // 5 / 25 = 1 session
+        { id: 't_tt_4', text: 'حفظ آيات مكتمل', taskType: 'memorization', minutes: 30, focusDone: 30, eventId: examId, completed: false },   // 0 / 25 = 0 sessions remaining
+        { id: 't_tt_5', text: 'مشروع حاسب', taskType: 'project', minutes: 50, focusDone: 0, eventId: examId, completed: false }            // 50 / 25 = 2 sessions
     ];
     hayyizSaveTodos(tasks);
 
-    const planA = hayyizComputeMultiDayPlan({
-        targetId: examA,
-        targetName: 'اختبار A',
-        targetDate: getOffsetDateStr(3)
+    const plan = hayyizComputeMultiDayPlan({
+        targetId: examId,
+        targetName: 'اختبار نوع المهام والجلسات',
+        targetDate: targetDate,
+        dailyCapacityMinutes: 200
     });
 
-    assert(planA.totalTasksCount === 1, 'Point 1: Strict Linking includes only 1 task explicitly linked via eventId');
-    assert(planA.schedule.some(s => s.tasks.some(t => t.taskId === 't_link_1')), 'Point 1: Task linked to eventId ex_A is included');
-    assert(!planA.schedule.some(s => s.tasks.some(t => t.taskId === 't_link_2')), 'Point 1: Task linked to eventId ex_B is excluded');
-    assert(!planA.schedule.some(s => s.tasks.some(t => t.taskId === 't_link_3')), 'Point 1: Task mentioning targetName in text without explicit eventId/goalId is strictly EXCLUDED');
+    const scheduledTasks = [];
+    plan.schedule.forEach(s => s.tasks.forEach(t => scheduledTasks.push(t)));
+
+    const findScheduled = (id) => scheduledTasks.find(t => t.taskId === id);
+
+    const s1 = findScheduled('t_tt_1');
+    const s2 = findScheduled('t_tt_2');
+    const s3 = findScheduled('t_tt_3');
+    const s4 = findScheduled('t_tt_4'); // 0 remaining, open task with focusDone===total -> 0 remaining
+    const s5 = findScheduled('t_tt_5');
+
+    assert(s1 && s1.taskType === 'assignment' && s1.remainingMinutes === 25, 'Task Types: Task 1 taskType preserved as assignment');
+    assert(s2 && s2.taskType === 'exam' && s2.remainingMinutes === 26, 'Task Types: Task 2 taskType preserved as exam');
+    assert(s3 && s3.taskType === 'practice' && s3.remainingMinutes === 5, 'Task Types: Task 3 taskType preserved as practice');
+    assert(s5 && s5.taskType === 'project' && s5.remainingMinutes === 50, 'Task Types: Task 5 taskType preserved as project');
+
+    // Verify sessions calculation math logic reading real hayyiz-pref-work preference using real hayyizCalculateFocusSessions implementation
+    localStorage.setItem('hayyiz-pref-work', '25');
+    assert(hayyizCalculateFocusSessions(25) === 1, 'Focus Sessions Math (work=25): 25 / 25 = 1 session');
+    assert(hayyizCalculateFocusSessions(26) === 2, 'Focus Sessions Math (work=25): 26 / 25 = 2 sessions');
+    assert(hayyizCalculateFocusSessions(5) === 1, 'Focus Sessions Math (work=25): 5 / 25 = 1 session');
+    assert(hayyizCalculateFocusSessions(0) === 0, 'Focus Sessions Math (work=25): 0 / 25 = 0 sessions');
+    assert(hayyizCalculateFocusSessions(50) === 2, 'Focus Sessions Math (work=25): 50 / 25 = 2 sessions');
+
+    // Change work preference to 50 and verify exported function reads new preference
+    localStorage.setItem('hayyiz-pref-work', '50');
+    assert(hayyizCalculateFocusSessions(50) === 1, 'Focus Sessions Math (work=50): 50 / 50 = 1 session (updates dynamically via hayyizCalculateFocusSessions)');
+    assert(hayyizCalculateFocusSessions(25) === 1, 'Focus Sessions Math (work=50): 25 / 50 = 1 session');
+    assert(hayyizCalculateFocusSessions(100) === 2, 'Focus Sessions Math (work=50): 100 / 50 = 2 sessions');
+
+    // Reset back to 25
+    localStorage.setItem('hayyiz-pref-work', '25');
+}
+
+// Scenario P: Remaining Minutes Session Math (remaining = minutes - focusDone)
+{
+    localStorage.clear();
+    localStorage.setItem('hayyiz-pref-work', '25');
+    const targetDate = getOffsetDateStr(3);
+    const examId = 'ex_remaining_pomo';
+
+    // Task with 60 total minutes, 35 focusDone -> remaining = 25 minutes
+    const task = { id: 't_rem_60_35', text: 'مهمة 60 دقيقة أُنجز منها 35', minutes: 60, focusDone: 35, eventId: examId, completed: false };
+    hayyizSaveTodos([task]);
+
+    const plan = hayyizComputeMultiDayPlan({
+        targetId: examId,
+        targetName: 'اختبار حساب المتبقي',
+        targetDate: targetDate
+    });
+
+    const scheduled = plan.schedule[0].tasks.find(t => t.taskId === 't_rem_60_35');
+    assert(scheduled !== undefined && scheduled.remainingMinutes === 25, 'Remaining Math: Scheduled remainingMinutes is exactly 25 (60 - 35)');
+
+    assert(hayyizCalculateFocusSessions(scheduled.remainingMinutes) === 1, 'Remaining Math: 25 remaining minutes / 25 workPref = 1 session via hayyizCalculateFocusSessions (NOT 3 sessions for original 60 mins)');
+}
+
+// Scenario Q: Custom Legacy Capacity Preservation (e.g., 90 minutes)
+{
+    localStorage.clear();
+    localStorage.setItem('hayyiz-pref-daily-capacity', '90');
+    const targetDate = getOffsetDateStr(3);
+    const examId = 'ex_legacy_cap_90';
+
+    const task = { id: 't_leg_cap', text: 'مهمة للسعة القديمة', minutes: 120, eventId: examId, completed: false };
+    hayyizSaveTodos([task]);
+
+    const plan = hayyizComputeMultiDayPlan({
+        targetId: examId,
+        targetName: 'اختبار السعة القديمة 90',
+        targetDate: targetDate
+    });
+
+    assert(plan.dailyCapacityMinutes === 90, 'Legacy Capacity: 90 mins daily capacity preserved cleanly without being overwritten to 120');
+    assert(plan.schedule[0].plannedMinutes === 90, 'Legacy Capacity: Day 0 allocated exactly 90 mins matching preserved capacity');
+}
+
+// Scenario M: Explicit Subject Linking Cases A through E
+{
+    localStorage.clear();
+    const subMath = hayyizAddSubject('رياضيات');
+    const subPhysics = hayyizAddSubject('فيزياء');
+
+    const examA = 'ex_math_A';
+    const examB = 'ex_math_B';
+    const goalB = 'goal_physics_B';
+
+    const tasks = [
+        // Case A: subjectId matches, no eventId/goalId -> Included
+        { id: 't_case_a', text: 'واجب رياضيات', subjectId: subMath.id, minutes: 30, completed: false },
+        // Case B: subjectId different -> Excluded
+        { id: 't_case_b', text: 'واجب فيزياء', subjectId: subPhysics.id, minutes: 30, completed: false },
+        // Case C: subjectId matches, but explicit eventId for Exam B -> Excluded from Exam A
+        { id: 't_case_c', text: 'مراجعة لاختبار ب', subjectId: subMath.id, eventId: examB, minutes: 30, completed: false },
+        // Case D: subjectId matches, but explicit goalId for Goal B -> Excluded from Exam A
+        { id: 't_case_d', text: 'مشروع فيزياء للهدف ب', subjectId: subMath.id, goalId: goalB, minutes: 30, completed: false },
+        // Case E: Text mentions 'مراجعة اختبار الرياضيات' but no subjectId/eventId/goalId -> Excluded (no text matching)
+        { id: 't_case_e', text: 'مراجعة اختبار الرياضيات العامة', minutes: 30, completed: false }
+    ];
+    hayyizSaveTodos(tasks);
+
+    const planMathA = hayyizComputeMultiDayPlan({
+        targetId: examA,
+        targetName: 'اختبار الرياضيات أ',
+        targetDate: getOffsetDateStr(3),
+        subjectId: subMath.id
+    });
+
+    assert(planMathA.totalTasksCount === 1, 'Case A-E: Exactly 1 task linked to Exam A');
+    assert(planMathA.schedule.some(s => s.tasks.some(t => t.taskId === 't_case_a')), 'Case A: Matching subjectId task with no eventId/goalId enters plan');
+    assert(!planMathA.schedule.some(s => s.tasks.some(t => t.taskId === 't_case_b')), 'Case B: Task with different subjectId does NOT enter plan');
+    assert(!planMathA.schedule.some(s => s.tasks.some(t => t.taskId === 't_case_c')), 'Case C: Task with explicit eventId for Exam B does NOT enter Exam A plan');
+    assert(!planMathA.schedule.some(s => s.tasks.some(t => t.taskId === 't_case_d')), 'Case D: Task with explicit goalId for Goal B does NOT enter Exam A plan');
+    assert(!planMathA.schedule.some(s => s.tasks.some(t => t.taskId === 't_case_e')), 'Case E: Task with matching text but no structural link does NOT enter plan');
 }
 
 // Scenario N: Point 2 - Replanning Boundaries Preserve Past Schedule History

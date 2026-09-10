@@ -184,6 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const extraOptionsDiv = document.getElementById('todo-extra-options');
     const toggleOptionsText = document.getElementById('toggle-options-text');
 
+    const todoTaskType = document.getElementById('todo-task-type');
     const todoPriority = document.getElementById('todo-priority');
     const todoDate = document.getElementById('todo-date');
     const todoMinutes = document.getElementById('todo-minutes');
@@ -191,6 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const todoGoal = document.getElementById('todo-goal');
     const todoSubjectNew = document.getElementById('todo-subject-new');
     const todoSubjectAdd = document.getElementById('todo-subject-add');
+    const shortcutBtns = document.querySelectorAll('.btn-type-shortcut');
 
     const todoStatsBar = document.getElementById('todo-stats-bar');
     const filterBtns = document.querySelectorAll('.filter-btn');
@@ -201,12 +203,49 @@ document.addEventListener('DOMContentLoaded', () => {
     const todoEmptyText = document.getElementById('todo-empty-text');
     const emptyAddBtn = document.getElementById('empty-add-btn');
 
+    // Task Type Labels and Icons
+    const TASK_TYPE_MAP = {
+        assignment: { label: 'واجب', icon: 'fa-solid fa-pen-to-square' },
+        exam: { label: 'اختبار', icon: 'fa-solid fa-graduation-cap' },
+        review: { label: 'مراجعة', icon: 'fa-solid fa-rotate' },
+        practice: { label: 'حل أسئلة', icon: 'fa-solid fa-pencil' },
+        memorization: { label: 'حفظ', icon: 'fa-solid fa-brain' },
+        project: { label: 'مشروع', icon: 'fa-solid fa-diagram-project' },
+        research: { label: 'بحث', icon: 'fa-solid fa-magnifying-glass' },
+        reading: { label: 'قراءة', icon: 'fa-solid fa-book-open' },
+        summary: { label: 'تلخيص', icon: 'fa-solid fa-file-lines' },
+        general: { label: 'عام', icon: 'fa-solid fa-bookmark' }
+    };
+
+    let selectedTaskType = 'assignment';
+
+    // Bind Shortcut Buttons
+    shortcutBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const type = btn.dataset.type || 'assignment';
+            selectedTaskType = type;
+            shortcutBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            if (todoTaskType) todoTaskType.value = type;
+        });
+    });
+
+    if (todoTaskType) {
+        todoTaskType.addEventListener('change', () => {
+            selectedTaskType = todoTaskType.value || 'general';
+            shortcutBtns.forEach(b => {
+                b.classList.toggle('active', b.dataset.type === selectedTaskType);
+            });
+        });
+    }
+
     // Modal Elements
     const detailsModal = document.getElementById('task-details-modal');
     const closeModalBtn = document.getElementById('close-task-modal');
     const modalForm = document.getElementById('modal-task-form');
     const modalTaskId = document.getElementById('modal-task-id');
     const modalTitle = document.getElementById('modal-input-title');
+    const modalTaskType = document.getElementById('modal-input-task-type');
     const modalPriority = document.getElementById('modal-input-priority');
     const modalSubject = document.getElementById('modal-input-subject');
     const modalDate = document.getElementById('modal-input-date');
@@ -575,6 +614,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const meta = document.createElement('div');
         meta.className = 'todo-meta';
 
+        // Task Type Badge
+        const tType = todo.taskType && TASK_TYPE_MAP[todo.taskType] ? TASK_TYPE_MAP[todo.taskType] : TASK_TYPE_MAP.general;
+        const typeSpan = document.createElement('span');
+        typeSpan.className = 'badge badge-personal';
+        typeSpan.style.cssText = 'font-size: 0.75rem; padding: 0.15rem 0.45rem;';
+        typeSpan.innerHTML = `<i class="${tType.icon}"></i> ${escapeHtml(tType.label)}`;
+        meta.appendChild(typeSpan);
+
         // Priority Badge
         const priSpan = document.createElement('span');
         priSpan.className = `priority-${todo.priority || 'medium'}`;
@@ -697,6 +744,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const newTask = {
             id: typeof hayyizGenerateId === 'function' ? hayyizGenerateId() : ('h' + nowMs),
             text,
+            taskType: (todoTaskType && todoTaskType.value) ? todoTaskType.value : (selectedTaskType || 'general'),
             priority: todoPriority ? todoPriority.value : 'medium',
             date: (todoDate && todoDate.value) ? todoDate.value : null,
             minutes: (todoMinutes && todoMinutes.value) ? todoMinutes.value : null,
@@ -755,6 +803,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         modalTaskId.value = task.id;
         modalTitle.value = task.text || '';
+        if (modalTaskType) modalTaskType.value = task.taskType || 'general';
         modalPriority.value = task.priority || 'medium';
         modalDate.value = task.date || '';
         modalMinutes.value = task.minutes || '';
@@ -823,6 +872,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const nowMs = Date.now();
             const patch = {
                 text: modalTitle.value.trim(),
+                taskType: modalTaskType ? modalTaskType.value : 'general',
                 priority: modalPriority.value,
                 subjectId: modalSubject.value || null,
                 date: modalDate.value || null,
