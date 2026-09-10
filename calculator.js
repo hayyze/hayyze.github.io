@@ -1116,10 +1116,16 @@
 
         const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
         const calcPomoSessions = (min) => {
+            if (typeof hayyizCalculateFocusSessions === 'function') {
+                return hayyizCalculateFocusSessions(min, workMin);
+            }
             if (!min || min <= 0) return 0;
             return Math.ceil(min / workMin);
         };
         const formatPomoSessions = (min) => {
+            if (typeof hayyizFormatFocusSessions === 'function') {
+                return hayyizFormatFocusSessions(min, workMin);
+            }
             const count = calcPomoSessions(min);
             if (count === 0) return '0 جلسات';
             if (count === 1) return 'جلسة واحدة';

@@ -1606,6 +1606,29 @@ function hayyizGenerateDailyPlan() {
 /* ---------- Focus Engine Data Layer Helpers ---------- */
 
 /**
+ * حساب عدد جلسات التركيز المطلوبة بناءً على الدقائق وتفضيلات البومودورو
+ */
+function hayyizCalculateFocusSessions(minutes, workMinOverride) {
+    if (!minutes || minutes <= 0) return 0;
+    const workMin = typeof workMinOverride === 'number' && workMinOverride > 0
+        ? workMinOverride
+        : (parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25);
+    return Math.ceil(minutes / workMin);
+}
+
+/**
+ * تنسيق عدد جلسات التركيز باللغة العربية
+ */
+function hayyizFormatFocusSessions(minutes, workMinOverride) {
+    const count = hayyizCalculateFocusSessions(minutes, workMinOverride);
+    if (count === 0) return '0 جلسات';
+    if (count === 1) return 'جلسة واحدة';
+    if (count === 2) return 'جلستان';
+    if (count >= 3 && count <= 10) return `${count} جلسات`;
+    return `${count} جلسة`;
+}
+
+/**
  * التأكد من إعادة تهيئة إحصائيات اليوم عند تغير التاريخ
  */
 function hayyizEnsureTodayStats() {

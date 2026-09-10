@@ -391,25 +391,19 @@ const getOffsetDateStr = (offsetDays) => {
     assert(s3 && s3.taskType === 'practice' && s3.remainingMinutes === 5, 'Task Types: Task 3 taskType preserved as practice');
     assert(s5 && s5.taskType === 'project' && s5.remainingMinutes === 50, 'Task Types: Task 5 taskType preserved as project');
 
-    // Verify sessions calculation math logic reading real hayyiz-pref-work preference
-    const getWorkPref = () => parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
-    const calcRealSessions = (min) => {
-        if (!min || min <= 0) return 0;
-        return Math.ceil(min / getWorkPref());
-    };
-
+    // Verify sessions calculation math logic reading real hayyiz-pref-work preference using real hayyizCalculateFocusSessions implementation
     localStorage.setItem('hayyiz-pref-work', '25');
-    assert(calcRealSessions(25) === 1, 'Focus Sessions Math (work=25): 25 / 25 = 1 session');
-    assert(calcRealSessions(26) === 2, 'Focus Sessions Math (work=25): 26 / 25 = 2 sessions');
-    assert(calcRealSessions(5) === 1, 'Focus Sessions Math (work=25): 5 / 25 = 1 session');
-    assert(calcRealSessions(0) === 0, 'Focus Sessions Math (work=25): 0 / 25 = 0 sessions');
-    assert(calcRealSessions(50) === 2, 'Focus Sessions Math (work=25): 50 / 25 = 2 sessions');
+    assert(hayyizCalculateFocusSessions(25) === 1, 'Focus Sessions Math (work=25): 25 / 25 = 1 session');
+    assert(hayyizCalculateFocusSessions(26) === 2, 'Focus Sessions Math (work=25): 26 / 25 = 2 sessions');
+    assert(hayyizCalculateFocusSessions(5) === 1, 'Focus Sessions Math (work=25): 5 / 25 = 1 session');
+    assert(hayyizCalculateFocusSessions(0) === 0, 'Focus Sessions Math (work=25): 0 / 25 = 0 sessions');
+    assert(hayyizCalculateFocusSessions(50) === 2, 'Focus Sessions Math (work=25): 50 / 25 = 2 sessions');
 
-    // Change work preference to 50
+    // Change work preference to 50 and verify exported function reads new preference
     localStorage.setItem('hayyiz-pref-work', '50');
-    assert(calcRealSessions(50) === 1, 'Focus Sessions Math (work=50): 50 / 50 = 1 session (updates dynamically with preference)');
-    assert(calcRealSessions(25) === 1, 'Focus Sessions Math (work=50): 25 / 50 = 1 session');
-    assert(calcRealSessions(100) === 2, 'Focus Sessions Math (work=50): 100 / 50 = 2 sessions');
+    assert(hayyizCalculateFocusSessions(50) === 1, 'Focus Sessions Math (work=50): 50 / 50 = 1 session (updates dynamically via hayyizCalculateFocusSessions)');
+    assert(hayyizCalculateFocusSessions(25) === 1, 'Focus Sessions Math (work=50): 25 / 50 = 1 session');
+    assert(hayyizCalculateFocusSessions(100) === 2, 'Focus Sessions Math (work=50): 100 / 50 = 2 sessions');
 
     // Reset back to 25
     localStorage.setItem('hayyiz-pref-work', '25');
@@ -435,9 +429,7 @@ const getOffsetDateStr = (offsetDays) => {
     const scheduled = plan.schedule[0].tasks.find(t => t.taskId === 't_rem_60_35');
     assert(scheduled !== undefined && scheduled.remainingMinutes === 25, 'Remaining Math: Scheduled remainingMinutes is exactly 25 (60 - 35)');
 
-    const getWorkPref = () => parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
-    const calcRealSessions = (min) => (!min || min <= 0) ? 0 : Math.ceil(min / getWorkPref());
-    assert(calcRealSessions(scheduled.remainingMinutes) === 1, 'Remaining Math: 25 remaining minutes / 25 workPref = 1 session (NOT 3 sessions for original 60 mins)');
+    assert(hayyizCalculateFocusSessions(scheduled.remainingMinutes) === 1, 'Remaining Math: 25 remaining minutes / 25 workPref = 1 session via hayyizCalculateFocusSessions (NOT 3 sessions for original 60 mins)');
 }
 
 // Scenario Q: Custom Legacy Capacity Preservation (e.g., 90 minutes)
