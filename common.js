@@ -2383,6 +2383,7 @@ function hayyizComputeMultiDayPlan(config) {
 
     // 2. ربط دقيق ومستهدف للمهام الحقيقية (المفتوحة والمكتملة)
     const todos = hayyizGetTodos();
+    const includeSubjectTasks = config.includeSubjectTasks !== false;
     const linkedTasks = todos.filter((t) => {
         if (!t) return false;
         // إذا كانت المهمة مرتبطة صراحة باختبار/حدث معين، يجب أن تطابق targetId فقط
@@ -2393,8 +2394,8 @@ function hayyizComputeMultiDayPlan(config) {
         if (t.goalId) {
             return String(t.goalId) === targetId;
         }
-        // عند تمكين ربط المادة صراحة بالتهيئات دون وجود eventId/goalId صريح لاختبار آخر
-        if (config.includeSubjectTasks && subjectId && t.subjectId && String(t.subjectId) === String(subjectId)) {
+        // عند عدم وجود ربط صريح بحدث/هدف آخر وكان للمستهدف أو المادة subjectId
+        if (includeSubjectTasks && subjectId && t.subjectId && String(t.subjectId) === String(subjectId)) {
             return true;
         }
         return false;
@@ -2509,6 +2510,7 @@ function hayyizComputeMultiDayPlan(config) {
                     targetDayObj.tasks.push({
                         taskId: t.id,
                         text: t.text,
+                        taskType: t.taskType || 'general',
                         priority: t.priority || 'medium',
                         totalMinutes: parseInt(t.minutes, 10) || workMinDefault,
                         focusDone: parseInt(t.focusDone, 10) || 0,

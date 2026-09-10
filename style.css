@@ -2578,6 +2578,22 @@ input[type="radio"] {
     color: var(--color-text);
 }
 
+.multi-plan-deficit-notice {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: var(--radius-sm, 10px);
+    padding: 0.85rem 1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.theme-dark .multi-plan-deficit-notice {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
 /* Quick Add Group & Task Action Engine Upgrades */
 .quick-add-group {
     display: flex;
@@ -3270,6 +3286,34 @@ html.theme-dark .notes-dropdowns select {
 .dash-suggestion-actions {
     display: flex;
     gap: 0.5rem;
+}
+
+.btn-type-shortcut {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 0.25rem 0.65rem;
+    border-radius: var(--radius-sm, 7px);
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    transition: all 0.2s ease;
+}
+
+.btn-type-shortcut:hover,
+.btn-type-shortcut:focus-visible {
+    border-color: var(--primary);
+    color: var(--text);
+    outline: none;
+}
+
+.btn-type-shortcut.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #ffffff;
+    font-weight: 600;
 }
 
 .dash-daily-plan {

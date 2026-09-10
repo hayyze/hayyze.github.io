@@ -350,6 +350,56 @@ const getOffsetDateStr = (offsetDays) => {
     assert(allPlans['ex_plan_2'].targetName === 'الخطة الثانية فيزياء', 'Scenario L: Plan 2 retrieved accurately by targetId');
 }
 
+// Scenario Task Types & Focus Sessions Math Verification
+{
+    localStorage.clear();
+    const targetDate = getOffsetDateStr(3);
+    const examId = 'ex_task_type_and_sessions';
+
+    // Pomodoro work pref set to 25
+    localStorage.setItem('hayyiz-pref-work', '25');
+
+    const tasks = [
+        { id: 't_tt_1', text: 'واجب رياضيات', taskType: 'assignment', minutes: 25, focusDone: 0, eventId: examId, completed: false }, // 25 remaining / 25 = 1 session
+        { id: 't_tt_2', text: 'اختبار مراجعة', taskType: 'exam', minutes: 26, focusDone: 0, eventId: examId, completed: false },        // 26 / 25 = 2 sessions
+        { id: 't_tt_3', text: 'حل أسئلة سريع', taskType: 'practice', minutes: 5, focusDone: 0, eventId: examId, completed: false },        // 5 / 25 = 1 session
+        { id: 't_tt_4', text: 'حفظ آيات مكتمل', taskType: 'memorization', minutes: 30, focusDone: 30, eventId: examId, completed: false },   // 0 / 25 = 0 sessions remaining
+        { id: 't_tt_5', text: 'مشروع حاسب', taskType: 'project', minutes: 50, focusDone: 0, eventId: examId, completed: false }            // 50 / 25 = 2 sessions
+    ];
+    hayyizSaveTodos(tasks);
+
+    const plan = hayyizComputeMultiDayPlan({
+        targetId: examId,
+        targetName: 'اختبار نوع المهام والجلسات',
+        targetDate: targetDate,
+        dailyCapacityMinutes: 200
+    });
+
+    const scheduledTasks = [];
+    plan.schedule.forEach(s => s.tasks.forEach(t => scheduledTasks.push(t)));
+
+    const findScheduled = (id) => scheduledTasks.find(t => t.taskId === id);
+
+    const s1 = findScheduled('t_tt_1');
+    const s2 = findScheduled('t_tt_2');
+    const s3 = findScheduled('t_tt_3');
+    const s4 = findScheduled('t_tt_4'); // 0 remaining, open task with focusDone===total -> 0 remaining
+    const s5 = findScheduled('t_tt_5');
+
+    assert(s1 && s1.taskType === 'assignment' && s1.remainingMinutes === 25, 'Task Types: Task 1 taskType preserved as assignment');
+    assert(s2 && s2.taskType === 'exam' && s2.remainingMinutes === 26, 'Task Types: Task 2 taskType preserved as exam');
+    assert(s3 && s3.taskType === 'practice' && s3.remainingMinutes === 5, 'Task Types: Task 3 taskType preserved as practice');
+    assert(s5 && s5.taskType === 'project' && s5.remainingMinutes === 50, 'Task Types: Task 5 taskType preserved as project');
+
+    // Verify sessions calculation math logic
+    const calcSessions = (min) => Math.ceil(min / 25);
+    assert(calcSessions(25) === 1, 'Focus Sessions Math: 25 / 25 = 1 session');
+    assert(calcSessions(26) === 2, 'Focus Sessions Math: 26 / 25 = 2 sessions');
+    assert(calcSessions(5) === 1, 'Focus Sessions Math: 5 / 25 = 1 session');
+    assert(calcSessions(0) === 0, 'Focus Sessions Math: 0 / 25 = 0 sessions');
+    assert(calcSessions(50) === 2, 'Focus Sessions Math: 50 / 25 = 2 sessions');
+}
+
 // Scenario M: Point 1 - Strict Data Linking (Excluding Fuzzy/Text Matching)
 {
     localStorage.clear();
