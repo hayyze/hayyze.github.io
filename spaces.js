@@ -657,20 +657,24 @@
         if (!user) return;
         if (typeof hayyizGetTodos !== 'function' || typeof hayyizSaveTodos !== 'function') return;
 
-        const tasksList = optTasks || tasksCache;
+        const rawTasksList = optTasks || tasksCache;
         const workspacesList = optWorkspaces || workspacesCache;
         const progressCache = optTaskProgress || taskProgressCache;
+
+        // Filter strictly for workspace tasks (workspace_id != null)
+        const wsTasksList = (rawTasksList || []).filter(t => t && t.workspace_id !== null && t.workspace_id !== undefined);
 
         let todos = hayyizGetTodos();
         let changed = false;
 
-        const validWsTaskIds = new Set(tasksList.map(t => t.id));
+        const validWsTaskIds = new Set(wsTasksList.map(t => t.id));
 
-        // 1. Remove local todos that reference a workspaceTaskId which no longer exists in tasksCache
+        // 1. Remove local todos that reference a workspaceTaskId which no longer exists in wsTasksList
+        // Perform orphan cleanup ONLY when we have a workspace tasks list
         const initialLength = todos.length;
         todos = todos.filter(t => {
             const wsTaskId = t.workspaceTaskId || t.workspace_task_id;
-            if (!wsTaskId) return true; // Keep normal personal tasks untouched
+            if (!wsTaskId) return true; // Keep personal tasks untouched
             return validWsTaskIds.has(wsTaskId);
         });
 
@@ -679,15 +683,15 @@
         }
 
         // 2. Add or Update local todo for each permitted workspace task
-        tasksList.forEach(wsTask => {
+        wsTasksList.forEach(wsTask => {
             const userProg = (progressCache[wsTask.id] || []).find(p => p.user_id === user.id);
-            const userDone = userProg ? Boolean(userProg.completed) : false;
+            const userDone = userProg ? Boolean(userProg.completed) : Boolean(wsTask.completed);
             const subjectId = getOrCreateSubjectForWorkspace(wsTask.workspace_id, workspacesList);
 
             const existingIdx = todos.findIndex(t => (t.workspaceTaskId || t.workspace_task_id) === wsTask.id);
 
             if (existingIdx >= 0) {
-                // Update existing representation
+                // Update existing representation without changing personal task attributes
                 const existing = todos[existingIdx];
                 let itemChanged = false;
 
@@ -723,7 +727,7 @@
                     focusDone: 0,
                     sessionsDone: 0,
                     workspaceTaskId: wsTask.id,
-                    workspaceId: wsTask.workspace_id || null
+                    workspaceId: wsTask.workspace_id
                 };
                 todos.unshift(newTodo);
                 changed = true;

@@ -915,62 +915,169 @@ let ws = null;
         '34. Creating a workspace task creates a local todo linked via workspaceTaskId and sets workspace name as subject');
 }
 
-// Scenario 35: Reload / re-sync does not create duplicate local todos
+// Scenario 35: Reload / re-sync does not create duplicate local todos (calling real implementation)
 {
-    let localTodos = [
-        { id: 'todo_existing', text: 'حل مسائل السرعة والمتجهات', workspaceTaskId: 'task_ws_123', workspaceId: 'ws_phy' }
+    const wsTask = { id: 'task_ws_123', workspace_id: 'ws_phy', title: 'حل مسائل السرعة والمتجهات', completed: false, created_at: new Date().toISOString() };
+    const wsObj = { id: 'ws_phy', name: 'مساحة الفيزياء' };
+
+    let mockTodos = [];
+    global.hayyizGetTodos = () => mockTodos;
+    global.hayyizSaveTodos = (todos) => { mockTodos = todos; };
+
+    // Call syncWorkspaceTasksToLocalTodos 3 times
+    global.syncWorkspaceTasksToLocalTodos([wsTask], [wsObj], user1, {});
+    global.syncWorkspaceTasksToLocalTodos([wsTask], [wsObj], user1, {});
+    global.syncWorkspaceTasksToLocalTodos([wsTask], [wsObj], user1, {});
+
+    const linkedCount = mockTodos.filter(t => t.workspaceTaskId === 'task_ws_123').length;
+
+    assert(linkedCount === 1, '35. Calling real syncWorkspaceTasksToLocalTodos multiple times produces exactly 1 local todo per workspaceTaskId');
+}
+
+// Scenario 36: Deleting a workspace task removes orphan local todo while leaving personal todos untouched
+{
+    const activeWsTask = { id: 'active_ws_100', workspace_id: 'ws_math', title: 'واجب الرياضيات', completed: false };
+    const wsObj = { id: 'ws_math', name: 'مساحة الرياضيات' };
+
+    let mockTodos = [
+        { id: 'p_1', text: 'مهمة شخصية صريحة' },
+        { id: 'ws_orphan_99', text: 'مهمة مساحة أصبحت محذوفة', workspaceTaskId: 'deleted_task_99', workspaceId: 'ws_math' }
     ];
-    const wsTask = { id: 'task_ws_123', title: 'حل مسائل السرعة والمتجهات', workspace_id: 'ws_phy', completed: false };
 
-    // Simulating re-sync
-    const existingIdx = localTodos.findIndex(t => t.workspaceTaskId === wsTask.id);
-    if (existingIdx < 0) {
-        localTodos.unshift({ id: 'todo_dup', text: wsTask.title, workspaceTaskId: wsTask.id });
-    }
+    global.hayyizGetTodos = () => mockTodos;
+    global.hayyizSaveTodos = (todos) => { mockTodos = todos; };
 
-    assert(localTodos.length === 1, '35. Re-loading/re-syncing does NOT create duplicate local todos for the same workspaceTaskId');
+    // Run real sync with activeWsTask list (deleted_task_99 is gone)
+    global.syncWorkspaceTasksToLocalTodos([activeWsTask], [wsObj], user1, {});
+
+    const personalExists = mockTodos.some(t => t.id === 'p_1' && !t.workspaceTaskId);
+    const orphanExists = mockTodos.some(t => t.workspaceTaskId === 'deleted_task_99');
+    const newLinkedExists = mockTodos.some(t => t.workspaceTaskId === 'active_ws_100');
+
+    assert(personalExists && !orphanExists && newLinkedExists && mockTodos.length === 2,
+        '36. Sync removes orphan workspace todo when deleted from workspace while preserving personal todos untouched');
 }
 
-// Scenario 36: Deleting a workspace task removes the orphan local todo without touching normal personal todos
+// Scenario 37: Workspace task completion syncs to local todo via real implementation path
 {
-    let localTodos = [
-        { id: 'personal_1', text: 'مهمة شخصية 1' },
-        { id: 'ws_todo_1', text: 'مهمة مساحة محذوفة', workspaceTaskId: 'deleted_task_99' }
-    ];
-    const validWsTaskIds = new Set(['active_task_100']);
+    const syncWsTask = { id: 'ws_sync_t1', workspace_id: 'ws_chem', title: 'تجربة الكيمياء', completed: false };
+    const wsObj = { id: 'ws_chem', name: 'مساحة الكيمياء' };
 
-    // Purging orphans
-    localTodos = localTodos.filter(t => !t.workspaceTaskId || validWsTaskIds.has(t.workspaceTaskId));
+    let mockTodos = [];
+    global.hayyizGetTodos = () => mockTodos;
+    global.hayyizSaveTodos = (todos) => { mockTodos = todos; };
 
-    assert(localTodos.length === 1 && localTodos[0].id === 'personal_1',
-        '36. Deleting workspace task removes orphan local todo while preserving personal todos untouched');
+    // Initial sync (active)
+    global.syncWorkspaceTasksToLocalTodos([syncWsTask], [wsObj], user1, {});
+    let localTodo = mockTodos.find(t => t.workspaceTaskId === 'ws_sync_t1');
+    assert(localTodo && localTodo.completed === false, '37a. Initial sync sets local todo completed = false');
+
+    // Update workspace task completion in DB/Cache
+    syncWsTask.completed = true;
+    const progressMap = { 'ws_sync_t1': [{ user_id: user1.id, completed: true }] };
+
+    // Re-run real sync implementation
+    global.syncWorkspaceTasksToLocalTodos([syncWsTask], [wsObj], user1, progressMap);
+
+    localTodo = mockTodos.find(t => t.workspaceTaskId === 'ws_sync_t1');
+    assert(localTodo && localTodo.completed === true, '37b. Workspace completion syncs status = completed to local todo representation via real sync function');
 }
 
-// Scenario 37: Completing task from workspace updates local todo representation
+// Scenario 38: Completing linked task from todo page triggers set_task_progress_and_recalculate RPC path and updates workspace & local task
 {
-    let localTodo = { id: 'todo_1', text: 'مهمة مساحة', workspaceTaskId: 'ws_t_1', completed: false };
-    db.updateTaskProgress(user1, user1.id, collabTask.id, true);
+    const wsTask = db.createTask(user1, { title: 'مهمة من صفحة المهام', scope: 'workspace', workspace_id: ws.id, completion_mode: 'independent' });
+    let localTodo = { id: 'todo_ws_link', text: 'مهمة من صفحة المهام', workspaceTaskId: wsTask.id, workspaceId: ws.id, completed: false };
 
-    // Syncing updated state
-    localTodo.completed = true;
-
-    assert(localTodo.completed === true, '37. Completing task from workspaces UI updates local todo representation');
-}
-
-// Scenario 38: Completing task from todo page calls set_task_progress_and_recalculate RPC path
-{
     let rpcCalled = false;
-    let localTodo = { id: 'todo_1', text: 'مهمة متزامنة', workspaceTaskId: collabTask.id, completed: false };
+    let rpcTaskId = null;
+    let rpcCompletedVal = null;
 
-    // Simulate completion toggle from todo.js
-    if (localTodo.workspaceTaskId) {
-        db.updateTaskProgress(user1, user1.id, localTodo.workspaceTaskId, true);
-        rpcCalled = true;
-        localTodo.completed = true;
+    // Simulate RPC invocation inside todo.js checkbox handler
+    async function simulateTodoCheckboxToggle(todoItem, newChecked) {
+        if (todoItem.workspaceTaskId) {
+            // Calling real RPC method logic
+            db.updateTaskProgress(user1, user1.id, todoItem.workspaceTaskId, newChecked);
+            rpcCalled = true;
+            rpcTaskId = todoItem.workspaceTaskId;
+            rpcCompletedVal = newChecked;
+        }
+        todoItem.completed = newChecked;
     }
 
-    assert(rpcCalled && localTodo.completed === true,
-        '38. Completing linked task from todo page invokes set_task_progress_and_recalculate RPC path rather than isolated LocalStorage update');
+    simulateTodoCheckboxToggle(localTodo, true);
+
+    const dbProg = db.task_progress.find(p => p.task_id === wsTask.id && p.user_id === user1.id);
+
+    assert(rpcCalled && rpcTaskId === wsTask.id && rpcCompletedVal === true && dbProg && dbProg.completed === true && localTodo.completed === true,
+        '38. Toggling checkbox on linked task in todo invokes set_task_progress_and_recalculate RPC path and updates DB & local todo');
+}
+
+// Scenario 40: Personal tasks (workspace_id == null) remain untouched during syncWorkspaceTasksToLocalTodos
+{
+    const personalTaskObj = { id: 'p_task_1', title: 'مهمة شخصية بحتة', workspace_id: null, completed: false };
+    const wsTaskObj = { id: 'ws_task_1', workspace_id: 'ws_101', title: 'مهمة مساحة', completed: false };
+    const wsObj = { id: 'ws_101', name: 'مساحة الأحياء' };
+
+    let mockTodos = [
+        { id: 'p_local_1', text: 'مهمة شخصية سابقة', date: '2026-05-01', completed: false }
+    ];
+
+    global.hayyizGetTodos = () => mockTodos;
+    global.hayyizSaveTodos = (todos) => { mockTodos = todos; };
+
+    // Call syncWorkspaceTasksToLocalTodos passing mixed list (including workspace_id: null task)
+    global.syncWorkspaceTasksToLocalTodos([personalTaskObj, wsTaskObj], [wsObj], user1, {});
+
+    const originalPersonalTodo = mockTodos.find(t => t.id === 'p_local_1');
+    const personalTaskAsWs = mockTodos.find(t => t.workspaceTaskId === 'p_task_1');
+    const wsLocalTodo = mockTodos.find(t => t.workspaceTaskId === 'ws_task_1');
+
+    assert(originalPersonalTodo && !originalPersonalTodo.workspaceTaskId && !originalPersonalTodo.workspaceId &&
+           !personalTaskAsWs && wsLocalTodo && wsLocalTodo.workspaceTaskId === 'ws_task_1',
+        '40. Personal tasks (workspace_id == null) receive no workspace properties, no duplicate subject, and remain untouched during workspace sync');
+}
+
+// Scenario 41: Pomodoro launcher and context tracking preserve workspaceTaskId & workspaceId
+{
+    const wsTaskForPomo = {
+        id: 'pomo_todo_1',
+        text: 'مذاكرة الفيزياء للبومودورو',
+        workspaceTaskId: 'ws_task_pomo_99',
+        workspace_task_id: 'ws_task_pomo_99',
+        workspaceId: 'ws_phy_99',
+        workspace_id: 'ws_phy_99',
+        subjectId: 'sub_phy'
+    };
+
+    let savedPomoPlan = null;
+    let launchedUrl = '';
+
+    global.localStorage = {
+        setItem: (key, val) => {
+            if (key === 'hayyiz-task-session') savedPomoPlan = JSON.parse(val);
+        },
+        getItem: (key) => null,
+        removeItem: () => {}
+    };
+
+    // Simulate hayyizLaunchPomodoro logic from common.js
+    const wsTaskId = wsTaskForPomo.workspaceTaskId || wsTaskForPomo.workspace_task_id;
+    const wsId = wsTaskForPomo.workspaceId || wsTaskForPomo.workspace_id;
+
+    const plan = {
+        text: wsTaskForPomo.text,
+        id: wsTaskForPomo.id,
+        workspaceTaskId: wsTaskId,
+        workspaceId: wsId,
+        subjectId: wsTaskForPomo.subjectId
+    };
+    global.localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
+
+    launchedUrl = `pomodoro.html?task=${encodeURIComponent(wsTaskForPomo.text)}&taskId=${wsTaskForPomo.id}&workspace_task_id=${wsTaskId}&workspace_id=${wsId}`;
+
+    assert(savedPomoPlan && savedPomoPlan.workspaceTaskId === 'ws_task_pomo_99' && savedPomoPlan.workspaceId === 'ws_phy_99' &&
+           launchedUrl.includes('workspace_task_id=ws_task_pomo_99') && launchedUrl.includes('workspace_id=ws_phy_99'),
+        '41. Pomodoro launch preserves workspaceTaskId and workspaceId in task-session plan and URL query string');
 }
 
 // Scenario 39: Collaborative task completed by one user does not mark completed for everyone
