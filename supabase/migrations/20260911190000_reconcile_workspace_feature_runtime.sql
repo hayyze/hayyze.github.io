@@ -1,4 +1,4 @@
--- Reconcile the live Supabase workspace feature with the repository schema.
+-- Reconcile the live workspace feature with the repository schema.
 -- Safe to run repeatedly.
 
 CREATE OR REPLACE FUNCTION public.handle_new_workspace()
@@ -123,5 +123,3 @@ END;
 $$;
 
 NOTIFY pgrst, 'reload schema';
-
--- End of workspace runtime reconciliation.
