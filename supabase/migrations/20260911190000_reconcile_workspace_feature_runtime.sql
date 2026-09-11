@@ -123,3 +123,5 @@ END;
 $$;
 
 NOTIFY pgrst, 'reload schema';
+
+-- End of workspace runtime reconciliation.
