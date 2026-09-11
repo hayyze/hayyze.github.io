@@ -581,13 +581,34 @@ document.addEventListener('DOMContentLoaded', () => {
         checkbox.className = 'todo-check';
         checkbox.checked = Boolean(todo.completed);
         checkbox.setAttribute('aria-label', `تعديل حالة مهمة ${todo.text}`);
-        checkbox.addEventListener('change', () => {
+        checkbox.addEventListener('change', async () => {
+            const isChecked = checkbox.checked;
+            const wsTaskId = todo.workspaceTaskId || todo.workspace_task_id;
+
+            if (wsTaskId && typeof ensureSupabaseLoaded === 'function') {
+                try {
+                    const client = await ensureSupabaseLoaded();
+                    if (client) {
+                        const { data, error } = await client.rpc('set_task_progress_and_recalculate', {
+                            p_task_id: wsTaskId,
+                            p_completed: isChecked
+                        });
+                        if (error) throw new Error(error.message || 'فشل تحديث حالة مهمة المساحة المتزامنة');
+                        if (data && !data.success) throw new Error(data.message || 'فشل تحديث حالة مهمة المساحة');
+                    }
+                } catch (err) {
+                    checkbox.checked = !isChecked;
+                    alert('حدث خطأ أثناء تحديث حالة المهمة المتزامنة: ' + (err.message || ''));
+                    return;
+                }
+            }
+
             const nowMs = Date.now();
             let updatedTask = null;
             if (typeof hayyizUpdateTask === 'function') {
-                updatedTask = hayyizUpdateTask(todo.id, { completed: checkbox.checked, updated: nowMs });
+                updatedTask = hayyizUpdateTask(todo.id, { completed: isChecked, updated: nowMs });
             } else {
-                todo.completed = checkbox.checked;
+                todo.completed = isChecked;
                 todo.updated = nowMs;
                 saveTodos(todo);
                 updatedTask = todo;
@@ -595,7 +616,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (updatedTask && typeof hayyizUploadItem === 'function') {
                 hayyizUploadItem('todos', updatedTask.id, updatedTask);
             }
-            announceToScreenReader(checkbox.checked ? `تم إكمال المهمة: ${todo.text}` : `تمت إعادة المهمة: ${todo.text}`);
+            announceToScreenReader(isChecked ? `تم إكمال المهمة: ${todo.text}` : `تمت إعادة المهمة: ${todo.text}`);
             renderTodos();
         });
 

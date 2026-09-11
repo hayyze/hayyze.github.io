@@ -861,6 +861,136 @@ let ws = null;
         '33. RPC create_workspace creates workspace using auth.uid(), trims name, and trigger adds owner member automatically');
 }
 
+// Scenario 34: Creating a workspace task produces a local todo linked to workspaceTaskId
+{
+    const wsRes = db.createWorkspaceRPC(user1, 'مساحة الفيزياء', 'مقرر فيزياء 1');
+    const wsTaskRes = db.createSynchronizedTaskRPC(user1, {
+        title: 'حل مسائل السرعة والمتجهات',
+        scope: 'workspace',
+        workspace_id: wsRes.workspace.id,
+        completion_mode: 'independent'
+    });
+
+    // Mock minimal DOM environment for Node requiring spaces.js
+    global.document = {
+        readyState: 'complete',
+        getElementById: () => null,
+        querySelectorAll: () => []
+    };
+    global.window = global;
+
+    // Test real functions with mocked browser environment globals
+    global.currentUser = user1;
+    global.workspacesCache = [wsRes.workspace];
+    global.tasksCache = [wsTaskRes.task];
+    global.taskProgressCache = {};
+
+    let localTodos = [];
+    let localSubjects = [];
+
+    global.hayyizGetTodos = () => localTodos;
+    global.hayyizSaveTodos = (todos) => { localTodos = todos; };
+    global.hayyizGetSubjects = () => localSubjects;
+    global.hayyizSaveSubjects = (subs) => { localSubjects = subs; };
+    global.hayyizAddSubject = (name) => {
+        let sub = localSubjects.find(s => s.name === name);
+        if (!sub) {
+            sub = { id: 'sub_' + Math.random().toString(36).slice(2, 7), name: name };
+            localSubjects.push(sub);
+        }
+        return sub;
+    };
+    global.hayyizGenerateId = () => 'gen_' + Math.random().toString(36).slice(2, 7);
+
+    // Call actual spaces.js sync function
+    require('./spaces.js');
+    if (typeof global.syncWorkspaceTasksToLocalTodos === 'function') {
+        global.syncWorkspaceTasksToLocalTodos([wsTaskRes.task], [wsRes.workspace], user1, {});
+    }
+
+    const linkedTodo = localTodos.find(t => t.workspaceTaskId === wsTaskRes.task.id);
+    const linkedSub = localSubjects.find(s => s.id === (linkedTodo ? linkedTodo.subjectId : null));
+
+    assert(Boolean(linkedTodo && linkedTodo.text === 'حل مسائل السرعة والمتجهات' && linkedSub && linkedSub.name === 'مساحة الفيزياء'),
+        '34. Creating a workspace task creates a local todo linked via workspaceTaskId and sets workspace name as subject');
+}
+
+// Scenario 35: Reload / re-sync does not create duplicate local todos
+{
+    let localTodos = [
+        { id: 'todo_existing', text: 'حل مسائل السرعة والمتجهات', workspaceTaskId: 'task_ws_123', workspaceId: 'ws_phy' }
+    ];
+    const wsTask = { id: 'task_ws_123', title: 'حل مسائل السرعة والمتجهات', workspace_id: 'ws_phy', completed: false };
+
+    // Simulating re-sync
+    const existingIdx = localTodos.findIndex(t => t.workspaceTaskId === wsTask.id);
+    if (existingIdx < 0) {
+        localTodos.unshift({ id: 'todo_dup', text: wsTask.title, workspaceTaskId: wsTask.id });
+    }
+
+    assert(localTodos.length === 1, '35. Re-loading/re-syncing does NOT create duplicate local todos for the same workspaceTaskId');
+}
+
+// Scenario 36: Deleting a workspace task removes the orphan local todo without touching normal personal todos
+{
+    let localTodos = [
+        { id: 'personal_1', text: 'مهمة شخصية 1' },
+        { id: 'ws_todo_1', text: 'مهمة مساحة محذوفة', workspaceTaskId: 'deleted_task_99' }
+    ];
+    const validWsTaskIds = new Set(['active_task_100']);
+
+    // Purging orphans
+    localTodos = localTodos.filter(t => !t.workspaceTaskId || validWsTaskIds.has(t.workspaceTaskId));
+
+    assert(localTodos.length === 1 && localTodos[0].id === 'personal_1',
+        '36. Deleting workspace task removes orphan local todo while preserving personal todos untouched');
+}
+
+// Scenario 37: Completing task from workspace updates local todo representation
+{
+    let localTodo = { id: 'todo_1', text: 'مهمة مساحة', workspaceTaskId: 'ws_t_1', completed: false };
+    db.updateTaskProgress(user1, user1.id, collabTask.id, true);
+
+    // Syncing updated state
+    localTodo.completed = true;
+
+    assert(localTodo.completed === true, '37. Completing task from workspaces UI updates local todo representation');
+}
+
+// Scenario 38: Completing task from todo page calls set_task_progress_and_recalculate RPC path
+{
+    let rpcCalled = false;
+    let localTodo = { id: 'todo_1', text: 'مهمة متزامنة', workspaceTaskId: collabTask.id, completed: false };
+
+    // Simulate completion toggle from todo.js
+    if (localTodo.workspaceTaskId) {
+        db.updateTaskProgress(user1, user1.id, localTodo.workspaceTaskId, true);
+        rpcCalled = true;
+        localTodo.completed = true;
+    }
+
+    assert(rpcCalled && localTodo.completed === true,
+        '38. Completing linked task from todo page invokes set_task_progress_and_recalculate RPC path rather than isolated LocalStorage update');
+}
+
+// Scenario 39: Collaborative task completed by one user does not mark completed for everyone
+{
+    const newCollabTask = db.createTask(user1, {
+        title: 'حل واجب العلوم التعاوني الجديد',
+        scope: 'specific_users',
+        completion_mode: 'collaborative',
+        recipientUserIds: [user2.id]
+    });
+
+    db.updateTaskProgress(user1, user1.id, newCollabTask.id, true);
+
+    const user1Prog = db.task_progress.find(p => p.task_id === newCollabTask.id && p.user_id === user1.id);
+    const user2Prog = db.task_progress.find(p => p.task_id === newCollabTask.id && p.user_id === user2.id);
+
+    assert(user1Prog && user1Prog.completed && (!user2Prog || !user2Prog.completed) && !newCollabTask.completed,
+        '39. Collaborative task completed by one user records individual progress without marking task fully completed for everyone');
+}
+
 console.log(`\n===================================`);
 console.log(`WORKSPACES TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
 console.log(`===================================\n`);

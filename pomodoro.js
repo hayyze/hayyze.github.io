@@ -120,6 +120,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const taskFromUrl = urlParams.get('task');
         const eventFromUrl = urlParams.get('event');
 
+        const wsTaskIdFromUrl = urlParams.get('workspace_task_id') || urlParams.get('workspaceTaskId');
+        const wsIdFromUrl = urlParams.get('workspace_id') || urlParams.get('workspaceId');
+
         const savedTaskName = localStorage.getItem('hayyiz-current-task');
         const savedTaskId = localStorage.getItem('hayyiz-current-task-id');
         const savedEventRaw = localStorage.getItem('hayyiz-current-event');
@@ -167,11 +170,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const taskId = foundTask ? foundTask.id : (searchId || null);
             subjectId = foundTask ? (foundTask.subjectId || null) : null;
 
+            const finalWsTaskId = wsTaskIdFromUrl || (foundTask ? (foundTask.workspaceTaskId || foundTask.workspace_task_id) : null);
+            const finalWsId = wsIdFromUrl || (foundTask ? (foundTask.workspaceId || foundTask.workspace_id) : null);
+
             state.context = {
                 type: 'task',
                 id: taskId,
                 title: title,
-                subjectId: subjectId
+                subjectId: subjectId,
+                workspaceTaskId: finalWsTaskId,
+                workspaceId: finalWsId
             };
             localStorage.setItem('hayyiz-current-task', title);
             if (taskId) localStorage.setItem('hayyiz-current-task-id', taskId);
@@ -806,6 +814,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     contextTitle: state.context.title,
                     subjectId: state.context.subjectId
                 });
+            }
+
+            // Log focus session to Supabase if linked to a workspace task
+            const wsTaskIdToLog = state.context.workspaceTaskId || (loadTaskSession() && loadTaskSession().workspaceTaskId);
+            const wsIdToLog = state.context.workspaceId || (loadTaskSession() && loadTaskSession().workspaceId);
+
+            if (wsTaskIdToLog && typeof ensureSupabaseLoaded === 'function') {
+                ensureSupabaseLoaded().then(client => {
+                    if (client) {
+                        client.from('focus_sessions').insert({
+                            task_id: wsTaskIdToLog,
+                            workspace_id: wsIdToLog || null,
+                            duration_seconds: workMin * 60
+                        }).then(({ error }) => {
+                            if (error) console.error('Failed to log workspace focus session to Supabase:', error);
+                        }).catch(() => {});
+                    }
+                }).catch(() => {});
             }
 
             // Apply focus to Task / Subject if connected

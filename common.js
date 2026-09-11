@@ -1955,11 +1955,17 @@ function hayyizLaunchPomodoro(target, indexHint) {
 
     const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
     const totalMinutes = taskObj.minutes ? parseInt(taskObj.minutes, 10) : null;
+
+    const wsTaskId = taskObj.workspaceTaskId || taskObj.workspace_task_id || null;
+    const wsId = taskObj.workspaceId || taskObj.workspace_id || null;
+
     const plan = {
         text: taskText,
         id: taskObj.id || null,
         index: index,
         subjectId: taskObj.subjectId || null,
+        workspaceTaskId: wsTaskId,
+        workspaceId: wsId,
         totalMinutes: totalMinutes && totalMinutes > 0 ? totalMinutes : null,
         focusDone: taskObj.focusDone ? parseInt(taskObj.focusDone, 10) || 0 : 0,
         sessionsDone: taskObj.sessionsDone ? parseInt(taskObj.sessionsDone, 10) || 0 : 0,
@@ -1979,6 +1985,12 @@ function hayyizLaunchPomodoro(target, indexHint) {
     let pomoUrl = 'pomodoro.html?task=' + encodeURIComponent(taskText);
     if (taskObj.id) {
         pomoUrl += '&taskId=' + encodeURIComponent(taskObj.id);
+    }
+    if (wsTaskId) {
+        pomoUrl += '&workspace_task_id=' + encodeURIComponent(wsTaskId);
+    }
+    if (wsId) {
+        pomoUrl += '&workspace_id=' + encodeURIComponent(wsId);
     }
     window.location.href = pomoUrl;
 }

@@ -301,7 +301,7 @@
                 });
             }
 
-            // 3. Fetch Permitted Tasks (Selected Columns)
+        // 3. Fetch Permitted Tasks (Selected Columns) - Fetches all permitted tasks for user across all workspaces
             const { data: taskData, error: taskError } = await client
                 .from('tasks')
                 .select('id, creator_id, workspace_id, title, description, scope, completion_mode, due_date, completed, completed_at, created_at')
@@ -353,6 +353,9 @@
             if (fsData) {
                 focusSessionsCache = fsData;
             }
+
+            // Sync workspace tasks to local todos for the current user
+            syncWorkspaceTasksToLocalTodos();
 
             // Render updated UI
             renderWorkspaceTabs();
@@ -407,6 +410,7 @@
             delete taskMembersCache[deletedId];
             delete taskProgressCache[deletedId];
         }
+        syncWorkspaceTasksToLocalTodos();
         renderTasksList();
         renderActiveWorkspaceHeader();
     }
@@ -612,6 +616,126 @@
     }
 
     /**
+     * Helper to get or create a subject ID matching the workspace name
+     */
+    function getOrCreateSubjectForWorkspace(workspaceId, optWorkspaces) {
+        if (!workspaceId) return null;
+        const workspacesList = optWorkspaces || workspacesCache;
+        const ws = workspacesList.find(w => w.id === workspaceId);
+        if (!ws || !ws.name) return null;
+        const wsName = ws.name.trim();
+        if (!wsName) return null;
+
+        if (typeof hayyizAddSubject === 'function') {
+            const sub = hayyizAddSubject(wsName);
+            return sub ? sub.id : null;
+        } else if (typeof hayyizGetSubjects === 'function' && typeof hayyizSaveSubjects === 'function') {
+            const subjects = hayyizGetSubjects();
+            const existing = subjects.find(s => s && s.name === wsName);
+            if (existing) return existing.id;
+            const newSub = {
+                id: typeof hayyizGenerateId === 'function' ? hayyizGenerateId() : ('sub_' + Date.now()),
+                name: wsName,
+                created: Date.now(),
+                updated: Date.now(),
+                focusMinutes: 0,
+                sessions: 0
+            };
+            subjects.push(newSub);
+            hayyizSaveSubjects(subjects);
+            return newSub.id;
+        }
+        return null;
+    }
+
+    /**
+     * Synchronizes tasks in workspacesCache to local hayyiz-todos for the current user.
+     * Prevents duplicate todos, updates existing ones, and removes orphan workspace todos if deleted.
+     */
+    function syncWorkspaceTasksToLocalTodos(optTasks, optWorkspaces, optUser, optTaskProgress) {
+        const user = optUser || currentUser;
+        if (!user) return;
+        if (typeof hayyizGetTodos !== 'function' || typeof hayyizSaveTodos !== 'function') return;
+
+        const tasksList = optTasks || tasksCache;
+        const workspacesList = optWorkspaces || workspacesCache;
+        const progressCache = optTaskProgress || taskProgressCache;
+
+        let todos = hayyizGetTodos();
+        let changed = false;
+
+        const validWsTaskIds = new Set(tasksList.map(t => t.id));
+
+        // 1. Remove local todos that reference a workspaceTaskId which no longer exists in tasksCache
+        const initialLength = todos.length;
+        todos = todos.filter(t => {
+            const wsTaskId = t.workspaceTaskId || t.workspace_task_id;
+            if (!wsTaskId) return true; // Keep normal personal tasks untouched
+            return validWsTaskIds.has(wsTaskId);
+        });
+
+        if (todos.length !== initialLength) {
+            changed = true;
+        }
+
+        // 2. Add or Update local todo for each permitted workspace task
+        tasksList.forEach(wsTask => {
+            const userProg = (progressCache[wsTask.id] || []).find(p => p.user_id === user.id);
+            const userDone = userProg ? Boolean(userProg.completed) : false;
+            const subjectId = getOrCreateSubjectForWorkspace(wsTask.workspace_id, workspacesList);
+
+            const existingIdx = todos.findIndex(t => (t.workspaceTaskId || t.workspace_task_id) === wsTask.id);
+
+            if (existingIdx >= 0) {
+                // Update existing representation
+                const existing = todos[existingIdx];
+                let itemChanged = false;
+
+                if (existing.text !== wsTask.title) { existing.text = wsTask.title; itemChanged = true; }
+                if (existing.completed !== userDone) {
+                    existing.completed = userDone;
+                    existing.status = userDone ? 'completed' : ((parseInt(existing.focusDone, 10) || 0) > 0 ? 'in-progress' : 'todo');
+                    itemChanged = true;
+                }
+                if (wsTask.due_date && existing.date !== wsTask.due_date) { existing.date = wsTask.due_date; itemChanged = true; }
+                if (subjectId && existing.subjectId !== subjectId) { existing.subjectId = subjectId; itemChanged = true; }
+                if (!existing.workspaceTaskId) { existing.workspaceTaskId = wsTask.id; itemChanged = true; }
+                if (!existing.workspaceId && wsTask.workspace_id) { existing.workspaceId = wsTask.workspace_id; itemChanged = true; }
+
+                if (itemChanged) {
+                    existing.updated = Date.now();
+                    changed = true;
+                }
+            } else {
+                // Create new local representation linked to workspaceTaskId
+                const newTodo = {
+                    id: typeof hayyizGenerateId === 'function' ? hayyizGenerateId() : ('h_ws_' + wsTask.id),
+                    text: wsTask.title,
+                    taskType: 'assignment',
+                    priority: 'medium',
+                    date: wsTask.due_date || null,
+                    minutes: null,
+                    subjectId: subjectId,
+                    completed: userDone,
+                    status: userDone ? 'completed' : 'todo',
+                    created: new Date(wsTask.created_at || Date.now()).getTime() || Date.now(),
+                    updated: Date.now(),
+                    focusDone: 0,
+                    sessionsDone: 0,
+                    workspaceTaskId: wsTask.id,
+                    workspaceId: wsTask.workspace_id || null
+                };
+                todos.unshift(newTodo);
+                changed = true;
+            }
+        });
+
+        if (changed) {
+            hayyizSaveTodos(todos);
+        }
+    }
+
+    /**
      * Render Synchronized Tasks List
      */
     function renderTasksList() {
@@ -669,13 +793,44 @@
         const actionsDiv = document.createElement('div');
         actionsDiv.style.cssText = 'display: flex; gap: 0.4rem;';
 
+        // Check current user completion state
+        const userProg = (taskProgressCache[task.id] || []).find(p => p.user_id === (currentUser ? currentUser.id : ''));
+        const userDone = userProg ? Boolean(userProg.completed) : false;
+
+        const toggleCompleteBtn = document.createElement('button');
+        toggleCompleteBtn.className = userDone ? 'btn btn-outline btn-sm' : 'btn btn-secondary btn-sm';
+        toggleCompleteBtn.type = 'button';
+        toggleCompleteBtn.innerHTML = userDone ? '<i class="fa-solid fa-rotate-left"></i> إلغاء الإكمال' : '<i class="fa-solid fa-check"></i> إكمال المهمة';
+        toggleCompleteBtn.title = userDone ? 'إلغاء إكمال المهمة' : 'إكمال المهمة';
+        toggleCompleteBtn.addEventListener('click', async () => {
+            try {
+                await updateTaskProgress(task.id, !userDone);
+                syncWorkspaceTasksToLocalTodos();
+                renderTasksList();
+            } catch (err) {
+                alert('حدث خطأ أثناء تحديث حالة المهمة: ' + (err.message || ''));
+            }
+        });
+        actionsDiv.appendChild(toggleCompleteBtn);
+
         const pomoBtn = document.createElement('button');
         pomoBtn.className = 'btn btn-primary btn-sm';
         pomoBtn.type = 'button';
         pomoBtn.innerHTML = '<i class="fa-solid fa-play"></i> ابدأ Pomodoro';
         pomoBtn.addEventListener('click', () => {
-            const url = `pomodoro.html?workspace_task_id=${encodeURIComponent(task.id)}${task.workspace_id ? '&workspace_id=' + encodeURIComponent(task.workspace_id) : ''}&task=${encodeURIComponent(task.title)}`;
-            window.location.href = url;
+            const taskObj = {
+                text: task.title,
+                workspaceTaskId: task.id,
+                workspace_task_id: task.id,
+                workspaceId: task.workspace_id,
+                workspace_id: task.workspace_id
+            };
+            if (typeof hayyizLaunchPomodoro === 'function') {
+                hayyizLaunchPomodoro(taskObj);
+            } else {
+                const url = `pomodoro.html?workspace_task_id=${encodeURIComponent(task.id)}${task.workspace_id ? '&workspace_id=' + encodeURIComponent(task.workspace_id) : ''}&task=${encodeURIComponent(task.title)}`;
+                window.location.href = url;
+            }
         });
         actionsDiv.appendChild(pomoBtn);
 
@@ -691,6 +846,7 @@
                     try {
                         await deleteTask(task.id);
                         tasksCache = tasksCache.filter(t => t.id !== task.id);
+                                syncWorkspaceTasksToLocalTodos();
                         renderTasksList();
                     } catch (err) {
                         alert('حدث خطأ أثناء حذف المهمة: ' + (err.message || 'خطأ غير معروف'));
@@ -988,6 +1144,7 @@
                     // Incremental local update without full workspace reload
                     if (createdTask && !tasksCache.some(t => t.id === createdTask.id)) {
                         tasksCache.unshift(createdTask);
+                        syncWorkspaceTasksToLocalTodos();
                         renderTasksList();
                         renderActiveWorkspaceHeader();
                     } else {
@@ -1101,14 +1258,18 @@
     }
 
     // Auto Init on DOM Load
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initWorkspacesModule);
-    } else {
-        initWorkspacesModule();
+    if (typeof document !== 'undefined') {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initWorkspacesModule);
+        } else {
+            initWorkspacesModule();
+        }
     }
 
     // Export public interfaces
     global.initWorkspacesModule = initWorkspacesModule;
     global.calculateCollaborativeTaskProgress = calculateCollaborativeTaskProgress;
+    global.syncWorkspaceTasksToLocalTodos = syncWorkspaceTasksToLocalTodos;
+    global.getOrCreateSubjectForWorkspace = getOrCreateSubjectForWorkspace;
 
 })(typeof window !== 'undefined' ? window : global);
