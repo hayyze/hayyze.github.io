@@ -9,11 +9,7 @@ BEGIN
   VALUES (
     NEW.id,
     NEW.email,
-    COALESCE(
-      NEW.raw_user_meta_data ->> 'display_name',
-      NEW.raw_user_meta_data ->> 'name',
-      split_part(COALESCE(NEW.email, ''), '@', 1)
-    ),
+    COALESCE(NEW.raw_user_meta_data ->> 'display_name', NEW.raw_user_meta_data ->> 'name', split_part(COALESCE(NEW.email, ''), '@', 1)),
     NOW()
   )
   ON CONFLICT (id) DO UPDATE
@@ -31,19 +27,9 @@ FOR EACH ROW
 EXECUTE FUNCTION public.handle_new_user();
 
 INSERT INTO public.profiles (id, email, display_name, updated_at)
-SELECT
-  u.id,
-  u.email,
-  COALESCE(
-    u.raw_user_meta_data ->> 'display_name',
-    u.raw_user_meta_data ->> 'name',
-    split_part(COALESCE(u.email, ''), '@', 1)
-  ),
-  NOW()
+SELECT u.id, u.email,
+       COALESCE(u.raw_user_meta_data ->> 'display_name', u.raw_user_meta_data ->> 'name', split_part(COALESCE(u.email, ''), '@', 1)),
+       NOW()
 FROM auth.users u
-WHERE NOT EXISTS (
-  SELECT 1
-  FROM public.profiles p
-  WHERE p.id = u.id
-)
+WHERE NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = u.id)
 ON CONFLICT (id) DO NOTHING;
