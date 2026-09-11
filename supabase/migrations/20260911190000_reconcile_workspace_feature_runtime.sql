@@ -228,15 +228,13 @@ CREATE POLICY "Users can update own focus sessions" ON public.focus_sessions FOR
 USING (user_id = auth.uid())
 WITH CHECK (user_id = auth.uid());
 
--- Restore least-privilege execution grants for helper functions and the public RPCs.
-REVOKE ALL ON FUNCTION public.check_sync_item_limits() FROM PUBLIC, anon, authenticated;
+-- Restore least-privilege execution grants for helper functions and the public RPCs that exist in this schema.
 REVOKE ALL ON FUNCTION public.is_workspace_member(UUID, UUID) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.is_workspace_owner(UUID, UUID) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.is_task_member(UUID, UUID) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.can_view_task(UUID, UUID) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.recalculate_collaborative_task(UUID) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.handle_member_removal_recalculate() FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.handle_new_workspace() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.handle_new_task() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.validate_task_member_insert() FROM PUBLIC, anon, authenticated;
@@ -244,7 +242,7 @@ REVOKE ALL ON FUNCTION public.validate_focus_session() FROM PUBLIC, anon, authen
 REVOKE ALL ON FUNCTION public.create_workspace(TEXT, TEXT) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.add_workspace_member_by_email(UUID, TEXT) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.set_task_progress_and_recalculate(UUID, BOOLEAN) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.create_synchronized_task(TEXT, TEXT, TEXT, TEXT, UUID, TIMESTAMPTZ, UUID[]) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.create_synchronized_task(TEXT, TEXT, TEXT, TEXT, UUID[]) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.create_workspace(TEXT, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.add_workspace_member_by_email(UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.set_task_progress_and_recalculate(UUID, BOOLEAN) TO authenticated;
