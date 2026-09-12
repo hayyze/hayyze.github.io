@@ -968,3 +968,7 @@ document.addEventListener('DOMContentLoaded', () => {
         initAuthListener();
     }
 });
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {};
+}
