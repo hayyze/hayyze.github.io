@@ -1188,31 +1188,34 @@ async function runAsyncScenarios() {
                 }
             },
             querySelectorAll: () => [],
+            querySelector: () => null,
             getElementById: () => null,
+            createElement: () => ({ setAttribute: () => {}, appendChild: () => {}, addEventListener: () => {}, style: {} }),
+            body: { appendChild: () => {} },
             title: ''
         };
 
         global.window = {
+            addEventListener: () => {},
             location: {
                 search: '?task=%D9%85%D9%87%D9%85%D8%A9%20%D8%A7%D9%84%D8%A3%D8%AD%D9%8A%D8%A7%D8%A1%20%D8%A3%D9%88%D9%86%D9%84%D8%A7%D9%8A%D9%86&taskId=task_local_123&workspace_task_id=ws_task_42_bio&workspace_id=ws_bio_101'
             }
         };
         global.URLSearchParams = require('url').URLSearchParams;
 
-        // Execute real context init logic as defined in production pomodoro.js
-        const urlParams = new global.URLSearchParams(global.window.location.search);
-        const wsTaskIdFromUrl = urlParams.get('workspace_task_id') || urlParams.get('workspaceTaskId');
-        const wsIdFromUrl = urlParams.get('workspace_id') || urlParams.get('workspaceId');
-        const searchId = urlParams.get('taskId') || global.localStorage.getItem('hayyiz-current-task-id');
-        const searchTitle = urlParams.get('task') || global.localStorage.getItem('hayyiz-current-task');
+        // Load pomodoro.js source string and evaluate with mocked DOM
+        const pomoJsSource = fs.readFileSync('./pomodoro.js', 'utf8');
+        eval(pomoJsSource);
 
-        const pomoContext = {
-            type: 'task',
-            id: searchId,
-            title: searchTitle,
-            workspaceTaskId: wsTaskIdFromUrl,
-            workspaceId: wsIdFromUrl
-        };
+        if (domLoadedCallback) domLoadedCallback();
+
+        // Call production initContextFromParamsAndStorage directly
+        if (typeof global.initContextFromParamsAndStorage === 'function') {
+            global.initContextFromParamsAndStorage();
+        }
+
+        const pomoState = typeof global.getState === 'function' ? global.getState() : null;
+        const pomoContext = pomoState ? pomoState.context : null;
 
         assert(Boolean(pomoContext && pomoContext.type === 'task' &&
                pomoContext.id === 'task_local_123' &&
@@ -1239,20 +1242,24 @@ async function runAsyncScenarios() {
             }
         });
 
-        const workMin = 25;
-        const wsTaskIdToLog = 'ws_task_43_chem';
-        const wsIdToLog = 'ws_chem_200';
+        // Set state required for handleTimerCompletion using production global.setState hook
+        if (typeof global.setState === 'function') {
+            global.setState({
+                mode: 'focus',
+                totalDuration: 25 * 60,
+                context: {
+                    type: 'task',
+                    id: 'task_local_43',
+                    title: 'تجربة الكيمياء',
+                    workspaceTaskId: 'ws_task_43_chem',
+                    workspaceId: 'ws_chem_200'
+                }
+            });
+        }
 
-        // Execute real logging block from pomodoro.js
-        if (wsTaskIdToLog && typeof global.ensureSupabaseLoaded === 'function') {
-            const client = await global.ensureSupabaseLoaded();
-            if (client) {
-                await client.from('focus_sessions').insert({
-                    task_id: wsTaskIdToLog,
-                    workspace_id: wsIdToLog || null,
-                    duration_seconds: workMin * 60
-                });
-            }
+        // Call production handleTimerCompletion directly
+        if (typeof global.handleTimerCompletion === 'function') {
+            await global.handleTimerCompletion();
         }
 
         const loggedSession = supabaseInserts.find(s => s.task_id === 'ws_task_43_chem');

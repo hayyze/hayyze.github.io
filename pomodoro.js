@@ -775,7 +775,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ========== Completion & Workflow Flow ==========
-    function handleTimerCompletion(wasAway) {
+    async function handleTimerCompletion(wasAway) {
         playNotificationSound();
 
         if (state.mode === 'focus') {
@@ -821,17 +821,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const wsIdToLog = state.context.workspaceId || (loadTaskSession() && loadTaskSession().workspaceId);
 
             if (wsTaskIdToLog && typeof ensureSupabaseLoaded === 'function') {
-                ensureSupabaseLoaded().then(client => {
+                try {
+                    const client = await ensureSupabaseLoaded();
                     if (client) {
-                        client.from('focus_sessions').insert({
+                        const { error } = await client.from('focus_sessions').insert({
                             task_id: wsTaskIdToLog,
                             workspace_id: wsIdToLog || null,
                             duration_seconds: workMin * 60
-                        }).then(({ error }) => {
-                            if (error) console.error('Failed to log workspace focus session to Supabase:', error);
-                        }).catch(() => {});
+                        });
+                        if (error) console.error('Failed to log workspace focus session to Supabase:', error);
                     }
-                }).catch(() => {});
+                } catch (e) {
+                    console.error('Error logging workspace focus session:', e);
+                }
             }
 
             // Apply focus to Task / Subject if connected
