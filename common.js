@@ -2931,3 +2931,69 @@ function hayyizGetCalendarSummary() {
         ageInfo
     };
 }
+
+/* ---------- WORKSPACE TASKS AUTONOMOUS FETCH & SYNC ---------- */
+
+async function hayyizFetchAndSyncWorkspaceTasks() {
+    if (typeof ensureSupabaseLoaded !== 'function') return;
+    try {
+        const client = await ensureSupabaseLoaded();
+        if (!client) return;
+
+        let user = null;
+        if (typeof hayyizGetUser === 'function') {
+            user = await hayyizGetUser();
+        } else if (client.auth) {
+            const { data } = await client.auth.getUser();
+            user = data ? data.user : null;
+        }
+        if (!user) return;
+
+        const { data: wsData, error: wsError } = await client
+            .from('workspaces')
+            .select('id, name, description, created_by, created_at')
+            .order('created_at', { ascending: false });
+
+        if (wsError || !wsData) {
+            console.error('Failed to fetch workspaces during sync:', wsError);
+            return;
+        }
+
+        const { data: taskData, error: taskError } = await client
+            .from('tasks')
+            .select('id, creator_id, workspace_id, title, description, scope, completion_mode, due_date, completed, completed_at, created_at')
+            .order('created_at', { ascending: false });
+
+        if (taskError || !taskData) {
+            console.error('Failed to fetch workspace tasks during sync:', taskError);
+            return;
+        }
+
+        let progressCache = {};
+        if (taskData.length > 0) {
+            const taskIds = taskData.map(t => t.id);
+            const { data: tp, error: tpError } = await client
+                .from('task_progress')
+                .select('task_id, user_id, completed, completed_at, updated_at')
+                .in('task_id', taskIds);
+
+            if (tpError) {
+                console.error('Failed to fetch task progress during sync:', tpError);
+                return;
+            }
+
+            (tp || []).forEach(p => {
+                if (!progressCache[p.task_id]) progressCache[p.task_id] = [];
+                progressCache[p.task_id].push(p);
+            });
+        }
+
+        const fnSync = (typeof hayyizSyncWorkspaceTasksToLocalTodos === 'function' ? hayyizSyncWorkspaceTasksToLocalTodos : null) || (typeof window !== 'undefined' && window.syncWorkspaceTasksToLocalTodos) || (typeof global !== 'undefined' && global.syncWorkspaceTasksToLocalTodos);
+
+        if (fnSync) {
+            fnSync(taskData, wsData, user, progressCache);
+        }
+    } catch (e) {
+        console.error('Error fetching/syncing workspace tasks:', e);
+    }
+}
