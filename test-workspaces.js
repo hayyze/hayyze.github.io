@@ -861,8 +861,435 @@ let ws = null;
         '33. RPC create_workspace creates workspace using auth.uid(), trims name, and trigger adds owner member automatically');
 }
 
-console.log(`\n===================================`);
-console.log(`WORKSPACES TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
-console.log(`===================================\n`);
+// Scenario 34: Creating a workspace task produces a local todo linked to workspaceTaskId
+{
+    const wsRes = db.createWorkspaceRPC(user1, 'مساحة الفيزياء', 'مقرر فيزياء 1');
+    const wsTaskRes = db.createSynchronizedTaskRPC(user1, {
+        title: 'حل مسائل السرعة والمتجهات',
+        scope: 'workspace',
+        workspace_id: wsRes.workspace.id,
+        completion_mode: 'independent'
+    });
 
-if (failed > 0) process.exit(1);
+    // Mock minimal DOM environment for Node requiring spaces.js
+    global.document = {
+        readyState: 'complete',
+        getElementById: () => null,
+        querySelectorAll: () => []
+    };
+    global.window = global;
+
+    // Test real functions with mocked browser environment globals
+    global.currentUser = user1;
+    global.workspacesCache = [wsRes.workspace];
+    global.tasksCache = [wsTaskRes.task];
+    global.taskProgressCache = {};
+
+    let localTodos = [];
+    let localSubjects = [];
+
+    global.hayyizGetTodos = () => localTodos;
+    global.hayyizSaveTodos = (todos) => { localTodos = todos; };
+    global.hayyizGetSubjects = () => localSubjects;
+    global.hayyizSaveSubjects = (subs) => { localSubjects = subs; };
+    global.hayyizAddSubject = (name) => {
+        let sub = localSubjects.find(s => s.name === name);
+        if (!sub) {
+            sub = { id: 'sub_' + Math.random().toString(36).slice(2, 7), name: name };
+            localSubjects.push(sub);
+        }
+        return sub;
+    };
+    global.hayyizGenerateId = () => 'gen_' + Math.random().toString(36).slice(2, 7);
+
+    // Call actual spaces.js sync function
+    require('./spaces.js');
+    if (typeof global.syncWorkspaceTasksToLocalTodos === 'function') {
+        global.syncWorkspaceTasksToLocalTodos([wsTaskRes.task], [wsRes.workspace], user1, {});
+    }
+
+    const linkedTodo = localTodos.find(t => t.workspaceTaskId === wsTaskRes.task.id);
+    const linkedSub = localSubjects.find(s => s.id === (linkedTodo ? linkedTodo.subjectId : null));
+
+    assert(Boolean(linkedTodo && linkedTodo.text === 'حل مسائل السرعة والمتجهات' && linkedSub && linkedSub.name === 'مساحة الفيزياء'),
+        '34. Creating a workspace task creates a local todo linked via workspaceTaskId and sets workspace name as subject');
+}
+
+// Scenario 35: Reload / re-sync does not create duplicate local todos (calling real implementation)
+{
+    const wsTask = { id: 'task_ws_123', workspace_id: 'ws_phy', title: 'حل مسائل السرعة والمتجهات', completed: false, created_at: new Date().toISOString() };
+    const wsObj = { id: 'ws_phy', name: 'مساحة الفيزياء' };
+
+    let mockTodos = [];
+    global.hayyizGetTodos = () => mockTodos;
+    global.hayyizSaveTodos = (todos) => { mockTodos = todos; };
+
+    // Call syncWorkspaceTasksToLocalTodos 3 times
+    global.syncWorkspaceTasksToLocalTodos([wsTask], [wsObj], user1, {});
+    global.syncWorkspaceTasksToLocalTodos([wsTask], [wsObj], user1, {});
+    global.syncWorkspaceTasksToLocalTodos([wsTask], [wsObj], user1, {});
+
+    const linkedCount = mockTodos.filter(t => t.workspaceTaskId === 'task_ws_123').length;
+
+    assert(linkedCount === 1, '35. Calling real syncWorkspaceTasksToLocalTodos multiple times produces exactly 1 local todo per workspaceTaskId');
+}
+
+// Scenario 36: Deleting a workspace task removes orphan local todo while leaving personal todos untouched
+{
+    const activeWsTask = { id: 'active_ws_100', workspace_id: 'ws_math', title: 'واجب الرياضيات', completed: false };
+    const wsObj = { id: 'ws_math', name: 'مساحة الرياضيات' };
+
+    let mockTodos = [
+        { id: 'p_1', text: 'مهمة شخصية صريحة' },
+        { id: 'ws_orphan_99', text: 'مهمة مساحة أصبحت محذوفة', workspaceTaskId: 'deleted_task_99', workspaceId: 'ws_math' }
+    ];
+
+    global.hayyizGetTodos = () => mockTodos;
+    global.hayyizSaveTodos = (todos) => { mockTodos = todos; };
+
+    // Run real sync with activeWsTask list (deleted_task_99 is gone)
+    global.syncWorkspaceTasksToLocalTodos([activeWsTask], [wsObj], user1, {});
+
+    const personalExists = mockTodos.some(t => t.id === 'p_1' && !t.workspaceTaskId);
+    const orphanExists = mockTodos.some(t => t.workspaceTaskId === 'deleted_task_99');
+    const newLinkedExists = mockTodos.some(t => t.workspaceTaskId === 'active_ws_100');
+
+    assert(personalExists && !orphanExists && newLinkedExists && mockTodos.length === 2,
+        '36. Sync removes orphan workspace todo when deleted from workspace while preserving personal todos untouched');
+}
+
+// Scenario 37: Workspace task completion syncs to local todo via real implementation path
+{
+    const syncWsTask = { id: 'ws_sync_t1', workspace_id: 'ws_chem', title: 'تجربة الكيمياء', completed: false };
+    const wsObj = { id: 'ws_chem', name: 'مساحة الكيمياء' };
+
+    let mockTodos = [];
+    global.hayyizGetTodos = () => mockTodos;
+    global.hayyizSaveTodos = (todos) => { mockTodos = todos; };
+
+    // Initial sync (active)
+    global.syncWorkspaceTasksToLocalTodos([syncWsTask], [wsObj], user1, {});
+    let localTodo = mockTodos.find(t => t.workspaceTaskId === 'ws_sync_t1');
+    assert(localTodo && localTodo.completed === false, '37a. Initial sync sets local todo completed = false');
+
+    // Update workspace task completion in DB/Cache
+    syncWsTask.completed = true;
+    const progressMap = { 'ws_sync_t1': [{ user_id: user1.id, completed: true }] };
+
+    // Re-run real sync implementation
+    global.syncWorkspaceTasksToLocalTodos([syncWsTask], [wsObj], user1, progressMap);
+
+    localTodo = mockTodos.find(t => t.workspaceTaskId === 'ws_sync_t1');
+    assert(localTodo && localTodo.completed === true, '37b. Workspace completion syncs status = completed to local todo representation via real sync function');
+}
+
+// Scenario 38: Completing linked task from todo page triggers set_task_progress_and_recalculate RPC via real todo.js createTaskItemNode change listener
+async function runAsyncScenarios() {
+    {
+        const wsTask = db.createTask(user1, { title: 'مهمة حقيقية من صفحة المهام', scope: 'workspace', workspace_id: ws.id, completion_mode: 'independent' });
+        let mockTodos = [
+            { id: 'todo_ws_real', text: 'مهمة حقيقية من صفحة المهام', workspaceTaskId: wsTask.id, workspaceId: ws.id, completed: false }
+        ];
+
+        let rpcCalls = [];
+        let rpcShouldFail = false;
+
+        // Mock ensureSupabaseLoaded for todo.js
+        global.ensureSupabaseLoaded = async () => ({
+            rpc: async (name, params) => {
+                rpcCalls.push({ name, params });
+                if (rpcShouldFail) {
+                    return { data: null, error: { message: 'RPC Network Error' } };
+                }
+                db.updateTaskProgress(user1, user1.id, params.p_task_id, params.p_completed);
+                return { data: { success: true }, error: null };
+            }
+        });
+
+        global.hayyizGetTodos = () => mockTodos;
+        global.hayyizSaveTodos = (todos) => { mockTodos = todos; };
+        global.hayyizUpdateTask = (id, patch) => {
+            const item = mockTodos.find(t => t.id === id);
+            if (item) Object.assign(item, patch);
+            return item;
+        };
+        global.hayyizUploadItem = () => {};
+        global.announceToScreenReader = () => {};
+        global.hayyizGetFocusState = () => null;
+        global.renderTodos = () => {};
+        global.alert = () => {};
+
+        // Load todo.js source string to execute createTaskItemNode directly
+        const todoJsSource = fs.readFileSync('./todo.js', 'utf8');
+
+        // Mock DOM environment for createTaskItemNode execution
+        let capturedCheckboxListener = null;
+        let realCheckboxEl = null;
+
+        global.document = {
+            readyState: 'loading',
+            addEventListener: (evt, fn) => {
+                if (evt === 'DOMContentLoaded') fn();
+            },
+            getElementById: () => ({ addEventListener: () => {}, innerHTML: '', appendChild: () => {}, focus: () => {}, classList: { add: () => {}, remove: () => {}, contains: () => false, toggle: () => {} } }),
+            querySelectorAll: () => [],
+            createElement: (tag) => {
+                const children = [];
+                const listeners = {};
+                const el = {
+                    tagName: tag,
+                    type: tag === 'input' ? 'checkbox' : '',
+                    checked: false,
+                    children: children,
+                    dataset: {},
+                    style: {},
+                    setAttribute: () => {},
+                    addEventListener: (evt, handler) => {
+                        listeners[evt] = handler;
+                        if (evt === 'change' && tag === 'input') {
+                            capturedCheckboxListener = handler;
+                            realCheckboxEl = el;
+                        }
+                    },
+                    appendChild: (child) => { children.push(child); },
+                    classList: { add: () => {}, remove: () => {}, toggle: () => {} }
+                };
+                return el;
+            }
+        };
+
+        // Evaluate todo.js inside global context so createTaskItemNode is defined and registers listener on mock DOM
+        eval(todoJsSource);
+
+        // Call actual createTaskItemNode from todo.js
+        createTaskItemNode(mockTodos[0]);
+
+        // Execute real change listener captured by createElement
+        realCheckboxEl.checked = true;
+        await capturedCheckboxListener();
+
+        const dbProg = db.task_progress.find(p => p.task_id === wsTask.id && p.user_id === user1.id);
+        const successResult = rpcCalls.length === 1 && rpcCalls[0].name === 'set_task_progress_and_recalculate' &&
+                              rpcCalls[0].params.p_task_id === wsTask.id && rpcCalls[0].params.p_completed === true &&
+                              dbProg && dbProg.completed === true && mockTodos[0].completed === true;
+
+        assert(successResult, '38a. Real todo.js change handler invokes set_task_progress_and_recalculate RPC and marks local todo completed on RPC success');
+
+        // 2. Failure test: RPC error reverts checkbox and leaves task incomplete
+        rpcShouldFail = true;
+        realCheckboxEl.checked = false; // user unchecks
+        await capturedCheckboxListener();
+
+        const failureResult = realCheckboxEl.checked === true && mockTodos[0].completed === true;
+        assert(failureResult, '38b. Real todo.js change handler reverts checkbox state and preserves completed state upon RPC error');
+    }
+
+    // Scenario 40: Personal tasks (workspace_id == null) remain untouched during syncWorkspaceTasksToLocalTodos
+    {
+        const personalTaskObj = { id: 'p_task_1', title: 'مهمة شخصية بحتة', workspace_id: null, completed: false };
+        const wsTaskObj = { id: 'ws_task_1', workspace_id: 'ws_101', title: 'مهمة مساحة', completed: false };
+        const wsObj = { id: 'ws_101', name: 'مساحة الأحياء' };
+
+        let mockTodos = [
+            { id: 'p_local_1', text: 'مهمة شخصية سابقة', date: '2026-05-01', completed: false }
+        ];
+
+        global.hayyizGetTodos = () => mockTodos;
+        global.hayyizSaveTodos = (todos) => { mockTodos = todos; };
+
+        // Call syncWorkspaceTasksToLocalTodos passing mixed list (including workspace_id: null task)
+        global.syncWorkspaceTasksToLocalTodos([personalTaskObj, wsTaskObj], [wsObj], user1, {});
+
+        const originalPersonalTodo = mockTodos.find(t => t.id === 'p_local_1');
+        const personalTaskAsWs = mockTodos.find(t => t.workspaceTaskId === 'p_task_1');
+        const wsLocalTodo = mockTodos.find(t => t.workspaceTaskId === 'ws_task_1');
+
+        assert(originalPersonalTodo && !originalPersonalTodo.workspaceTaskId && !originalPersonalTodo.workspaceId &&
+               !personalTaskAsWs && wsLocalTodo && wsLocalTodo.workspaceTaskId === 'ws_task_1',
+            '40. Personal tasks (workspace_id == null) receive no workspace properties, no duplicate subject, and remain untouched during workspace sync');
+    }
+
+    // Scenario 41: Real hayyizLaunchPomodoro from common.js preserves workspaceTaskId and workspaceId
+    {
+        const wsTaskForPomo = {
+            id: 'pomo_todo_1',
+            text: 'مذاكرة الفيزياء للبومودورو',
+            workspaceTaskId: 'ws_task_pomo_99',
+            workspace_task_id: 'ws_task_pomo_99',
+            workspaceId: 'ws_phy_99',
+            workspace_id: 'ws_phy_99',
+            subjectId: 'sub_phy'
+        };
+
+        const mockStorage = {};
+        let targetLocation = '';
+
+        global.localStorage = {
+            setItem: (key, val) => { mockStorage[key] = String(val); },
+            getItem: (key) => mockStorage[key] || null,
+            removeItem: (key) => { delete mockStorage[key]; }
+        };
+
+        global.document = {
+            readyState: 'complete',
+            body: { classList: { toggle: () => {} } },
+            documentElement: { classList: { toggle: () => {} } },
+            addEventListener: () => {},
+            querySelectorAll: () => [],
+            getElementById: () => null
+        };
+
+        global.window = {
+            location: {
+                set href(val) { targetLocation = val; },
+                get href() { return targetLocation; }
+            }
+        };
+
+        // Mock hayyizGetTodos to return task array
+        global.hayyizGetTodos = () => [wsTaskForPomo];
+        global.getTodayLocal = () => '2026-05-01';
+
+        // Load production common.js into global context
+        const commonJs = fs.readFileSync('./common.js', 'utf8');
+        eval(commonJs);
+
+        // Execute production hayyizLaunchPomodoro
+        if (typeof hayyizLaunchPomodoro === 'function') {
+            hayyizLaunchPomodoro(wsTaskForPomo, 0);
+        }
+
+        const savedPlan = mockStorage['hayyiz-task-session'] ? JSON.parse(mockStorage['hayyiz-task-session']) : null;
+
+        assert(Boolean(savedPlan && savedPlan.workspaceTaskId === 'ws_task_pomo_99' && savedPlan.workspaceId === 'ws_phy_99' &&
+               targetLocation.includes('workspace_task_id=ws_task_pomo_99') && targetLocation.includes('workspace_id=ws_phy_99')),
+            '41. Real hayyizLaunchPomodoro from common.js preserves workspaceTaskId and workspaceId in task-session plan and redirect URL');
+    }
+
+    // Scenario 42: Real pomodoro.js context initialization loads workspaceTaskId and workspaceId from URL and task-session
+    {
+        const mockStorage = {
+            'hayyiz-current-task': 'مهمة الأحياء أونلاين',
+            'hayyiz-current-task-id': 'task_local_123'
+        };
+
+        global.localStorage = {
+            getItem: (k) => mockStorage[k] || null,
+            setItem: (k, v) => { mockStorage[k] = String(v); },
+            removeItem: (k) => { delete mockStorage[k]; }
+        };
+
+        let domLoadedCallback = null;
+        global.document = {
+            readyState: 'loading',
+            addEventListener: (evt, fn) => {
+                if (evt === 'DOMContentLoaded') {
+                    domLoadedCallback = fn;
+                }
+            },
+            querySelectorAll: () => [],
+            querySelector: () => null,
+            getElementById: () => null,
+            createElement: () => ({ setAttribute: () => {}, appendChild: () => {}, addEventListener: () => {}, style: {} }),
+            body: { appendChild: () => {} },
+            title: ''
+        };
+
+        global.window = {
+            addEventListener: () => {},
+            location: {
+                search: '?task=%D9%85%D9%87%D9%85%D8%A9%20%D8%A7%D9%84%D8%A3%D8%AD%D9%8A%D8%A7%D8%A1%20%D8%A3%D9%88%D9%86%D9%84%D8%A7%D9%8A%D9%86&taskId=task_local_123&workspace_task_id=ws_task_42_bio&workspace_id=ws_bio_101'
+            }
+        };
+        global.URLSearchParams = require('url').URLSearchParams;
+
+        // Load pomodoro.js source string and evaluate with mocked DOM
+        const pomoJsSource = fs.readFileSync('./pomodoro.js', 'utf8');
+        eval(pomoJsSource);
+
+        if (domLoadedCallback) domLoadedCallback();
+
+        // Call production initContextFromParamsAndStorage directly
+        if (typeof global.initContextFromParamsAndStorage === 'function') {
+            global.initContextFromParamsAndStorage();
+        }
+
+        const pomoState = typeof global.getState === 'function' ? global.getState() : null;
+        const pomoContext = pomoState ? pomoState.context : null;
+
+        assert(Boolean(pomoContext && pomoContext.type === 'task' &&
+               pomoContext.id === 'task_local_123' &&
+               pomoContext.workspaceTaskId === 'ws_task_42_bio' &&
+               pomoContext.workspaceId === 'ws_bio_101'),
+            '42. Real pomodoro.js context initialization reads workspace_task_id and workspace_id into state.context');
+    }
+
+    // Scenario 43: Real pomodoro.js focus session completion logs to Supabase focus_sessions
+    {
+        let supabaseInserts = [];
+
+        global.ensureSupabaseLoaded = async () => ({
+            from: (tableName) => {
+                if (tableName === 'focus_sessions') {
+                    return {
+                        insert: async (payload) => {
+                            supabaseInserts.push(payload);
+                            return { error: null };
+                        }
+                    };
+                }
+                return {};
+            }
+        });
+
+        // Set state required for handleTimerCompletion using production global.setState hook
+        if (typeof global.setState === 'function') {
+            global.setState({
+                mode: 'focus',
+                totalDuration: 25 * 60,
+                context: {
+                    type: 'task',
+                    id: 'task_local_43',
+                    title: 'تجربة الكيمياء',
+                    workspaceTaskId: 'ws_task_43_chem',
+                    workspaceId: 'ws_chem_200'
+                }
+            });
+        }
+
+        // Call production handleTimerCompletion directly
+        if (typeof global.handleTimerCompletion === 'function') {
+            await global.handleTimerCompletion();
+        }
+
+        const loggedSession = supabaseInserts.find(s => s.task_id === 'ws_task_43_chem');
+        assert(loggedSession && loggedSession.workspace_id === 'ws_chem_200' && loggedSession.duration_seconds === 1500,
+            '43. Real pomodoro.js completion handler logs focus session with task_id, workspace_id, and duration_seconds to Supabase focus_sessions');
+    }
+
+    // Scenario 39: Collaborative task completed by one user does not mark completed for everyone
+    {
+        const newCollabTask = db.createTask(user1, {
+            title: 'حل واجب العلوم التعاوني الجديد',
+            scope: 'specific_users',
+            completion_mode: 'collaborative',
+            recipientUserIds: [user2.id]
+        });
+
+        db.updateTaskProgress(user1, user1.id, newCollabTask.id, true);
+
+        const user1Prog = db.task_progress.find(p => p.task_id === newCollabTask.id && p.user_id === user1.id);
+        const user2Prog = db.task_progress.find(p => p.task_id === newCollabTask.id && p.user_id === user2.id);
+
+        assert(user1Prog && user1Prog.completed && (!user2Prog || !user2Prog.completed) && !newCollabTask.completed,
+            '39. Collaborative task completed by one user records individual progress without marking task fully completed for everyone');
+    }
+
+    console.log(`\n===================================`);
+    console.log(`WORKSPACES TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
+    console.log(`===================================\n`);
+
+    if (failed > 0) process.exit(1);
+}
+
+runAsyncScenarios();
