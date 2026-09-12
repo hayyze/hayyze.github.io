@@ -1095,6 +1095,13 @@ document.addEventListener('DOMContentLoaded', () => {
     initContextFromParamsAndStorage();
     loadState();
 
+    if (typeof global !== 'undefined') {
+        global.initContextFromParamsAndStorage = initContextFromParamsAndStorage;
+        global.handleTimerCompletion = handleTimerCompletion;
+        global.getState = () => state;
+        global.setState = (newState) => { state = Object.assign(state, newState); };
+    }
+
     if (typeof hayyizRegisterSyncCallback === 'function') {
         hayyizRegisterSyncCallback('pomodoro-prefs', (prefs) => {
             if (prefs && typeof prefs === 'object') {
@@ -1117,5 +1124,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {};
+    try {
+        module.exports = {
+            initContextFromParamsAndStorage: typeof initContextFromParamsAndStorage !== 'undefined' ? initContextFromParamsAndStorage : null,
+            handleTimerCompletion: typeof handleTimerCompletion !== 'undefined' ? handleTimerCompletion : null
+        };
+    } catch (e) {}
 }

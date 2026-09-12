@@ -967,6 +967,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof initAuthListener === 'function') {
         initAuthListener();
     }
+
+    if (typeof global !== 'undefined') {
+        global.createTaskItemNode = createTaskItemNode;
+    }
 });
 
 if (typeof module !== 'undefined' && module.exports) {
