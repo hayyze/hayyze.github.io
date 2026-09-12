@@ -150,9 +150,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (taskIdFromUrl || taskFromUrl || savedTaskId || savedTaskName) {
+        if (taskIdFromUrl || taskFromUrl || savedTaskId || savedTaskName || wsTaskIdFromUrl) {
             const searchId = taskIdFromUrl || savedTaskId;
             const searchTitle = taskFromUrl || savedTaskName;
+            const taskSessionPlan = loadTaskSession();
             let foundTask = null;
             let subjectId = null;
 
@@ -161,17 +162,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (searchId) {
                     foundTask = todos.find(t => t && String(t.id) === String(searchId));
                 }
+                if (!foundTask && wsTaskIdFromUrl) {
+                    foundTask = todos.find(t => t && (t.workspaceTaskId === wsTaskIdFromUrl || t.workspace_task_id === wsTaskIdFromUrl));
+                }
                 if (!foundTask && searchTitle) {
                     foundTask = todos.find(t => t && t.text === searchTitle);
                 }
             }
 
-            const title = foundTask ? foundTask.text : (searchTitle || 'مهمة دراسية');
-            const taskId = foundTask ? foundTask.id : (searchId || null);
-            subjectId = foundTask ? (foundTask.subjectId || null) : null;
+            const title = foundTask ? foundTask.text : (searchTitle || (taskSessionPlan ? taskSessionPlan.text : 'مهمة دراسية'));
+            const taskId = foundTask ? foundTask.id : (searchId || (taskSessionPlan ? taskSessionPlan.id : null));
+            subjectId = foundTask ? (foundTask.subjectId || null) : (taskSessionPlan ? taskSessionPlan.subjectId : null);
 
-            const finalWsTaskId = wsTaskIdFromUrl || (foundTask ? (foundTask.workspaceTaskId || foundTask.workspace_task_id) : null);
-            const finalWsId = wsIdFromUrl || (foundTask ? (foundTask.workspaceId || foundTask.workspace_id) : null);
+            const finalWsTaskId = wsTaskIdFromUrl || (foundTask ? (foundTask.workspaceTaskId || foundTask.workspace_task_id) : null) || (taskSessionPlan ? (taskSessionPlan.workspaceTaskId || taskSessionPlan.workspace_task_id) : null);
+            const finalWsId = wsIdFromUrl || (foundTask ? (foundTask.workspaceId || foundTask.workspace_id) : null) || (taskSessionPlan ? (taskSessionPlan.workspaceId || taskSessionPlan.workspace_id) : null);
 
             state.context = {
                 type: 'task',
@@ -184,21 +188,21 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('hayyiz-current-task', title);
             if (taskId) localStorage.setItem('hayyiz-current-task-id', taskId);
 
-            if (foundTask) {
-                const workMin = workInput ? (parseInt(workInput.value, 10) || 25) : 25;
-                const totalMinutes = foundTask.minutes ? parseInt(foundTask.minutes, 10) : null;
-                const plan = {
-                    text: foundTask.text,
-                    id: foundTask.id,
-                    index: todos.findIndex(t => t && t.id === foundTask.id),
-                    subjectId: foundTask.subjectId || null,
-                    totalMinutes: totalMinutes && totalMinutes > 0 ? totalMinutes : null,
-                    focusDone: foundTask.focusDone ? parseInt(foundTask.focusDone, 10) || 0 : 0,
-                    sessionsDone: foundTask.sessionsDone ? parseInt(foundTask.sessionsDone, 10) || 0 : 0,
-                    sessionsNeeded: totalMinutes && totalMinutes > 0 ? Math.ceil(totalMinutes / workMin) : null
-                };
-                localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
-            }
+            const workMin = workInput ? (parseInt(workInput.value, 10) || 25) : 25;
+            const totalMinutes = foundTask ? (foundTask.minutes ? parseInt(foundTask.minutes, 10) : null) : (taskSessionPlan ? taskSessionPlan.totalMinutes : null);
+            const plan = {
+                text: title,
+                id: taskId,
+                index: foundTask && typeof hayyizGetTodos === 'function' ? hayyizGetTodos().findIndex(t => t && t.id === foundTask.id) : -1,
+                subjectId: subjectId,
+                workspaceTaskId: finalWsTaskId,
+                workspaceId: finalWsId,
+                totalMinutes: totalMinutes && totalMinutes > 0 ? totalMinutes : null,
+                focusDone: foundTask ? (foundTask.focusDone ? parseInt(foundTask.focusDone, 10) || 0 : 0) : (taskSessionPlan ? taskSessionPlan.focusDone || 0 : 0),
+                sessionsDone: foundTask ? (foundTask.sessionsDone ? parseInt(foundTask.sessionsDone, 10) || 0 : 0) : (taskSessionPlan ? taskSessionPlan.sessionsDone || 0 : 0),
+                sessionsNeeded: totalMinutes && totalMinutes > 0 ? Math.ceil(totalMinutes / workMin) : null
+            };
+            localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
         } else if (eventFromUrl || (eventObj && eventObj.name)) {
             const title = eventFromUrl || eventObj.name;
             state.context = {
@@ -269,16 +273,47 @@ document.addEventListener('DOMContentLoaded', () => {
             freeOpt.textContent = '🎯 تركيز حر (بدون مهمة)';
             contextSelect.appendChild(freeOpt);
 
-            const activeTodos = hayyizGetTodos().filter(t => !t.completed);
+            const activeTodos = hayyizGetTodos().filter(t => t && !t.completed);
+            let contextMatched = false;
+
             activeTodos.forEach(t => {
                 const opt = document.createElement('option');
                 opt.value = 'task:' + t.id;
-                opt.textContent = '📋 مهمة: ' + t.text;
-                if (state.context.type === 'task' && (state.context.id === t.id || state.context.title === t.text)) {
+                const wsTId = t.workspaceTaskId || t.workspace_task_id;
+                const wsId = t.workspaceId || t.workspace_id;
+                if (wsTId) opt.dataset.workspaceTaskId = wsTId;
+                if (wsId) opt.dataset.workspaceId = wsId;
+                opt.textContent = '📋 مهمة: ' + t.text + (wsTId ? ' (مساحة متزامنة)' : '');
+
+                const isMatch = state.context.type === 'task' && (
+                    (state.context.id && String(state.context.id) === String(t.id)) ||
+                    (wsTId && state.context.workspaceTaskId && String(wsTId) === String(state.context.workspaceTaskId)) ||
+                    (!state.context.id && !state.context.workspaceTaskId && state.context.title === t.text)
+                );
+
+                if (isMatch) {
                     opt.selected = true;
+                    contextMatched = true;
+                    if (!state.context.id) state.context.id = t.id;
+                    if (!state.context.workspaceTaskId && wsTId) state.context.workspaceTaskId = wsTId;
+                    if (!state.context.workspaceId && wsId) state.context.workspaceId = wsId;
                 }
                 contextSelect.appendChild(opt);
             });
+
+            // Synthesize option for active workspace task context if not present in activeTodos
+            if (state.context.type === 'task' && !contextMatched && state.context.title) {
+                const opt = document.createElement('option');
+                const optVal = state.context.id
+                    ? ('task:' + state.context.id)
+                    : (state.context.workspaceTaskId ? ('wstask:' + state.context.workspaceTaskId) : ('tasktitle:' + state.context.title));
+                opt.value = optVal;
+                if (state.context.workspaceTaskId) opt.dataset.workspaceTaskId = state.context.workspaceTaskId;
+                if (state.context.workspaceId) opt.dataset.workspaceId = state.context.workspaceId;
+                opt.textContent = '📋 مهمة: ' + state.context.title + (state.context.workspaceTaskId ? ' (مساحة متزامنة)' : '');
+                opt.selected = true;
+                contextSelect.appendChild(opt);
+            }
 
             const calendarEvents = typeof hayyizGetSavedCalendarEvents === 'function' ? hayyizGetSavedCalendarEvents() : [];
             calendarEvents.slice(0, 5).forEach(ev => {
@@ -296,24 +331,108 @@ document.addEventListener('DOMContentLoaded', () => {
     if (contextSelect) {
         contextSelect.addEventListener('change', () => {
             const val = contextSelect.value;
+            const selectedOpt = contextSelect.options[contextSelect.selectedIndex];
+            const wsTaskIdFromOpt = selectedOpt ? selectedOpt.dataset.workspaceTaskId : null;
+            const wsIdFromOpt = selectedOpt ? selectedOpt.dataset.workspaceId : null;
+
             if (val === 'free') {
                 state.context = { type: 'free', id: null, title: 'تركيز حر', subjectId: null };
                 localStorage.removeItem('hayyiz-current-task');
                 localStorage.removeItem('hayyiz-current-task-id');
                 localStorage.removeItem('hayyiz-current-event');
+                localStorage.removeItem('hayyiz-task-session');
             } else if (val.startsWith('task:')) {
                 const id = val.replace('task:', '');
                 const todos = typeof hayyizGetTodos === 'function' ? hayyizGetTodos() : [];
-                const t = todos.find(x => x.id === id);
+                const t = todos.find(x => x && String(x.id) === String(id));
                 if (t) {
-                    if (typeof hayyizLaunchPomodoro === 'function') {
-                        hayyizLaunchPomodoro(t);
-                        return;
-                    }
-                    state.context = { type: 'task', id: t.id, title: t.text, subjectId: t.subjectId || null };
+                    const finalWsTaskId = wsTaskIdFromOpt || t.workspaceTaskId || t.workspace_task_id || null;
+                    const finalWsId = wsIdFromOpt || t.workspaceId || t.workspace_id || null;
+                    state.context = {
+                        type: 'task',
+                        id: t.id,
+                        title: t.text,
+                        subjectId: t.subjectId || null,
+                        workspaceTaskId: finalWsTaskId,
+                        workspaceId: finalWsId
+                    };
                     localStorage.setItem('hayyiz-current-task', t.text);
                     localStorage.setItem('hayyiz-current-task-id', t.id);
+
+                    const workMin = workInput ? (parseInt(workInput.value, 10) || 25) : 25;
+                    const totalMinutes = t.minutes ? parseInt(t.minutes, 10) : null;
+                    const plan = {
+                        text: t.text,
+                        id: t.id,
+                        index: todos.findIndex(x => x && x.id === t.id),
+                        subjectId: t.subjectId || null,
+                        workspaceTaskId: finalWsTaskId,
+                        workspaceId: finalWsId,
+                        totalMinutes: totalMinutes && totalMinutes > 0 ? totalMinutes : null,
+                        focusDone: t.focusDone ? parseInt(t.focusDone, 10) || 0 : 0,
+                        sessionsDone: t.sessionsDone ? parseInt(t.sessionsDone, 10) || 0 : 0,
+                        sessionsNeeded: totalMinutes && totalMinutes > 0 ? Math.ceil(totalMinutes / workMin) : null
+                    };
+                    localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
+                } else {
+                    const taskTitle = selectedOpt ? selectedOpt.textContent.replace(/^📋 مهمة:\s*/, '').replace(/\s*\(مساحة متزامنة\)$/, '') : 'مهمة دراسية';
+                    const finalWsTaskId = wsTaskIdFromOpt || null;
+                    const finalWsId = wsIdFromOpt || null;
+                    state.context = {
+                        type: 'task',
+                        id: id,
+                        title: taskTitle,
+                        subjectId: null,
+                        workspaceTaskId: finalWsTaskId,
+                        workspaceId: finalWsId
+                    };
+                    localStorage.setItem('hayyiz-current-task', taskTitle);
+                    if (id) localStorage.setItem('hayyiz-current-task-id', id);
+
+                    const workMin = workInput ? (parseInt(workInput.value, 10) || 25) : 25;
+                    const plan = {
+                        text: taskTitle,
+                        id: id,
+                        index: -1,
+                        subjectId: null,
+                        workspaceTaskId: finalWsTaskId,
+                        workspaceId: finalWsId,
+                        totalMinutes: null,
+                        focusDone: 0,
+                        sessionsDone: 0,
+                        sessionsNeeded: null
+                    };
+                    localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
                 }
+            } else if (val.startsWith('wstask:') || val.startsWith('tasktitle:')) {
+                const taskTitle = selectedOpt ? selectedOpt.textContent.replace(/^📋 مهمة:\s*/, '').replace(/\s*\(مساحة متزامنة\)$/, '') : 'مهمة دراسية';
+                const finalWsTaskId = wsTaskIdFromOpt || null;
+                const finalWsId = wsIdFromOpt || null;
+                state.context = {
+                    type: 'task',
+                    id: null,
+                    title: taskTitle,
+                    subjectId: null,
+                    workspaceTaskId: finalWsTaskId,
+                    workspaceId: finalWsId
+                };
+                localStorage.setItem('hayyiz-current-task', taskTitle);
+                localStorage.removeItem('hayyiz-current-task-id');
+
+                const workMin = workInput ? (parseInt(workInput.value, 10) || 25) : 25;
+                const plan = {
+                    text: taskTitle,
+                    id: null,
+                    index: -1,
+                    subjectId: null,
+                    workspaceTaskId: finalWsTaskId,
+                    workspaceId: finalWsId,
+                    totalMinutes: null,
+                    focusDone: 0,
+                    sessionsDone: 0,
+                    sessionsNeeded: null
+                };
+                localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
             } else if (val.startsWith('event:')) {
                 const id = val.replace('event:', '');
                 const events = typeof hayyizGetAllCalendarEvents === 'function' ? hayyizGetAllCalendarEvents() : [];
@@ -324,6 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             updateContextUI();
+            saveState();
         });
     }
 
