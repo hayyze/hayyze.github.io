@@ -1339,6 +1339,38 @@ async function runAsyncScenarios() {
             '44. Direct load of todo.html invokes hayyizFetchAndSyncWorkspaceTasks and syncs workspace tasks into local todos without requiring workspaces.html');
     }
 
+    // Scenario 45: Supabase fetch error during todo.html load preserves local workspace tasks (no wipe)
+    {
+        let mockLocalTodosWithError = [
+            { id: 'h_ws_existing_1', text: 'مهمة مساحة سابقة محفوظة محليًا', workspaceTaskId: 'ws_task_existing_1', workspaceId: 'ws_app_1' }
+        ];
+        global.hayyizGetTodos = () => mockLocalTodosWithError;
+        global.hayyizSaveTodos = (t) => { mockLocalTodosWithError = t; };
+
+        // Mock Supabase returning an error response
+        global.ensureSupabaseLoaded = async () => ({
+            auth: {
+                getUser: async () => ({ data: { user: user1 } })
+            },
+            from: (table) => ({
+                select: () => ({
+                    order: async () => ({ data: null, error: { message: 'Network connection failed' } })
+                })
+            })
+        });
+
+        if (typeof hayyizFetchAndSyncWorkspaceTasks === 'function') {
+            await hayyizFetchAndSyncWorkspaceTasks();
+        } else if (typeof global.hayyizFetchAndSyncWorkspaceTasks === 'function') {
+            await global.hayyizFetchAndSyncWorkspaceTasks();
+        }
+
+        const localTaskPreserved = mockLocalTodosWithError.find(t => t.workspaceTaskId === 'ws_task_existing_1');
+
+        assert(Boolean(localTaskPreserved && mockLocalTodosWithError.length === 1),
+            '45. Supabase fetch error aborts sync and preserves local workspace tasks without wiping or orphan cleanup');
+    }
+
     console.log(`\n===================================`);
     console.log(`WORKSPACES TEST SUITE RESULTS: ${passed} Passed, ${failed} Failed`);
     console.log(`===================================\n`);

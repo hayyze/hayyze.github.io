@@ -2932,133 +2932,7 @@ function hayyizGetCalendarSummary() {
     };
 }
 
-/* ---------- WORKSPACE TASKS LOCAL SYNC HELPER ---------- */
-
-function hayyizGetOrCreateSubjectForWorkspace(workspaceId, optWorkspaces) {
-    if (!workspaceId) return null;
-    const workspacesList = optWorkspaces || [];
-    const ws = workspacesList.find(w => w && w.id === workspaceId);
-    if (!ws || !ws.name) return null;
-    const wsName = ws.name.trim();
-    if (!wsName) return null;
-
-    const fnAddSubject = (typeof window !== 'undefined' && window.hayyizAddSubject) || (typeof global !== 'undefined' && global.hayyizAddSubject) || (typeof hayyizAddSubject === 'function' ? hayyizAddSubject : null);
-    const fnGetSubjects = (typeof window !== 'undefined' && window.hayyizGetSubjects) || (typeof global !== 'undefined' && global.hayyizGetSubjects) || (typeof hayyizGetSubjects === 'function' ? hayyizGetSubjects : null);
-    const fnSaveSubjects = (typeof window !== 'undefined' && window.hayyizSaveSubjects) || (typeof global !== 'undefined' && global.hayyizSaveSubjects) || (typeof hayyizSaveSubjects === 'function' ? hayyizSaveSubjects : null);
-
-    if (fnAddSubject) {
-        const sub = fnAddSubject(wsName);
-        return sub ? sub.id : null;
-    } else if (fnGetSubjects && fnSaveSubjects) {
-        const subjects = fnGetSubjects();
-        const existing = subjects.find(s => s && s.name === wsName);
-        if (existing) return existing.id;
-        const fnGenId = (typeof window !== 'undefined' && window.hayyizGenerateId) || (typeof global !== 'undefined' && global.hayyizGenerateId) || (typeof hayyizGenerateId === 'function' ? hayyizGenerateId : null);
-        const newSub = {
-            id: fnGenId ? fnGenId() : ('sub_' + Date.now()),
-            name: wsName,
-            created: Date.now(),
-            updated: Date.now(),
-            focusMinutes: 0,
-            sessions: 0
-        };
-        subjects.push(newSub);
-        fnSaveSubjects(subjects);
-        return newSub.id;
-    }
-    return null;
-}
-
-function hayyizSyncWorkspaceTasksToLocalTodos(optTasks, optWorkspaces, optUser, optTaskProgress) {
-    let user = optUser || null;
-    if (!user && typeof hayyizGetUser === 'function') {
-        try {
-            const userState = localStorage.getItem('hayyiz-user-session');
-            if (userState) user = JSON.parse(userState);
-        } catch (e) {}
-    }
-
-    const fnGetTodos = (typeof window !== 'undefined' && window.hayyizGetTodos) || (typeof global !== 'undefined' && global.hayyizGetTodos) || (typeof hayyizGetTodos === 'function' ? hayyizGetTodos : null);
-    const fnSaveTodos = (typeof window !== 'undefined' && window.hayyizSaveTodos) || (typeof global !== 'undefined' && global.hayyizSaveTodos) || (typeof hayyizSaveTodos === 'function' ? hayyizSaveTodos : null);
-
-    if (!fnGetTodos || !fnSaveTodos) return;
-
-    const rawTasksList = optTasks || [];
-    const workspacesList = optWorkspaces || [];
-    const progressCache = optTaskProgress || {};
-
-    const wsTasksList = (rawTasksList || []).filter(t => t && t.workspace_id !== null && t.workspace_id !== undefined);
-
-    let todos = fnGetTodos();
-    let changed = false;
-
-    const validWsTaskIds = new Set(wsTasksList.map(t => t.id));
-
-    const initialLength = todos.length;
-    todos = todos.filter(t => {
-        const wsTaskId = t.workspaceTaskId || t.workspace_task_id;
-        if (!wsTaskId) return true;
-        return validWsTaskIds.has(wsTaskId);
-    });
-
-    if (todos.length !== initialLength) {
-        changed = true;
-    }
-
-    wsTasksList.forEach(wsTask => {
-        const userProg = user ? (progressCache[wsTask.id] || []).find(p => p.user_id === user.id) : null;
-        const userDone = userProg ? Boolean(userProg.completed) : Boolean(wsTask.completed);
-        const subjectId = hayyizGetOrCreateSubjectForWorkspace(wsTask.workspace_id, workspacesList);
-
-        const existingIdx = todos.findIndex(t => (t.workspaceTaskId || t.workspace_task_id) === wsTask.id);
-
-        if (existingIdx >= 0) {
-            const existing = todos[existingIdx];
-            let itemChanged = false;
-
-            if (existing.text !== wsTask.title) { existing.text = wsTask.title; itemChanged = true; }
-            if (existing.completed !== userDone) {
-                existing.completed = userDone;
-                existing.status = userDone ? 'completed' : ((parseInt(existing.focusDone, 10) || 0) > 0 ? 'in-progress' : 'todo');
-                itemChanged = true;
-            }
-            if (wsTask.due_date && existing.date !== wsTask.due_date) { existing.date = wsTask.due_date; itemChanged = true; }
-            if (subjectId && existing.subjectId !== subjectId) { existing.subjectId = subjectId; itemChanged = true; }
-            if (!existing.workspaceTaskId) { existing.workspaceTaskId = wsTask.id; itemChanged = true; }
-            if (!existing.workspaceId && wsTask.workspace_id) { existing.workspaceId = wsTask.workspace_id; itemChanged = true; }
-
-            if (itemChanged) {
-                existing.updated = Date.now();
-                changed = true;
-            }
-        } else {
-            const fnGenId = (typeof window !== 'undefined' && window.hayyizGenerateId) || (typeof global !== 'undefined' && global.hayyizGenerateId) || (typeof hayyizGenerateId === 'function' ? hayyizGenerateId : null);
-            const newTodo = {
-                id: fnGenId ? fnGenId() : ('h_ws_' + wsTask.id),
-                text: wsTask.title,
-                taskType: 'assignment',
-                priority: 'medium',
-                date: wsTask.due_date || null,
-                minutes: null,
-                subjectId: subjectId,
-                completed: userDone,
-                status: userDone ? 'completed' : 'todo',
-                created: new Date(wsTask.created_at || Date.now()).getTime() || Date.now(),
-                updated: Date.now(),
-                focusDone: 0,
-                sessionsDone: 0,
-                workspaceTaskId: wsTask.id,
-                workspaceId: wsTask.workspace_id
-            };
-            todos.unshift(newTodo);
-            changed = true;
-        }
-    });
-
-    if (changed) {
-        fnSaveTodos(todos);
-    }
-}
+/* ---------- WORKSPACE TASKS AUTONOMOUS FETCH & SYNC ---------- */
 
 async function hayyizFetchAndSyncWorkspaceTasks() {
     if (typeof ensureSupabaseLoaded !== 'function') return;
@@ -3075,27 +2949,38 @@ async function hayyizFetchAndSyncWorkspaceTasks() {
         }
         if (!user) return;
 
-        const { data: wsData } = await client
+        const { data: wsData, error: wsError } = await client
             .from('workspaces')
             .select('id, name, description, created_by, created_at')
             .order('created_at', { ascending: false });
 
-        const workspacesList = wsData || [];
+        if (wsError || !wsData) {
+            console.error('Failed to fetch workspaces during sync:', wsError);
+            return;
+        }
 
-        const { data: taskData } = await client
+        const { data: taskData, error: taskError } = await client
             .from('tasks')
             .select('id, creator_id, workspace_id, title, description, scope, completion_mode, due_date, completed, completed_at, created_at')
             .order('created_at', { ascending: false });
 
-        const tasksList = taskData || [];
+        if (taskError || !taskData) {
+            console.error('Failed to fetch workspace tasks during sync:', taskError);
+            return;
+        }
 
         let progressCache = {};
-        if (tasksList.length > 0) {
-            const taskIds = tasksList.map(t => t.id);
-            const { data: tp = [] } = await client
+        if (taskData.length > 0) {
+            const taskIds = taskData.map(t => t.id);
+            const { data: tp, error: tpError } = await client
                 .from('task_progress')
                 .select('task_id, user_id, completed, completed_at, updated_at')
                 .in('task_id', taskIds);
+
+            if (tpError) {
+                console.error('Failed to fetch task progress during sync:', tpError);
+                return;
+            }
 
             (tp || []).forEach(p => {
                 if (!progressCache[p.task_id]) progressCache[p.task_id] = [];
@@ -3103,7 +2988,11 @@ async function hayyizFetchAndSyncWorkspaceTasks() {
             });
         }
 
-        hayyizSyncWorkspaceTasksToLocalTodos(tasksList, workspacesList, user, progressCache);
+        const fnSync = (typeof hayyizSyncWorkspaceTasksToLocalTodos === 'function' ? hayyizSyncWorkspaceTasksToLocalTodos : null) || (typeof window !== 'undefined' && window.syncWorkspaceTasksToLocalTodos) || (typeof global !== 'undefined' && global.syncWorkspaceTasksToLocalTodos);
+
+        if (fnSync) {
+            fnSync(taskData, wsData, user, progressCache);
+        }
     } catch (e) {
         console.error('Error fetching/syncing workspace tasks:', e);
     }
