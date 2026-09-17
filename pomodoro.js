@@ -115,8 +115,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========== Context Management ==========
     function initContextFromParamsAndStorage() {
         const urlParams = new URLSearchParams(window.location.search);
+        const subjectIdFromUrl = urlParams.get('subjectId');
+        const taskIdFromUrl = urlParams.get('taskId');
         const taskFromUrl = urlParams.get('task');
         const eventFromUrl = urlParams.get('event');
+
+        const wsTaskIdFromUrl = urlParams.get('workspace_task_id') || urlParams.get('workspaceTaskId');
+        const wsIdFromUrl = urlParams.get('workspace_id') || urlParams.get('workspaceId');
 
         const savedTaskName = localStorage.getItem('hayyiz-current-task');
         const savedTaskId = localStorage.getItem('hayyiz-current-task-id');
@@ -125,29 +130,75 @@ document.addEventListener('DOMContentLoaded', () => {
         let eventObj = null;
         try { eventObj = savedEventRaw ? JSON.parse(savedEventRaw) : null; } catch (e) {}
 
-        if (taskFromUrl || savedTaskName) {
-            const title = taskFromUrl || savedTaskName;
-            let taskId = savedTaskId || null;
+        if (subjectIdFromUrl) {
+            let matchedSub = null;
+            if (typeof hayyizGetSubjectById === 'function') {
+                matchedSub = hayyizGetSubjectById(subjectIdFromUrl);
+            }
+            if (!matchedSub && typeof hayyizGetSubjects === 'function') {
+                matchedSub = hayyizGetSubjects().find(s => s && String(s.id) === String(subjectIdFromUrl));
+            }
+            if (matchedSub) {
+                state.context = {
+                    type: 'free',
+                    id: null,
+                    title: matchedSub.name,
+                    subjectId: matchedSub.id
+                };
+                updateContextUI();
+                return;
+            }
+        }
+
+        if (taskIdFromUrl || taskFromUrl || savedTaskId || savedTaskName) {
+            const searchId = taskIdFromUrl || savedTaskId;
+            const searchTitle = taskFromUrl || savedTaskName;
+            let foundTask = null;
             let subjectId = null;
 
-            // Try to find subjectId from todo items
             if (typeof hayyizGetTodos === 'function') {
                 const todos = hayyizGetTodos();
-                const found = todos.find(t => t.text === title || (taskId && t.id === taskId));
-                if (found) {
-                    if (!taskId) taskId = found.id;
-                    subjectId = found.subjectId || null;
+                if (searchId) {
+                    foundTask = todos.find(t => t && String(t.id) === String(searchId));
+                }
+                if (!foundTask && searchTitle) {
+                    foundTask = todos.find(t => t && t.text === searchTitle);
                 }
             }
+
+            const title = foundTask ? foundTask.text : (searchTitle || 'مهمة دراسية');
+            const taskId = foundTask ? foundTask.id : (searchId || null);
+            subjectId = foundTask ? (foundTask.subjectId || null) : null;
+
+            const finalWsTaskId = wsTaskIdFromUrl || (foundTask ? (foundTask.workspaceTaskId || foundTask.workspace_task_id) : null);
+            const finalWsId = wsIdFromUrl || (foundTask ? (foundTask.workspaceId || foundTask.workspace_id) : null);
 
             state.context = {
                 type: 'task',
                 id: taskId,
                 title: title,
-                subjectId: subjectId
+                subjectId: subjectId,
+                workspaceTaskId: finalWsTaskId,
+                workspaceId: finalWsId
             };
             localStorage.setItem('hayyiz-current-task', title);
             if (taskId) localStorage.setItem('hayyiz-current-task-id', taskId);
+
+            if (foundTask) {
+                const workMin = workInput ? (parseInt(workInput.value, 10) || 25) : 25;
+                const totalMinutes = foundTask.minutes ? parseInt(foundTask.minutes, 10) : null;
+                const plan = {
+                    text: foundTask.text,
+                    id: foundTask.id,
+                    index: todos.findIndex(t => t && t.id === foundTask.id),
+                    subjectId: foundTask.subjectId || null,
+                    totalMinutes: totalMinutes && totalMinutes > 0 ? totalMinutes : null,
+                    focusDone: foundTask.focusDone ? parseInt(foundTask.focusDone, 10) || 0 : 0,
+                    sessionsDone: foundTask.sessionsDone ? parseInt(foundTask.sessionsDone, 10) || 0 : 0,
+                    sessionsNeeded: totalMinutes && totalMinutes > 0 ? Math.ceil(totalMinutes / workMin) : null
+                };
+                localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
+            }
         } else if (eventFromUrl || (eventObj && eventObj.name)) {
             const title = eventFromUrl || eventObj.name;
             state.context = {
@@ -180,6 +231,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 nameEl.textContent = state.context.title;
             } else if (state.context.type === 'event') {
                 nameEl.textContent = `استعداد: ${state.context.title}`;
+            } else if (state.context.subjectId) {
+                nameEl.textContent = `تركيز مادة: ${state.context.title}`;
             } else {
                 nameEl.textContent = 'جلسة تركيز حرة';
             }
@@ -200,6 +253,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else if (state.context.type === 'event') {
                 metaEl.textContent = `مرتبط بحدث التقويم · ${workMin} دقيقة`;
+            } else if (state.context.subjectId) {
+                metaEl.textContent = `مرتبط بمادة ${state.context.title} · ${workMin} دقيقة`;
             } else {
                 metaEl.textContent = `بدون مهمة محددة · ${workMin} دقيقة`;
             }
@@ -720,7 +775,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ========== Completion & Workflow Flow ==========
-    function handleTimerCompletion(wasAway) {
+    async function handleTimerCompletion(wasAway) {
         playNotificationSound();
 
         if (state.mode === 'focus') {
@@ -759,6 +814,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     contextTitle: state.context.title,
                     subjectId: state.context.subjectId
                 });
+            }
+
+            // Log focus session to Supabase if linked to a workspace task
+            const wsTaskIdToLog = state.context.workspaceTaskId || (loadTaskSession() && loadTaskSession().workspaceTaskId);
+            const wsIdToLog = state.context.workspaceId || (loadTaskSession() && loadTaskSession().workspaceId);
+
+            if (wsTaskIdToLog && typeof ensureSupabaseLoaded === 'function') {
+                try {
+                    const client = await ensureSupabaseLoaded();
+                    if (client) {
+                        const { error } = await client.from('focus_sessions').insert({
+                            task_id: wsTaskIdToLog,
+                            workspace_id: wsIdToLog || null,
+                            duration_seconds: workMin * 60
+                        });
+                        if (error) console.error('Failed to log workspace focus session to Supabase:', error);
+                    }
+                } catch (e) {
+                    console.error('Error logging workspace focus session:', e);
+                }
             }
 
             // Apply focus to Task / Subject if connected
@@ -1022,6 +1097,13 @@ document.addEventListener('DOMContentLoaded', () => {
     initContextFromParamsAndStorage();
     loadState();
 
+    if (typeof global !== 'undefined') {
+        global.initContextFromParamsAndStorage = initContextFromParamsAndStorage;
+        global.handleTimerCompletion = handleTimerCompletion;
+        global.getState = () => state;
+        global.setState = (newState) => { state = Object.assign(state, newState); };
+    }
+
     if (typeof hayyizRegisterSyncCallback === 'function') {
         hayyizRegisterSyncCallback('pomodoro-prefs', (prefs) => {
             if (prefs && typeof prefs === 'object') {
@@ -1042,3 +1124,12 @@ document.addEventListener('DOMContentLoaded', () => {
         initAuthListener();
     }
 });
+
+if (typeof module !== 'undefined' && module.exports) {
+    try {
+        module.exports = {
+            initContextFromParamsAndStorage: typeof initContextFromParamsAndStorage !== 'undefined' ? initContextFromParamsAndStorage : null,
+            handleTimerCompletion: typeof handleTimerCompletion !== 'undefined' ? handleTimerCompletion : null
+        };
+    } catch (e) {}
+}

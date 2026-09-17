@@ -56,6 +56,21 @@
         if (typeof initAuthListener === 'function') {
             initAuthListener();
         }
+
+        // قراءة المعاملات من الرابط للفتح المباشر لخطة عدة أيام
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const planTargetId = urlParams.get('planTargetId');
+            const targetDate = urlParams.get('targetDate');
+            const subjectId = urlParams.get('subjectId');
+            if (planTargetId) {
+                showMultiDayPlanUI({
+                    targetId: planTargetId,
+                    targetDate: targetDate || '',
+                    subjectId: subjectId || null
+                });
+            }
+        } catch (e) {}
     }
 
     /* =========================================================
@@ -261,10 +276,34 @@
         }
     }
 
+    function updateSubjectFieldVisibility(selectedSubjectId) {
+        const typeInput = document.getElementById('event-type-input');
+        const subjectGroup = document.getElementById('event-subject-group');
+        const subjectSelect = document.getElementById('event-subject-input');
+
+        if (!typeInput || !subjectGroup) return;
+
+        const isExam = typeInput.value === 'exam';
+        subjectGroup.style.display = isExam ? 'block' : 'none';
+
+        if (isExam && subjectSelect) {
+            if (typeof hayyizFillSubjectSelect === 'function') {
+                hayyizFillSubjectSelect(subjectSelect, selectedSubjectId || subjectSelect.value || '');
+            }
+        }
+    }
+
     function bindEventFormControls() {
         const form = document.getElementById('add-event-form');
         const cancelBtn = document.getElementById('cancel-event-form-btn');
         const formCard = document.getElementById('event-form-card');
+        const typeInput = document.getElementById('event-type-input');
+
+        if (typeInput) {
+            typeInput.addEventListener('change', () => {
+                updateSubjectFieldVisibility();
+            });
+        }
 
         if (form) {
             form.addEventListener('submit', (e) => {
@@ -295,6 +334,7 @@
                     if (dateInput && !dateInput.value) {
                         dateInput.value = getTodayLocalStr();
                     }
+                    updateSubjectFieldVisibility();
                     if (dateInput) dateInput.focus();
                 }
             });
@@ -307,16 +347,20 @@
         const storageKeyInput = document.getElementById('event-storage-key');
         const formTitle = document.getElementById('form-card-title');
         const saveBtnText = document.getElementById('save-btn-text');
+        const subjectSelect = document.getElementById('event-subject-input');
 
         if (form) form.reset();
         if (editIdInput) editIdInput.value = '';
         if (storageKeyInput) storageKeyInput.value = '';
+        if (subjectSelect) subjectSelect.value = '';
 
         if (formTitle) formTitle.innerHTML = '<i class="fa-solid fa-calendar-plus"></i> إضافة موعد جديد إلى خطك الزمني';
         if (saveBtnText) saveBtnText.textContent = 'إضافة إلى الخط الزمني';
 
         const dateInput = document.getElementById('event-date-input');
         if (dateInput) dateInput.value = getTodayLocalStr();
+
+        updateSubjectFieldVisibility('');
     }
 
     function editEvent(id, storageKey) {
@@ -348,6 +392,8 @@
         if (formTitle) formTitle.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> تعديل الموعد في خطك الزمني';
         if (saveBtnText) saveBtnText.textContent = 'حفظ التغييرات';
 
+        updateSubjectFieldVisibility(target.subjectId || '');
+
         if (formCard) {
             formCard.style.display = 'block';
             formCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -362,6 +408,7 @@
         const typeInput = document.getElementById('event-type-input');
         const dateInput = document.getElementById('event-date-input');
         const timeInput = document.getElementById('event-time-input');
+        const subjectInput = document.getElementById('event-subject-input');
 
         if (!nameInput || !dateInput) return;
 
@@ -374,8 +421,28 @@
 
         const targetKey = (type === 'exam') ? STORAGE_KEY_EXAMS : STORAGE_KEY_EVENTS;
 
+        let subjectId = null;
+        let subjectName = null;
+        if (type === 'exam' && subjectInput && subjectInput.value) {
+            subjectId = subjectInput.value;
+            if (typeof hayyizGetSubjectName === 'function') {
+                subjectName = hayyizGetSubjectName(subjectId) || null;
+            }
+        }
+
         const nowMs = Date.now();
-        const eventObj = { id: editId || ((type === 'exam' ? 'ex_' : 'ev_') + nowMs.toString(36) + Math.random().toString(36).slice(2, 6)), name, type, date, time, updated: nowMs };
+        const eventObj = {
+            id: editId || ((type === 'exam' ? 'ex_' : 'ev_') + nowMs.toString(36) + Math.random().toString(36).slice(2, 6)),
+            name,
+            type,
+            date,
+            time,
+            subjectId: type === 'exam' ? subjectId : null,
+            updated: nowMs
+        };
+        if (type === 'exam' && subjectName) {
+            eventObj.subject = subjectName;
+        }
 
         if (editId) {
             if (oldStorageKey && oldStorageKey !== targetKey) {
@@ -578,7 +645,7 @@
                     <h3 class="card-title">${escapeHtml(ev.name)}</h3>
                     <span class="card-subtitle"><i class="fa-regular fa-calendar"></i> ${dateDisplay}</span>
                 </div>
-                <span class="badge ${badgeInfo.class}">${badgeInfo.text}</span>
+                <span class="badge ${badgeInfo.class}"></span>
             </div>
 
             ${hasConflict ? `
@@ -594,6 +661,9 @@
 
             <div class="card-action-bar">
                 <div class="card-quick-links">
+                    <button type="button" class="action-btn-mini btn-multi-plan" data-id="${ev.id}" data-name="${escapeHtml(ev.name)}" data-date="${ev.date}" data-type="${ev.type}" data-subject="${ev.subjectId || ''}" title="إنشاء/عرض خطة متعددة الأيام">
+                        <i class="fa-solid fa-calendar-week"></i> خطة عدة أيام
+                    </button>
                     <button type="button" class="action-btn-mini btn-convert-todo" data-id="${ev.id}" data-key="${ev._storageKey}" title="تحويل إلى مهمة في قائمة المهام">
                         <i class="fa-solid fa-list-check"></i> تحويل لمهمة
                     </button>
@@ -615,11 +685,51 @@
             </div>
         `;
 
+        // Populating badge content safely using DOM APIs (No innerHTML string interpolation for subject links)
+        const badgeSpan = card.querySelector('.badge');
+        if (badgeSpan) {
+            badgeSpan.textContent = '';
+            if (ev.type === 'exam' && ev.subjectId) {
+                const subName = typeof hayyizGetSubjectName === 'function' ? hayyizGetSubjectName(ev.subjectId) : (ev.subject || '');
+                if (subName) {
+                    const subLink = document.createElement('a');
+                    subLink.href = `subject.html?id=${encodeURIComponent(ev.subjectId)}`;
+                    subLink.style.cssText = 'color: inherit; text-decoration: underline;';
+                    subLink.textContent = subName;
+                    badgeSpan.appendChild(subLink);
+                    badgeSpan.appendChild(document.createTextNode(' · '));
+                }
+            }
+            const iconI = document.createElement('i');
+            if (ev.type === 'exam') iconI.className = 'fa-solid fa-pen-ruler';
+            else if (ev.type === 'assignment') iconI.className = 'fa-solid fa-file-pen';
+            else if (ev.type === 'personal') iconI.className = 'fa-solid fa-user-clock';
+            else iconI.className = 'fa-solid fa-bookmark';
+
+            const typeText = ev.type === 'exam' ? ' اختبار' : (ev.type === 'assignment' ? ' واجب/مشروع' : (ev.type === 'personal' ? ' موعد شخصي' : ' حدث مخصص'));
+
+            badgeSpan.appendChild(iconI);
+            badgeSpan.appendChild(document.createTextNode(typeText));
+        }
+
         // ربط التفاعلات
         const editBtn = card.querySelector('.btn-edit-event');
         const deleteBtn = card.querySelector('.btn-delete-event');
         const todoBtn = card.querySelector('.btn-convert-todo');
         const pomoBtn = card.querySelector('.btn-start-pomo');
+        const multiPlanBtn = card.querySelector('.btn-multi-plan');
+
+        if (multiPlanBtn) {
+            multiPlanBtn.addEventListener('click', () => {
+                showMultiDayPlanUI({
+                    targetId: ev.id,
+                    targetName: ev.name,
+                    targetDate: ev.date,
+                    targetType: ev.type,
+                    subjectId: ev.subjectId || null
+                });
+            });
+        }
 
         if (editBtn) {
             editBtn.addEventListener('click', () => editEvent(ev.id, ev._storageKey));
@@ -762,6 +872,8 @@
                             date: item.date,
                             time: item.time || '',
                             type: item.type || 'exam',
+                            subjectId: item.subjectId || null,
+                            subject: item.subject || null,
                             _storageKey: STORAGE_KEY_EXAMS
                         });
                     }
@@ -914,6 +1026,313 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
+    }
+
+    function showMultiDayPlanUI(config) {
+        if (!config || !config.targetId) return;
+
+        const sec = document.getElementById('multi-day-plan-section');
+        const container = document.getElementById('multi-day-plan-content');
+        const capacitySelect = document.getElementById('multi-plan-capacity-input');
+        const capacityCustom = document.getElementById('multi-plan-capacity-custom');
+        if (!sec || !container) return;
+
+        const savedCap = localStorage.getItem('hayyiz-pref-daily-capacity') || '120';
+        if (capacitySelect) {
+            if (['60', '120', '180', '240'].includes(String(savedCap))) {
+                capacitySelect.value = String(savedCap);
+                if (capacityCustom) capacityCustom.style.display = 'none';
+            } else {
+                capacitySelect.value = 'custom';
+                if (capacityCustom) {
+                    capacityCustom.value = String(savedCap);
+                    capacityCustom.style.display = 'inline-block';
+                }
+            }
+        }
+
+        let plan = typeof hayyizGetMultiDayPlan === 'function' ? hayyizGetMultiDayPlan(config.targetId) : null;
+        if (!plan || (config.targetDate && plan.targetDate !== config.targetDate)) {
+            if (typeof hayyizComputeMultiDayPlan === 'function') {
+                plan = hayyizComputeMultiDayPlan(config);
+            }
+        }
+
+        if (!plan) return;
+
+        sec.style.display = 'block';
+        sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+        renderMultiDayPlanCards(container, plan, config);
+
+        const getSelectedCapacity = () => {
+            if (!capacitySelect) return 120;
+            if (capacitySelect.value === 'custom') {
+                const val = capacityCustom ? parseInt(capacityCustom.value, 10) : 120;
+                return (val && val > 0) ? val : 120;
+            }
+            return parseInt(capacitySelect.value, 10) || 120;
+        };
+
+        const updatePlanForCapacity = () => {
+            if (typeof hayyizComputeMultiDayPlan === 'function') {
+                const capVal = getSelectedCapacity();
+                const fresh = hayyizComputeMultiDayPlan(Object.assign({}, config, { dailyCapacityMinutes: capVal }));
+                renderMultiDayPlanCards(container, fresh, config);
+            }
+        };
+
+        const closeBtn = document.getElementById('close-multi-plan-btn');
+        if (closeBtn) {
+            closeBtn.onclick = () => { sec.style.display = 'none'; };
+        }
+
+        const reevalBtn = document.getElementById('reevaluate-multi-plan-btn');
+        if (reevalBtn) {
+            reevalBtn.onclick = updatePlanForCapacity;
+        }
+
+        if (capacitySelect) {
+            capacitySelect.onchange = () => {
+                if (capacitySelect.value === 'custom') {
+                    if (capacityCustom) {
+                        capacityCustom.style.display = 'inline-block';
+                        capacityCustom.focus();
+                    }
+                } else {
+                    if (capacityCustom) capacityCustom.style.display = 'none';
+                    updatePlanForCapacity();
+                }
+            };
+        }
+
+        if (capacityCustom) {
+            capacityCustom.onchange = updatePlanForCapacity;
+        }
+    }
+
+    function renderMultiDayPlanCards(container, plan, config) {
+        container.innerHTML = '';
+
+        const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
+        const calcPomoSessions = (min) => {
+            if (typeof hayyizCalculateFocusSessions === 'function') {
+                return hayyizCalculateFocusSessions(min, workMin);
+            }
+            if (!min || min <= 0) return 0;
+            return Math.ceil(min / workMin);
+        };
+        const formatPomoSessions = (min) => {
+            if (typeof hayyizFormatFocusSessions === 'function') {
+                return hayyizFormatFocusSessions(min, workMin);
+            }
+            const count = calcPomoSessions(min);
+            if (count === 0) return '0 جلسات';
+            if (count === 1) return 'جلسة واحدة';
+            if (count === 2) return 'جلستان';
+            if (count >= 3 && count <= 10) return `${count} جلسات`;
+            return `${count} جلسة`;
+        };
+
+        const TASK_TYPE_LABELS = {
+            assignment: 'واجب',
+            exam: 'اختبار',
+            review: 'مراجعة',
+            practice: 'حل أسئلة',
+            memorization: 'حفظ',
+            project: 'مشروع',
+            research: 'بحث',
+            reading: 'قراءة',
+            summary: 'تلخيص',
+            general: 'عام'
+        };
+
+        const metaBar = document.createElement('div');
+        metaBar.style.cssText = 'display: flex; gap: 1rem; flex-wrap: wrap; justify-content: space-between; align-items: center; background: var(--bg); padding: 0.85rem 1rem; border-radius: var(--radius-sm, 10px); margin-bottom: 1rem; border: 1px solid var(--border);';
+
+        const daysText = plan.daysRemaining === 0 ? 'اليوم المستحق!' : (plan.daysRemaining === 1 ? 'متبقي يوم واحد' : `متبقي ${plan.daysRemaining} أيام`);
+        const plannedMin = plan.totalPlannedMinutes || 0;
+        const unallocatedMin = plan.totalUnallocatedMinutes || 0;
+        const totalReqSessions = calcPomoSessions(plan.totalRequiredMinutes);
+
+        metaBar.innerHTML = `
+            <div>
+                <strong style="font-size: 1.05rem; color: var(--text);">${escapeHtml(plan.targetName)}</strong>
+                <span style="font-size: 0.85rem; color: var(--text-muted); display: block;">${formatDateArabic(plan.targetDate)} · ${daysText} · القدرة: ${plan.dailyCapacityMinutes} د/يوم (جلسة بومودورو: ${workMin}د)</span>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <span class="badge ${plan.isCapacityExceeded ? 'badge-assignment' : 'badge-exam'}">${escapeHtml(plan.statusLabel)}</span>
+                <span class="status-item-sub">المطلوب: ${plan.totalRequiredMinutes}د (≈ ${totalReqSessions} جلسات) | الموزع: ${plannedMin}د ${unallocatedMin > 0 ? `| العجز غير الموزع: ${unallocatedMin}د` : ''}</span>
+            </div>
+        `;
+        container.appendChild(metaBar);
+
+        // Actionable deficit notice when capacity is exceeded
+        if (plan.isCapacityExceeded && unallocatedMin > 0) {
+            const deficitSessions = calcPomoSessions(unallocatedMin);
+
+            let firstOpenTaskId = null;
+            if (plan.schedule && plan.schedule.length > 0) {
+                for (const dayItem of plan.schedule) {
+                    if (dayItem.tasks && dayItem.tasks.length > 0) {
+                        const found = dayItem.tasks.find(t => t && t.taskId && !t.completed);
+                        if (found) {
+                            firstOpenTaskId = found.taskId;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!firstOpenTaskId && typeof hayyizGetTodos === 'function') {
+                const todos = hayyizGetTodos();
+                const openLinked = todos.find(t => t && !t.completed && (
+                    (t.eventId && String(t.eventId) === String(config.targetId)) ||
+                    (t.goalId && String(t.goalId) === String(config.targetId)) ||
+                    (config.subjectId && t.subjectId && String(t.subjectId) === String(config.subjectId))
+                ));
+                if (openLinked) {
+                    firstOpenTaskId = openLinked.id;
+                }
+            }
+
+            const pomoUrl = firstOpenTaskId
+                ? `pomodoro.html?taskId=${encodeURIComponent(firstOpenTaskId)}`
+                : 'pomodoro.html';
+
+            const deficitCard = document.createElement('div');
+            deficitCard.className = 'multi-plan-deficit-notice';
+            deficitCard.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; color: var(--danger, #ef4444);">
+                    <i class="fa-solid fa-triangle-exclamation"></i> لا تكفي الأيام المتاحة لإنجاز جميع المهام ضمن قدرتك اليومية (${plan.dailyCapacityMinutes} د/يوم)
+                </div>
+                <div style="font-size: 0.88rem; color: var(--text);">
+                    المتبقي غير الموزع: <strong>${unallocatedMin} دقيقة</strong> (تحتاج تقريبًا <strong>${formatPomoSessions(unallocatedMin)}</strong> إضافة لإنهاء جميع المهام).
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted);">
+                    ننصح باستخدام مؤقت بومودورو لإنجاز جلسات التركيز المطلوبة مباشرة دون تراكم.
+                </div>
+                <div>
+                    <a href="${pomoUrl}" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem; margin-top: 0.2rem;">
+                        <i class="fa-solid fa-play"></i> ابدأ جلسة التركيز الآن
+                    </a>
+                </div>
+            `;
+            container.appendChild(deficitCard);
+        }
+
+        if (!plan.schedule || plan.schedule.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.className = 'empty-state';
+            emptyMsg.style.padding = '1.5rem';
+            emptyMsg.innerHTML = `
+                <i class="fa-solid fa-clipboard-list"></i>
+                <h3>لا توجد مهام دراسية مرتبطة بهذا الهدف حالياً</h3>
+                <p>أضف مهام جديدة وحدد مادتها أو اربطها بهذا الموعد ليقوم النظام بتوزيع الحمل عبر الأيام آلياً.</p>
+                <a href="todo.html" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus"></i> إضافة مهام للمادة</a>
+            `;
+            container.appendChild(emptyMsg);
+            return;
+        }
+
+        const grid = document.createElement('div');
+        grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.85rem;';
+
+        plan.schedule.forEach((dayItem) => {
+            const card = document.createElement('div');
+            card.style.cssText = 'background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm, 12px); padding: 0.85rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.6rem;';
+            if (dayItem.isToday) card.style.borderColor = 'var(--primary, #4f46e5)';
+
+            const topRow = document.createElement('div');
+            topRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem;';
+
+            const dateLabel = document.createElement('strong');
+            dateLabel.style.fontSize = '0.9rem';
+            dateLabel.style.color = 'var(--text)';
+            dateLabel.textContent = (dayItem.isToday ? 'اليوم · ' : '') + formatDateArabic(dayItem.date);
+
+            const statusBadge = document.createElement('span');
+            statusBadge.className = dayItem.isBufferDay ? 'badge badge-personal' : 'badge badge-assignment';
+            statusBadge.style.fontSize = '0.75rem';
+            statusBadge.textContent = dayItem.dayStatusLabel;
+
+            topRow.appendChild(dateLabel);
+            topRow.appendChild(statusBadge);
+            card.appendChild(topRow);
+
+            const taskList = document.createElement('div');
+            taskList.style.cssText = 'display: flex; flex-direction: column; gap: 0.4rem; flex: 1;';
+
+            if (dayItem.tasks.length === 0) {
+                const freeText = document.createElement('span');
+                freeText.style.cssText = 'font-size: 0.82rem; color: var(--text-muted); font-style: italic;';
+                freeText.textContent = dayItem.isBufferDay ? 'مخصص للمراجعة النهائية والتأهب' : 'يوم راحة أو بدون مهام جديدة';
+                taskList.appendChild(freeText);
+            } else {
+                dayItem.tasks.forEach((t) => {
+                    const taskRow = document.createElement('div');
+                    taskRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; background: var(--bg-card); padding: 0.35rem 0.5rem; border-radius: 6px; border: 1px solid var(--border);';
+
+                    const typeBadgeText = TASK_TYPE_LABELS[t.taskType] || TASK_TYPE_LABELS.general;
+                    const sessStr = formatPomoSessions(t.remainingMinutes);
+
+                    const tLeft = document.createElement('div');
+                    tLeft.style.cssText = 'display: flex; align-items: center; gap: 0.35rem; overflow: hidden;';
+
+                    const tBadge = document.createElement('span');
+                    tBadge.className = 'badge badge-custom';
+                    tBadge.style.cssText = 'font-size: 0.7rem; padding: 0.1rem 0.35rem; flex-shrink: 0;';
+                    tBadge.textContent = typeBadgeText;
+
+                    const tTitle = document.createElement('span');
+                    tTitle.style.cssText = 'font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;';
+                    tTitle.textContent = t.text;
+
+                    tLeft.appendChild(tBadge);
+                    tLeft.appendChild(tTitle);
+
+                    const tMin = document.createElement('span');
+                    tMin.style.cssText = 'color: var(--text-muted); font-size: 0.75rem; flex-shrink: 0;';
+                    tMin.textContent = `${t.remainingMinutes}د · ${sessStr}`;
+
+                    taskRow.appendChild(tLeft);
+                    taskRow.appendChild(tMin);
+                    taskList.appendChild(taskRow);
+                });
+            }
+            card.appendChild(taskList);
+
+            const footerRow = document.createElement('div');
+            footerRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--text-muted); border-top: 1px dashed var(--border); padding-top: 0.4rem;';
+
+            const daySessionsStr = formatPomoSessions(dayItem.plannedMinutes);
+            const loadText = document.createElement('span');
+            loadText.textContent = `الحمل: ${dayItem.plannedMinutes} دقيقة (≈ ${daySessionsStr})`;
+
+            footerRow.appendChild(loadText);
+            if (dayItem.isToday && dayItem.tasks.length > 0) {
+                const focusBtn = document.createElement('a');
+                focusBtn.href = `pomodoro.html?taskId=${encodeURIComponent(dayItem.tasks[0].taskId)}`;
+                focusBtn.className = 'action-btn-mini';
+                focusBtn.style.cssText = 'padding: 0.2rem 0.5rem; font-size: 0.75rem;';
+                focusBtn.innerHTML = '<i class="fa-solid fa-play"></i> تركيز اليوم';
+                footerRow.appendChild(focusBtn);
+            }
+            card.appendChild(footerRow);
+
+            grid.appendChild(card);
+        });
+
+        container.appendChild(grid);
+    }
+
+    if (typeof window !== 'undefined') {
+        window._hayyizTestCalendarForm = {
+            saveEventFromForm,
+            editEvent,
+            resetEventForm,
+            updateSubjectFieldVisibility,
+            showMultiDayPlanUI
+        };
     }
 
 })();

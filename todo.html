@@ -59,11 +59,6 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
     <!-- ملف التنسيقات -->
     <link rel="stylesheet" href="style.css">
-    <!-- الأيقونات (Favicon) -->
-    <link rel="icon" href="favicon.ico">
-    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-    <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <!-- التحقق من جوجل -->
     <meta name="google-site-verification" content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw">
     <!-- Google Analytics -->
@@ -110,7 +105,12 @@
   ]
 }
 </script>
-<link rel="manifest" href="manifest.webmanifest">
+    <!-- الأيقونات (Favicon) -->
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body class="theme-light">
 <header class="navbar">
@@ -129,6 +129,8 @@
                 <div class="nav-dropdown-menu">
                     <a href="pomodoro.html" class="dropdown-item"><i class="fa-solid fa-clock" aria-hidden="true"></i> المؤقت</a>
                     <a href="todo.html" class="dropdown-item active"><i class="fa-solid fa-list-check" aria-hidden="true"></i> المهام</a>
+                    <a href="workspaces.html" class="dropdown-item"><i class="fa-solid fa-people-group" aria-hidden="true"></i> المساحات المتزامنة</a>
+                    <a href="subject.html" class="dropdown-item"><i class="fa-solid fa-book" aria-hidden="true"></i> المواد</a>
                     <a href="gpa.html" class="dropdown-item"><i class="fa-solid fa-calculator" aria-hidden="true"></i> حاسبة المعدل</a>
                     <a href="notes.html" class="dropdown-item"><i class="fa-solid fa-note-sticky" aria-hidden="true"></i> الملاحظات</a>
                     <a href="habits.html" class="dropdown-item"><i class="fa-solid fa-fire" aria-hidden="true"></i> العادات</a>
@@ -180,8 +182,34 @@
                 </button>
             </div>
 
+            <!-- QUICK TASK TYPE SHORTCUTS -->
+            <div id="task-type-shortcuts" class="task-type-shortcuts" style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.75rem;" role="region" aria-label="اختصارات نوع المهمة السريعة">
+                <span style="font-size: 0.82rem; color: var(--text-muted); align-self: center; margin-left: 0.2rem;">النوع السريع:</span>
+                <button type="button" class="btn-type-shortcut active" data-type="assignment"><i class="fa-solid fa-pen-to-square"></i> واجب</button>
+                <button type="button" class="btn-type-shortcut" data-type="exam"><i class="fa-solid fa-graduation-cap"></i> اختبار</button>
+                <button type="button" class="btn-type-shortcut" data-type="review"><i class="fa-solid fa-rotate"></i> مراجعة</button>
+                <button type="button" class="btn-type-shortcut" data-type="practice"><i class="fa-solid fa-pencil"></i> حل أسئلة</button>
+                <button type="button" class="btn-type-shortcut" data-type="memorization"><i class="fa-solid fa-brain"></i> حفظ</button>
+                <button type="button" class="btn-type-shortcut" data-type="project"><i class="fa-solid fa-diagram-project"></i> مشروع</button>
+            </div>
+
             <!-- COLLAPSIBLE DETAILED OPTIONS -->
             <div id="todo-extra-options" class="todo-options hidden" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--border);">
+                <div class="option-field">
+                    <label for="todo-task-type">نوع المهمة</label>
+                    <select id="todo-task-type">
+                        <option value="assignment" selected>واجب</option>
+                        <option value="exam">اختبار</option>
+                        <option value="review">مراجعة</option>
+                        <option value="practice">حل أسئلة</option>
+                        <option value="memorization">حفظ</option>
+                        <option value="project">مشروع</option>
+                        <option value="research">بحث</option>
+                        <option value="reading">قراءة</option>
+                        <option value="summary">تلخيص</option>
+                        <option value="general">عام</option>
+                    </select>
+                </div>
                 <div class="option-field">
                     <label for="todo-priority">الأولوية</label>
                     <select id="todo-priority">
@@ -191,7 +219,7 @@
                     </select>
                 </div>
                 <div class="option-field">
-                    <label for="todo-subject">المادة الدراسية</label>
+                    <label for="todo-subject">المادة الدراسية (<a href="subject.html" target="_blank" style="color: var(--primary); text-decoration: underline;">المواد</a>)</label>
                     <select id="todo-subject">
                         <option value="">بدون مادة</option>
                     </select>
@@ -279,6 +307,21 @@
                 </div>
 
                 <div class="todo-options" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.85rem;">
+                    <div class="option-field">
+                        <label for="modal-input-task-type">نوع المهمة</label>
+                        <select id="modal-input-task-type">
+                            <option value="assignment">واجب</option>
+                            <option value="exam">اختبار</option>
+                            <option value="review">مراجعة</option>
+                            <option value="practice">حل أسئلة</option>
+                            <option value="memorization">حفظ</option>
+                            <option value="project">مشروع</option>
+                            <option value="research">بحث</option>
+                            <option value="reading">قراءة</option>
+                            <option value="summary">تلخيص</option>
+                            <option value="general">عام</option>
+                        </select>
+                    </div>
                     <div class="option-field">
                         <label for="modal-input-priority">الأولوية</label>
                         <select id="modal-input-priority">

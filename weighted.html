@@ -51,7 +51,7 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="حاسبة النسبة الموزونة | حيز">
-    <meta name="twitter:description" content="احسب موزوونتك للقبول بالجامعات السعودية بسهولة وتخصيص كامل للأوزان.">
+    <meta name="twitter:description" content="احسب موزونتك للقبول بالجامعات السعودية بسهولة وتخصيص كامل للأوزان.">
     <meta name="twitter:image" content="https://hayyze.github.io/android-chrome-512x512.png">
 
     <link rel="canonical" href="https://hayyze.github.io/weighted.html">
@@ -61,11 +61,6 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
     <link rel="stylesheet" href="style.css">
 
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-    <link rel="manifest" href="manifest.webmanifest">
 
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S"></script>
     <script>
@@ -221,6 +216,12 @@
         {
           "@type": "ListItem",
           "position": 3,
+          "name": "حاسبات القبول الجامعي",
+          "item": "https://hayyze.github.io/university.html"
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
           "name": "حاسبة النسبة الموزونة",
           "item": "https://hayyze.github.io/weighted.html"
         }
@@ -234,23 +235,29 @@
       "mainEntity": [
         {
           "@type": "Question",
-          "name": "ما هي النسبة الموزونة للقبول الجامعي؟",
+          "name": "هل تختلف النسبة الموزونة بين جامعة وأخرى؟",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "هي درجة مرجحة تدمج بين معدل الثانوية العامة واختبار القدرات العامة واختبار التحصيلي بنسب تختلف باختلاف الجامعة والمجلس الأكاديمي والتخصص (علمي أم إنساني)."
+            "text": "نعم، تختلف أوزان القبول بحسب الجامعة والكلية والتخصص، وتوفر الحاسبة إمكانية تعديل هذه الأوزان وفق شروط الجهة المستهدفة."
           }
         },
         {
           "@type": "Question",
-          "name": "هل يمكن إضافة اختبارات إضافية كاختبار ستيب (STEP) في الحاسبة؟",
+          "name": "كيف أرفع نسبتي الموزونة إذا انخفضت درجتي في التحصيلي؟",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "نعم، تتيح حاسبة حيز ميزة إضافة اختيار/اختبار جديد مع تحديد نسبة التكافؤ المئوية الخاصة به بحسب متطلبات الكلية."
+            "text": "يمكنك استخدام الحاسبة لمقارنة أثر درجات مختلفة على النسبة الموزونة، بينما تعتمد نتيجة المفاضلة الفعلية على شروط الجهة أو البرنامج الذي تتقدم إليه."
           }
         }
       ]
     }
     </script>
+    <!-- الأيقونات (Favicon) -->
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body class="theme-light">
 <header class="navbar">
@@ -269,6 +276,8 @@
                 <div class="nav-dropdown-menu">
                     <a href="pomodoro.html" class="dropdown-item"><i class="fa-solid fa-clock" aria-hidden="true"></i> المؤقت</a>
                     <a href="todo.html" class="dropdown-item"><i class="fa-solid fa-list-check" aria-hidden="true"></i> المهام</a>
+                    <a href="workspaces.html" class="dropdown-item"><i class="fa-solid fa-people-group" aria-hidden="true"></i> المساحات المتزامنة</a>
+                    <a href="subject.html" class="dropdown-item"><i class="fa-solid fa-book" aria-hidden="true"></i> المواد</a>
                     <a href="gpa.html" class="dropdown-item active"><i class="fa-solid fa-calculator" aria-hidden="true"></i> حاسبة المعدل</a>
                     <a href="notes.html" class="dropdown-item"><i class="fa-solid fa-note-sticky" aria-hidden="true"></i> الملاحظات</a>
                     <a href="habits.html" class="dropdown-item"><i class="fa-solid fa-fire" aria-hidden="true"></i> العادات</a>
@@ -302,6 +311,8 @@
         <span style="margin: 0 0.4rem;">&gt;</span>
         <a href="gpa.html" style="color: var(--text-muted); text-decoration: none;">حاسبات المعدل</a>
         <span style="margin: 0 0.4rem;">&gt;</span>
+        <a href="university.html" style="color: var(--text-muted); text-decoration: none;">حاسبات القبول الجامعي</a>
+        <span style="margin: 0 0.4rem;">&gt;</span>
         <span style="color: var(--text); font-weight: 600;">حاسبة النسبة الموزونة</span>
     </nav>
 
@@ -314,9 +325,9 @@
 
         <div class="weighted-info">
             النسبة الموزونة هي المعيار الأساسي للقبول الجامعي في المملكة العربية السعودية.
-            أدخل درجاتك المكتسبة في الثانوية العامة، القدرات العامة، والتحصيلي، مع ضبط النسب المئوية وفق اشتراطات جامعتك.
+            أدخل درجاتك المكتسبة في الثانوية العامة، القدرات العامة، والتحصيلي، مع ضبط النسب المئوية التي تحددها جامعتك أو برنامجك المستهدف.
             <br>
-            إذا لم تكن على علم بمعدلك التراكمي النهائي، <a href="cumulative.html">احسبه أولاً عبر حاسبة التراكمي</a>.
+            يمكنك حساب درجات المواد بـ <a href="gpa.html">حاسبة المعدل الثانوي</a>، أو معالجة المعدل النهائي عبر <a href="cumulative.html">حاسبة المعدل التراكمي</a>.
         </div>
 
         <div class="weighted-section-title">
@@ -366,7 +377,7 @@
             <ul style="margin-right: 1.5rem; margin-bottom: 1rem;">
                 <li><strong>التخصصات العلمية والصحية والهندسية:</strong> 30% ثانوية + 30% قدرات + 40% تحصيلي (أو 40% ثانوية + 30% قدرات + 30% تحصيلي).</li>
                 <li><strong>التخصصات النظرية والإنسانية:</strong> 50% ثانوية + 50% قدرات (أو 40% ثانوية + 60% قدرات).</li>
-                <li><strong>مسارات المسابقة الكلية المتقدمة:</strong> قد تتضمن وزنًا لاختبارات اللغة كـ STEP أو المقابلات الشخصية.</li>
+                <li><strong>مسارات القبول المتقدمة:</strong> قد تطلب بعض البرامج الجامعية إدخال أوزان لاختبارات لغة كـ STEP أو المقابلات عند التخصيص.</li>
             </ul>
 
             <h3 style="margin-top: 1.5rem;">مثال حسابي للنسبة الموزونة</h3>
@@ -388,7 +399,7 @@
         <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
             <div class="faq-item" style="margin-bottom: 1.5rem;">
                 <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">هل تختلف النسبة الموزونة بين جامعة وأخرى؟</h3>
-                <p>نعم، يحدد كل مجلس جامعة النسب المخصصة للثانوية والقدرات والتحصيلي حسب الطاقة الاستيعابية وحاجة الكليات، وتوفر حاسبتنا حرية ضبط وتغيير هذه النسب بكل سهولة.</p>
+                <p>نعم، تختلف أوزان القبول بحسب الجامعة والكلية والتخصص، وتوفر الحاسبة إمكانية تعديل هذه الأوزان وفق شروط الجهة المستهدفة.</p>
             </div>
             <div class="faq-item" style="margin-bottom: 1.5rem;">
                 <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">كيف أرفع نسبتي الموزونة إذا انخفضت درجتي في التحصيلي؟</h3>
@@ -403,6 +414,10 @@
             <h2><i class="fa-solid fa-link" style="color:var(--primary);"></i> حاسبات مرحلية وموزونة ذات صلة</h2>
         </div>
         <div class="tools-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem;">
+            <a href="required-score.html" class="tool-card" style="padding: 1.25rem;">
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-bullseye"></i> حاسبة الدرجة المطلوبة</h3>
+                <p style="font-size: 0.85rem;">احسب الدرجة التي تحتاجها في القدرات أو التحصيلي للوصول لموزونتك المستهدفة.</p>
+            </a>
             <a href="cumulative.html" class="tool-card" style="padding: 1.25rem;">
                 <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-chart-line"></i> حاسبة المعدل التراكمي</h3>
                 <p style="font-size: 0.85rem;">احسب المعدل التراكمي المدرسي قبل إدخاله في النسبة الموزونة.</p>
@@ -412,8 +427,8 @@
                 <p style="font-size: 0.85rem;">حساب معدل الصف الثالث الثانوي.</p>
             </a>
             <a href="gpa.html" class="tool-card" style="padding: 1.25rem;">
-                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-calculator"></i> مركز حاسبات المعدل</h3>
-                <p style="font-size: 0.85rem;">الوصول إلى كافة أدوات حساب المعدل في حيز.</p>
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-calculator"></i> حاسبة المعدل الثانوي</h3>
+                <p style="font-size: 0.85rem;">احسب معدلك الفصلي ومواد مرحلة الثانوية العامة.</p>
             </a>
         </div>
     </section>

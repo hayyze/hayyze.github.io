@@ -17,8 +17,7 @@
                            https://*.google-analytics.com
                            https://analytics.google.com
                            https://*.analytics.google.com
-                           https://www.googletagmanager.com
-                           https://dzfdbjnqtgltuguqqdkz.supabase.co;
+                           https://www.googletagmanager.com;
                img-src 'self'
                         data:
                         https://www.google-analytics.com
@@ -32,7 +31,7 @@
 
     <!-- SEO Metadata -->
     <title>حاسبة معدل ثاني ثانوي | حساب المسارات الموزونة | حيز</title>
-    <meta name="description" content="احسب معدل الصف الثاني الثانوي لجميع المسارات (العام، الهندسة، الصحة، إدارة الأعمال، والشرعي) وفق أوزان وزارة التعليم بنسبة 40% من المعدل التراكمي.">
+    <meta name="description" content="احسب معدل الصف الثاني الثانوي لجميع المسارات (العام، الهندسة، الصحة، إدارة الأعمال، والشرعي) وفق أوزان المسارات المطبقة في حاسبة حيز بنسبة 40% من المعدل التراكمي.">
     <meta name="keywords" content="حاسبة معدل ثاني ثانوي, حساب معدل ثاني ثانوي, حاسبة درجات ثاني ثانوي, حساب معدل المسارات, مسار علوم الحاسب, مسار الصحة والحياة">
     <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
@@ -41,7 +40,7 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://hayyze.github.io/second-secondary.html">
     <meta property="og:title" content="حاسبة معدل ثاني ثانوي | حيز">
-    <meta property="og:description" content="احسب معدلك في الصف الثاني الثانوي بجميع مسارات نظام المسارات المعتمد من وزارة التعليم.">
+    <meta property="og:description" content="احسب معدلك في الصف الثاني الثانوي لمختلف مسارات نظام المسارات الثانوي.">
     <meta property="og:image" content="https://hayyze.github.io/android-chrome-512x512.png">
     <meta property="og:image:width" content="512">
     <meta property="og:image:height" content="512">
@@ -61,11 +60,6 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
     <link rel="stylesheet" href="style.css">
 
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-    <link rel="manifest" href="manifest.webmanifest">
 
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S"></script>
     <script>
@@ -82,7 +76,7 @@
       "@type": "WebPage",
       "name": "حاسبة معدل ثاني ثانوي",
       "url": "https://hayyze.github.io/second-secondary.html",
-      "description": "حاسبة متخصصة لطلاب الصف الثاني الثانوي لدعم كافة المسارات التخصصية المعتمدة في السعودية.",
+      "description": "حاسبة متخصصة لطلاب الصف الثاني الثانوي لدعم مختلف المسارات التخصصية في المرحلة الثانوية.",
       "inLanguage": "ar"
     }
     </script>
@@ -106,6 +100,12 @@
         {
           "@type": "ListItem",
           "position": 3,
+          "name": "حاسبات المرحلة الثانوية",
+          "item": "https://hayyze.github.io/secondary.html"
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
           "name": "حاسبة معدل ثاني ثانوي",
           "item": "https://hayyze.github.io/second-secondary.html"
         }
@@ -136,6 +136,12 @@
       ]
     }
     </script>
+    <!-- الأيقونات (Favicon) -->
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body class="theme-light">
 <header class="navbar">
@@ -154,6 +160,8 @@
                 <div class="nav-dropdown-menu">
                     <a href="pomodoro.html" class="dropdown-item"><i class="fa-solid fa-clock" aria-hidden="true"></i> المؤقت</a>
                     <a href="todo.html" class="dropdown-item"><i class="fa-solid fa-list-check" aria-hidden="true"></i> المهام</a>
+                    <a href="workspaces.html" class="dropdown-item"><i class="fa-solid fa-people-group" aria-hidden="true"></i> المساحات المتزامنة</a>
+                    <a href="subject.html" class="dropdown-item"><i class="fa-solid fa-book" aria-hidden="true"></i> المواد</a>
                     <a href="gpa.html" class="dropdown-item active"><i class="fa-solid fa-calculator" aria-hidden="true"></i> حاسبة المعدل</a>
                     <a href="notes.html" class="dropdown-item"><i class="fa-solid fa-note-sticky" aria-hidden="true"></i> الملاحظات</a>
                     <a href="habits.html" class="dropdown-item"><i class="fa-solid fa-fire" aria-hidden="true"></i> العادات</a>
@@ -187,6 +195,8 @@
         <span style="margin: 0 0.4rem;">&gt;</span>
         <a href="gpa.html" style="color: var(--text-muted); text-decoration: none;">حاسبات المعدل</a>
         <span style="margin: 0 0.4rem;">&gt;</span>
+        <a href="secondary.html" style="color: var(--text-muted); text-decoration: none;">حاسبات المرحلة الثانوية</a>
+        <span style="margin: 0 0.4rem;">&gt;</span>
         <span style="color: var(--text); font-weight: 600;">حاسبة معدل ثاني ثانوي</span>
     </nav>
 
@@ -194,7 +204,7 @@
     <div class="card" data-calc-page="second-secondary" data-stage="secondary" data-year="2">
         <div class="section-header">
             <h1><i class="fa-solid fa-graduation-cap" style="color: var(--primary);"></i> حاسبة معدل ثاني ثانوي (المسارات)</h1>
-            <p class="section-desc">احسب معدلك في الصف الثاني الثانوي بجميع المسارات التخصصية المعتمدة</p>
+            <p class="section-desc">احسب معدلك في الصف الثاني الثانوي لمختلف المسارات التخصصية</p>
         </div>
 
         <div class="gpa-controls">
@@ -249,7 +259,7 @@
                 <li><strong>المسار العام:</strong> يجمع العلوم الطبيعية والإنسانية الأساسية.</li>
             </ul>
             <p>
-                استخدم الحاسبة أعلاه باختيار مسارك الخاص والترم للحصول على درجات مواد متطابقة ومعدل دقيق.
+                استخدم الحاسبة أعلاه باختيار مسارك الخاص والترم للحصول على درجات مواد متطابقة ومعدلك الموزون وفق البيانات المدخلة.
             </p>
         </div>
     </section>
@@ -274,20 +284,28 @@
     <!-- الروابط الداخلية -->
     <section class="card content-section" style="margin-top: 2rem;">
         <div class="section-header" style="text-align: right;">
-            <h2><i class="fa-solid fa-link" style="color:var(--primary);"></i> حاسبات مرتبطة بالثانوية والجامعة</h2>
+            <h2><i class="fa-solid fa-link" style="color:var(--primary);"></i> حاسبات ودلائل ذات صلة بالثانوية والجامعة</h2>
         </div>
         <div class="tools-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem;">
+            <a href="gpa.html" class="tool-card" style="padding: 1.25rem;">
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-calculator"></i> حاسبة المعدل الثانوي</h3>
+                <p style="font-size: 0.85rem;">مركز حاسبات المعدل لجميع الفصول.</p>
+            </a>
             <a href="third-secondary.html" class="tool-card" style="padding: 1.25rem;">
                 <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-graduation-cap"></i> حاسبة معدل ثالث ثانوي</h3>
                 <p style="font-size: 0.85rem;">حاسبة معدل التخرج وثالث ثانوي.</p>
             </a>
             <a href="cumulative.html" class="tool-card" style="padding: 1.25rem;">
                 <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-chart-line"></i> حاسبة المعدل التراكمي</h3>
-                <p style="font-size: 0.85rem;">دمج معدل أول وثاني وثالث ثانوي (20% · 40% · 40%).</p>
+                <p style="font-size: 0.85rem;">دمج معدل أول وثاني وثالث ثانوي.</p>
             </a>
             <a href="weighted.html" class="tool-card" style="padding: 1.25rem;">
                 <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-percent"></i> حاسبة النسبة الموزونة</h3>
                 <p style="font-size: 0.85rem;">حساب النسبة الموزونة للقبول بالجامعات.</p>
+            </a>
+            <a href="blog-3.html" class="tool-card" style="padding: 1.25rem;">
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-book-open"></i> كيفية حساب المعدل التراكمي</h3>
+                <p style="font-size: 0.85rem;">دليل تعليمي للخطوات والأمثلة الحسابية.</p>
             </a>
         </div>
     </section>
@@ -313,9 +331,5 @@
 <script src="common.js"></script>
 <script src="gpa.js"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase.js"></script>
-<script src="sync.js"></script>
-<script src="auth-ui.js"></script>
 </body>
 </html>

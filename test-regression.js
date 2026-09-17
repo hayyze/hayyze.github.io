@@ -98,7 +98,7 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
 
 // --- 4. SERVICE WORKER CACHE VERSION TEST ---
 {
-    assert(swJs.includes("const CACHE_NAME = 'heez-v1.9.2';"), 'Service Worker uses cache version heez-v1.9.2');
+    assert(swJs.includes("const CACHE_NAME = 'heez-v1.9.9';"), 'Service Worker uses cache version heez-v1.9.9');
     assert(swJs.includes('.filter((key) => key !== CACHE_NAME)'), 'Service Worker activates clean deletion of old cache versions');
     assert(swJs.includes('./contact.html') && swJs.includes('./terms.html') && swJs.includes('./privacy.html') && swJs.includes('./founder.html'), 'Service Worker caches newly added static HTML pages for offline support');
 }
@@ -998,6 +998,618 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     hayyizSaveFocusState(activeRunningState);
     const planScenH = hayyizGenerateDailyPlan();
     assert(planScenH.length > 0 && planScenH[0].type === 'pomodoro' && planScenH[0].badge === 'جلسة جارية', 'Scenario H: Active running Pomodoro takes top priority in Daily Plan');
+}
+
+// --- 15. SINGLE CENTRAL DECISION ENGINE REGRESSION TESTS ---
+{
+    localStorage.clear();
+
+    // 1. Existence of single central decision source function & primitives
+    assert(typeof hayyizBuildStudentSnapshot === 'function', 'hayyizBuildStudentSnapshot primitive exists');
+    assert(typeof hayyizRankTasks === 'function', 'hayyizRankTasks primitive exists');
+    assert(typeof hayyizEvaluateDecisions === 'function', 'hayyizEvaluateDecisions primitive exists');
+    assert(typeof hayyizBuildDailyPlan === 'function', 'hayyizBuildDailyPlan primitive exists');
+    assert(typeof hayyizComputeStudentDecisionState === 'function', 'hayyizComputeStudentDecisionState orchestrator exists');
+
+    // 2. Single snapshot creation per compute pass
+    let snapshotCount = 0;
+    const origBuildSnap = hayyizBuildStudentSnapshot;
+    hayyizBuildStudentSnapshot = function(...args) {
+        snapshotCount++;
+        return origBuildSnap.apply(this, args);
+    };
+
+    snapshotCount = 0;
+    const singlePassState = hayyizComputeStudentDecisionState();
+    assert(snapshotCount === 1, 'Snapshot is created exactly once per central decision calculation pass');
+    hayyizBuildStudentSnapshot = origBuildSnap;
+
+    // 3. primaryDecision, dailyPlan, and recommendation share same snapshot/state
+    assert(singlePassState.primaryDecision !== undefined && singlePassState.dailyPlan !== undefined && singlePassState.recommendation !== undefined, 'Central state contains primaryDecision, dailyPlan, and recommendation');
+
+    // 4. Thin wrappers execute only required primitives without rerun of full pipeline
+    let evalCount = 0;
+    const origEvalDec = hayyizEvaluateDecisions;
+    hayyizEvaluateDecisions = function(...args) {
+        evalCount++;
+        return origEvalDec.apply(this, args);
+    };
+
+    evalCount = 0;
+    hayyizRecommendNext(3);
+    assert(evalCount === 0, 'hayyizRecommendNext wrapper does NOT rerun decision evaluation primitive');
+
+    hayyizEvaluateDecisions = origEvalDec;
+
+    // 5. Consistency between Summary decision and Daily Plan top primary action
+    const getOffsetDateStr = (offsetDays) => {
+        const base = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+        const parts = base.split('-').map(Number);
+        const dt = new Date(parts[0], parts[1] - 1, parts[2] + offsetDays);
+        return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    };
+
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_cde_1', text: 'مهمة عالية الأولوية عاجلة', priority: 'high', date: getOffsetDateStr(-1), completed: false },
+        { id: 't_cde_2', text: 'مهمة عادية', priority: 'low', completed: false }
+    ]));
+
+    const state1 = hayyizComputeStudentDecisionState();
+    assert(state1.primaryDecision !== null, 'Central engine evaluates primary decision');
+    assert(state1.dailyPlan.length > 0, 'Central engine generates daily plan');
+    assert(state1.dailyPlan[0].isPrimaryNextAction === true, 'Top item in daily plan is marked as primary next action');
+    assert(state1.dailyPlan[0].title === state1.primaryDecision.actionTitle, 'Decision title matches top daily plan item title exactly');
+
+    // 6. Exclusion of completed tasks from recommendations and plan
+    hayyizCompleteTask('t_cde_1', 'مهمة عالية الأولوية عاجلة');
+    const state2 = hayyizComputeStudentDecisionState();
+    assert(!state2.activeTodos.some(t => t.id === 't_cde_1'), 'Completed task excluded from active todos');
+    assert(!state2.dailyPlan.some(p => p.task && p.task.id === 't_cde_1'), 'Completed task excluded from daily plan');
+    assert(!state2.recommendation.ranked.some(r => r.task.id === 't_cde_1'), 'Completed task excluded from ranked recommendations');
+
+    // 7. Active running focus session priority in central state
+    const runningFocusState = {
+        mode: 'focus',
+        status: 'running',
+        remainingSeconds: 1200,
+        totalDuration: 1500,
+        endTime: Date.now() + 1200000,
+        context: { type: 'free', id: null, title: 'تركيز جاري حالي' }
+    };
+    hayyizSaveFocusState(runningFocusState);
+    const state3 = hayyizComputeStudentDecisionState();
+    assert(state3.primaryDecision && state3.primaryDecision.id === 'running-focus', 'Active running focus session takes top priority (score 1000) in central decision');
+    assert(state3.dailyPlan[0].id === 'plan-running-focus', 'Running focus session is placed at index 0 of daily plan');
+
+    // 8. Urgent exam priority
+    localStorage.clear();
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_cde_urgent', name: 'اختبار غداً', date: getOffsetDateStr(1) }
+    ]));
+    const state4 = hayyizComputeStudentDecisionState();
+    assert(state4.primaryDecision && state4.primaryDecision.id === 'exam-upcoming', 'Urgent upcoming exam evaluated as primary decision when focus minutes low');
+    assert(state4.dailyPlan[0].event && state4.dailyPlan[0].event.id === 'ex_cde_urgent', 'Urgent exam placed at index 0 of daily plan');
+
+    // 9. Near exam + overdue task combined priority
+    localStorage.clear();
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_comb', name: 'اختبار الفيزياء', date: getOffsetDateStr(5) }
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_comb_overdue', text: 'واجب كيمياء متأخر', date: getOffsetDateStr(-3), priority: 'high', completed: false }
+    ]));
+    const state5 = hayyizComputeStudentDecisionState();
+    assert(state5.primaryDecision && state5.primaryDecision.id === 'task-overdue', 'Overdue task prioritizes over distant exam');
+
+    // 10. Multi-type items in daily plan (todo, exam, habit)
+    localStorage.clear();
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_multi_1', text: 'مهمة 1', priority: 'high', completed: false }
+    ]));
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_multi_1', name: 'اختبار اليوم', date: getOffsetDateStr(0) }
+    ]));
+    localStorage.setItem('hayyiz-habits', JSON.stringify([
+        { id: 'h_multi_1', title: 'عادة يومية', lastCompleted: '2020-01-01' }
+    ]));
+    const state6 = hayyizComputeStudentDecisionState();
+    assert(state6.dailyPlan.some(i => i.type === 'todo'), 'Daily plan contains todo item');
+    assert(state6.dailyPlan.some(i => i.type === 'exam'), 'Daily plan contains exam item');
+    assert(state6.dailyPlan.some(i => i.type === 'habit'), 'Daily plan contains habit item');
+}
+
+// --- 16. UNIFIED DAY STATUS MODEL COMPOSITE REGRESSION SCENARIOS (A THROUGH J) ---
+{
+    localStorage.clear();
+
+    const getOffsetDateStr = (offsetDays) => {
+        const base = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+        const parts = base.split('-').map(Number);
+        const dt = new Date(parts[0], parts[1] - 1, parts[2] + offsetDays);
+        return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    };
+
+    // Scenario A: 3 overdue tasks + NO near exam
+    localStorage.clear();
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_a1', text: 'مهمة متأخرة 1', date: getOffsetDateStr(-3), completed: false },
+        { id: 't_a2', text: 'مهمة متأخرة 2', date: getOffsetDateStr(-2), completed: false },
+        { id: 't_a3', text: 'مهمة متأخرة 3', date: getOffsetDateStr(-1), completed: false }
+    ]));
+    const stateA = hayyizComputeStudentDecisionState();
+    assert(stateA.dayStatus.statusKey === 'accumulated_pressure', 'Scenario A: 3 overdue tasks produces "accumulated_pressure"');
+    assert(!stateA.dayStatus.description.includes('استحقاق') && !stateA.dayStatus.description.includes('اختبار'), 'Scenario A: Description does NOT claim non-existent near exam');
+    assert(stateA.dayStatus.description.includes('3 مهام متأخرة'), 'Scenario A: Description strictly states overdue tasks count');
+
+    // Scenario B: 3 overdue tasks + near exam
+    localStorage.clear();
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_b', name: 'اختبار الكيمياء', date: getOffsetDateStr(1) }
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_b1', text: 'مهمة متأخرة 1', date: getOffsetDateStr(-3), completed: false },
+        { id: 't_b2', text: 'مهمة متأخرة 2', date: getOffsetDateStr(-2), completed: false },
+        { id: 't_b3', text: 'مهمة متأخرة 3', date: getOffsetDateStr(-1), completed: false }
+    ]));
+    const stateB = hayyizComputeStudentDecisionState();
+    assert(stateB.dayStatus.statusKey === 'accumulated_pressure', 'Scenario B: Overdue tasks + near exam produces "accumulated_pressure"');
+    assert(stateB.dayStatus.description.includes('مهام متأخرة') && stateB.dayStatus.description.includes('اختبار الكيمياء'), 'Scenario B: Description explicitly mentions BOTH overdue tasks and near exam');
+
+    // Scenario C: 7 historical past days (60, 60, 0, 0, 0, 0, 0)
+    localStorage.clear();
+    const histC = {};
+    histC[getOffsetDateStr(-1)] = 60;
+    histC[getOffsetDateStr(-2)] = 60;
+    histC[getOffsetDateStr(-3)] = 0;
+    histC[getOffsetDateStr(-4)] = 0;
+    histC[getOffsetDateStr(-5)] = 0;
+    histC[getOffsetDateStr(-6)] = 0;
+    histC[getOffsetDateStr(-7)] = 0;
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histC));
+    const compC = hayyizGetFocusHistoryComparison(50);
+    assert(compC.hasSufficientData === true, 'Scenario C: Sufficient data recognized when 7 historical days exist');
+    assert(compC.avgMinutes === 17, 'Scenario C: 7-day average calculated as (120/7) = 17 minutes');
+    assert(compC.comparisonText === 'أعلى من معدلك الأسبوعي', 'Scenario C: 50 minutes focus is higher than 17-minute 7-day average');
+
+    // Scenario D: Insufficient history (< 3 days recorded in history object)
+    localStorage.clear();
+    const histD = {};
+    histD[getOffsetDateStr(-1)] = 45;
+    histD[getOffsetDateStr(-2)] = 45;
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histD));
+    const compD = hayyizGetFocusHistoryComparison(30);
+    assert(compD.hasSufficientData === false, 'Scenario D: Less than 3 days in history returns hasSufficientData: false');
+    assert(compD.comparisonText === '', 'Scenario D: No false weekly average claim made');
+
+    // Scenario E: 25 mins focus only + large number of remaining active tasks (5 tasks)
+    localStorage.clear();
+    localStorage.setItem('hayyiz-focus-minutes-today', '25');
+    const fiveTasks = Array.from({ length: 5 }, (_, i) => ({ id: 't_e_' + i, text: 'مهمة متبقية ' + i, completed: false }));
+    localStorage.setItem('hayyiz-todos', JSON.stringify(fiveTasks));
+    const stateE = hayyizComputeStudentDecisionState();
+    assert(stateE.dayStatus.title !== 'إنجاز واستمرارية ممتازة' && !stateE.dayStatus.description.includes('ممتاز'), 'Scenario E: 25 mins focus with 5 remaining tasks does NOT make exaggerated claims like "ممتاز"');
+
+    // Scenario F: Exam tomorrow + linked task has focusDone > 0
+    localStorage.clear();
+    const subPhysics = hayyizAddSubject('فيزياء');
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_f', name: 'اختبار الفيزياء', date: getOffsetDateStr(1), subjectId: subPhysics.id }
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_f', text: 'مراجعة أجهزة الفيزياء', subjectId: subPhysics.id, focusDone: 30, completed: false }
+    ]));
+    const stateF = hayyizComputeStudentDecisionState();
+    assert(stateF.dayStatus.statusKey === 'upcoming_due', 'Scenario F: Near exam with partial progress produces "upcoming_due"');
+    assert(stateF.dayStatus.title.includes('استعداد لاختبار قريب') && stateF.dayStatus.description.includes('30 دقيقة تركيز'), 'Scenario F: Description explicitly acknowledges focus progress made on exam preparation task');
+
+    // Scenario G: Overdue tasks + near exam + low focus today
+    localStorage.clear();
+    localStorage.setItem('hayyiz-focus-minutes-today', '0');
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_g', name: 'اختبار الرياضيات', date: getOffsetDateStr(1) }
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_g1', text: 'واجب متأخر', date: getOffsetDateStr(-2), completed: false }
+    ]));
+    const stateG = hayyizComputeStudentDecisionState();
+    assert(stateG.dayStatus.statusKey === 'accumulated_pressure', 'Scenario G: Overdue task + near exam + low focus produces "accumulated_pressure"');
+
+    // Scenario H: Uncompleted habit + urgent academic task
+    localStorage.clear();
+    localStorage.setItem('hayyiz-habits', JSON.stringify([
+        { id: 'h_h1', title: 'شرب الماء', lastCompleted: '2020-01-01' }
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_h1', text: 'تسليم مشروع الحاسب المتأخر', date: getOffsetDateStr(-1), completed: false }
+    ]));
+    const stateH = hayyizComputeStudentDecisionState();
+    assert(stateH.dayStatus.statusKey === 'struggling', 'Scenario H: Uncompleted habit does NOT mask urgent academic overdue status');
+
+    // Scenario I: No tasks, no exams, no habits, no activity
+    localStorage.clear();
+    const stateI = hayyizComputeStudentDecisionState();
+    assert(stateI.dayStatus.statusKey === 'no_plan', 'Scenario I: Completely empty state produces statusKey "no_plan"');
+    assert(stateI.dayStatus.statusLabel === 'بدون خطة نشطة', 'Scenario I: Label is "بدون خطة نشطة"');
+
+    // Scenario J: Active tasks exist but no focus started (focusDone == 0, focusMinutesToday == 0)
+    localStorage.clear();
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_j1', text: 'قراءة الفصل الأول', focusDone: 0, completed: false }
+    ]));
+    const stateJ = hayyizComputeStudentDecisionState();
+    assert(stateJ.dayStatus.statusKey === 'ready_to_start', 'Scenario J: Unstarted active tasks produce distinct statusKey "ready_to_start"');
+    assert(stateJ.dayStatus.statusLabel === 'جاهز للبدء', 'Scenario J: Label is "جاهز للبدء" (distinct from "no_plan")');
+
+    // Test K: 3 history entries, but ALL older than 7 days (outside window)
+    localStorage.clear();
+    const histK = {};
+    histK[getOffsetDateStr(-10)] = 60;
+    histK[getOffsetDateStr(-11)] = 60;
+    histK[getOffsetDateStr(-12)] = 60;
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histK));
+    const compK = hayyizGetFocusHistoryComparison(40);
+    assert(compK.hasSufficientData === false, 'Test K: 3 entries older than 7 days result in hasSufficientData: false');
+    assert(compK.comparisonText === '', 'Test K: No false weekly comparison text displayed when all entries are outside window');
+
+    // Test L: 2 entries inside past 7 days + 1 entry outside window
+    localStorage.clear();
+    const histL = {};
+    histL[getOffsetDateStr(-1)] = 30;
+    histL[getOffsetDateStr(-2)] = 30;
+    histL[getOffsetDateStr(-15)] = 60;
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histL));
+    const compL = hayyizGetFocusHistoryComparison(30);
+    assert(compL.hasSufficientData === false, 'Test L: 2 entries in window + 1 outside window results in hasSufficientData: false');
+
+    // Test M: 7 valid history entries inside past 7 days (60, 60, 0, 0, 0, 0, 0)
+    localStorage.clear();
+    const histM = {};
+    histM[getOffsetDateStr(-1)] = 60;
+    histM[getOffsetDateStr(-2)] = 60;
+    histM[getOffsetDateStr(-3)] = 0;
+    histM[getOffsetDateStr(-4)] = 0;
+    histM[getOffsetDateStr(-5)] = 0;
+    histM[getOffsetDateStr(-6)] = 0;
+    histM[getOffsetDateStr(-7)] = 0;
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histM));
+    const compM = hayyizGetFocusHistoryComparison(50);
+    assert(compM.hasSufficientData === true, 'Test M: 7 valid days in window yield hasSufficientData: true');
+    assert(compM.avgMinutes === 17, 'Test M: Average is 17 minutes (120/7)');
+    assert(compM.comparisonText === 'أعلى من معدلك الأسبوعي', 'Test M: 50 mins focus is higher than 17-minute 7-day average');
+
+    // Test N: 3 entries inside past 7 days window + extra entries outside window
+    localStorage.clear();
+    const histN = {};
+    histN[getOffsetDateStr(-1)] = 30;
+    histN[getOffsetDateStr(-2)] = 30;
+    histN[getOffsetDateStr(-3)] = 30;
+    histN[getOffsetDateStr(-10)] = 50;
+    histN[getOffsetDateStr(-20)] = 50;
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histN));
+    const compN = hayyizGetFocusHistoryComparison(50);
+    assert(compN.hasSufficientData === true, 'Test N: Sufficiency decided strictly by 3 entries inside window');
+}
+
+// --- 18. DOM INTEGRATION RENDERING TESTS (DOM-1, DOM-2, DOM-3, DOM-4) ---
+{
+    localStorage.clear();
+
+    // Helper to construct a lightweight simulated DOM node for summary rendering verification
+    function createMockElement(tagName) {
+        const children = [];
+        const attributes = {};
+        const classList = new Set();
+        let textContent = '';
+        let innerHTML = '';
+
+        function findChild(parent, predicate) {
+            for (const c of parent.children) {
+                if (c && typeof c === 'object') {
+                    if (predicate(c)) return c;
+                    const nested = findChild(c, predicate);
+                    if (nested) return nested;
+                }
+            }
+            return null;
+        }
+
+        function findAllChildren(parent, predicate, matches) {
+            for (const c of parent.children) {
+                if (c && typeof c === 'object') {
+                    if (predicate(c)) matches.push(c);
+                    findAllChildren(c, predicate, matches);
+                }
+            }
+        }
+
+        const el = {
+            tagName: (tagName || 'DIV').toUpperCase(),
+            children,
+            attributes,
+            style: {},
+            classList: {
+                add: (...names) => names.forEach(n => classList.add(n)),
+                remove: (...names) => names.forEach(n => classList.delete(n)),
+                contains: (name) => classList.has(name),
+                toggle: (name, force) => {
+                    if (force === true) classList.add(name);
+                    else if (force === false) classList.delete(name);
+                    else if (classList.has(name)) classList.delete(name);
+                    else classList.add(name);
+                    return classList.has(name);
+                },
+                toString: () => Array.from(classList).join(' ')
+            },
+            get className() { return Array.from(classList).join(' '); },
+            set className(val) {
+                classList.clear();
+                if (val) String(val).split(/\s+/).filter(Boolean).forEach(n => classList.add(n));
+            },
+            get textContent() {
+                if (textContent) return textContent;
+                return children.map(c => typeof c === 'string' ? c : c.textContent).join('');
+            },
+            set textContent(val) {
+                textContent = String(val);
+                children.length = 0;
+            },
+            get innerHTML() { return innerHTML || textContent; },
+            set innerHTML(val) {
+                innerHTML = String(val);
+                textContent = String(val).replace(/<[^>]*>/g, '');
+            },
+            appendChild: (child) => {
+                if (child) children.push(child);
+                return child;
+            },
+            replaceChildren: (...newChildren) => {
+                children.length = 0;
+                textContent = '';
+                innerHTML = '';
+                newChildren.forEach(c => children.push(c));
+            },
+            setAttribute: (k, v) => { attributes[k] = String(v); },
+            getAttribute: (k) => attributes[k] || null,
+            querySelector: (sel) => {
+                if (sel.startsWith('.')) {
+                    const cls = sel.slice(1);
+                    return findChild(el, c => c && c.classList && typeof c.classList.contains === 'function' && c.classList.contains(cls));
+                }
+                return null;
+            },
+            querySelectorAll: (sel) => {
+                const matches = [];
+                findAllChildren(el, c => {
+                    if (sel.startsWith('.') && c && c.classList && typeof c.classList.contains === 'function' && c.classList.contains(sel.slice(1))) {
+                        matches.push(c);
+                    }
+                }, matches);
+                return matches;
+            },
+            addEventListener: () => {}
+        };
+
+        return el;
+    }
+
+    const mockContent = createMockElement('div');
+    mockContent.id = 'summary-content';
+
+    const listeners = [];
+    const prevDoc = global.document;
+    global.document = {
+        readyState: 'complete',
+        getElementById: (id) => (id === 'summary-content' ? mockContent : null),
+        createElement: (tag) => createMockElement(tag),
+        querySelector: () => null,
+        querySelectorAll: () => [],
+        addEventListener: (event, fn) => {
+            listeners.push({ event, fn });
+        }
+    };
+
+    function runDOMContentLoaded() {
+        listeners.forEach(l => {
+            if (l.event === 'DOMContentLoaded') l.fn();
+        });
+    }
+
+    // Test DOM-1: Day Status rendering (statusLabel, title, description in DOM)
+    localStorage.clear();
+    const getOffsetDateStr = (offsetDays) => {
+        const base = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+        const parts = base.split('-').map(Number);
+        const dt = new Date(parts[0], parts[1] - 1, parts[2] + offsetDays);
+        return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    };
+
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_dom1_1', text: 'مهمة متأخرة 1', date: getOffsetDateStr(-2), completed: false },
+        { id: 't_dom1_2', text: 'مهمة متأخرة 2', date: getOffsetDateStr(-3), completed: false },
+        { id: 't_dom1_3', text: 'مهمة متأخرة 3', date: getOffsetDateStr(-1), completed: false }
+    ]));
+
+    eval(summaryJs);
+    runDOMContentLoaded();
+
+    const statusBadgeEl = mockContent.querySelector('.dash-day-status');
+    const greetingDateEl = mockContent.querySelector('.dash-greeting-date');
+    const greetingDescEl = mockContent.querySelector('.dash-greeting-description');
+
+    assert(statusBadgeEl !== null && statusBadgeEl.textContent.includes('حالة اليوم: ضغط متراكم'), 'Test DOM-1: dayStatus.statusLabel appears in DOM in correct badge element');
+    assert(greetingDateEl !== null && greetingDateEl.textContent.includes('تراكم في المهام المتأخرة'), 'Test DOM-1: dayStatus.title appears in DOM in subtitle element');
+    assert(greetingDescEl !== null && greetingDescEl.textContent.includes('3 مهام متأخرة عن موعدها'), 'Test DOM-1: dayStatus.description appears in DOM in description element');
+
+    // Test DOM-2: Historical comparison presence conditional on sufficient data
+    // Case 2a: Sufficient data -> comparisonText appears in description
+    localStorage.clear();
+    listeners.length = 0; // Clear listeners before re-evaluating summaryJs
+    const histSufficient = {};
+    for (let i = 1; i <= 7; i++) {
+        histSufficient[getOffsetDateStr(-i)] = 40;
+    }
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histSufficient));
+    localStorage.setItem('hayyiz-focus-minutes-today', '60');
+    localStorage.setItem('hayyiz-sessions-day', getOffsetDateStr(0));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_dom2', text: 'مهمة اليوم', completed: false }
+    ]));
+
+    mockContent.replaceChildren();
+    eval(summaryJs);
+    runDOMContentLoaded();
+
+    const descWithHist = mockContent.querySelector('.dash-greeting-description');
+    assert(descWithHist !== null && descWithHist.textContent.includes('أعلى من معدلك الأسبوعي'), 'Test DOM-2a: comparisonText appears in description when hasSufficientData is true');
+
+    // Case 2b: Insufficient data -> NO comparisonText in description
+    localStorage.clear();
+    listeners.length = 0;
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify({}));
+    localStorage.setItem('hayyiz-focus-minutes-today', '60');
+    localStorage.setItem('hayyiz-sessions-day', getOffsetDateStr(0));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_dom2b', text: 'مهمة اليوم', completed: false }
+    ]));
+
+    mockContent.replaceChildren();
+    eval(summaryJs);
+    runDOMContentLoaded();
+
+    const descWithoutHist = mockContent.querySelector('.dash-greeting-description');
+    const hasComparisonText = descWithoutHist ? descWithoutHist.textContent.includes('معدلك') : false;
+    assert(!hasComparisonText, 'Test DOM-2b: comparisonText is omitted from description when hasSufficientData is false');
+
+    // Test DOM-3: Task Progress formatting (done=25, minutes=50 -> "أُنجز 25 من 50 دقيقة (50%)", done=25, minutes=null -> "أُنجز 25 دقيقة تركيز", no NaN/Infinity)
+    const progWithTotal = hayyizFormatTaskProgress({ focusDone: 25, minutes: 50 });
+    assert(progWithTotal.progressText === 'أُنجز 25 من 50 دقيقة (50%)', 'Test DOM-3: Formats task progress with valid total percentage correctly');
+
+    const progWithoutTotal = hayyizFormatTaskProgress({ focusDone: 25, minutes: null });
+    assert(progWithoutTotal.progressText === 'أُنجز 25 دقيقة تركيز', 'Test DOM-3: Safe formatting without total duration ("أُنجز 25 دقيقة تركيز")');
+
+    const progInvalid = hayyizFormatTaskProgress({ focusDone: 25, minutes: 'abc' });
+    assert(!progInvalid.progressText.includes('NaN') && !progInvalid.progressText.includes('Infinity') && progInvalid.progressText === 'أُنجز 25 دقيقة تركيز', 'Test DOM-3: Prevents NaN and Infinity in progress formatting');
+
+    // Test DOM-4: Absence of duplicated information
+    localStorage.clear();
+    listeners.length = 0;
+    localStorage.setItem('hayyiz-focus-history', JSON.stringify(histSufficient));
+    localStorage.setItem('hayyiz-focus-minutes-today', '60');
+    localStorage.setItem('hayyiz-sessions-day', getOffsetDateStr(0));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_dom4', text: 'مهمة اليوم', completed: false }
+    ]));
+
+    mockContent.replaceChildren();
+    eval(summaryJs);
+    runDOMContentLoaded();
+
+    const greetingText = mockContent.querySelector('.dash-greeting') ? mockContent.querySelector('.dash-greeting').textContent : '';
+    const occurrences = (greetingText.match(/أعلى من معدلك الأسبوعي/g) || []).length;
+    assert(occurrences === 1, 'Test DOM-4: comparisonText appears exactly once without duplicate repetition in greeting');
+
+    global.document = prevDoc;
+}
+
+// --- 17. FINE-TUNED DAILY SUMMARY COMPOSITE SCENARIOS (1 TO 8) ---
+{
+    localStorage.clear();
+
+    const getOffsetDateStr = (offsetDays) => {
+        const base = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+        const parts = base.split('-').map(Number);
+        const dt = new Date(parts[0], parts[1] - 1, parts[2] + offsetDays);
+        return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    };
+
+    // Scenario 1: Near exam + overdue task + low focus
+    localStorage.clear();
+    localStorage.setItem('hayyiz-focus-minutes-today', '10');
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_comp_1', name: 'اختبار الرياضيات النهائي', date: getOffsetDateStr(1) }
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_comp_1', text: 'واجب الفيزياء المتأخر', date: getOffsetDateStr(-2), completed: false }
+    ]));
+    const stateComp1 = hayyizComputeStudentDecisionState();
+    assert(stateComp1.dayStatus.statusKey === 'accumulated_pressure', 'Composite Scenario 1: Near exam + overdue task + low focus yields accumulated_pressure status');
+    assert(stateComp1.primaryDecision !== null && (stateComp1.primaryDecision.id === 'exam-upcoming' || stateComp1.primaryDecision.id === 'task-overdue'), 'Composite Scenario 1: Near exam + overdue task yields urgent primary decision');
+
+    // Scenario 2: In-progress task + near exam
+    localStorage.clear();
+    const subChem = hayyizAddSubject('كيمياء');
+    localStorage.setItem('hayyiz-student-exams', JSON.stringify([
+        { id: 'ex_comp_2', name: 'اختبار الكيمياء', date: getOffsetDateStr(1), subjectId: subChem.id }
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_comp_2', text: 'مراجعة الباب الأول كيمياء', subjectId: subChem.id, minutes: 50, focusDone: 25, completed: false }
+    ]));
+    const stateComp2 = hayyizComputeStudentDecisionState();
+    assert(stateComp2.dayStatus.statusKey === 'upcoming_due', 'Composite Scenario 2: In-progress exam preparation yields upcoming_due status');
+    assert(stateComp2.dayStatus.description.includes('25 دقيقة تركيز'), 'Composite Scenario 2: Description acknowledges exact partial focus progress');
+
+    // Scenario 3: Good achievement today + future tasks
+    localStorage.clear();
+    const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_comp_3a', text: 'مهمة منجزة 1', completed: true, completedAt: todayStr },
+        { id: 't_comp_3b', text: 'مهمة منجزة 2', completed: true, completedAt: todayStr },
+        { id: 't_comp_3c', text: 'مهمة مستقبلية', date: getOffsetDateStr(3), completed: false }
+    ]));
+    const stateComp3 = hayyizComputeStudentDecisionState();
+    assert(stateComp3.dayStatus.statusKey === 'good', 'Composite Scenario 3: Good achievement today with completed tasks yields good status');
+    assert(stateComp3.dayStatus.completedToday === 2, 'Composite Scenario 3: Completed tasks count is accurately set to 2');
+
+    // Scenario 4: Uncompleted habit + all study tasks completed
+    localStorage.clear();
+    localStorage.setItem('hayyiz-habits', JSON.stringify([
+        { id: 'h_comp_4', title: 'القراءة اليومية', lastCompleted: '2020-01-01' }
+    ]));
+    localStorage.setItem('hayyiz-todos', JSON.stringify([
+        { id: 't_comp_4', text: 'مهمة منجزة اليوم', completed: true, completedAt: todayStr }
+    ]));
+    const stateComp4 = hayyizComputeStudentDecisionState();
+    assert(stateComp4.dayStatus.statusKey === 'good', 'Composite Scenario 4: Uncompleted habit with all study tasks finished yields good day status');
+
+    // Scenario 5: No tasks + no near exam
+    localStorage.clear();
+    const stateComp5 = hayyizComputeStudentDecisionState();
+    assert(stateComp5.dayStatus.statusKey === 'no_plan', 'Composite Scenario 5: No tasks + no near exam yields no_plan status');
+    assert(stateComp5.primaryDecision === null, 'Composite Scenario 5: No artificial or fake recommendation invented');
+
+    // Scenario 6: Active running focus session
+    localStorage.clear();
+    hayyizSaveFocusState({
+        mode: 'focus',
+        status: 'running',
+        remainingSeconds: 900,
+        totalDuration: 1500,
+        endTime: Date.now() + 900000,
+        context: { type: 'free', id: null, title: 'تركيز لغة عربية' }
+    });
+    const stateComp6 = hayyizComputeStudentDecisionState();
+    assert(stateComp6.dayStatus.statusKey === 'active_activity', 'Composite Scenario 6: Active running focus session yields active_activity day status');
+    assert(stateComp6.primaryDecision.id === 'running-focus', 'Composite Scenario 6: Running focus session takes top priority');
+
+    // Scenario 7: Task started -> closed -> returned to summary
+    localStorage.clear();
+    const taskComp7 = { id: 't_comp_7', text: 'حل واجب البرمجة', focusDone: 0, completed: false };
+    hayyizSaveTodos([taskComp7]);
+    hayyizApplyFocusResult({ workMin: 25, taskId: 't_comp_7', taskText: 'حل واجب البرمجة' });
+    const stateComp7 = hayyizComputeStudentDecisionState();
+    const taskSaved7 = hayyizGetTaskById('t_comp_7');
+    assert(taskSaved7.focusDone === 25 && taskSaved7.completed === false, 'Composite Scenario 7: Task remains saved with 25 mins focus logged when user returns to summary');
+    assert(stateComp7.dayStatus.statusKey === 'active_activity', 'Composite Scenario 7: Summary reflects active in-progress work correctly');
+
+    // Scenario 8: Repeated page reloads without doubling stats
+    localStorage.clear();
+    hayyizEnsureTodayStats();
+    localStorage.setItem('hayyiz-focus-minutes-today', '25');
+    localStorage.setItem('hayyiz-sessions-today', '1');
+    hayyizEnsureTodayStats();
+    hayyizEnsureTodayStats();
+    const stateComp8 = hayyizComputeStudentDecisionState();
+    assert(stateComp8.focusMinutesToday === 25, 'Composite Scenario 8: Stats remain exactly 25 minutes after multiple page reloads');
 }
 
 console.log(`\n===================================`);

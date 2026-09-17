@@ -22,37 +22,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const today = getToday();
 
-    // المصدر الوحيد للحقيقة للمهام والعادات والتركيز
-    const todos = typeof hayyizGetTodos === 'function'
-        ? hayyizGetTodos()
-        : JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
-    const habits = typeof hayyizGetHabits === 'function'
-        ? hayyizGetHabits()
-        : JSON.parse(localStorage.getItem('hayyiz-habits') || '[]');
+    // الاستعلام من المحرك المركزي الوحيد لحالة الطالب وقراره الدراسي
+    const studentState = typeof hayyizComputeStudentDecisionState === 'function'
+        ? hayyizComputeStudentDecisionState()
+        : null;
+
+    const todos = studentState ? studentState.todos : (
+        typeof hayyizGetTodos === 'function' ? hayyizGetTodos() : JSON.parse(localStorage.getItem('hayyiz-todos') || '[]')
+    );
+    const habits = studentState ? studentState.habits : (
+        typeof hayyizGetHabits === 'function' ? hayyizGetHabits() : JSON.parse(localStorage.getItem('hayyiz-habits') || '[]')
+    );
     const sessionsToday = parseInt(localStorage.getItem('hayyiz-sessions-today') || '0', 10);
-    const focusMinutes = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
+    const focusMinutes = studentState ? studentState.focusMinutesToday : parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
 
-    const activeTodos = todos.filter((t) => t && !t.completed);
-    const completedToday = todos.filter(
-        (t) => t && t.completed && t.completedAt === today
-    ).length;
-    const completedAll = todos.filter((t) => t && t.completed).length;
-    const overdueTodos = activeTodos.filter((t) => t.date && String(t.date).slice(0, 10) < today);
-    const dueTodayTodos = activeTodos.filter((t) => t.date && String(t.date).slice(0, 10) === today);
+    const activeTodos = studentState ? studentState.activeTodos : todos.filter((t) => t && !t.completed);
+    const completedToday = todos.filter((t) => t && t.completed && t.completedAt === today).length;
+    const overdueTodos = studentState ? studentState.overdueTodos : activeTodos.filter((t) => t.date && String(t.date).slice(0, 10) < today);
 
-    const habitTodaySummary = typeof hayyizGetHabitTodaySummary === 'function'
-        ? hayyizGetHabitTodaySummary(habits)
-        : (() => {
-            const completed = habits.filter((h) => h && h.lastCompleted === today).length;
-            const total = habits.length;
-            return {
-                total,
-                completed,
-                remaining: Math.max(0, total - completed),
-                percent: total > 0 ? Math.round((completed / total) * 100) : 0
-            };
-        })();
-    const habitsDoneToday = habitTodaySummary.completed;
+    const habitTodaySummary = studentState ? studentState.habitsSummary : (
+        typeof hayyizGetHabitTodaySummary === 'function' ? hayyizGetHabitTodaySummary(habits) : {
+            total: habits.length,
+            completed: habits.filter((h) => h && h.lastCompleted === today).length,
+            remaining: Math.max(0, habits.length - habits.filter((h) => h && h.lastCompleted === today).length),
+            percent: habits.length > 0 ? Math.round((habits.filter((h) => h && h.lastCompleted === today).length / habits.length) * 100) : 0
+        }
+    );
 
     const hours = Math.floor(focusMinutes / 60);
     const mins = focusMinutes % 60;
@@ -72,33 +67,13 @@ document.addEventListener('DOMContentLoaded', () => {
         month: 'long'
     });
 
-    let recommendation = null;
-    if (typeof hayyizRecommendNext === 'function') {
-        recommendation = hayyizRecommendNext(5);
-    }
+    const recommendation = studentState ? studentState.recommendation : (
+        typeof hayyizRecommendNext === 'function' ? hayyizRecommendNext(5) : null
+    );
 
-    function getNextTasksFallback(list, limit) {
-        const order = { high: 3, medium: 2, low: 1 };
-        return list
-            .filter((t) => t && !t.completed)
-            .slice()
-            .sort((a, b) => {
-                const pDiff = (order[b.priority] || 0) - (order[a.priority] || 0);
-                if (pDiff !== 0) return pDiff;
-                const dateA = a.date ? new Date(a.date).getTime() : Infinity;
-                const dateB = b.date ? new Date(b.date).getTime() : Infinity;
-                if (dateA !== dateB) return dateA - dateB;
-                return (b.created || 0) - (a.created || 0);
-            })
-            .slice(0, limit);
-    }
-
-    const nextTasks = recommendation
-        ? recommendation.ranked.map((r) => r.task)
-        : getNextTasksFallback(todos, 3);
-    const nextTask = recommendation ? recommendation.next : (nextTasks[0] || null);
-    const nextReason = recommendation ? recommendation.reason : '';
-    const isTaskInProgress = recommendation ? recommendation.isInProgress : (nextTask && (parseInt(nextTask.focusDone, 10) || 0) > 0);
+    const nextTask = studentState ? studentState.nextTask : (recommendation ? recommendation.next : (activeTodos[0] || null));
+    const nextReason = studentState ? studentState.nextReason : (recommendation ? recommendation.reason : '');
+    const isTaskInProgress = studentState ? studentState.isInProgress : (nextTask && (parseInt(nextTask.focusDone, 10) || 0) > 0);
 
     const content = document.getElementById('summary-content');
     if (!content) return;
@@ -127,7 +102,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (task.id) localStorage.setItem('hayyiz-current-task-id', task.id);
         localStorage.setItem('hayyiz-current-task-index', String(index));
         localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
-        window.location.href = 'pomodoro.html?task=' + encodeURIComponent(task.text);
+        let pomoUrl = 'pomodoro.html?task=' + encodeURIComponent(task.text);
+        if (task.id) pomoUrl += '&taskId=' + encodeURIComponent(task.id);
+        window.location.href = pomoUrl;
     }
 
     function escapeHtml(str) {
@@ -145,22 +122,58 @@ document.addEventListener('DOMContentLoaded', () => {
     content.replaceChildren();
 
     // ==========================================
-    // 1. اليوم (Today Header)
+    // 1. اليوم (Today Header with Day Status Badge & Explanation)
     // ==========================================
     const greet = document.createElement('div');
     greet.className = 'dash-greeting';
+
+    const greetTop = document.createElement('div');
+    greetTop.className = 'dash-greeting-top';
+
     const greetTitle = document.createElement('h3');
+    greetTitle.className = 'dash-greeting-title';
     greetTitle.textContent = greeting + ' 👋';
+    greetTop.appendChild(greetTitle);
+
+    const dayStatus = studentState ? studentState.dayStatus : null;
+    if (dayStatus) {
+        const statusBadge = document.createElement('span');
+        statusBadge.className = 'dash-day-status ' + (dayStatus.cssClass || '');
+        statusBadge.textContent = 'حالة اليوم: ' + dayStatus.statusLabel;
+        greetTop.appendChild(statusBadge);
+    }
+
+    greet.appendChild(greetTop);
+
     const greetDate = document.createElement('p');
-    greetDate.textContent = dateLabel;
-    greet.appendChild(greetTitle);
+    greetDate.className = 'dash-greeting-date';
+
+    let subtitleText = dateLabel;
+    if (dayStatus && dayStatus.title) {
+        subtitleText += ` · ${dayStatus.title}`;
+    }
+    greetDate.textContent = subtitleText;
     greet.appendChild(greetDate);
+
+    if (dayStatus && dayStatus.description) {
+        const greetDesc = document.createElement('p');
+        greetDesc.className = 'dash-greeting-description';
+        let descText = dayStatus.description;
+        if (dayStatus.historyComparison && dayStatus.historyComparison.hasSufficientData && dayStatus.historyComparison.comparisonText) {
+            descText += ` (${dayStatus.historyComparison.comparisonText})`;
+        }
+        greetDesc.textContent = descText;
+        greet.appendChild(greetDesc);
+    }
+
     content.appendChild(greet);
 
     // ==========================================
     // 2. ما يحتاج انتباهي الآن (Needs Attention Now)
     // ==========================================
-    const activeFocusState = typeof hayyizGetFocusState === 'function' ? hayyizGetFocusState() : null;
+    const activeFocusState = studentState ? studentState.focusState : (
+        typeof hayyizGetFocusState === 'function' ? hayyizGetFocusState() : null
+    );
     if (activeFocusState && activeFocusState.status === 'running' && activeFocusState.remainingSeconds > 0) {
         const activeFocusBanner = document.createElement('div');
         activeFocusBanner.className = 'dash-attention-banner focus-running';
@@ -194,7 +207,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     // 3. الخطوة التالية (Next Action & Student OS Recommendation - Integrated, Human & Action-First)
     // ==========================================
-    const suggestion = typeof hayyizEvaluateStudentState === 'function' ? hayyizEvaluateStudentState() : null;
+    const suggestion = studentState ? studentState.primaryDecision : (
+        typeof hayyizEvaluateStudentState === 'function' ? hayyizEvaluateStudentState() : null
+    );
     const nowCard = document.createElement('div');
     nowCard.className = 'dash-now-card card';
 
@@ -220,11 +235,21 @@ document.addEventListener('DOMContentLoaded', () => {
         nowTitle.textContent = suggestion.actionTitle || suggestion.text;
         nowCard.appendChild(nowTitle);
 
-        if (suggestion.reason) {
-            const reasonEl = document.createElement('div');
-            reasonEl.className = 'dash-now-reason';
-            reasonEl.textContent = suggestion.reason;
-            nowCard.appendChild(reasonEl);
+        if (suggestion.reason || (suggestion.task && (parseInt(suggestion.task.focusDone, 10) || 0) > 0)) {
+            let reasonText = suggestion.reason || '';
+            if (suggestion.task) {
+                const prog = suggestion.taskProgress || (typeof hayyizFormatTaskProgress === 'function' ? hayyizFormatTaskProgress(suggestion.task) : null);
+                if (prog && prog.hasProgress) {
+                    const progStr = `التقدم الحالي: ${prog.progressText}`;
+                    reasonText = reasonText ? `${reasonText} · ${progStr}` : progStr;
+                }
+            }
+            if (reasonText) {
+                const reasonEl = document.createElement('div');
+                reasonEl.className = 'dash-now-reason';
+                reasonEl.textContent = reasonText;
+                nowCard.appendChild(reasonEl);
+            }
         }
 
         const nowActions = document.createElement('div');
@@ -271,11 +296,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const sn = hayyizGetSubjectName(nextTask.subjectId);
             if (sn) metaParts.push(sn);
         }
-        if (nextTask.minutes) {
-            const done = nextTask.focusDone ? parseInt(nextTask.focusDone, 10) || 0 : 0;
-            const total = parseInt(nextTask.minutes, 10) || 0;
-            if (done > 0 && total > 0) metaParts.push(done + '/' + total + ' د');
-            else metaParts.push(nextTask.minutes + ' د');
+        const nextTaskProg = typeof hayyizFormatTaskProgress === 'function' ? hayyizFormatTaskProgress(nextTask) : null;
+        if (nextTaskProg && nextTaskProg.hasProgress) {
+            metaParts.push(nextTaskProg.progressText);
+        } else if (nextTask.minutes) {
+            metaParts.push(nextTask.minutes + ' دقيقة');
         }
         if (nextTask.date) {
             const d = String(nextTask.date).slice(0, 10);
@@ -362,6 +387,51 @@ document.addEventListener('DOMContentLoaded', () => {
     content.appendChild(nowCard);
 
     // ==========================================
+    // 3.5 الخطة متعددة الأيام النشطة (Active Multi-Day Study Plan)
+    // ==========================================
+    try {
+        const multiPlans = typeof hayyizGetMultiDayPlans === 'function' ? hayyizGetMultiDayPlans() : {};
+        const activeMultiPlans = Object.values(multiPlans).filter(p => p && p.status !== 'impossible' && p.daysRemaining >= 0 && p.openTasksCount > 0);
+
+        if (activeMultiPlans.length > 0) {
+            const topMultiPlan = activeMultiPlans[0];
+            const multiPlanCard = document.createElement('div');
+            multiPlanCard.className = 'dash-section card';
+            multiPlanCard.style.cssText = 'border-right: 4px solid var(--color-primary); background: var(--color-surface);';
+
+            const mHead = document.createElement('div');
+            mHead.className = 'dash-section-head';
+
+            const mTitle = document.createElement('h4');
+            mTitle.innerHTML = `<i class="fa-solid fa-calendar-days" aria-hidden="true" style="color:var(--color-primary);"></i> خطة متعددة الأيام: ${escapeHtml(topMultiPlan.targetName)}`;
+
+            const planUrl = `calculator.html?planTargetId=${encodeURIComponent(topMultiPlan.targetId)}&targetDate=${encodeURIComponent(topMultiPlan.targetDate || '')}&subjectId=${encodeURIComponent(topMultiPlan.subjectId || '')}`;
+
+            const mLink = document.createElement('a');
+            mLink.href = planUrl;
+            mLink.textContent = 'جدول الأيام الكامل';
+
+            mHead.appendChild(mTitle);
+            mHead.appendChild(mLink);
+            multiPlanCard.appendChild(mHead);
+
+            const mBody = document.createElement('div');
+            mBody.style.cssText = 'display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; font-size: 0.9rem;';
+
+            const daysRemText = topMultiPlan.daysRemaining === 0 ? 'اليوم المستحق!' : (topMultiPlan.daysRemaining === 1 ? 'متبقي يوم واحد' : `متبقي ${topMultiPlan.daysRemaining} أيام`);
+            mBody.innerHTML = `
+                <div>
+                    <span style="color: var(--color-text-secondary); display: block;">${topMultiPlan.openTasksCount} مهام متبقية · ${topMultiPlan.totalRequiredMinutes} دقيقة إجمالية</span>
+                    <strong style="color: var(--color-primary);">${daysRemText} حتى ${escapeHtml(topMultiPlan.targetName)}</strong>
+                </div>
+                <a href="${planUrl}" class="btn btn-secondary btn-sm"><i class="fa-solid fa-timeline"></i> عرض التوزيع عبر الأيام</a>
+            `;
+            multiPlanCard.appendChild(mBody);
+            content.appendChild(multiPlanCard);
+        }
+    } catch (e) {}
+
+    // ==========================================
     // 4. التقدم وخطة اليوم (Progress & Today's Plan)
     // ==========================================
 
@@ -397,7 +467,9 @@ document.addEventListener('DOMContentLoaded', () => {
     content.appendChild(statsGrid);
 
     // ب) خطة اليوم المترابطة والتكيفية (Adaptive Execution-Oriented Daily Study Plan)
-    const planItems = typeof hayyizGenerateDailyPlan === 'function' ? hayyizGenerateDailyPlan() : [];
+    const planItems = studentState ? studentState.dailyPlan : (
+        typeof hayyizGenerateDailyPlan === 'function' ? hayyizGenerateDailyPlan() : []
+    );
     const planCard = document.createElement('div');
     planCard.className = 'dash-section card';
 
@@ -419,14 +491,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // ملخص التقدم لخطة اليوم
         const planSummaryRow = document.createElement('div');
         planSummaryRow.className = 'dash-plan-summary-bar';
-        planSummaryRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.85rem; font-size: 0.85rem; color: var(--color-text-secondary); background: var(--color-surface); padding: 0.6rem 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border);';
 
         const summaryLeft = document.createElement('div');
-        summaryLeft.style.cssText = 'display: flex; gap: 0.85rem; flex-wrap: wrap; font-weight: 600; color: var(--color-text);';
+        summaryLeft.className = 'dash-plan-summary-items';
 
         const activeCount = activeTodos.length;
-        summaryLeft.innerHTML = `<span><i class="fa-solid fa-list-check" style="color: var(--color-primary);"></i> ${activeCount > 0 ? activeCount + ' مهام متبقية' : 'جميع المهام مكتملة'}</span>` +
-                                `<span><i class="fa-solid fa-stopwatch" style="color: var(--color-primary);"></i> ${focusMinutes > 0 ? focusMinutes + ' دقيقة تركيز اليوم' : 'لم تبدأ التركيز بعد'}</span>`;
+        summaryLeft.innerHTML = `<span class="dash-summary-item-active"><i class="fa-solid fa-list-check icon-primary"></i> ${activeCount > 0 ? activeCount + ' مهام متبقية' : 'جميع المهام مكتملة'}</span>` +
+                                `<span class="dash-summary-item-active"><i class="fa-solid fa-stopwatch icon-primary"></i> ${focusMinutes > 0 ? focusMinutes + ' دقيقة تركيز اليوم' : 'لم تبدأ التركيز بعد'}</span>`;
 
         const summaryRowExams = typeof hayyizGetCalendarSummary === 'function' ? hayyizGetCalendarSummary().nearestEvent : null;
         if (summaryRowExams) {
@@ -434,7 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (daysToEx !== null && daysToEx >= 0 && daysToEx <= 7) {
                 const exLabel = daysToEx === 0 ? 'اختبار اليوم' : (daysToEx === 1 ? 'اختبار غداً' : `اختبار بعد ${daysToEx} أيام`);
                 const examSpan = document.createElement('span');
-                examSpan.style.color = 'var(--color-primary)';
+                examSpan.className = 'dash-summary-exam-span';
                 examSpan.innerHTML = `<i class="fa-solid fa-graduation-cap"></i> ${exLabel} (${escapeHtml(summaryRowExams.name)})`;
                 summaryLeft.appendChild(examSpan);
             }
@@ -508,18 +579,18 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         // حالة الخطة الفارغة (Empty State)
         const emptyPlanBox = document.createElement('div');
-        emptyPlanBox.style.cssText = 'padding: 1.25rem; text-align: center; color: var(--color-text-secondary);';
+        emptyPlanBox.className = 'dash-empty-plan-box';
 
         const emptyTitle = document.createElement('strong');
-        emptyTitle.style.cssText = 'display: block; font-size: 1rem; color: var(--color-text); margin-bottom: 0.35rem;';
+        emptyTitle.className = 'dash-empty-plan-title';
         emptyTitle.textContent = 'لا توجد مهام مخططة لليوم';
 
         const emptyDesc = document.createElement('p');
-        emptyDesc.style.cssText = 'font-size: 0.88rem; margin: 0 0 1rem;';
+        emptyDesc.className = 'dash-empty-plan-desc';
         emptyDesc.textContent = 'أضف مهامك أو مواعيد اختباراتك ليقوم حيز بتنظيم خطتك الدراسية التكيفية تلقائياً.';
 
         const emptyActions = document.createElement('div');
-        emptyActions.style.cssText = 'display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap;';
+        emptyActions.className = 'dash-empty-plan-actions';
 
         const addTasksBtn = document.createElement('a');
         addTasksBtn.href = 'todo.html';
@@ -904,7 +975,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const subList = document.createElement('div');
                     subList.style.cssText = 'display: flex; flex-wrap: wrap; gap: 0.5rem;';
                     subStats.subjects.forEach((s) => {
-                        const tag = document.createElement('span');
+                        const tag = document.createElement(s.id ? 'a' : 'span');
+                        if (s.id) {
+                            tag.href = `subject.html?id=${encodeURIComponent(s.id)}`;
+                            tag.style.textDecoration = 'none';
+                        }
                         tag.className = 'dash-subject-tag';
                         tag.textContent = `${s.name}: ${s.percentage}% — ${s.minutes} دقيقة`;
                         subList.appendChild(tag);

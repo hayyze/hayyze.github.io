@@ -17,8 +17,7 @@
                            https://*.google-analytics.com
                            https://analytics.google.com
                            https://*.analytics.google.com
-                           https://www.googletagmanager.com
-                           https://dzfdbjnqtgltuguqqdkz.supabase.co;
+                           https://www.googletagmanager.com;
                img-src 'self'
                         data:
                         https://www.google-analytics.com
@@ -32,7 +31,7 @@
 
     <!-- SEO Metadata -->
     <title>حاسبة معدل ثالث ثانوي | حساب المعدل والدرجات والقبول الجامعي | حيز</title>
-    <meta name="description" content="احسب معدل ثالث ثانوي بسهولة لجميع المسارات، وتعرّف على الفرق بين معدل المدرسة والنسبة الموزونة وأهميتها في القبول الجامعي وفق أوزان وزارة التعليم.">
+    <meta name="description" content="احسب معدل ثالث ثانوي بسهولة لجميع المسارات، وتعرّف على الفرق بين معدل المدرسة والنسبة الموزونة وأهميتها في القبول الجامعي وفق أوزان المواد المطبقة في حاسبة حيز.">
     <meta name="keywords" content="حاسبة معدل ثالث ثانوي, حساب معدل ثالث ثانوي, حاسبة درجات ثالث ثانوي, طريقة حساب معدل ثالث ثانوي, حساب النسبة ثالث ثانوي, القبول الجامعي ثالث ثانوي">
     <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
@@ -51,7 +50,7 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="حاسبة معدل ثالث ثانوي | حيز">
-    <meta name="twitter:description" content="احسب معدل ثالث ثانوي بدقة وتهيّأ للقبول الجامعي والنسبة الموزونة.">
+    <meta name="twitter:description" content="احسب معدل ثالث ثانوي بسهولة وتهيّأ للقبول الجامعي والنسبة الموزونة.">
     <meta name="twitter:image" content="https://hayyze.github.io/android-chrome-512x512.png">
 
     <link rel="canonical" href="https://hayyze.github.io/third-secondary.html">
@@ -61,11 +60,6 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
     <link rel="stylesheet" href="style.css">
 
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-    <link rel="manifest" href="manifest.webmanifest">
 
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S"></script>
     <script>
@@ -106,6 +100,12 @@
         {
           "@type": "ListItem",
           "position": 3,
+          "name": "حاسبات المرحلة الثانوية",
+          "item": "https://hayyze.github.io/secondary.html"
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
           "name": "حاسبة معدل ثالث ثانوي",
           "item": "https://hayyze.github.io/third-secondary.html"
         }
@@ -136,6 +136,12 @@
       ]
     }
     </script>
+    <!-- الأيقونات (Favicon) -->
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body class="theme-light">
 <header class="navbar">
@@ -154,6 +160,8 @@
                 <div class="nav-dropdown-menu">
                     <a href="pomodoro.html" class="dropdown-item"><i class="fa-solid fa-clock" aria-hidden="true"></i> المؤقت</a>
                     <a href="todo.html" class="dropdown-item"><i class="fa-solid fa-list-check" aria-hidden="true"></i> المهام</a>
+                    <a href="workspaces.html" class="dropdown-item"><i class="fa-solid fa-people-group" aria-hidden="true"></i> المساحات المتزامنة</a>
+                    <a href="subject.html" class="dropdown-item"><i class="fa-solid fa-book" aria-hidden="true"></i> المواد</a>
                     <a href="gpa.html" class="dropdown-item active"><i class="fa-solid fa-calculator" aria-hidden="true"></i> حاسبة المعدل</a>
                     <a href="notes.html" class="dropdown-item"><i class="fa-solid fa-note-sticky" aria-hidden="true"></i> الملاحظات</a>
                     <a href="habits.html" class="dropdown-item"><i class="fa-solid fa-fire" aria-hidden="true"></i> العادات</a>
@@ -187,6 +195,8 @@
         <span style="margin: 0 0.4rem;">&gt;</span>
         <a href="gpa.html" style="color: var(--text-muted); text-decoration: none;">حاسبات المعدل</a>
         <span style="margin: 0 0.4rem;">&gt;</span>
+        <a href="secondary.html" style="color: var(--text-muted); text-decoration: none;">حاسبات المرحلة الثانوية</a>
+        <span style="margin: 0 0.4rem;">&gt;</span>
         <span style="color: var(--text); font-weight: 600;">حاسبة معدل ثالث ثانوي</span>
     </nav>
 
@@ -194,7 +204,7 @@
     <div class="card" data-calc-page="third-secondary" data-stage="secondary" data-year="3">
         <div class="section-header">
             <h1><i class="fa-solid fa-graduation-cap" style="color: var(--primary);"></i> حاسبة معدل ثالث ثانوي</h1>
-            <p class="section-desc">احسب معدلك لعام التخرج بالصف الثالث الثانوي بدقة لجميع المسارات</p>
+            <p class="section-desc">احسب معدلك لعام التخرج بالصف الثالث الثانوي بسهولة لجميع المسارات</p>
         </div>
 
         <div class="gpa-controls">
@@ -253,7 +263,7 @@
                 يلتبس الأمر على الكثير من الطلاب بين المفهومين:
             </p>
             <div style="background: var(--bg); padding: 1rem; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 1rem;">
-                • <strong>المعدل التراكمي الثانوي (المدرسي):</strong> هو نتيجة سنوات الثانوية الثلاث (20% أول ثانوي + 40% ثاني ثانوي + 40% ثالث ثانوي). لحسابه بدقة انتقل إلى <a href="cumulative.html">حاسبة المعدل التراكمي</a>.<br>
+                • <strong>المعدل التراكمي الثانوي (المدرسي):</strong> هو نتيجة سنوات الثانوية الثلاث (20% أول ثانوي + 40% ثاني ثانوي + 40% ثالث ثانوي). لحسابه انتقل إلى <a href="cumulative.html">حاسبة المعدل التراكمي</a>.<br>
                 • <strong>النسبة الموزونة للقبول الجامعي:</strong> هي المعادلة التي تشترطها الجامعات (مثلاً: 30% معدل ثانوي + 30% قدرات + 40% تحصيلي). لحسابها ادخل على <a href="weighted.html">حاسبة النسبة الموزونة</a>.
             </div>
         </div>
@@ -271,7 +281,7 @@
             </div>
             <div class="faq-item" style="margin-bottom: 1.5rem;">
                 <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">هل تؤثر مادة مشروع التخرج على المعدل في ثالث ثانوي؟</h3>
-                <p>نعم، مشروع التخرج مادة رسمية بوزن 2 نقطة، والتفوق فيها يدعم معدل الفصل الدراسي النهائي بشكل ملموس.</p>
+                <p>نعم، تتضمن الحاسبة مادة مشروع التخرج بوزن 2 نقطة، والتفوق فيها يدعم معدل الفصل الدراسي النهائي بشكل ملموس.</p>
             </div>
         </div>
     </section>
@@ -279,16 +289,12 @@
     <!-- الروابط الداخلية -->
     <section class="card content-section" style="margin-top: 2rem;">
         <div class="section-header" style="text-align: right;">
-            <h2><i class="fa-solid fa-link" style="color:var(--primary);"></i> الخطوات القادمة والمرحلة الجامعية</h2>
+            <h2><i class="fa-solid fa-link" style="color:var(--primary);"></i> حاسبات ودلائل ذات صلة بالثانوية والجامعة</h2>
         </div>
         <div class="tools-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem;">
-            <a href="cumulative.html" class="tool-card" style="padding: 1.25rem;">
-                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-chart-line"></i> حاسبة المعدل التراكمي</h3>
-                <p style="font-size: 0.85rem;">احسب التراكمي النهائي للسنوات الثلاث (20% · 40% · 40%).</p>
-            </a>
-            <a href="weighted.html" class="tool-card" style="padding: 1.25rem;">
-                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-percent"></i> حاسبة النسبة الموزونة</h3>
-                <p style="font-size: 0.85rem;">احسب النسبة الموزونة النهائية للقبول الجامعي.</p>
+            <a href="gpa.html" class="tool-card" style="padding: 1.25rem;">
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-calculator"></i> حاسبة المعدل الثانوي</h3>
+                <p style="font-size: 0.85rem;">مركز حاسبات المعدل لجميع الفصول.</p>
             </a>
             <a href="first-secondary.html" class="tool-card" style="padding: 1.25rem;">
                 <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-graduation-cap"></i> حاسبة معدل أول ثانوي</h3>
@@ -297,6 +303,18 @@
             <a href="second-secondary.html" class="tool-card" style="padding: 1.25rem;">
                 <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-graduation-cap"></i> حاسبة معدل ثاني ثانوي</h3>
                 <p style="font-size: 0.85rem;">مراجعة أو تعديل درجات السنة الثانية مسارات.</p>
+            </a>
+            <a href="cumulative.html" class="tool-card" style="padding: 1.25rem;">
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-chart-line"></i> حاسبة المعدل التراكمي</h3>
+                <p style="font-size: 0.85rem;">احسب التراكمي النهائي للسنوات الثلاث.</p>
+            </a>
+            <a href="weighted.html" class="tool-card" style="padding: 1.25rem;">
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-percent"></i> حاسبة النسبة الموزونة</h3>
+                <p style="font-size: 0.85rem;">احسب النسبة الموزونة النهائية للقبول الجامعي.</p>
+            </a>
+            <a href="blog-3.html" class="tool-card" style="padding: 1.25rem;">
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-book-open"></i> كيفية حساب المعدل التراكمي</h3>
+                <p style="font-size: 0.85rem;">دليل تعليمي للخطوات والأمثلة الحسابية.</p>
             </a>
         </div>
     </section>
@@ -322,9 +340,5 @@
 <script src="common.js"></script>
 <script src="gpa.js"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase.js"></script>
-<script src="sync.js"></script>
-<script src="auth-ui.js"></script>
 </body>
 </html>

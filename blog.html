@@ -18,8 +18,7 @@
                            https://*.google-analytics.com
                            https://analytics.google.com
                            https://*.analytics.google.com
-                           https://www.googletagmanager.com
-                           https://dzfdbjnqtgltuguqqdkz.supabase.co;
+                           https://www.googletagmanager.com;
                img-src 'self'
                         data:
                         https://www.google-analytics.com
@@ -97,11 +96,6 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
     <!-- ملف التنسيقات -->
     <link rel="stylesheet" href="style.css">
-    <!-- الأيقونات (Favicon) -->
-    <link rel="icon" href="favicon.ico">
-    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-    <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <!-- التحقق من جوجل -->
     <meta name="google-site-verification" content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw">
     <!-- Google Analytics -->
@@ -112,7 +106,12 @@
         gtag('js', new Date());
         gtag('config', 'G-F94Z3H2D3S');
     </script>
-<link rel="manifest" href="manifest.webmanifest">
+    <!-- الأيقونات (Favicon) -->
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body class="theme-light">
 
@@ -132,6 +131,8 @@
                 <div class="nav-dropdown-menu">
                     <a href="pomodoro.html" class="dropdown-item"><i class="fa-solid fa-clock" aria-hidden="true"></i> المؤقت</a>
                     <a href="todo.html" class="dropdown-item"><i class="fa-solid fa-list-check" aria-hidden="true"></i> المهام</a>
+                    <a href="workspaces.html" class="dropdown-item"><i class="fa-solid fa-people-group" aria-hidden="true"></i> المساحات المتزامنة</a>
+                    <a href="subject.html" class="dropdown-item"><i class="fa-solid fa-book" aria-hidden="true"></i> المواد</a>
                     <a href="gpa.html" class="dropdown-item"><i class="fa-solid fa-calculator" aria-hidden="true"></i> حاسبة المعدل</a>
                     <a href="notes.html" class="dropdown-item"><i class="fa-solid fa-note-sticky" aria-hidden="true"></i> الملاحظات</a>
                     <a href="habits.html" class="dropdown-item"><i class="fa-solid fa-fire" aria-hidden="true"></i> العادات</a>
@@ -263,6 +264,14 @@
     <h3>كيف تذاكر بتركيز بدون تشتت؟</h3>
     <p>طرق عملية لزيادة التركيز أثناء الدراسة: إزالة المشتتات، جلسات قصيرة، بومودورو، وتنظيم المهام.</p>
 </a>
+
+        <a href="blog-16.html" class="card tool-card">
+    <div class="card-icon" style="background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface)); color: var(--color-primary); border: 1px solid var(--color-border);">
+        <i class="fa-solid fa-calculator"></i>
+    </div>
+    <h3>كم تحتاج في القدرات والتحصيلي؟</h3>
+    <p>دليل لحساب الدرجة المطلوبة في القدرات والتحصيلي للوصول إلى النسبة الموزونة المستهدفة للقبول بالجامعة.</p>
+</a>
 </main>
 
 <footer class="footer">
@@ -283,9 +292,5 @@
 </footer>
 <script src="common.js"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase.js"></script>
-<script src="sync.js"></script>
-<script src="auth-ui.js"></script>
 </body>
 </html>

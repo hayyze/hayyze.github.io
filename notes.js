@@ -547,11 +547,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 b.innerHTML = '<i class="fa-solid fa-book-open"></i> للمراجعة';
                 badgesRow.appendChild(b);
             }
-            if (note.subject) {
-                const b = document.createElement('span');
-                b.className = 'badge badge-subject';
-                b.textContent = note.subject;
-                badgesRow.appendChild(b);
+            if (note.subject || note.subjectId) {
+                const allSubs = typeof hayyizGetSubjects === 'function' ? hayyizGetSubjects() : [];
+                const matchedSub = note.subjectId ? allSubs.find(s => s && String(s.id) === String(note.subjectId)) : allSubs.find(s => s && s.name === note.subject);
+                if (matchedSub && matchedSub.id) {
+                    const b = document.createElement('a');
+                    b.href = `subject.html?id=${encodeURIComponent(matchedSub.id)}`;
+                    b.className = 'badge badge-subject';
+                    b.style.textDecoration = 'none';
+                    b.textContent = note.subject || matchedSub.name;
+                    b.addEventListener('click', (e) => e.stopPropagation());
+                    badgesRow.appendChild(b);
+                } else if (note.subject) {
+                    const b = document.createElement('span');
+                    b.className = 'badge badge-subject';
+                    b.textContent = note.subject;
+                    badgesRow.appendChild(b);
+                }
             }
             if (note.category) {
                 const b = document.createElement('span');
@@ -894,11 +906,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 b.innerHTML = '<i class="fa-solid fa-book-open"></i> للمراجعة';
                 viewBadges.appendChild(b);
             }
-            if (note.subject) {
-                const b = document.createElement('span');
-                b.className = 'badge badge-subject';
-                b.textContent = note.subject;
-                viewBadges.appendChild(b);
+            if (note.subject || note.subjectId) {
+                const allSubs = typeof hayyizGetSubjects === 'function' ? hayyizGetSubjects() : [];
+                const matchedSub = note.subjectId ? allSubs.find(s => s && String(s.id) === String(note.subjectId)) : allSubs.find(s => s && s.name === note.subject);
+                if (matchedSub && matchedSub.id) {
+                    const b = document.createElement('a');
+                    b.href = `subject.html?id=${encodeURIComponent(matchedSub.id)}`;
+                    b.className = 'badge badge-subject';
+                    b.style.textDecoration = 'none';
+                    b.textContent = note.subject || matchedSub.name;
+                    b.addEventListener('click', (e) => e.stopPropagation());
+                    viewBadges.appendChild(b);
+                } else if (note.subject) {
+                    const b = document.createElement('span');
+                    b.className = 'badge badge-subject';
+                    b.textContent = note.subject;
+                    viewBadges.appendChild(b);
+                }
             }
             if (note.category) {
                 const b = document.createElement('span');

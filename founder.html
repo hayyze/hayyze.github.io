@@ -17,8 +17,7 @@
                            https://*.google-analytics.com
                            https://analytics.google.com
                            https://*.analytics.google.com
-                           https://www.googletagmanager.com
-                           https://dzfdbjnqtgltuguqqdkz.supabase.co;
+                           https://www.googletagmanager.com;
                img-src 'self'
                         data:
                         https://www.google-analytics.com
@@ -100,10 +99,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
     <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="favicon.ico">
-    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-    <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="canonical" href="https://hayyze.github.io/founder.html">
     <meta name="google-site-verification" content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw">
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S"></script>
@@ -113,7 +108,12 @@
         gtag('js', new Date());
         gtag('config', 'G-F94Z3H2D3S');
     </script>
-<link rel="manifest" href="manifest.webmanifest">
+    <!-- الأيقونات (Favicon) -->
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body class="theme-light">
 
@@ -133,6 +133,8 @@
                 <div class="nav-dropdown-menu">
                     <a href="pomodoro.html" class="dropdown-item"><i class="fa-solid fa-clock" aria-hidden="true"></i> المؤقت</a>
                     <a href="todo.html" class="dropdown-item"><i class="fa-solid fa-list-check" aria-hidden="true"></i> المهام</a>
+                    <a href="workspaces.html" class="dropdown-item"><i class="fa-solid fa-people-group" aria-hidden="true"></i> المساحات المتزامنة</a>
+                    <a href="subject.html" class="dropdown-item"><i class="fa-solid fa-book" aria-hidden="true"></i> المواد</a>
                     <a href="gpa.html" class="dropdown-item"><i class="fa-solid fa-calculator" aria-hidden="true"></i> حاسبة المعدل</a>
                     <a href="notes.html" class="dropdown-item"><i class="fa-solid fa-note-sticky" aria-hidden="true"></i> الملاحظات</a>
                     <a href="habits.html" class="dropdown-item"><i class="fa-solid fa-fire" aria-hidden="true"></i> العادات</a>
@@ -246,9 +248,5 @@
 
 <script src="common.js"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase.js"></script>
-<script src="sync.js"></script>
-<script src="auth-ui.js"></script>
 </body>
 </html>
