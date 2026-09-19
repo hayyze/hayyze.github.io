@@ -171,16 +171,29 @@ function assert(condition, message) {
 }
 
 // Mock DOM elements for testing UI button click interactions
+class ClassList {
+  constructor() { this.classes = new Set(); }
+  add(cls) { this.classes.add(cls); }
+  remove(cls) { this.classes.delete(cls); }
+  contains(cls) { return this.classes.has(cls); }
+}
+
 class TestMockElement {
   constructor(tagName, id = '') {
     this.tagName = tagName.toUpperCase();
     this.id = id;
-    this.className = '';
+    this.classList = new ClassList();
+    this.dataset = {};
     this.style = {};
     this.children = [];
     this.parentNode = null;
     this._value = '';
     this.eventListeners = {};
+  }
+  get className() { return Array.from(this.classList.classes).join(' '); }
+  set className(val) {
+    this.classList.classes.clear();
+    if (val) val.split(/\s+/).forEach(c => c && this.classList.add(c));
   }
   get value() { return this._value; }
   set value(v) { this._value = String(v); }
@@ -569,6 +582,363 @@ class TestMockElement {
   assert(todos.length === 2, "Case 27: Manual task preserved and separate GPA task created (total 2 tasks)");
   const manualTask = todos.find(t => t.id === "manual_1");
   assert(manualTask && manualTask.notes === "ملاحظتي الشخصية اليدوية" && manualTask.source !== "gpa-target-analysis", "Case 27: Manual user task details and notes remain completely untouched");
+}
+
+// ===== Generic Required Score Engine Tests (Tests A through O) =====
+
+// Test A: Legacy 3 components (High School + Qudrat + Tahsili) backward compatibility
+{
+  const res = global.hayyizCalculateRequiredScore({
+    highSchoolScore: 98,
+    targetWeighted: 90,
+    highSchoolWeight: 30,
+    qudratWeight: 30,
+    tahsiliWeight: 40,
+    targetType: "tahsili",
+    knownScore: 85
+  });
+  assert(res.isValid, "Test A: Legacy 3 components calculation is valid");
+  assert(Math.abs(res.requiredScore - 87.75) < 1e-6, `Test A: Expected Tahsili score 87.75, got ${res.requiredScore}`);
+  assert(res.hsContrib === 29.4 && res.knownContrib === 25.5, "Test A: Weighted contribution steps computed accurately");
+}
+
+// Test B: High School + Qudrat + Tahsili + STEP numeric verification
+// Example from prompt:
+// HS: 98 x 30% = 29.4
+// Qudrat: 85 x 30% = 25.5
+// STEP: 80 x 10% = 8.0
+// Tahsili: required x 30%
+// Target = 90%
+// Total known points = 29.4 + 25.5 + 8.0 = 62.9
+// Needed points = 90 - 62.9 = 27.1
+// Required Tahsili = (27.1 / 0.30) = 90.33333333333333
+{
+  const res = global.hayyizCalculateRequiredScore({
+    components: [
+      { name: "الثانوية العامة", score: 98, weight: 30 },
+      { name: "القدرات العامة", score: 85, weight: 30 },
+      { name: "الاختبار التحصيلي", score: null, weight: 30 },
+      { name: "STEP", score: 80, weight: 10 }
+    ],
+    targetWeighted: 90,
+    targetIndex: 2
+  });
+  assert(res.isValid, "Test B: 4 components calculation is valid");
+  assert(Math.abs(res.requiredScore - (27.1 / 0.30)) < 1e-6, `Test B: Expected Tahsili score ~90.333, got ${res.requiredScore}`);
+}
+
+// Test C: Custom test named "STEP" (ensuring name does not affect calculation logic)
+{
+  const res1 = global.hayyizCalculateRequiredScore({
+    components: [
+      { name: "الثانوية", score: 90, weight: 50 },
+      { name: "STEP", score: null, weight: 50 }
+    ],
+    targetWeighted: 90,
+    targetIndex: 1
+  });
+  // 90 - 45 = 45 -> Required = 90
+  assert(res1.isValid && Math.abs(res1.requiredScore - 90) < 1e-6, "Test C: STEP custom test handled generically by weight and target index");
+}
+
+// Test D: Random custom test name ("اختبار الجامعة") handled identically
+{
+  const res2 = global.hayyizCalculateRequiredScore({
+    components: [
+      { name: "الثانوية", score: 90, weight: 50 },
+      { name: "اختبار الجامعة", score: null, weight: 50 }
+    ],
+    targetWeighted: 90,
+    targetIndex: 1
+  });
+  assert(res2.isValid && Math.abs(res2.requiredScore - 90) < 1e-6, "Test D: Random custom test name ('اختبار الجامعة') produces identical generic output");
+}
+
+// Test E: Multiple custom tests (5 components total)
+{
+  const res = global.hayyizCalculateRequiredScore({
+    components: [
+      { name: "الثانوية", score: 100, weight: 20 },
+      { name: "القدرات", score: 90, weight: 20 },
+      { name: "التحصيلي", score: 85, weight: 20 },
+      { name: "STEP", score: 80, weight: 20 },
+      { name: "اختبار الجامعة", score: null, weight: 20 }
+    ],
+    targetWeighted: 90,
+    targetIndex: 4
+  });
+  // Known contribs = 20 + 18 + 17 + 16 = 71
+  // Needed = 90 - 71 = 19
+  // Required = (19 / 0.20) = 95
+  assert(res.isValid && Math.abs(res.requiredScore - 95) < 1e-6, "Test E: 5 components calculation is correct");
+}
+
+// Test F: Weight sum != 100 rejection
+{
+  const res = global.hayyizCalculateRequiredScore({
+    components: [
+      { name: "الثانوية", score: 90, weight: 30 },
+      { name: "القدرات", score: 80, weight: 30 }
+    ],
+    targetWeighted: 90
+  });
+  assert(!res.isValid && res.errorMessage.includes("مجموع أوزان القبول يجب أن يساوي 100%"), "Test F: Weight sum != 100 rejected cleanly");
+}
+
+// Test G: Target test weight = 0 rejection
+{
+  const res = global.hayyizCalculateRequiredScore({
+    components: [
+      { name: "الثانوية", score: 90, weight: 100 },
+      { name: "STEP", score: null, weight: 0 }
+    ],
+    targetWeighted: 90,
+    targetIndex: 1
+  });
+  assert(!res.isValid && res.errorMessage.includes("يجب أن يكون أكبر من 0%"), "Test G: Target test weight = 0 rejected with clear message");
+}
+
+// Test H: Required score > 100 & maxPossibleWeighted across 4 components
+// HS 80 (30%) = 24, Qudrat 70 (30%) = 21, STEP 80 (10%) = 8 -> sum known = 53
+// Target = 95. Needed points = 42. Target weight Tahsili = 30%. Required = 140 (> 100).
+// maxPossibleWeighted = 53 + 30 = 83.
+{
+  const res = global.hayyizCalculateRequiredScore({
+    components: [
+      { name: "الثانوية", score: 80, weight: 30 },
+      { name: "القدرات", score: 70, weight: 30 },
+      { name: "التحصيلي", score: null, weight: 30 },
+      { name: "STEP", score: 80, weight: 10 }
+    ],
+    targetWeighted: 95,
+    targetIndex: 2
+  });
+  assert(res.isValid && res.rangeStatus === "too_high", "Test H: Required score > 100 flagged as too_high");
+  assert(res.maxPossibleWeighted === 83.0, `Test H: Expected max possible weighted score 83.0, got ${res.maxPossibleWeighted}`);
+}
+
+// Test I: Target already achieved (< 0 required score)
+{
+  const res = global.hayyizCalculateRequiredScore({
+    components: [
+      { name: "الثانوية", score: 100, weight: 90 },
+      { name: "القدرات", score: null, weight: 10 }
+    ],
+    targetWeighted: 80,
+    targetIndex: 1
+  });
+  assert(res.isValid && res.rangeStatus === "too_low", "Test I: Target already achieved flagged as too_low");
+}
+
+// Test J: Malformed non-numeric input rejection ('90abc', '90%', '1e2', '--5')
+{
+  const badInputs = ["98abc", "abc90", "90%", "1e2", "--5"];
+  let allRejected = true;
+  badInputs.forEach(inp => {
+    const res = global.hayyizCalculateRequiredScore({
+      components: [
+        { name: "الثانوية", score: inp, weight: 50 },
+        { name: "القدرات", score: null, weight: 50 }
+      ],
+      targetWeighted: 90
+    });
+    if (res.isValid) allRejected = false;
+  });
+  assert(allRejected, "Test J: Strict input validation rejects all malformed non-numeric inputs");
+}
+
+// Test K: Component removal / dynamic list
+{
+  const components = [
+    { name: "الثانوية", score: 90, weight: 40 },
+    { name: "القدرات", score: 80, weight: 30 },
+    { name: "التحصيلي", score: null, weight: 30 }
+  ];
+  // Remove Qudrat and adjust weights to 100%
+  const updatedComponents = [
+    { name: "الثانوية", score: 90, weight: 50 },
+    { name: "التحصيلي", score: null, weight: 50 }
+  ];
+  const res = global.hayyizCalculateRequiredScore({
+    components: updatedComponents,
+    targetWeighted: 90,
+    targetIndex: 1
+  });
+  assert(res.isValid && Math.abs(res.requiredScore - 90) < 1e-6, "Test K: Dynamic component removal produces valid updated calculation");
+}
+
+// Test L: Changing required target component
+{
+  const comps = [
+    { name: "الثانوية", score: 90, weight: 30 },
+    { name: "القدرات", score: 80, weight: 30 },
+    { name: "التحصيلي", score: 85, weight: 40 }
+  ];
+
+  // Target Index 1 (Qudrat) - clear Qudrat score
+  comps[1].score = null;
+  const resQ = global.hayyizCalculateRequiredScore({
+    components: comps,
+    targetWeighted: 90,
+    targetIndex: 1
+  });
+  assert(resQ.isValid && resQ.targetTypeName === "القدرات", "Test L: Switching target component to Qudrat works correctly");
+
+  // Target Index 2 (Tahsili) - restore Qudrat, clear Tahsili
+  comps[1].score = 80;
+  comps[2].score = null;
+  const resT = global.hayyizCalculateRequiredScore({
+    components: comps,
+    targetWeighted: 90,
+    targetIndex: 2
+  });
+  assert(resT.isValid && resT.targetTypeName === "التحصيلي", "Test L: Switching target component to Tahsili works correctly");
+}
+
+// Test M: Equal mode normal case
+{
+  const res = global.hayyizCalculateRequiredScore({
+    components: [
+      { name: "الثانوية العامة", score: 98, weight: 30 },
+      { name: "القدرات العامة", score: null, weight: 30 },
+      { name: "الاختبار التحصيلي", score: null, weight: 40 }
+    ],
+    targetWeighted: 90,
+    targetMode: "equal"
+  });
+  // HS = 29.40. Needed = 60.60. Total weight = 70. Required = 60.6 / 0.7 = 86.57142857...
+  assert(res.isValid && res.equalAssumption, "Test M: Equal mode normal case valid");
+  assert(Math.abs(res.requiredScore - (60.6 / 0.7)) < 1e-6, "Test M: Equal mode score calculated correctly");
+}
+
+// Test N: Equal mode with additional custom component without score -> Rejection to prevent misleading output
+{
+  const res = global.hayyizCalculateRequiredScore({
+    components: [
+      { name: "الثانوية العامة", score: 98, weight: 30 },
+      { name: "القدرات العامة", score: null, weight: 30 },
+      { name: "الاختبار التحصيلي", score: null, weight: 30 },
+      { name: "STEP", score: null, weight: 10 }
+    ],
+    targetWeighted: 90,
+    targetMode: "equal"
+  });
+  assert(!res.isValid && res.errorMessage.includes("لا يمكن استخدام وضع الدرجة المتساوية عند وجود اختبارات مخصصة أخرى بدون درجات"), "Test N: Equal mode with unstated custom test rejected to prevent misleading output");
+}
+
+// Test O: maxPossibleWeighted with 4 components (2 unknown components)
+// HS 90 (30%) = 27, Qudrat 80 (30%) = 24. Tahsili (30%) unknown, STEP (10%) unknown.
+// Max possible = 27 + 24 + 30 + 10 = 91.0
+{
+  const res = global.hayyizCalculateRequiredScore({
+    components: [
+      { name: "الثانوية العامة", score: 90, weight: 30 },
+      { name: "القدرات العامة", score: 80, weight: 30 },
+      { name: "الاختبار التحصيلي", score: null, weight: 30 },
+      { name: "STEP", score: null, weight: 10 }
+    ],
+    targetWeighted: 95,
+    targetIndex: 2
+  });
+  assert(res.isValid && res.maxPossibleWeighted === 91.0, `Test O: Expected max possible weighted 91.0 across 4 components, got ${res.maxPossibleWeighted}`);
+}
+
+// Test P: Invalid maxScore rejection (<= 0 or NaN)
+{
+  const res1 = global.hayyizCalculateRequiredScore({
+    components: [
+      { name: "الثانوية", score: 90, weight: 50, maxScore: 0 },
+      { name: "القدرات", score: null, weight: 50, maxScore: 100 }
+    ],
+    targetWeighted: 90,
+    targetIndex: 1
+  });
+  const res2 = global.hayyizCalculateRequiredScore({
+    components: [
+      { name: "الثانوية", score: 90, weight: 50, maxScore: "abc" },
+      { name: "القدرات", score: null, weight: 50, maxScore: 100 }
+    ],
+    targetWeighted: 90,
+    targetIndex: 1
+  });
+  assert(!res1.isValid && res1.errorMessage.includes("الدرجة العظمى لمكوّن"), "Test P1: maxScore <= 0 rejected with clear message");
+  assert(!res2.isValid && res2.errorMessage.includes("الدرجة العظمى لمكوّن"), "Test P2: malformed maxScore rejected with clear message");
+}
+
+// Test Q: Rejection when target component already has a score
+{
+  const res = global.hayyizCalculateRequiredScore({
+    components: [
+      { name: "الثانوية العامة", score: 95, weight: 50 },
+      { name: "القدرات العامة", score: 85, weight: 50 }
+    ],
+    targetWeighted: 90,
+    targetIndex: 1
+  });
+  assert(!res.isValid && res.errorMessage.includes("يجب ألا تكون له درجة مدخلة بالفعل"), "Test Q: Target component with pre-existing score rejected cleanly");
+}
+
+// Test R: Custom maxScore != 100 calculation and step formula verification
+// Example: HS=100 (weight 50%, maxScore 100) -> contrib = 50.
+// Custom Test: weight 50%, maxScore 150. Target weighted = 80. Needed points = 30.
+// Required score = (30 / 50) * 150 = 90 out of 150.
+{
+  const res = global.hayyizCalculateRequiredScore({
+    components: [
+      { name: "الثانوية", score: 100, weight: 50, maxScore: 100 },
+      { name: "اختبار مخصص 150", score: null, weight: 50, maxScore: 150 }
+    ],
+    targetWeighted: 80,
+    targetIndex: 1
+  });
+  assert(res.isValid, "Test R: Custom maxScore != 100 calculation valid");
+  assert(Math.abs(res.requiredScore - 90) < 1e-6, `Test R: Expected required score 90/150, got ${res.requiredScore}`);
+  const lastStep = res.steps[res.steps.length - 1];
+  assert(lastStep.formula.includes("× 150 = 90.00"), "Test R: Step formula accurately cites custom maxScore 150");
+}
+
+// UI DOM Interaction Test for new dynamic components UI
+{
+  const mockContainer = new TestMockElement('div', 'req-components-container');
+  const mockAddBtn = new TestMockElement('button', 'req-add-component-btn');
+  const mockTotalWeights = new TestMockElement('span', 'req-weights-total');
+  const mockTargetSelect = new TestMockElement('select', 'req-target-component-select');
+  const mockTargetInput = new TestMockElement('input', 'req-target-weighted');
+  const mockCalcBtn = new TestMockElement('button', 'req-calculate-btn');
+  const mockResetBtn = new TestMockElement('button', 'req-reset-btn');
+  const mockResultBox = new TestMockElement('div', 'req-result-box');
+
+  global.document = {
+    createElement: (tag) => new TestMockElement(tag),
+    getElementById: (id) => {
+      if (id === 'req-components-container') return mockContainer;
+      if (id === 'req-add-component-btn') return mockAddBtn;
+      if (id === 'req-weights-total') return mockTotalWeights;
+      if (id === 'req-target-component-select') return mockTargetSelect;
+      if (id === 'req-target-weighted') return mockTargetInput;
+      if (id === 'req-calculate-btn') return mockCalcBtn;
+      if (id === 'req-reset-btn') return mockResetBtn;
+      if (id === 'req-result-box') return mockResultBox;
+      return null;
+    }
+  };
+
+  // Initialize UI
+  global.initRequiredScorePage();
+
+  assert(mockContainer.children.length === 3, "UI Test: Initial rendering creates 3 component rows");
+
+  // Click "+ إضافة اختبار"
+  mockAddBtn.click();
+  assert(mockContainer.children.length === 4, "UI Test: Clicking add button creates 4th component row (STEP)");
+
+  // Verify options in targetSelect dropdown
+  const options = mockTargetSelect.children;
+  assert(options.some(o => o.textContent.includes('STEP')), "UI Test: Dynamic target dropdown includes STEP option");
+
+  // Reset button restores 3 default components
+  mockResetBtn.click();
+  assert(mockContainer.children.length === 3, "UI Test: Reset button restores default 3 components");
 }
 
 console.log(`\nTests Summary: ${passed} Passed, ${failed} Failed`);

@@ -32,17 +32,16 @@
     <meta name="referrer" content="strict-origin-when-cross-origin">
 
     <!-- SEO Metadata Hub Page -->
-    <title>حاسبة المعدل | جميع حاسبات المعدل الدراسي والنسبة الموزونة | حيز</title>
-    <meta name="description" content="منظومة حاسبة المعدل الكاملة من حيز: احسب معدل المتوسطة والثانوية العامة والمعدل التراكمي والنسبة الموزونة للقبول الجامعي وفق أوزان وزارة التعليم.">
-    <meta name="keywords" content="حاسبة المعدل, احسب معدلي, معدل تراكمي, نسبة موزونة, حاسبة متوسط, حاسبة ثانوي, مسارات الثانوية, حساب المعدل الدراسي">
+    <title>حاسبة المعدل الدراسي والقبول الجامعي | جميع الحاسبات — حيز</title>
+    <meta name="description" content="مركز حاسبات المعدل الدراسي والقبول الجامعي لمنصة حيز: احسب معدل المرحلة المتوسطة والمرحلة الثانوية بجميع مساراتها والمعدل التراكمي والنسبة الموزونة والدرجة المطلوبة للقبول.">
     <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
 
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://hayyze.github.io/gpa.html">
-    <meta property="og:title" content="منظومة حاسبات المعدل الدراسي والنسبة الموزونة | حيز">
-    <meta property="og:description" content="مركز حاسبات المعدل الدراسي لمنصة حيز: اختر الحاسبة المخصصة لمرحلتك الدراسية واحسب معدلك بدقة وسهولة.">
+    <meta property="og:title" content="حاسبة المعدل الدراسي والقبول الجامعي | جميع الحاسبات — حيز">
+    <meta property="og:description" content="مركز حاسبات المعدل الشامل: احسب معدل المتوسط والثانوي والمعدل التراكمي ونسبتك الموزونة والدرجة المطلوبة للقبول الجامعي بدقة وسهولة.">
     <meta property="og:image" content="https://hayyze.github.io/android-chrome-512x512.png">
     <meta property="og:image:width" content="512">
     <meta property="og:image:height" content="512">
@@ -51,8 +50,8 @@
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="منظومة حاسبات المعدل الدراسي والنسبة الموزونة | حيز">
-    <meta name="twitter:description" content="مركز حاسبات المعدل الشامل للمراحل المتوسطة والثانوية والمعدل التراكمي والنسبة الموزونة.">
+    <meta name="twitter:title" content="حاسبة المعدل الدراسي والقبول الجامعي | جميع الحاسبات — حيز">
+    <meta name="twitter:description" content="مركز حاسبات المعدل الشامل للمرحلة المتوسطة والثانوية والقبول الجامعي عبر منصة حيز.">
     <meta name="twitter:image" content="https://hayyze.github.io/android-chrome-512x512.png">
 
     <link rel="canonical" href="https://hayyze.github.io/gpa.html">
@@ -82,7 +81,7 @@
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         gap: 1.25rem;
-        margin-top: 1.5rem;
+        margin-top: 1rem;
       }
       .calc-hub-card {
         display: flex;
@@ -97,7 +96,7 @@
         transition: all 0.25s ease;
       }
       .calc-hub-card:hover {
-        border-color: var(--primary, #4f46e5);
+        border-color: var(--primary, #18364D);
         transform: translateY(-4px);
         box-shadow: var(--shadow-lg);
       }
@@ -135,13 +134,19 @@
         gap: 0.4rem;
       }
       .hub-section-title {
-        font-size: 1.3rem;
+        font-size: 1.35rem;
         font-weight: 800;
-        margin: 2rem 0 1rem;
+        margin: 2.25rem 0 0.5rem;
         display: flex;
         align-items: center;
         gap: 0.6rem;
         color: var(--text);
+      }
+      .hub-section-desc {
+        font-size: 0.95rem;
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+        line-height: 1.6;
       }
     </style>
 
@@ -150,9 +155,9 @@
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
-      "name": "منظومة حاسبة المعدل الدراسي والنسبة الموزونة",
+      "name": "حاسبة المعدل الدراسي والقبول الجامعي",
       "url": "https://hayyze.github.io/gpa.html",
-      "description": "الصفحة الرئيسية لحاسبات المعدل الدراسي والنسبة الموزونة في منصة حيز.",
+      "description": "مركز حاسبات المعدل الدراسي الشامل لمنصة حيز لحساب معدلات المرحلة المتوسطة والثانوية والتراكمي والنسبة الموزونة والدرجات المطلوبة للقبول الجامعي.",
       "inLanguage": "ar"
     }
     </script>
@@ -176,6 +181,38 @@
       ]
     }
     </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "ما هي حاسبة المعدل الدراسي وكيف أختار الحاسبة المناسبة لي؟",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "حاسبة المعدل في حيز هي مركز شامل ينقسم إلى 3 مجموعات رئيسية: حاسبات المرحلة المتوسطة (أول، ثاني، وثالث متوسط)، حاسبات المرحلة الثانوية بنظام المسارات (أول، ثاني، وثالث ثانوي)، وحاسبات القبول الجامعي (المعدل التراكمي، النسبة الموزونة، والدرجة المطلوبة)."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "ما الفرق بين المعدل الفصلي والمعدل التراكمي؟",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "المعدل الفصلي أو السنوي يحسب النسبة المئوية الموزونة لمواد فترة دراسية محددة بناءً على عدد حصص وأوزان كل مادة. أما المعدل التراكمي فيجمع معدلات السنوات الدراسية كاملة بأوزانها المحددة (مثل 20% لأول ثانوي، 40% لثاني ثانوي، و40% لثالث ثانوي)."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "كيف تساعدني حاسبات القبول الجامعي في التخطيط المستقبلي؟",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "تساعدك حاسبات القبول الجامعي بحساب المعدل التراكمي النهائي للثانوية، ثم دمج هذا المعدل مع درجات اختبارات القدرات والتحصيلي في حاسبة النسبة الموزونة، أو استخدام حاسبة الدرجة المطلوبة لتعرف بالضبط كم تحتاج في الاختبار القادم للوصول إلى موزونتك المستهدفة."
+          }
+        }
+      ]
+    }
+    </script>
 </head>
 <body class="theme-light">
 <header class="navbar">
@@ -185,7 +222,7 @@
             <span class="logo-text">حيز</span>
         </a>
         <button class="menu-toggle" id="menu-toggle" aria-label="فتح القائمة" aria-expanded="false" aria-controls="nav-links"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
-                <nav class="nav-links" id="nav-links">
+        <nav class="nav-links" id="nav-links">
             <a href="index.html" class="nav-btn"><i class="fa-solid fa-house" aria-hidden="true"></i> الرئيسية</a>
             <div class="nav-dropdown active">
                 <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true">
@@ -230,14 +267,15 @@
 
     <div class="card">
         <div class="section-header">
-            <h1><i class="fa-solid fa-calculator" style="color: var(--primary);"></i> منظومة حاسبات المعدل الدراسي | حاسبة المعدل</h1>
-            <p class="section-desc">اختر الحاسبة المخصصة لمرحلتك الدراسية لحساب معدلك الموزون بدقة وفق أوزان وزارة التعليم</p>
+            <h1><i class="fa-solid fa-calculator" style="color: var(--primary);"></i> حاسبة المعدل الدراسي والقبول الجامعي</h1>
+            <p class="section-desc">مركز حاسبات المعدل الشامل لمنصة حيز: اختر الحاسبة المخصصة لمرحلتك الدراسية أو هدفك الأكاديمي للوصول لنتائج دقيقة ومباشرة</p>
         </div>
 
-        <!-- قسم المرحلة المتوسطة -->
+        <!-- 1. قسم المرحلة المتوسطة -->
         <div class="hub-section-title">
             <i class="fa-solid fa-book-open" style="color: var(--primary);"></i> المرحلة المتوسطة
         </div>
+        <p class="hub-section-desc">حاسبات مخصصة لصفوف المرحلة المتوسطة تحسب المعدل الموزون للدرجات مع الأخذ بالاعتبار أوزان الحصص المعتمدة والسلوك والمواظبة.</p>
         <div class="calc-hub-grid">
             <a href="first-intermediate.html" class="calc-hub-card">
                 <div>
@@ -265,10 +303,11 @@
             </a>
         </div>
 
-        <!-- قسم المرحلة الثانوية -->
+        <!-- 2. قسم المرحلة الثانوية -->
         <div class="hub-section-title">
             <i class="fa-solid fa-graduation-cap" style="color: var(--primary);"></i> المرحلة الثانوية (مسارات)
         </div>
+        <p class="hub-section-desc">حاسبات متخصصة لسنوات الثانوية العامة تتوافق مع نظام المسارات والتخصصات الدراسية وأوزان المناهج الرسمية.</p>
         <div class="calc-hub-grid">
             <a href="first-secondary.html" class="calc-hub-card">
                 <div>
@@ -296,10 +335,11 @@
             </a>
         </div>
 
-        <!-- قسم المعدلات العامة والجامعية -->
+        <!-- 3. قسم القبول الجامعي -->
         <div class="hub-section-title">
-            <i class="fa-solid fa-chart-pie" style="color: var(--primary);"></i> المعدلات العامة والقبول الجامعي
+            <i class="fa-solid fa-chart-pie" style="color: var(--primary);"></i> القبول الجامعي
         </div>
+        <p class="hub-section-desc">مجموعة أدوات متكاملة لحساب المعدل التراكمي والنسبة الموزونة للقبول بالجامعات والدرجة المطلوبة في اختبارات قياس.</p>
         <div class="calc-hub-grid">
             <a href="cumulative.html" class="calc-hub-card">
                 <div>
@@ -317,21 +357,77 @@
                 </div>
                 <div class="calc-hub-link">فتح الحاسبة <i class="fa-solid fa-arrow-left"></i></div>
             </a>
+            <a href="required-score.html" class="calc-hub-card">
+                <div>
+                    <div class="calc-hub-icon"><i class="fa-solid fa-bullseye"></i></div>
+                    <h3>حاسبة الدرجة المطلوبة للقبول الجامعي</h3>
+                    <p>احسب الدرجة التي تحتاجها في القدرات أو التحصيلي أو أي اختبار قبول مخصص للوصول إلى النسبة الموزونة المستهدفة.</p>
+                </div>
+                <div class="calc-hub-link">فتح الحاسبة <i class="fa-solid fa-arrow-left"></i></div>
+            </a>
         </div>
     </div>
 
-    <!-- مقال تعريفي شامل لمنظومة الحاسبات -->
+    <!-- المحتوى التعليمي والتوضيحي -->
     <section class="card content-section" style="margin-top: 2rem;">
         <div class="section-header" style="text-align: right;">
-            <h2><i class="fa-solid fa-lightbulb" style="color:var(--primary);"></i> لماذا تم تقسيم حاسبة المعدل إلى صفحات متخصصة؟</h2>
+            <h2><i class="fa-solid fa-book-bookmark" style="color:var(--primary);"></i> الدليل الشامل لحاسبات المعدل الدراسي والقبول الجامعي</h2>
         </div>
         <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
             <p>
-                في منصة **حيز**، حرصنا على تطوير منظومة حاسبات المعدل لتمنح كل طالب تجربة مخصصة ومصممة بدقة حسب مرحلته الدراسية ونظام أوزان وزارة التعليم بالمملكة العربية السعودية. بدلاً من الواجهات العامة المعقدة، أصبحت كل مرحلة تتمتع بصفحة حاسبة مستقلة تحتوي على المواد المعتمدة رسميًا وأمثلة واقعية وشرح مفصل لكيفية تحسين المعدل.
+                يُعد **المعدل الدراسي** المقاييس الأكاديمي الأهم الذي يعكس تحصيل الطالب العلمي عبر مختلف المراحل الدراسية، بدءاً من الصفوف المتوسطة وصولاً إلى سنوات الثانوية العامة ومرحلة القبول الجامعي. تم تصميم مركز حاسبات حيز لتقديم أدوات دقيقة ومتخصصة لكل مرحلة لضمان حصول الطالب على نتائج موثوقة.
             </p>
+
+            <h3>ما هي حاسبة المعدل ومن يستطيع استخدامها؟</h3>
             <p>
-                سواء كنت تدرس في المرحلة المتوسطة وترغب في متابعة تحصيلك في المواد الأساسية والمهارات الرقمية والتفكير الناقد، أو كنت في الثانوية وتسعى لتحقيق التميز في مسارات العلوم والهندسة والصحة أو إدارة الأعمال وتستهدف حصد أعلى نسبة تراكمية (20% لأول ثانوي، 40% لثاني ثانوي، و40% لثالث ثانوي)، فإن حاسبات حيز تقدم لك أدوات دقيقة، آمنة، ولا تتطلب تسجيل حساب.
+                تقدم منصة حيز حاسبات مخصصة تلبي احتياجات جميع طلاب التعليم العام والجامعي في المملكة العربية السعودية:
             </p>
+            <ul style="margin-right: 1.5rem; margin-bottom: 1rem;">
+                <li><strong>طلاب المرحلة المتوسطة:</strong> لحساب المعدل الفصلي للمواد الأساسية وفق توزيع الحصص المعتمد.</li>
+                <li><strong>طلاب المرحلة الثانوية (نظام المسارات):</strong> لحساب معدل المواد والسنة المشتركة والمسارات التخصصية (العام، الحاسب والهندسة، الصحة والحياة، إدارة الأعمال، والشرعي).</li>
+                <li><strong>الطلاب المقبلون على الجامعة:</strong> لحساب المعدل التراكمي الثانوي، النسبة الموزونة للقبول بالجامعات، ومعرفة الدرجة المطلوبة في التحصيلي والقدرات.</li>
+            </ul>
+
+            <h3>الفرق بين المعدل الفصلي والمعدل التراكمي والنسبة الموزونة</h3>
+            <p>
+                من الضروري للطلاب التمييز بين النطاقات المختلفة للحسابات الأكاديمية:
+            </p>
+            <div style="background: var(--bg); padding: 1.2rem; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 1rem;">
+                <p style="margin: 0 0 0.6rem 0;">• <strong>المعدل الفصلي (أو السنوي):</strong> يحسب تحصيل الطالب في مواد فصل دراسي واحد أو سنة دراسية واحدة بضرب درجات المواد في أوزانها الحصصية.</p>
+                <p style="margin: 0 0 0.6rem 0;">• <strong>المعدل التراكمي للثانوية:</strong> هو التجميع النهائي لسنوات الثانوية العامة الثلاث بنسب مئوية محددة (20% لأول ثانوي + 40% لثاني ثانوي + 40% لثالث ثانوي). يمكنك حسابه مباشرة عبر <a href="cumulative.html" style="color:var(--primary); font-weight:600;">حاسبة المعدل التراكمي</a>.</p>
+                <p style="margin: 0;">• <strong>النسبة الموزونة للقبول الجامعي:</strong> هي المعادلة المركبة التي تجمع بين المعدل التراكمي للثانوية ودرجات اختبارات القدرات والتحصيلي. يمكنك دمج درجاتك عبر <a href="weighted.html" style="color:var(--primary); font-weight:600;">حاسبة النسبة الموزونة</a> أو حساب الدرجات المستهدفة بواسطة <a href="required-score.html" style="color:var(--primary); font-weight:600;">حاسبة الدرجة المطلوبة</a>.</p>
+            </div>
+
+            <h3>كيف تختار الحاسبة المناسبة لمرحلتك؟</h3>
+            <p>
+                لتحديد الحاسبة المناسبة، اتبع الخطوات التالية:
+            </p>
+            <ol style="margin-right: 1.5rem; margin-bottom: 1rem;">
+                <li>إذا كنت في الصف الأول أو الثاني أو الثالث المتوسط، اختر حاسبة صفك من قسم **المرحلة المتوسطة**.</li>
+                <li>إذا كنت تدرس في مرحلة الثانوية العامة، حدد صفك ومسارك من قسم **المرحلة الثانوية**.</li>
+                <li>إذا أنهيت الثانوية وترغب في التقديم على الجامعات، استخدم أدوات قسم **القبول الجامعي** لتجميع التراكمي واحتساب الموزونة والتخطيط للدرجات المطلوبة.</li>
+            </ol>
+        </div>
+    </section>
+
+    <!-- الأسئلة الشائعة -->
+    <section class="card content-section" style="margin-top: 2rem;">
+        <div class="section-header" style="text-align: right;">
+            <h2><i class="fa-solid fa-circle-question" style="color:var(--primary);"></i> الأسئلة الشائعة حول حاسبات المعدل والقبول الجامعي</h2>
+        </div>
+        <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
+            <div class="faq-item" style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">ما هي حاسبة المعدل الدراسي وكيف أختار الحاسبة المناسبة لي؟</h3>
+                <p>حاسبة المعدل في حيز هي مركز شامل ينقسم إلى 3 مجموعات رئيسية: حاسبات المرحلة المتوسطة (أول، ثاني، وثالث متوسط)، حاسبات المرحلة الثانوية بنظام المسارات (أول، ثاني، وثالث ثانوي)، وحاسبات القبول الجامعي (المعدل التراكمي، النسبة الموزونة، والدرجة المطلوبة).</p>
+            </div>
+            <div class="faq-item" style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">ما الفرق بين المعدل الفصلي والمعدل التراكمي؟</h3>
+                <p>المعدل الفصلي أو السنوي يحسب النسبة المئوية الموزونة لمواد فترة دراسية محددة بناءً على عدد حصص وأوزان كل مادة. أما المعدل التراكمي فيجمع معدلات السنوات الدراسية كاملة بأوزانها المحددة (مثل 20% لأول ثانوي، 40% لثاني ثانوي، و40% لثالث ثانوي).</p>
+            </div>
+            <div class="faq-item" style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">كيف تساعدني حاسبات القبول الجامعي في التخطيط المستقبلي؟</h3>
+                <p>تساعدك حاسبات القبول الجامعي بحساب المعدل التراكمي النهائي للثانوية، ثم دمج هذا المعدل مع درجات اختبارات القدرات والتحصيلي في حاسبة النسبة الموزونة، أو استخدام حاسبة الدرجة المطلوبة لتعرف بالضبط كم تحتاج في الاختبار القادم للوصول إلى موزونتك المستهدفة.</p>
+            </div>
         </div>
     </section>
 </main>

@@ -31,17 +31,16 @@
     <meta name="referrer" content="strict-origin-when-cross-origin">
 
     <!-- SEO Metadata -->
-    <title>حاسبة المعدل التراكمي للثانوية | 20% · 40% · 40% | حيز</title>
-    <meta name="description" content="احسب المعدل التراكمي للثانوية العامة بسهولة وفق أوزان وزارة التعليم السعودية (أول ثانوي 20%، ثاني ثانوي 40%، ثالث ثانوي 40%) مع إمكانية التعديل والشرح.">
-    <meta name="keywords" content="حاسبة المعدل التراكمي, حساب المعدل التراكمي للثانوية, طريقة حساب التراكمي ثانوية, معدل أول ثانوي 20, معدل ثاني وثالث 40, حاسبة التراكمي مسارات">
+    <title>حاسبة المعدل التراكمي الثانوي | طريقة حساب معدل الثانوية — حيز</title>
+    <meta name="description" content="احسب معدلك التراكمي الثانوي لجميع سنوات الثانوية الثلاث وفق توزيع الأوزان المعتمد (20% أول ثانوي، 40% ثاني ثانوي، 40% ثالث ثانوي)، واكتشف طريقة الحساب الموزونة والأمثلة.">
     <meta name="author" content="حيز">
     <meta name="robots" content="index, follow">
 
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://hayyze.github.io/cumulative.html">
-    <meta property="og:title" content="حاسبة المعدل التراكمي للثانوية | حيز">
-    <meta property="og:description" content="احسب المعدل التراكمي النهائي للسنوات الثلاث في المرحلة الثانوية باشتراطات أوزان وزارة التعليم الرسمية.">
+    <meta property="og:title" content="حاسبة المعدل التراكمي الثانوي | طريقة حساب معدل الثانوية — حيز">
+    <meta property="og:description" content="احسب معدلك التراكمي الثانوي بسهولة ودقة وفق أوزان سنوات الثانوية الثلاث (20% · 40% · 40%).">
     <meta property="og:image" content="https://hayyze.github.io/android-chrome-512x512.png">
     <meta property="og:image:width" content="512">
     <meta property="og:image:height" content="512">
@@ -50,8 +49,8 @@
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="حاسبة المعدل التراكمي للثانوية | حيز">
-    <meta name="twitter:description" content="احسب المعدل التراكمي للثانوية (20% · 40% · 40%) بسهولة ودقة عالية.">
+    <meta name="twitter:title" content="حاسبة المعدل التراكمي الثانوي | طريقة حساب معدل الثانوية — حيز">
+    <meta name="twitter:description" content="احسب معدلك التراكمي الثانوي بسهولة ودقة وفق نسب وأوزان حاسبة حيز (20% · 40% · 40%).">
     <meta name="twitter:image" content="https://hayyze.github.io/android-chrome-512x512.png">
 
     <link rel="canonical" href="https://hayyze.github.io/cumulative.html">
@@ -111,7 +110,7 @@
         background: var(--bg);
         color: var(--text);
       }
-      .cum-input-wrap input:focus { outline: none; border-color: var(--primary, #4f46e5); }
+      .cum-input-wrap input:focus { outline: none; border-color: var(--primary, #18364D); }
       .cum-input-wrap .suffix { color: var(--text-muted); font-size: 0.9rem; }
       .cum-progress { margin-top: 1rem; font-size: 0.9rem; color: var(--text-muted); text-align: center; }
     </style>
@@ -121,9 +120,9 @@
     {
       "@context": "https://schema.org",
       "@type": "WebPage",
-      "name": "حاسبة المعدل التراكمي للثانوية",
+      "name": "حاسبة المعدل التراكمي الثانوي",
       "url": "https://hayyze.github.io/cumulative.html",
-      "description": "حاسبة تجميع المعدل التراكمي للسنوات الثلاث بالمرحلة الثانوية وفق نسب وزارة التعليم الرسمية.",
+      "description": "احسب معدلك التراكمي الثانوي بسهولة وفق أوزان حاسبة حيز لسنوات الثانوية العامة الثلاث (أول ثانوي 20%، ثاني ثانوي 40%، ثالث ثانوي 40%).",
       "inLanguage": "ar"
     }
     </script>
@@ -147,7 +146,13 @@
         {
           "@type": "ListItem",
           "position": 3,
-          "name": "حاسبة المعدل التراكمي",
+          "name": "القبول الجامعي",
+          "item": "https://hayyze.github.io/gpa.html"
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
+          "name": "حاسبة المعدل التراكمي الثانوي",
           "item": "https://hayyze.github.io/cumulative.html"
         }
       ]
@@ -160,18 +165,26 @@
       "mainEntity": [
         {
           "@type": "Question",
-          "name": "ما معادلة حساب المعدل التراكمي للثانوية؟",
+          "name": "كيف أحسب المعدل التراكمي للثانوية؟",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "المعدل التراكمي = (معدل أول ثانوي × 0.20) + (معدل ثاني ثانوي × 0.40) + (معدل ثالث ثانوي × 0.40)."
+            "text": "يُحسب المعدل التراكمي للثانوية بضرب معدل أول ثانوي السنوي في 0.20، ومعدل ثاني ثانوي السنوي في 0.40، ومعدل ثالث ثانوي السنوي في 0.40، ثم جمع النتائج الثلاث للحصول على المعدل التراكمي النهائي من 100."
           }
         },
         {
           "@type": "Question",
-          "name": "ماذا لو لم أدرس بعد مرحلة الثالث الثانوي وأريد توقع التراكمي؟",
+          "name": "ما الفرق بين المعدل التراكمي للثانوية والنسبة الموزونة؟",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "يمكنك أدخال درجات أول وثاني ثانوي ووضع درجة متوقعة لثالث ثانوي للاطلاع على التراكمي المتوقع واستهداف معدلك المطلوب."
+            "text": "المعدل التراكمي هو النسبة المئوية المركبة لسنوات المدرسة الثلاث فقط، بينما النسبة الموزونة هي المعادلة المركبة للقبول الجامعي والتي تدمج المعدل التراكمي الثانوي مع درجات اختبارات القدرات العامة والتحصيلي."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "كيف أستفيد من المعدل التراكمي في التقديم على الجامعات؟",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "تعتمد بوابات القبول الموحد بالجامعات على إدخال المعدل التراكمي الثانوي النهائي بضربه في الوزن المخصص للشهادة الثانوية (مثل 30% أو 40%) وإضافته لدرجات قياس لتحديد الدرجة التنافسية."
           }
         }
       ]
@@ -186,7 +199,7 @@
             <span class="logo-text">حيز</span>
         </a>
         <button class="menu-toggle" id="menu-toggle" aria-label="فتح القائمة" aria-expanded="false" aria-controls="nav-links"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
-                <nav class="nav-links" id="nav-links">
+        <nav class="nav-links" id="nav-links">
             <a href="index.html" class="nav-btn"><i class="fa-solid fa-house" aria-hidden="true"></i> الرئيسية</a>
             <div class="nav-dropdown active">
                 <button class="nav-dropdown-toggle" aria-expanded="false" aria-haspopup="true">
@@ -228,18 +241,20 @@
         <span style="margin: 0 0.4rem;">&gt;</span>
         <a href="gpa.html" style="color: var(--text-muted); text-decoration: none;">حاسبات المعدل</a>
         <span style="margin: 0 0.4rem;">&gt;</span>
-        <span style="color: var(--text); font-weight: 600;">حاسبة المعدل التراكمي</span>
+        <span style="color: var(--text-muted);">القبول الجامعي</span>
+        <span style="margin: 0 0.4rem;">&gt;</span>
+        <span style="color: var(--text); font-weight: 600;">حاسبة المعدل التراكمي الثانوي</span>
     </nav>
 
     <!-- واجهة حاسبة التراكمي -->
     <div class="card" data-calc-page="cumulative">
         <div class="section-header">
-            <h1><i class="fa-solid fa-chart-line" style="color: var(--primary);"></i> حاسبة المعدل التراكمي للثانوية</h1>
-            <p class="section-desc">احسب معدلك التراكمي الإجمالي للسنوات الثلاث باشتراطات ونسب وزارة التعليم الرسمية</p>
+            <h1><i class="fa-solid fa-chart-line" style="color: var(--primary);"></i> حاسبة المعدل التراكمي الثانوي</h1>
+            <p class="section-desc">احسب معدلك التراكمي الثانوي النهائي للسنوات الثلاث بدقة وفق توزيع الأوزان المعتمد في حاسبة حيز</p>
         </div>
 
         <div class="cumulative-info">
-            أدخل معدلك السنوي من 100 لكل صف دراسي. يتم احتساب المعدل التراكمي وفق النسب الوزارية المعتمدة:
+            أدخل معدلك السنوي من 100 لكل صف دراسي. يتم حساب المعدل التراكمي الثانوي وفق الأوزان المعتمدة:
             <strong>أول ثانوي (20%)</strong> —
             <strong>ثاني ثانوي (40%)</strong> —
             <strong>ثالث ثانوي (40%)</strong>.
@@ -295,28 +310,40 @@
     <!-- المحتوى التعليمي -->
     <section class="card content-section" style="margin-top: 2rem;">
         <div class="section-header" style="text-align: right;">
-            <h2><i class="fa-solid fa-circle-info" style="color:var(--primary);"></i> كيف يُحسب المعدل التراكمي للثانوية العامة؟</h2>
+            <h2><i class="fa-solid fa-circle-info" style="color:var(--primary);"></i> ما هو المعدل التراكمي للثانوية وكيف يُحسب؟</h2>
         </div>
         <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
             <p>
-                **المعدل التراكمي** هو النسبة المئوية المركبة المعبرة عن التحصيل الأكاديمي للطالب طوال فترة دراسته في المرحلة الثانوية بالسعودية (السنوات الثلاث).
+                <strong>المعدل التراكمي للثانوية</strong> هو النسبة المئوية المركبة الشاملة التي تُعبّر عن المستوى التحصيلي النهائي للطالب طوال فترة دراسته في مرحلة الثانوية العامة. يُمثّل هذا المعدل المكون المدرسي الذي يُرفع إلى المركز الوطني للقياس وبوابات القبول الموحد بالجامعات.
             </p>
-            <h3>معادلة الأوزان الرسمية لوزارة التعليم</h3>
-            <p>اعتمدت وزارة التعليم توزيع النسب التالية لترجيح أثر كل سنة على الشهادة النهائية:</p>
+
+            <h3>توزيع أوزان السنوات الثلاث في التراكمي</h3>
+            <p>تعتمد حاسبة حيز التوزيع المئوي المعتمد لسنوات الثانوية العامة الثلاث:</p>
+            <ul style="margin-right: 1.5rem; margin-bottom: 1rem;">
+                <li><strong>السنة الأولى المشتركة (أول ثانوي):</strong> تمثل 20% من التراكمي النهائي.</li>
+                <li><strong>السنة الثانية مسارات (ثاني ثانوي):</strong> تمثل 40% من التراكمي النهائي.</li>
+                <li><strong>السنة الثالثة مسارات (ثالث ثانوي):</strong> تمثل 40% من التراكمي النهائي.</li>
+            </ul>
+
             <div style="background: var(--bg); padding: 1.2rem; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 1rem;">
-                <strong>المعدل التراكمي = (معدل أول ثانوي × 0.20) + (معدل ثاني ثانوي × 0.40) + (معدل ثالث ثانوي × 0.40)</strong>
+                <strong>معادلة المعدل التراكمي = (معدل أول ثانوي × 0.20) + (معدل ثاني ثانوي × 0.40) + (معدل ثالث ثانوي × 0.40)</strong>
             </div>
 
-            <h3>مثال حسابي تفصيلي للمعدل التراكمي</h3>
-            <p>نفترض أن معدلات طالب في السنوات الثلاث كانت كالتالي:</p>
+            <h3>مثال حسابي واقعي للمعدل التراكمي</h3>
+            <p>إذا كانت المعدلات السنوية المكتسبة لطالب في كشف الدرجات كالتالي:</p>
             <ul style="margin-right: 1.5rem; margin-bottom: 1rem;">
-                <li>معدل أول ثانوي = 90% ⇐ المساهمة = 90 × 0.20 = <strong>18%</strong></li>
-                <li>معدل ثاني ثانوي = 95% ⇐ المساهمة = 95 × 0.40 = <strong>38%</strong></li>
-                <li>معدل ثالث ثانوي = 98% ⇐ المساهمة = 98 × 0.40 = <strong>39.2%</strong></li>
-                <li>إجمالي المعدل التراكمي = 18 + 38 + 39.2 = <strong>95.20%</strong></li>
+                <li>معدل أول ثانوي = 92% ⇐ المساهمة = 92 × 0.20 = <strong>18.40%</strong></li>
+                <li>معدل ثاني ثانوي = 96% ⇐ المساهمة = 96 × 0.40 = <strong>38.40%</strong></li>
+                <li>معدل ثالث ثانوي = 98% ⇐ المساهمة = 98 × 0.40 = <strong>39.20%</strong></li>
+                <li><strong>المعدل التراكمي النهائي = 18.40 + 38.40 + 39.20 = 96.00%</strong></li>
             </ul>
+
+            <h3>الفرق بين المعدل التراكمي والنسبة الموزونة للجامعات</h3>
             <p>
-                الآن يمكنك استخدام الناتج النهائي مباشرة لحساب نتيجتك في <a href="weighted.html">حاسبة النسبة الموزونة للقبول الجامعي</a>.
+                الجدير بالذكر أن **المعدل التراكمي** يُعبر حصراً عن درجات الثانوية المدرسية، بينما **النسبة الموزونة** هي الدرجة التنافسية التي تجمع التراكمي الثانوي مع درجات القدرات العامة واختبار التحصيلي.
+            </p>
+            <p>
+                إذا كنت تريد التخطيط لمرحلة القبول بالجامعة، يمكنك دمج نتيجتك التراكمية في <a href="weighted.html" style="color:var(--primary); font-weight:600;">حاسبة النسبة الموزونة</a>، أو استخدام <a href="required-score.html" style="color:var(--primary); font-weight:600;">حاسبة الدرجة المطلوبة</a> لمعرفة الدرجة التي تحتاج إليها في الاختبار القادم للوصول إلى هدفك، كما يمكنك الاطلاع على <a href="blog-3.html" style="color:var(--primary); font-weight:600;">الدليل الشامل لكيفية حساب المعدل التراكمي</a>.
             </p>
         </div>
     </section>
@@ -324,16 +351,20 @@
     <!-- الأسئلة الشائعة -->
     <section class="card content-section" style="margin-top: 2rem;">
         <div class="section-header" style="text-align: right;">
-            <h2><i class="fa-solid fa-circle-question" style="color:var(--primary);"></i> أسئلة شائعة حول المعدل التراكمي</h2>
+            <h2><i class="fa-solid fa-circle-question" style="color:var(--primary);"></i> الأسئلة الشائعة حول المعدل التراكمي للثانوية</h2>
         </div>
         <div class="content-body" style="line-height: 1.9; font-size: 1.05rem;">
             <div class="faq-item" style="margin-bottom: 1.5rem;">
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">هل تتساوى مساهمة السنة الأولى والثانية في التراكمي؟</h3>
-                <p>لا، مساهمة السنة الأولى 20% فقط، بينما تمتلك السنة الثانية والثالثة الوزن الأكبر بنسبة 40% لكل منهما، مما يعطيك فرصة كبيرة لرفع معدلك التراكمي حتى لو انخفض في أول ثانوي.</p>
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">كيف أحسب المعدل التراكمي للثانوية؟</h3>
+                <p>يُحسب المعدل التراكمي للثانوية بضرب معدل أول ثانوي السنوي في 0.20، ومعدل ثاني ثانوي السنوي في 0.40، ومعدل ثالث ثانوي السنوي في 0.40، ثم جمع النتائج الثلاث للحصول على المعدل التراكمي النهائي من 100.</p>
             </div>
             <div class="faq-item" style="margin-bottom: 1.5rem;">
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">كيف أستخدم التراكمي للتقديم على الجامعات؟</h3>
-                <p>تطلب بوابة القبول الموحد بالجامعات المعدل التراكمي النهائي المدون بالشهادة، وتجري عليه النسبة الموزونة بحسب صيغة كل جامعة.</p>
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">ما الفرق بين المعدل التراكمي للثانوية والنسبة الموزونة؟</h3>
+                <p>المعدل التراكمي هو النسبة المئوية المركبة لسنوات المدرسة الثلاث فقط، بينما النسبة الموزونة هي المعادلة المركبة للقبول الجامعي والتي تدمج المعدل التراكمي الثانوي مع درجات اختبارات القدرات العامة والتحصيلي.</p>
+            </div>
+            <div class="faq-item" style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.4rem;">كيف أستفيد من المعدل التراكمي في التقديم على الجامعات؟</h3>
+                <p>تعتمد بوابات القبول الموحد بالجامعات على إدخال المعدل التراكمي الثانوي النهائي بضربه في الوزن المخصص للشهادة الثانوية (مثل 30% أو 40%) وإضافته لدرجات قياس لتحديد الدرجة التنافسية.</p>
             </div>
         </div>
     </section>
@@ -341,24 +372,24 @@
     <!-- الروابط الداخلية -->
     <section class="card content-section" style="margin-top: 2rem;">
         <div class="section-header" style="text-align: right;">
-            <h2><i class="fa-solid fa-link" style="color:var(--primary);"></i> حاسبات مرحلية وموزونة</h2>
+            <h2><i class="fa-solid fa-link" style="color:var(--primary);"></i> حاسبات ودلائل ذات صلة بالقبول</h2>
         </div>
         <div class="tools-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem;">
             <a href="weighted.html" class="tool-card" style="padding: 1.25rem;">
                 <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-percent"></i> حاسبة النسبة الموزونة</h3>
-                <p style="font-size: 0.85rem;">احسب نسبة القبول الجامعي بحسب أوزان الجامعة.</p>
+                <p style="font-size: 0.85rem;">احسب نسبة القبول الجامعي الموزونة المعتمدة.</p>
             </a>
-            <a href="first-secondary.html" class="tool-card" style="padding: 1.25rem;">
-                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-graduation-cap"></i> حاسبة معدل أول ثانوي</h3>
-                <p style="font-size: 0.85rem;">حساب معدل مواد السنة الأولى المشتركة.</p>
+            <a href="required-score.html" class="tool-card" style="padding: 1.25rem;">
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-bullseye"></i> حاسبة الدرجة المطلوبة</h3>
+                <p style="font-size: 0.85rem;">معرفة الدرجة المطلوبة في القدرات والتحصيلي للقبول.</p>
             </a>
-            <a href="second-secondary.html" class="tool-card" style="padding: 1.25rem;">
-                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-graduation-cap"></i> حاسبة معدل ثاني ثانوي</h3>
-                <p style="font-size: 0.85rem;">حساب معدل مواد السنة الثانية مسارات.</p>
+            <a href="blog-3.html" class="tool-card" style="padding: 1.25rem;">
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-book-open"></i> كيفية حساب المعدل التراكمي</h3>
+                <p style="font-size: 0.85rem;">دليل تفصيلي لخطوات وأمثلة الحساب.</p>
             </a>
-            <a href="third-secondary.html" class="tool-card" style="padding: 1.25rem;">
-                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-graduation-cap"></i> حاسبة معدل ثالث ثانوي</h3>
-                <p style="font-size: 0.85rem;">حساب معدل مواد سنة التخرج.</p>
+            <a href="gpa.html" class="tool-card" style="padding: 1.25rem;">
+                <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-calculator"></i> مركز حاسبات المعدل</h3>
+                <p style="font-size: 0.85rem;">الوصول لحاسبات المواد والمراحل الدراسية.</p>
             </a>
         </div>
     </section>
