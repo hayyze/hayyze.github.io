@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <script>
+        (function(){try{if(localStorage.getItem('hayyiz-theme')==='dark'){document.documentElement.classList.add('theme-dark');}}catch(e){}})();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+      content="default-src 'self';
+               script-src 'self' https://www.googletagmanager.com https://cdn.jsdelivr.net 'unsafe-inline';
+               script-src-elem 'self' https://www.googletagmanager.com https://cdn.jsdelivr.net 'unsafe-inline';
+               style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com 'unsafe-inline';
+               font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:;
+               connect-src 'self'
+                           https://www.google-analytics.com
+                           https://*.google-analytics.com
+                           https://analytics.google.com
+                           https://*.analytics.google.com
+                           https://www.googletagmanager.com
+                           https://dzfdbjnqtgltuguqqdkz.supabase.co;
+               img-src 'self'
+                        data:
+                        https://www.google-analytics.com
+                        https://*.google-analytics.com
+                        https://www.googletagmanager.com;
+               object-src 'none';
+               frame-ancestors 'none';
+               base-uri 'self';">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+
+    <title>حاسبة سرعة القراءة وزمن المذاكرة للكتب الدراسية | حيز</title>
+    <meta name="description" content="حاسبة عملية لتقدير الوقت المطلوب لإكمال قراءة الصفحات والفصول الدراسية بناءً على عدد الكلمات ومستوى صعوبة النص وسرعة القراءة الذاتية.">
+    <meta name="author" content="حيز">
+    <meta name="robots" content="index, follow">
+
+    <link rel="canonical" href="https://hayyze.github.io/reading-speed-calculator.html">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="icon" href="favicon.ico">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="manifest" href="manifest.webmanifest">
+
+    <style>
+        .speed-calc-wrapper {
+            max-width: 1000px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        .speed-calc-hero {
+            background: var(--bg-card, #FBF9F4);
+            border: 1px solid var(--border, #D3C9B8);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+        }
+        .speed-calc-hero h1 {
+            font-size: 1.7rem;
+            color: var(--primary, #18364D);
+            margin-bottom: 0.6rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .speed-calc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .speed-card-box {
+            background: var(--bg-card, #FBF9F4);
+            border: 1px solid var(--border, #D3C9B8);
+            border-radius: 10px;
+            padding: 1.5rem;
+        }
+        .speed-card-box h2 {
+            font-size: 1.15rem;
+            color: var(--primary, #18364D);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .speed-field-row {
+            margin-bottom: 1rem;
+        }
+        .speed-field-row label {
+            display: block;
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--text, #18364D);
+            margin-bottom: 0.4rem;
+        }
+        .speed-field-row input, .speed-field-row select {
+            width: 100%;
+            padding: 0.65rem 0.8rem;
+            border: 1px solid var(--border, #D3C9B8);
+            border-radius: 6px;
+            background: var(--bg-main, #F2EEE5);
+            color: var(--text, #18364D);
+            font-family: inherit;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+        }
+        .calc-action-btn {
+            display: block;
+            width: 100%;
+            padding: 0.8rem;
+            background: var(--accent, #B6533B);
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 1rem;
+            text-align: center;
+        }
+        .calc-action-btn:hover {
+            opacity: 0.92;
+        }
+        .stat-display-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .stat-display-item {
+            background: var(--bg-surface-2, #E7E0D4);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-display-item span {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-muted, #5A6978);
+            margin-bottom: 0.3rem;
+        }
+        .stat-display-item strong {
+            font-size: 1.4rem;
+            color: var(--primary, #18364D);
+        }
+        .benchmark-table-sec {
+            background: var(--bg-card, #FBF9F4);
+            border: 1px solid var(--border, #D3C9B8);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+        .benchmark-table-sec h3 {
+            font-size: 1.2rem;
+            color: var(--primary, #18364D);
+            margin-bottom: 1rem;
+        }
+        .speed-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        .speed-table th, .speed-table td {
+            padding: 0.7rem;
+            border: 1px solid var(--border, #D3C9B8);
+            text-align: right;
+        }
+        .speed-table th {
+            background: var(--bg-surface-2, #E7E0D4);
+            color: var(--text, #18364D);
+        }
+    </style>
+</head>
+<body class="theme-light">
+<header class="navbar">
+    <div class="container nav-container">
+        <a href="index.html" class="logo">
+            <div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div>
+            <span class="logo-text">حيز</span>
+        </a>
+        <button class="menu-toggle" id="menu-toggle" aria-label="فتح القائمة" aria-expanded="false" aria-controls="nav-links"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
+        <nav class="nav-links" id="nav-links">
+            <a href="index.html" class="nav-btn"><i class="fa-solid fa-house" aria-hidden="true"></i> الرئيسية</a>
+            <a href="pomodoro.html" class="nav-btn"><i class="fa-solid fa-clock" aria-hidden="true"></i> المؤقت</a>
+            <a href="todo.html" class="nav-btn"><i class="fa-solid fa-list-check" aria-hidden="true"></i> المهام</a>
+            <a href="gpa.html" class="nav-btn"><i class="fa-solid fa-calculator" aria-hidden="true"></i> حاسبة المعدل</a>
+            <a href="blog.html" class="nav-btn"><i class="fa-solid fa-newspaper" aria-hidden="true"></i> المدونة</a>
+        </nav>
+        <div class="nav-actions">
+            <button id="theme-toggle" class="theme-btn" aria-label="تبديل الوضع الليلي"><i class="fa-solid fa-moon" aria-hidden="true"></i></button>
+        </div>
+    </div>
+</header>
+
+<main class="speed-calc-wrapper">
+    <div class="speed-calc-hero">
+        <h1><i class="fa-solid fa-book-reader"></i> حاسبة زمن القراءة والمذاكرة</h1>
+        <p>تساعدك هذه الحاسبة في تقدير الوقت الفعلي الذي تحتاجه لقراءة وفهم مقرر دراسي أو فصل معين بناءً على عدد الصفحات أو الكلمات ومستوى صعوبة المادة.</p>
+    </div>
+
+    <div class="speed-calc-grid">
+        <div class="speed-card-box">
+            <h2><i class="fa-solid fa-sliders"></i> مدخلات المادة الدراسية</h2>
+            <form onsubmit="event.preventDefault(); runSpeedCalc();">
+                <div class="speed-field-row">
+                    <label for="page-count">عدد الصفحات المطلوبة:</label>
+                    <input type="number" id="page-count" min="1" max="1000" value="20">
+                </div>
+                <div class="speed-field-row">
+                    <label for="words-per-page">متوسط الكلمات في الصفحة الواحدة:</label>
+                    <input type="number" id="words-per-page" min="50" max="1000" value="250">
+                </div>
+                <div class="speed-field-row">
+                    <label for="text-difficulty">نوع وصعوبة المقرر:</label>
+                    <select id="text-difficulty">
+                        <option value="150">مادة أدبية/ملاحظات عامة (سهل - 150 كلمة/د)</option>
+                        <option value="100" selected>كتاب مدرسي عام (متوسط - 100 كلمة/د)</option>
+                        <option value="60">مقرر علمي/رياضيات/قوانين (مكثف - 60 كلمة/د)</option>
+                    </select>
+                </div>
+                <button type="submit" class="calc-action-btn"><i class="fa-solid fa-bolt"></i> احسب الوقت التقديري</button>
+            </form>
+        </div>
+
+        <div class="speed-card-box">
+            <h2><i class="fa-solid fa-chart-pie"></i> النتيجة والتقدير الزمني</h2>
+            <p style="font-size: 0.9rem; color: var(--text-muted, #5A6978); margin-bottom: 1rem;" id="calc-summary-text">
+                لقراءة <strong>20 صفحة</strong> بمتوسط 250 كلمة/صفحة (إجمالي 5,000 كلمة):
+            </p>
+
+            <div class="stat-display-grid">
+                <div class="stat-display-item">
+                    <span>الوقت المطلوب</span>
+                    <strong id="time-output-val">50 دقيقة</strong>
+                </div>
+                <div class="stat-display-item">
+                    <span>جلسات بومودورو</span>
+                    <strong id="pomo-output-val">2 جلسة</strong>
+                </div>
+            </div>
+
+            <div style="margin-top: 1.5rem; padding: 0.8rem; background: var(--bg-surface-2, #E7E0D4); border-radius: 6px; font-size: 0.85rem; line-height: 1.5;">
+                <i class="fa-solid fa-circle-info" style="color: var(--accent, #B6533B);"></i> <strong>ملاحظة:</strong> تم إضافة 20% وقت إضافي مخصص لإعادة قراءة المصطلحات المعقدة وأخذ الملاحظات التلخيصية.
+            </div>
+        </div>
+    </div>
+
+    <div class="benchmark-table-sec">
+        <h3>جدول استرشادي لمعدلات القراءة حسب المرحلة والمادة</h3>
+        <table class="speed-table">
+            <thead>
+                <tr>
+                    <th>المجال الدراسي</th>
+                    <th>سرعة القراءة (كلمة/دقيقة)</th>
+                    <th>زمن قراءة 10 صفحات</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>القراءة المسحية السريعة (المراجعة الأولى)</td>
+                    <td>200 - 250 كلمة/دقيقة</td>
+                    <td>10 - 12 دقيقة</td>
+                </tr>
+                <tr>
+                    <td>المواد الأدبية والاجتماعيات</td>
+                    <td>130 - 160 كلمة/دقيقة</td>
+                    <td>15 - 20 دقيقة</td>
+                </tr>
+                <tr>
+                    <td>العلوم الطبيعية والأحياء</td>
+                    <td>90 - 110 كلمة/دقيقة</td>
+                    <td>25 - 30 دقيقة</td>
+                </tr>
+                <tr>
+                    <td>الفيزياء والرياضيات والهندسة</td>
+                    <td>50 - 70 كلمة/دقيقة</td>
+                    <td>40 - 50 دقيقة</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+
+<footer class="footer" style="margin-top:3rem;">
+    <div class="container footer-container">
+        <p class="footer-copy">&copy; 2026 حيز — صفحة أداة تفاعلية مستقلة للاختبار</p>
+    </div>
+</footer>
+
+<script>
+function runSpeedCalc() {
+    const pages = parseInt(document.getElementById('page-count').value, 10) || 20;
+    const wordsPerPage = parseInt(document.getElementById('words-per-page').value, 10) || 250;
+    const speed = parseInt(document.getElementById('text-difficulty').value, 10) || 100;
+
+    const totalWords = pages * wordsPerPage;
+    const baseMinutes = totalWords / speed;
+    const adjustedMinutes = Math.round(baseMinutes * 1.2); // +20% overhead
+    const pomoCount = Math.ceil(adjustedMinutes / 25);
+
+    document.getElementById('calc-summary-text').innerHTML = `لقراءة <strong>${pages} صفحة</strong> بمتوسط ${wordsPerPage} كلمة/صفحة (إجمالي ${totalWords.toLocaleString('ar-EG')} كلمة):`;
+    document.getElementById('time-output-val').innerText = `${adjustedMinutes} دقيقة`;
+    document.getElementById('pomo-output-val').innerText = `${pomoCount} جلسة`;
+}
+</script>
+<script src="common.js"></script>
+</body>
+</html>
