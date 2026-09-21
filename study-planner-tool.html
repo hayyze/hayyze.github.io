@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <script>
+        (function(){try{if(localStorage.getItem('hayyiz-theme')==='dark'){document.documentElement.classList.add('theme-dark');}}catch(e){}})();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+      content="default-src 'self';
+               script-src 'self' https://www.googletagmanager.com https://cdn.jsdelivr.net 'unsafe-inline';
+               script-src-elem 'self' https://www.googletagmanager.com https://cdn.jsdelivr.net 'unsafe-inline';
+               style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com 'unsafe-inline';
+               font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:;
+               connect-src 'self'
+                           https://www.google-analytics.com
+                           https://*.google-analytics.com
+                           https://analytics.google.com
+                           https://*.analytics.google.com
+                           https://www.googletagmanager.com
+                           https://dzfdbjnqtgltuguqqdkz.supabase.co;
+               img-src 'self'
+                        data:
+                        https://www.google-analytics.com
+                        https://*.google-analytics.com
+                        https://www.googletagmanager.com;
+               object-src 'none';
+               frame-ancestors 'none';
+               base-uri 'self';">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+
+    <title>أداة توزيع فترات الدراسة والراحة | حيز</title>
+    <meta name="description" content="أداة تفاعلية بسيطة لتوزيع إجمالي ساعات المذاكرة إلى فترات تركيز واستراحات منتظمة بناءً على قدرتك الاستيعابية وطبيعة المواد الدراسية.">
+    <meta name="author" content="حيز">
+    <meta name="robots" content="index, follow">
+
+    <link rel="canonical" href="https://hayyze.github.io/study-planner-tool.html">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="icon" href="favicon.ico">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="manifest" href="manifest.webmanifest">
+
+    <style>
+        .test-planner-container {
+            max-width: 1100px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        .test-planner-header {
+            background: linear-gradient(135deg, var(--bg-surface-2, #E7E0D4) 0%, var(--bg-surface, #FBF9F4) 100%);
+            border: 2px solid var(--border, #D3C9B8);
+            border-radius: 12px;
+            padding: 1.75rem;
+            margin-bottom: 2rem;
+        }
+        .test-planner-header h1 {
+            font-size: 1.6rem;
+            color: var(--primary, #18364D);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .test-planner-header p {
+            color: var(--text-muted, #5A6978);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin: 0;
+        }
+        .test-layout-split {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 1.75rem;
+        }
+        @media (max-width: 850px) {
+            .test-layout-split {
+                grid-template-columns: 1fr;
+            }
+        }
+        .test-sidebar-panel {
+            background: var(--bg-card, #FBF9F4);
+            border: 1px solid var(--border, #D3C9B8);
+            border-radius: 10px;
+            padding: 1.25rem;
+            height: fit-content;
+        }
+        .test-form-group {
+            margin-bottom: 1.2rem;
+        }
+        .test-form-group label {
+            display: block;
+            font-weight: 700;
+            font-size: 0.88rem;
+            color: var(--text, #18364D);
+            margin-bottom: 0.4rem;
+        }
+        .test-form-group input, .test-form-group select {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            border: 1px solid var(--border, #D3C9B8);
+            border-radius: 6px;
+            background: var(--bg-main, #F2EEE5);
+            color: var(--text, #18364D);
+            font-family: inherit;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+        }
+        .test-calc-btn {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--primary, #18364D);
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .test-calc-btn:hover {
+            opacity: 0.9;
+        }
+        .test-results-panel {
+            background: var(--bg-card, #FBF9F4);
+            border: 1px solid var(--border, #D3C9B8);
+            border-radius: 10px;
+            padding: 1.5rem;
+        }
+        .test-results-panel h2 {
+            font-size: 1.25rem;
+            color: var(--primary, #18364D);
+            margin-bottom: 1rem;
+            border-bottom: 2px solid var(--border, #D3C9B8);
+            padding-bottom: 0.5rem;
+        }
+        .test-data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+        .test-data-table th {
+            background: var(--bg-surface-2, #E7E0D4);
+            color: var(--text, #18364D);
+            padding: 0.75rem 0.6rem;
+            text-align: right;
+            border: 1px solid var(--border, #D3C9B8);
+            font-weight: 700;
+        }
+        .test-data-table td {
+            padding: 0.75rem 0.6rem;
+            border: 1px solid var(--border, #D3C9B8);
+            color: var(--text, #18364D);
+        }
+        .test-badge-block {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            background: color-mix(in srgb, var(--primary, #18364D) 12%, transparent);
+            color: var(--primary, #18364D);
+        }
+        .test-info-box {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: var(--bg-surface-2, #E7E0D4);
+            border-right: 4px solid var(--accent, #B6533B);
+            border-radius: 6px;
+            font-size: 0.88rem;
+            line-height: 1.6;
+            color: var(--text, #18364D);
+        }
+    </style>
+</head>
+<body class="theme-light">
+<header class="navbar">
+    <div class="container nav-container">
+        <a href="index.html" class="logo">
+            <div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div>
+            <span class="logo-text">حيز</span>
+        </a>
+        <button class="menu-toggle" id="menu-toggle" aria-label="فتح القائمة" aria-expanded="false" aria-controls="nav-links"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
+        <nav class="nav-links" id="nav-links">
+            <a href="index.html" class="nav-btn"><i class="fa-solid fa-house" aria-hidden="true"></i> الرئيسية</a>
+            <a href="pomodoro.html" class="nav-btn"><i class="fa-solid fa-clock" aria-hidden="true"></i> المؤقت</a>
+            <a href="todo.html" class="nav-btn"><i class="fa-solid fa-list-check" aria-hidden="true"></i> المهام</a>
+            <a href="gpa.html" class="nav-btn"><i class="fa-solid fa-calculator" aria-hidden="true"></i> حاسبة المعدل</a>
+            <a href="blog.html" class="nav-btn"><i class="fa-solid fa-newspaper" aria-hidden="true"></i> المدونة</a>
+        </nav>
+        <div class="nav-actions">
+            <button id="theme-toggle" class="theme-btn" aria-label="تبديل الوضع الليلي"><i class="fa-solid fa-moon" aria-hidden="true"></i></button>
+        </div>
+    </div>
+</header>
+
+<main class="test-planner-container">
+    <div class="test-planner-header">
+        <h1><i class="fa-solid fa-sliders"></i> أداة تقسيم فترات الدراسة والراحة</h1>
+        <p>تساعدك هذه الأداة في تقسيم إجمالي الوقت المتاح للدراسة إلى فترات تركيز متوازنة يتخللها فترات راحة قصيرة وطويلة لمنع الإجهاد الذهني والمحافظة على الاستيعاب العالي.</p>
+    </div>
+
+    <div class="test-layout-split">
+        <aside class="test-sidebar-panel">
+            <form id="study-planner-form" onsubmit="event.preventDefault(); calculatePlan();">
+                <div class="test-form-group">
+                    <label for="total-hours">إجمالي وقت المذاكرة المتاح (بالساعات):</label>
+                    <input type="number" id="total-hours" min="0.5" max="12" step="0.5" value="3">
+                </div>
+                <div class="test-form-group">
+                    <label for="focus-duration">طول فترة التركيز الواحدة (بالدقائق):</label>
+
+                    <select id="focus-duration">
+                        <option value="25" selected>25 دقيقة (نمط بومودورو القياسي)</option>
+                        <option value="40">40 دقيقة (جلسات متوسطة)</option>
+                        <option value="50">50 دقيقة (جلسات مكثفة)</option>
+                    </select>
+                </div>
+                <div class="test-form-group">
+                    <label for="break-duration">مدّة الاستراحة القصيرة (بالدقائق):</label>
+                    <select id="break-duration">
+                        <option value="5" selected>5 دقائق</option>
+                        <option value="10">10 دقائق</option>
+                    </select>
+                </div>
+                <button type="submit" class="test-calc-btn"><i class="fa-solid fa-calculator"></i> احسب توزيع الوقت</button>
+            </form>
+        </aside>
+
+        <section class="test-results-panel">
+            <h2>جدول التوزيع المقترح للمذاكرة</h2>
+            <div id="plan-output-summary">
+                <p style="margin-bottom: 0.8rem;">بناءً على <strong>3 ساعات مذاكرة</strong> بنمط <strong>25 دقيقة تركيز</strong> و<strong>5 دقائق راحة</strong>:</p>
+            </div>
+
+            <table class="test-data-table" id="planner-data-table">
+                <thead>
+                    <tr>
+                        <th>الفترة</th>
+                        <th>النوع</th>
+                        <th>المدة</th>
+                        <th>التراكمي</th>
+                    </tr>
+                </thead>
+                <tbody id="planner-table-body">
+                    <tr><td>الجلسة 1</td><td><span class="test-badge-block">تركيز</span></td><td>25 دقيقة</td><td>25 دقيقة</td></tr>
+                    <tr><td>استراحة 1</td><td>راحة قصيرة</td><td>5 دقائق</td><td>30 دقيقة</td></tr>
+                    <tr><td>الجلسة 2</td><td><span class="test-badge-block">تركيز</span></td><td>25 دقيقة</td><td>55 دقيقة</td></tr>
+                    <tr><td>استراحة 2</td><td>راحة قصيرة</td><td>5 دقائق</td><td>60 دقيقة (ساعة)</td></tr>
+                    <tr><td>الجلسة 3</td><td><span class="test-badge-block">تركيز</span></td><td>25 دقيقة</td><td>85 دقيقة</td></tr>
+                    <tr><td>استراحة 3</td><td>راحة قصيرة</td><td>5 دقائق</td><td>90 دقيقة</td></tr>
+                    <tr><td>الجلسة 4</td><td><span class="test-badge-block">تركيز</span></td><td>25 دقيقة</td><td>115 دقيقة</td></tr>
+                    <tr><td>استراحة طويلة</td><td>راحة كبرى</td><td>15 دقيقة</td><td>130 دقيقة</td></tr>
+                    <tr><td>الجلسة 5</td><td><span class="test-badge-block">تركيز</span></td><td>25 دقيقة</td><td>155 دقيقة</td></tr>
+                    <tr><td>استراحة 5</td><td>راحة قصيرة</td><td>5 دقائق</td><td>160 دقيقة</td></tr>
+                    <tr><td>الجلسة 6</td><td><span class="test-badge-block">تركيز</span></td><td>20 دقيقة</td><td>180 دقيقة (3 ساعات)</td></tr>
+                </tbody>
+            </table>
+
+            <div class="test-info-box">
+                <strong>💡 نصيحة تنظيمية:</strong> يُنصح بتخصيص الاستراحات القصيرة للابتعاد عن الشاشات والقيام بتمارين تمدد بسيطة، مع تجنب تصفح شبكات التواصل أثناء فترات الراحة القصيرة للحفاظ على حالة الصفاء الذهني.
+            </div>
+        </section>
+    </div>
+</main>
+
+<footer class="footer" style="margin-top:3rem;">
+    <div class="container footer-container">
+        <p class="footer-copy">&copy; 2026 حيز — صفحة أداة تفاعلية مستقلة للاختبار</p>
+    </div>
+</footer>
+
+<script>
+function calculatePlan() {
+    const totalHours = parseFloat(document.getElementById('total-hours').value) || 3;
+    const focusMins = parseInt(document.getElementById('focus-duration').value, 10) || 25;
+    const breakMins = parseInt(document.getElementById('break-duration').value, 10) || 5;
+
+    const totalMins = totalHours * 60;
+    let accumulated = 0;
+    let sessionCount = 0;
+    let breakCount = 0;
+    let rowsHtml = '';
+
+    while (accumulated < totalMins) {
+        sessionCount++;
+        let currentFocus = focusMins;
+        if (accumulated + currentFocus > totalMins) {
+            currentFocus = totalMins - accumulated;
+        }
+        accumulated += currentFocus;
+        rowsHtml += `<tr><td>الجلسة ${sessionCount}</td><td><span class="test-badge-block">تركيز</span></td><td>${currentFocus} دقيقة</td><td>${accumulated} دقيقة</td></tr>`;
+
+        if (accumulated >= totalMins) break;
+
+        breakCount++;
+        let currentBreak = (sessionCount % 4 === 0) ? 15 : breakMins;
+        if (accumulated + currentBreak > totalMins) {
+            currentBreak = totalMins - accumulated;
+        }
+        accumulated += currentBreak;
+        const breakType = (sessionCount % 4 === 0) ? 'راحة كبرى' : 'راحة قصيرة';
+        rowsHtml += `<tr><td>استراحة ${breakCount}</td><td>${breakType}</td><td>${currentBreak} دقيقة</td><td>${accumulated} دقيقة</td></tr>`;
+    }
+
+    document.getElementById('plan-output-summary').innerHTML = `<p style="margin-bottom: 0.8rem;">بناءً على <strong>${totalHours} ساعة/ساعات مذاكرة</strong> بنمط <strong>${focusMins} دقيقة تركيز</strong> و<strong>${breakMins} دقائق راحة</strong>:</p>`;
+    document.getElementById('planner-table-body').innerHTML = rowsHtml;
+}
+</script>
+<script src="common.js"></script>
+</body>
+</html>

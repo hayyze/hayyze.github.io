@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <script>
+        (function(){try{if(localStorage.getItem('hayyiz-theme')==='dark'){document.documentElement.classList.add('theme-dark');}}catch(e){}})();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+      content="default-src 'self';
+               script-src 'self' https://www.googletagmanager.com https://cdn.jsdelivr.net 'unsafe-inline';
+               script-src-elem 'self' https://www.googletagmanager.com https://cdn.jsdelivr.net 'unsafe-inline';
+               style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com 'unsafe-inline';
+               font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:;
+               connect-src 'self'
+                           https://www.google-analytics.com
+                           https://*.google-analytics.com
+                           https://analytics.google.com
+                           https://*.analytics.google.com
+                           https://www.googletagmanager.com
+                           https://dzfdbjnqtgltuguqqdkz.supabase.co;
+               img-src 'self'
+                        data:
+                        https://www.google-analytics.com
+                        https://*.google-analytics.com
+                        https://www.googletagmanager.com;
+               object-src 'none';
+               frame-ancestors 'none';
+               base-uri 'self';">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+
+    <title>دليل الاستدعاء النشط والمذاكرة الفعالة للطلاب | حيز</title>
+    <meta name="description" content="دليل تعليمي شامل يشرح استراتيجية الاستدعاء النشط (Active Recall) وكيفية تطبيقها عمليًا لتحسين الحفظ والترسيخ الأكاديمي طويل المدى بدون تكرار سلبي.">
+    <meta name="author" content="حيز">
+    <meta name="robots" content="index, follow">
+
+    <link rel="canonical" href="https://hayyze.github.io/active-recall-guide.html">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="icon" href="favicon.ico">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="manifest" href="manifest.webmanifest">
+
+    <style>
+        .guide-article-wrapper {
+            max-width: 860px;
+            margin: 2.5rem auto;
+            padding: 0 1.2rem;
+        }
+        .guide-editorial-header {
+            border-bottom: 3px solid var(--accent, #B6533B);
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .guide-category-tag {
+            display: inline-block;
+            background: var(--bg-surface-2, #E7E0D4);
+            color: var(--primary, #18364D);
+            font-size: 0.85rem;
+            font-weight: 800;
+            padding: 0.3rem 0.8rem;
+            border-radius: 4px;
+            margin-bottom: 0.8rem;
+        }
+        .guide-editorial-header h1 {
+            font-size: 2rem;
+            color: var(--primary, #18364D);
+            line-height: 1.35;
+            margin-bottom: 0.8rem;
+        }
+        .guide-author-line {
+            font-size: 0.88rem;
+            color: var(--text-muted, #5A6978);
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+        }
+        .guide-body-content {
+            font-size: 1.05rem;
+            line-height: 1.95;
+            color: var(--text, #18364D);
+        }
+        .guide-body-content h2 {
+            font-size: 1.4rem;
+            color: var(--primary, #18364D);
+            margin: 2.2rem 0 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .guide-body-content p {
+            margin-bottom: 1.2rem;
+        }
+        .guide-comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+            margin: 1.5rem 0;
+        }
+        @media (max-width: 650px) {
+            .guide-comparison-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .method-comparison-box {
+            background: var(--bg-card, #FBF9F4);
+            border: 1px solid var(--border, #D3C9B8);
+            border-radius: 8px;
+            padding: 1.25rem;
+        }
+        .method-comparison-box.passive {
+            border-top: 4px solid #d32f2f;
+        }
+        .method-comparison-box.active {
+            border-top: 4px solid #2e7d32;
+        }
+        .method-comparison-box h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.8rem;
+            color: var(--primary, #18364D);
+        }
+        .guide-step-card {
+            background: var(--bg-surface-2, #E7E0D4);
+            border-radius: 8px;
+            padding: 1.2rem;
+            margin-bottom: 1rem;
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+        .guide-step-num {
+            background: var(--primary, #18364D);
+            color: #ffffff;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            flex-shrink: 0;
+        }
+        .guide-step-text h4 {
+            font-size: 1.05rem;
+            margin-bottom: 0.3rem;
+            color: var(--primary, #18364D);
+        }
+        .guide-step-text p {
+            margin: 0;
+            font-size: 0.95rem;
+            color: var(--text, #18364D);
+        }
+    </style>
+</head>
+<body class="theme-light">
+<header class="navbar">
+    <div class="container nav-container">
+        <a href="index.html" class="logo">
+            <div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div>
+            <span class="logo-text">حيز</span>
+        </a>
+        <button class="menu-toggle" id="menu-toggle" aria-label="فتح القائمة" aria-expanded="false" aria-controls="nav-links"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
+        <nav class="nav-links" id="nav-links">
+            <a href="index.html" class="nav-btn"><i class="fa-solid fa-house" aria-hidden="true"></i> الرئيسية</a>
+            <a href="pomodoro.html" class="nav-btn"><i class="fa-solid fa-clock" aria-hidden="true"></i> المؤقت</a>
+            <a href="todo.html" class="nav-btn"><i class="fa-solid fa-list-check" aria-hidden="true"></i> المهام</a>
+            <a href="gpa.html" class="nav-btn"><i class="fa-solid fa-calculator" aria-hidden="true"></i> حاسبة المعدل</a>
+            <a href="blog.html" class="nav-btn"><i class="fa-solid fa-newspaper" aria-hidden="true"></i> المدونة</a>
+        </nav>
+        <div class="nav-actions">
+            <button id="theme-toggle" class="theme-btn" aria-label="تبديل الوضع الليلي"><i class="fa-solid fa-moon" aria-hidden="true"></i></button>
+        </div>
+    </div>
+</header>
+
+<main class="guide-article-wrapper">
+    <header class="guide-editorial-header">
+        <span class="guide-category-tag">استراتيجيات المذاكرة والتحصيل</span>
+        <h1>دليل الاستدعاء النشط (Active Recall): كيف تسترجع المعلومات بفاعلية وتتغلب على النسيان؟</h1>
+        <div class="guide-author-line">
+            <span><i class="fa-solid fa-user-pen"></i> فريق إعداد حيز</span>
+            <span><i class="fa-solid fa-calendar-day"></i> 2026</span>
+            <span><i class="fa-solid fa-clock"></i> 5 دقائق قراءة</span>
+        </div>
+    </header>
+
+    <article class="guide-body-content">
+        <p>
+            يعاني معظم الطلاب من ظاهرة "وهم المعرفة"؛ حيث يشعر الطالب أثناء إعادة قراءة الصفحة أو إعادة تظليل النص بالمرسمة بأنه يستوعب المادة تمامًا، ولكنه يكتشف أثناء الاختبار أن قدرته على استرجاع التفاصيل ضعيفة. يأتي مفهوم <strong>الاستدعاء النشط (Active Recall)</strong> كحل علمي موثوق لهذه المشكلة.
+        </p>
+
+        <h2><i class="fa-solid fa-scale-unbalanced"></i> مقارنة: القراءة السلبية مقابل الاستدعاء النشط</h2>
+
+        <div class="guide-comparison-grid">
+            <div class="method-comparison-box passive">
+                <h3>❌ القراءة السلبية (Passive Review)</h3>
+                <ul style="padding-right: 1.2rem; font-size: 0.92rem; margin: 0;">
+                    <li>إعادة قراءة الملخصات عدة مرات.</li>
+                    <li>تظليل النصوص بالألوان (Highlighting).</li>
+                    <li>الاعتماد على النظر إلى الإجابة مباشرة.</li>
+                    <li>يعطي شعورًا زائفًا بالفهم دون اختبار حقيقي.</li>
+                </ul>
+            </div>
+            <div class="method-comparison-box active">
+                <h3>✅ الاستدعاء النشط (Active Recall)</h3>
+                <ul style="padding-right: 1.2rem; font-size: 0.92rem; margin: 0;">
+                    <li>إغلاق الكتاب ومحاولة تذكر المفاهيم.</li>
+                    <li>حل أسئلة واختبارات ذاتية بدون النظر للحل.</li>
+                    <li>شرح الدرس بشروطك الخاصة وبدون مساعدة.</li>
+                    <li>يجبر الدماغ على بناء روابط عصبية قوية.</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2><i class="fa-solid fa-list-ol"></i> 3 خطوات عملية لتطبيق الاستدعاء النشط اليوم</h2>
+
+        <div class="guide-step-card">
+            <div class="guide-step-num">1</div>
+            <div class="guide-step-text">
+                <h4>طريقة أسئلة الهامش (Cornell / Blank Sheet)</h4>
+                <p>أثناء القراءة الأولى للفصل الدراسي، بدلاً من إبراز الجمل، اكتب سؤالاً في الهامش يغطي الفقرة. وعند المراجعة، غَطِّ النص واقرأ السؤال فقط وحاول إجابته شفاهًا.</p>
+            </div>
+        </div>
+
+        <div class="guide-step-card">
+            <div class="guide-step-num">2</div>
+            <div class="guide-step-text">
+                <h4>تقنية فاينمان (Feynman Technique)</h4>
+                <p>تخيل أنك تشرح المفهوم العلمي لشخص ليس لديه خلفية عن المادة. تجنب المصطلحات المعقدة دون شرحها، وعندما تتعثر في النقطة، ارجع للمصدر واقرأها مجددًا.</p>
+            </div>
+        </div>
+
+        <div class="guide-step-card">
+            <div class="guide-step-num">3</div>
+            <div class="guide-step-text">
+                <h4>البطاقات التعليمية والبطاقات الرقمية (Flashcards)</h4>
+                <p>ضع المفهوم في الوجه الأول والتفسير في الوجه الثاني. تختبر هذه البطاقات قدرة عقلك على الاسترجاع السريع والمباشر.</p>
+            </div>
+        </div>
+
+        <h2><i class="fa-solid fa-lightbulb"></i> الخلاصة وتكامل الأدوات</h2>
+        <p>
+            ربط الاستدعاء النشط مع أسلوب المذاكرة المنظم يرفع الكفاءة التحصيلية بدرجة ملحوظة. يمكنك دمج فترات الاستدعاء الذاتي داخل جلسات التركيز الموجهة لضمان أقصى فائدة وأعلى عائد دراسي.
+        </p>
+    </article>
+</main>
+
+<footer class="footer" style="margin-top:3rem;">
+    <div class="container footer-container">
+        <p class="footer-copy">&copy; 2026 حيز — صفحة محتوى معلوماتي مستقلة للاختبار</p>
+    </div>
+</footer>
+
+<script src="common.js"></script>
+</body>
+</html>
