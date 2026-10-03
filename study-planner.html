@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <script>
+        (function(){try{if(localStorage.getItem('hayyiz-theme')==='dark'){document.documentElement.classList.add('theme-dark');}}catch(e){}})();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self';
+                   script-src 'self' https://www.googletagmanager.com https://cdn.jsdelivr.net 'unsafe-inline';
+                   script-src-elem 'self' https://www.googletagmanager.com https://cdn.jsdelivr.net 'unsafe-inline';
+                   style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com 'unsafe-inline';
+                   font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:;
+                   connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://www.googletagmanager.com;
+                   img-src 'self' data: https://www.google-analytics.com https://*.google-analytics.com https://www.googletagmanager.com;
+                   object-src 'none';
+                   frame-ancestors 'none';
+                   base-uri 'self';">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+
+    <!-- SEO Meta Tags -->
+    <title>منظم المذاكرة قبل الاختبار | حيز</title>
+    <meta name="description" content="منظم ومخطط المذاكرة قبل الاختبارات. حدد تاريخ الاختبار والساعات المتاحة والمواد، واحصل على خطة مذاكرة عملية توزيع الوقت بذكاء حسب الصعوبة والأولوية.">
+    <meta name="author" content="حيز">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://hayyze.github.io/study-planner.html">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://hayyze.github.io/study-planner.html">
+    <meta property="og:title" content="منظم المذاكرة قبل الاختبار | حيز">
+    <meta property="og:description" content="منظم ومخطط المذاكرة قبل الاختبارات. تحويل الوقت المتبقي قبل الاختبار إلى خطة دراسية عملية موزعة بذكاء.">
+    <meta property="og:image" content="https://hayyze.github.io/android-chrome-512x512.png">
+    <meta property="og:locale" content="ar_SA">
+    <meta property="og:site_name" content="حيز">
+
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
+    <script>
+        (function(){
+            var fa = document.createElement('link');
+            fa.rel = 'stylesheet';
+            fa.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
+            document.head.appendChild(fa);
+        })();
+    </script>
+
+    <!-- Custom Standalone Stylesheet -->
+    <link rel="stylesheet" href="study-planner.css">
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      "name": "منظم المذاكرة قبل الاختبار",
+      "url": "https://hayyze.github.io/study-planner.html",
+      "description": "أداة ودليل تخطيط المذاكرة قبل الاختبارات المدرسية والجامعية لتوزيع الوقت المتبقي بذكاء حسب الصعوبة والأولويات.",
+      "inLanguage": "ar"
+    }
+    </script>
+
+    <!-- Favicon & Manifest -->
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <header class="sp-navbar">
+        <div class="sp-container sp-nav-wrap">
+            <a href="index.html" class="sp-brand">
+                <div class="sp-brand-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div>
+                <span>حيز</span>
+            </a>
+            <div class="sp-nav-links">
+                <a href="index.html" class="sp-nav-link"><i class="fa-solid fa-house" aria-hidden="true"></i> الرئيسية</a>
+                <a href="pomodoro.html" class="sp-nav-link"><i class="fa-solid fa-clock" aria-hidden="true"></i> المؤقت</a>
+                <a href="todo.html" class="sp-nav-link"><i class="fa-solid fa-list-check" aria-hidden="true"></i> المهام</a>
+                <a href="gpa.html" class="sp-nav-link"><i class="fa-solid fa-calculator" aria-hidden="true"></i> حاسبة المعدل</a>
+                <button type="button" id="sp-theme-toggle" class="sp-theme-btn" aria-label="تبديل الوضع الليلي">
+                    <i class="fa-solid fa-moon" aria-hidden="true"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Page Content -->
+    <main class="sp-container">
+
+        <!-- 1. Section: High-Impact Student Introduction -->
+        <section class="sp-hero">
+            <div class="sp-hero-badge">
+                <i class="fa-solid fa-calendar-check" aria-hidden="true"></i> دليل وتخطيط عملي للاختبارات
+            </div>
+            <h1 class="sp-hero-title">منظم المذاكرة قبل الاختبار</h1>
+            <p class="sp-hero-desc">
+                عند اقتراب موعد الاختبار، المشكلة الحقيقية غالبًا ليست في قلة الساعات المتاحة فحسب، بل في عدم معرفة أين تضعها وكيف توزعها بين المواد الصعبة والسهلة دون هدر جهدك.
+            </p>
+            <div class="sp-hero-target">
+                <strong>لمن هذه الصفحة؟</strong> تناسب الطلاب في جميع المراحل (المتوسطة، الثانوية، والجامعية) ممن يفصلهم عن الاختبار من عدة أيام إلى بضعة أسابيع ويريدون خطة واضحة ومباشرة للتنفيذ.
+            </div>
+            <div>
+                <a href="#sp-planner-section" class="sp-hero-cta">
+                    <i class="fa-solid fa-sliders" aria-hidden="true"></i> ابدأ تنظيم خطتك الآن
+                </a>
+            </div>
+        </section>
+
+        <!-- 2. Section: Start From Current Situation (Planner Input Form) -->
+        <section id="sp-planner-section" class="sp-card">
+            <h2 class="sp-section-title">
+                <i class="fa-solid fa-compass" aria-hidden="true" style="color:var(--sp-accent);"></i> 1. ابدأ من وضعك الحالي
+            </h2>
+            <p class="sp-section-subtitle">
+                أدخل تفاصيل وقتك المتبقي والمواد الدراسية ليقوم المنظم بتحليل حمولتك الدراسية وحساب الخطة الموزونة.
+            </p>
+
+            <div class="sp-form-grid">
+                <div class="sp-field">
+                    <label for="sp-exam-date"><i class="fa-solid fa-calendar-day" aria-hidden="true"></i> تاريخ بدء الاختبار</label>
+                    <input type="date" id="sp-exam-date" class="sp-input">
+                </div>
+
+                <div class="sp-field">
+                    <label for="sp-daily-hours">
+                        <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> ساعات المذاكرة اليومية المتاحة:
+                        <span id="sp-daily-hours-val" style="color:var(--sp-accent); font-weight:800;">3 ساعات</span>
+                    </label>
+                    <input type="range" id="sp-daily-hours" class="sp-input" min="1" max="12" value="3" step="0.5">
+                </div>
+            </div>
+
+            <div class="sp-subjects-header">
+                <h3><i class="fa-solid fa-book-open" aria-hidden="true"></i> المواد المقررة للأداء</h3>
+                <button type="button" id="sp-add-subject-btn" class="sp-btn-secondary">
+                    <i class="fa-solid fa-plus" aria-hidden="true"></i> إضافة مادة
+                </button>
+            </div>
+
+            <!-- Dynamic Subjects Input Container -->
+            <div id="sp-subjects-list" class="sp-subjects-list">
+                <!-- Javascript populates interactive subject rows here -->
+            </div>
+
+            <button type="button" id="sp-generate-plan-btn" class="sp-btn-primary">
+                <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> احسب خطة المذاكرة واعرض التوزيع
+            </button>
+        </section>
+
+        <!-- 3. Section: Result (Study Plan Visualization) -->
+        <section id="sp-results-section" class="sp-card sp-results-card">
+            <h2 class="sp-section-title">
+                <i class="fa-solid fa-chart-pie" aria-hidden="true" style="color:var(--sp-accent);"></i> 2. النتيجة: خطة مذاكرتك
+            </h2>
+            <p class="sp-section-subtitle">
+                رؤية تحليلية وموزونة للوقت المتبقي موزعة على المواد حسب الثقل والأولوية الحقيقية:
+            </p>
+
+            <!-- Key Metrics Grid -->
+            <div class="sp-metrics-grid">
+                <div class="sp-metric-box">
+                    <div id="sp-metric-days" class="sp-metric-val">10 أيام</div>
+                    <div class="sp-metric-lbl">الأيام المتبقية</div>
+                </div>
+                <div class="sp-metric-box">
+                    <div id="sp-metric-hours" class="sp-metric-val">30 ساعة</div>
+                    <div class="sp-metric-lbl">مجموع الساعات المتاحة</div>
+                </div>
+                <div class="sp-metric-box">
+                    <div id="sp-metric-focus" class="sp-metric-val">24 ساعة</div>
+                    <div class="sp-metric-lbl">ساعات التأسيس والتركيز</div>
+                </div>
+                <div class="sp-metric-box">
+                    <div id="sp-metric-review" class="sp-metric-val">6 ساعات</div>
+                    <div class="sp-metric-lbl">مساحة المراجعة النهائية</div>
+                </div>
+            </div>
+
+            <!-- Hours Distribution Breakdown -->
+            <h3 style="font-size:1.15rem; font-weight:800; color:var(--sp-primary); margin-bottom:1rem;">
+                <i class="fa-solid fa-layer-group" aria-hidden="true"></i> توزيع الساعات على المواد
+            </h3>
+            <div id="sp-alloc-list" class="sp-allocation-list">
+                <!-- Javascript renders dynamic progress bars here -->
+            </div>
+
+            <!-- Timeline Phases -->
+            <div class="sp-phases-title">
+                <i class="fa-solid fa-timeline" aria-hidden="true"></i> مراحل التنفيذ حتى موعد الاختبار
+            </div>
+            <div id="sp-timeline-container" class="sp-timeline">
+                <!-- Javascript renders timeline steps here -->
+            </div>
+        </section>
+
+        <!-- 4. Section: Original Explanatory Content (Planning Methodology) -->
+        <section class="sp-card sp-content-section">
+            <h2 class="sp-section-title">
+                <i class="fa-solid fa-brain" aria-hidden="true" style="color:var(--sp-accent);"></i> منهجية التخطيط: كيف يعمل هذا المنظم؟
+            </h2>
+            <p style="color:var(--sp-text-muted); font-size:1rem;">
+                لا تعتمد هذه الأداة على القسمة الرياضية المباشرة للوقت، بل تبنى على منهجية إدارة الحمولة الذهنية والفجوة المعرفية. فيما يلي شرح المنطق العلمي والعملي المتتبع داخل الخطة:
+            </p>
+
+            <div class="sp-grid-2">
+                <div class="sp-method-card">
+                    <h3><i class="fa-solid fa-scale-unbalanced-flip" aria-hidden="true"></i> لماذا لا نوزع الوقت بالتساوي؟</h3>
+                    <p>
+                        التوزيع المتساوي يخلق وهم العدالة، لكنه ينتهي دائمًا بإنهاء المواد السهلة سريعًا والتأخر الحاد في المواد الصعبة. المادة الصعبة تحوي مفاهيم تتطلب معالجة ذهنية أطول وقدرة أعلى على استرجاع المعلومات، وبالتالي تحتاج إلى حصة أكبر من الساعات.
+                    </p>
+                </div>
+
+                <div class="sp-method-card">
+                    <h3><i class="fa-solid fa-seedling" aria-hidden="true"></i> متى نعطي المادة الصعبة وقتًا أكبر؟</h3>
+                    <p>
+                        في المراحل الأولى من الخطة (أول 50% من الوقت المتبقي). الذهن في البداية يكون أقل إرهاقًا وتوترًا، مما يجعله قادرًا على تفكيك الفصول المعقدة وبناء الفهم دون ضغط اقتراب الساعات الأخيرة.
+                    </p>
+                </div>
+
+                <div class="sp-method-card">
+                    <h3><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> لماذا تحتاج المراجعة إلى مساحة محجوزة؟</h3>
+                    <p>
+                        بدون حجز أيام أو ساعات مخصصة للمراجعة ليلة الاختبار، يميل الطالب لتوزيع كل ساعاته حتى آخر دقيقة على التعلم الجديد. حجز مساحة المراجعة يضمن التثبيت الذهني واسترجاع المفاهيم وتفادي التشتت قبل دخول قاعة الاختبار.
+                    </p>
+                </div>
+
+                <div class="sp-method-card">
+                    <h3><i class="fa-solid fa-bolt" aria-hidden="true"></i> التعامل مع الوقت المتبقي القليل</h3>
+                    <p>
+                        عندما يكون الوقت قصيرًا جداً (أقل من 5 أيام)، تتحول المنهجية من "التغطية الشاملة" إلى قاعدة 80/20: التركيز الصارم على الموضوعات والفصول ذات الوزن الأكبر في الاختبار والتمارين الشاملة فقط.
+                    </p>
+                </div>
+
+                <div class="sp-method-card">
+                    <h3><i class="fa-solid fa-chart-line" aria-hidden="true"></i> ماذا نفعل مع الساعات غير الثابتة؟</h3>
+                    <p>
+                        إن كان وقتك يتفاوت بين أيام الأسبوع ونهاية الأسبوع، لا تخطط بجدول زمني صلب بالساعة والدقيقة، بل رتب الخطة بنظام "حصة الساعات التراكمية" لكل مادة على مدار الأسبوع.
+                    </p>
+                </div>
+
+                <div class="sp-method-card">
+                    <h3><i class="fa-solid fa-circle-check" aria-hidden="true"></i> المواد ذات المستوى الجيد أصلًا</h3>
+                    <p>
+                        المادة المهمة التي يمتلك فيها الطالب مستوى ممتازا لا تحتاج إعادة قراءة الشرح من البداية، بل تكتفي بحل نماذج أسئلة واختبارات سريعة لتوفير الساعات للمواد الأكثر احتياجاً.
+                    </p>
+                </div>
+            </div>
+
+            <div class="sp-quote-box">
+                <strong>تذكر دائمًا:</strong> الخطة الناجحة ليست الخطة التي تملأ كل دقيقة بالدراسة، بل الخطة التي تترك لك مساحة للتنفس وتمنح المواد الصعبة حجمها الحقيقي من التركيز.
+            </div>
+        </section>
+
+        <!-- 5. Section: Real Practical Examples -->
+        <section class="sp-card">
+            <h2 class="sp-section-title">
+                <i class="fa-solid fa-lightbulb" aria-hidden="true" style="color:var(--sp-accent);"></i> أمثلة وسيناريوهات واقعية
+            </h2>
+            <p class="sp-section-subtitle">كيف تتكيف الخطة وتتغير مع تغير ظروف الطالب والوقت المتبقي؟</p>
+
+            <div class="sp-scenario-grid">
+                <div class="sp-scenario-card">
+                    <div class="sp-scenario-tag">السيناريو الأول</div>
+                    <h3>طالب أمامه 14 يومًا</h3>
+                    <p>
+                        لديه 3 مواد (رياضيات صعبة، كيمياء متوسطة، وإنجليزي للرفع) وساعتان يوميًا (إجمالي 28 ساعة).
+                    </p>
+                    <div class="sp-scenario-solution">
+                        <strong>التوزيع العملي:</strong> تخصيص 13 ساعة للرياضيات في أول 8 أيام، 8 ساعات للكيمياء، 4 ساعات للإنجليزي، وحجز آخر يومين (3 ساعات) للمراجعة النهائية الشاملة.
+                    </div>
+                </div>
+
+                <div class="sp-scenario-card">
+                    <div class="sp-scenario-tag">السيناريو الثاني</div>
+                    <h3>طالب أمامه 5 أيام فقط</h3>
+                    <p>
+                        لديه 4 مواد ووقت محدود (3 ساعات يوميًا = 15 ساعة إجمالية). الضغط مرتفع والوقت ضيق.
+                    </p>
+                    <div class="sp-scenario-solution">
+                        <strong>التوزيع العملي:</strong> إلغاء إعادة قراءة الكتب، التركيز على ملخصات الفصول وحل الأسئلة السابقة مباشرة (4 ساعات للمادتين الأصعب، 3 ساعات للمادتين الأسهل)، وحجز ليلة الاختبار للحل المباشر.
+                    </div>
+                </div>
+
+                <div class="sp-scenario-card">
+                    <div class="sp-scenario-tag">السيناريو الثالث</div>
+                    <h3>طالب أمامه 21 يومًا</h3>
+                    <p>
+                        لديه مادة صعبة جدًا تحتاج تأسيسًا ومادة أخرى سهلة، ووقت المذاكرة متزايد في أيام العطلة الأسبوعية.
+                    </p>
+                    <div class="sp-scenario-solution">
+                        <strong>التوزيع العملي:</strong> تقسيم الوقت إلى مرحلتين: 12 يومًا لتفكيك المادة الصعبة بتركيز عميق خلال العطلات، ثم 6 أيام للمادة السهلة والتطبيقات، مع حجز آخر 3 أيام للمراجعة التنازلية.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 6. Section: Common Planning Errors -->
+        <section class="sp-card">
+            <h2 class="sp-section-title">
+                <i class="fa-solid fa-triangle-exclamation" aria-hidden="true" style="color:var(--sp-accent);"></i> أخطاء شائعة في تخطيط المذاكرة
+            </h2>
+            <p class="sp-section-subtitle">تجنب هذه الممارسات التي تسبب الإرهاق المبكر وفشل الخطة:</p>
+
+            <div class="sp-errors-list">
+                <div class="sp-error-item">
+                    <div class="sp-error-icon"><i class="fa-solid fa-circle-xmark" aria-hidden="true"></i></div>
+                    <div>
+                        <h4>توزيع الساعات بالتساوي بين جميع المواد</h4>
+                        <p>تخصيص نفس الوقت للمادة السهلة والمادة المعقدة يضيع ساعات قيمة كان من الممكن أن تنقذ درجاتك في المادة الأصعب.</p>
+                    </div>
+                </div>
+
+                <div class="sp-error-item">
+                    <div class="sp-error-icon"><i class="fa-solid fa-circle-xmark" aria-hidden="true"></i></div>
+                    <div>
+                        <h4>تأجيل المادة الأصعب إلى نهاية الأيام</h4>
+                        <p>ترك المادة المعقدة لقرب موعد الاختبار يزيد من مستوى التوتر ويمحو قدرة العقل على الاستيعاب العميق والتأسيس.</p>
+                    </div>
+                </div>
+
+                <div class="sp-error-item">
+                    <div class="sp-error-icon"><i class="fa-solid fa-circle-xmark" aria-hidden="true"></i></div>
+                    <div>
+                        <h4>حجز ليلة الاختبار للتعلم الجديد</h4>
+                        <p>حشو معلومات جديدة قبل الاختبار بساعات قليلة يؤدي إلى اختلاط المفاهيم وتشتت الذاكرة القريبة في القاعة.</p>
+                    </div>
+                </div>
+
+                <div class="sp-error-item">
+                    <div class="sp-error-icon"><i class="fa-solid fa-circle-xmark" aria-hidden="true"></i></div>
+                    <div>
+                        <h4>بناء خطة خيالية تتجاهل القدرة الحقيقية</h4>
+                        <p>وضع 10 ساعات مذاكرة يوميًا لطالب يعتاد مذاكرة ساعتين يسبب الانقطاع من اليوم الثاني. ابدأ بساعات واقعية يمكنك الالتزام بها.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 7. Section: When Is This Tool NOT Suitable? (Anti-fit) -->
+        <section class="sp-card">
+            <div class="sp-antifit-box">
+                <div class="sp-antifit-title">
+                    <i class="fa-solid fa-circle-info" aria-hidden="true"></i> متى لا تكون هذه الأداة مناسبة لك؟
+                </div>
+                <p style="margin-bottom:0.8rem; font-weight:600;">
+                    حرصًا على وقتك وفائدتك الحقيقية، هذه الأداة قد لا تكون الخيار الأفضل في الحالات التالية:
+                </p>
+                <ul class="sp-antifit-list">
+                    <li><strong>إذا كان اختبارك غدًا صباحًا:</strong> أنت لا تحتاج خطة توزيع أسابيع الآن، بل تحتاج لمراجعة ملخصات ليلة الاختبار والتأكد من نومك بشكل كافٍ.</li>
+                    <li><strong>إذا كنت تبحث فقط عن مؤقت تركيز للجلسة الحالية:</strong> يمكنك الانتقال مباشرة لاستخدام <a href="pomodoro.html" style="color:var(--sp-primary); font-weight:700;">مؤقت بومودورو</a> لترتيب جلسة التركيز الحالية.</li>
+                    <li><strong>إذا كان لديك جدول مراجعة جاهز وموزع من معلمك:</strong> الالتزام بجدول معلمك المباشر الذي يعرف مفردات المنهج أولى من إعادة بناء خطة جديدة.</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- 8. Section: Limited FAQ -->
+        <section class="sp-card">
+            <h2 class="sp-section-title">
+                <i class="fa-solid fa-circle-question" aria-hidden="true" style="color:var(--sp-accent);"></i> أسئلة شائعة حول استخدام الخطة
+            </h2>
+
+            <div class="sp-faq-grid">
+                <div class="sp-faq-item">
+                    <h3>كيف أتصرف إذا قصرت في ساعات المذاكرة لأحد الأيام؟</h3>
+                    <p>لا تقم بترحيل جميع الساعات الضائعة إلى اليوم التالي دفعة واحدة لتجنب الإرهاق. أعد توزيع الساعات المتبقية عبر زيادة 30 دقيقة فقط لكل يوم قادم، أو اقتطع جزءًا من ساعات المواد السهلة.</p>
+                </div>
+
+                <div class="sp-faq-item">
+                    <h3>هل الأفضل دراسة مادة واحدة في اليوم أم مادتين؟</h3>
+                    <p>دراسة مادتين في اليوم (مثلاً مادة صعبة في الصباح ومادة خفيفة في المساء) يقلل من الرتابة الذهنية ويحافظ على التجدد، بشرط ألا تتشتت بين أكثر من مادتين في اليوم الواحد.</p>
+                </div>
+
+                <div class="sp-faq-item">
+                    <h3>كيف أتعامل مع المواد التي تتطلب حفظاً كثيفاً؟</h3>
+                    <p>المواد التي تعتمد على الحفظ تجزأ جلساتها على فترات متباعدة (تكرار متباعد) خلال الخطة، بدلاً من حفظها كاملة في يوم واحد لتثبيت المعلومات في الذاكرة طويلة المدى.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 9. Section: Page Conclusion & Immediate Steps -->
+        <section class="sp-card" style="text-align:center;">
+            <h2 class="sp-section-title" style="justify-content:center;">
+                <i class="fa-solid fa-flag-checkered" aria-hidden="true" style="color:var(--sp-accent);"></i> الخطوة التالية: كيف تبدأ الآن؟
+            </h2>
+            <p style="color:var(--sp-text-muted); font-size:1rem; margin-bottom:1.5rem;">
+                الخطط لا تؤدي دورها إلا عندما تتحول إلى فعل حقيقي. إليك خطواتك الثلاث الأولى بعد اعتماد الخطة:
+            </p>
+
+            <div class="sp-conclusion-grid">
+                <div class="sp-step-card">
+                    <div class="sp-step-num">01</div>
+                    <h4>تأكيد الخطة والساعات</h4>
+                    <p>اعتمد ساعات المواد الموزعة واستقر على المادة الأولى التي ستبدأ بها اليوم.</p>
+                </div>
+
+                <div class="sp-step-card">
+                    <div class="sp-step-num">02</div>
+                    <h4>تجزئة اليوم لجلسات</h4>
+                    <p>قسم الساعات اليومية إلى جلسات تركيز (مثلاً 25 دقيقة مذاكرة و5 دقائق راحة).</p>
+                </div>
+
+                <div class="sp-step-card">
+                    <div class="sp-step-num">03</div>
+                    <h4>ابدأ أول 25 دقيقة فوراً</h4>
+                    <p>اغلق المشتتات وابدأ أول جلسة تركيز فوراً دون تردد لخلق القوة الدفعة.</p>
+                </div>
+            </div>
+
+            <div style="margin-top:2rem;">
+                <a href="pomodoro.html" class="sp-btn-primary" style="display:inline-flex; width:auto; text-decoration:none; padding:0.85rem 2.2rem;">
+                    <i class="fa-solid fa-play" aria-hidden="true"></i> انتقل إلى مؤقت بومودورو وابدأ أول جلسة
+                </a>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="sp-footer">
+        <div class="sp-container">
+            <p class="sp-footer-text">&copy; 2026 حيز — منصة أدوات دراسية مجانية للطلاب</p>
+            <div class="sp-footer-links">
+                <a href="index.html" class="sp-footer-link">الرئيسية</a>
+                <a href="pomodoro.html" class="sp-footer-link">مؤقت بومودورو</a>
+                <a href="todo.html" class="sp-footer-link">قائمة المهام</a>
+                <a href="gpa.html" class="sp-footer-link">حاسبة المعدل</a>
+                <a href="privacy.html" class="sp-footer-link">سياسة الخصوصية</a>
+                <a href="terms.html" class="sp-footer-link">شروط الاستخدام</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Interactive Script -->
+    <script src="study-planner.js" defer></script>
+</body>
+</html>

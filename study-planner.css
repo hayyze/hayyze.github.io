@@ -1,0 +1,799 @@
+/* study-planner.css - Standalone stylesheet for Study Planner page */
+
+:root {
+  --sp-bg: #F2EEE5;
+  --sp-surface: #FBF9F4;
+  --sp-surface-secondary: #E7E0D4;
+  --sp-primary: #18364D;
+  --sp-primary-hover: #122839;
+  --sp-accent: #B6533B;
+  --sp-accent-light: rgba(182, 83, 59, 0.12);
+  --sp-text: #1C2833;
+  --sp-text-muted: #5A6B7C;
+  --sp-border: #D8D0C3;
+  --sp-border-focus: #18364D;
+  --sp-success: #2E7D32;
+  --sp-success-bg: rgba(46, 125, 50, 0.1);
+  --sp-warning: #D97706;
+  --sp-warning-bg: rgba(217, 119, 6, 0.1);
+  --sp-card-shadow: 0 2px 10px rgba(24, 54, 77, 0.05);
+  --sp-radius-lg: 12px;
+  --sp-radius-md: 8px;
+  --sp-radius-sm: 6px;
+  --sp-font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+}
+
+html.theme-dark {
+  --sp-bg: #10171E;
+  --sp-surface: #17212A;
+  --sp-surface-secondary: #202C36;
+  --sp-primary: #94B0C8;
+  --sp-primary-hover: #B0C7DC;
+  --sp-accent: #D47A61;
+  --sp-accent-light: rgba(212, 122, 97, 0.18);
+  --sp-text: #E6EDF3;
+  --sp-text-muted: #9BB0C1;
+  --sp-border: #2C3B49;
+  --sp-border-focus: #94B0C8;
+  --sp-success: #4CAF50;
+  --sp-success-bg: rgba(76, 175, 80, 0.18);
+  --sp-warning: #F59E0B;
+  --sp-warning-bg: rgba(245, 158, 11, 0.18);
+  --sp-card-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--sp-font-family);
+  background-color: var(--sp-bg);
+  color: var(--sp-text);
+  line-height: 1.7;
+  direction: rtl;
+  text-align: right;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Base Container */
+.sp-container {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+/* Simple Navigation Header */
+.sp-navbar {
+  background-color: var(--sp-surface);
+  border-bottom: 1px solid var(--sp-border);
+  padding: 0.85rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.sp-nav-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sp-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: var(--sp-primary);
+  font-weight: 800;
+  font-size: 1.25rem;
+}
+
+.sp-brand-icon {
+  width: 34px;
+  height: 34px;
+  background-color: var(--sp-accent-light);
+  color: var(--sp-accent);
+  border-radius: var(--sp-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+.sp-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+}
+
+.sp-nav-link {
+  color: var(--sp-text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: color 0.2s ease;
+}
+
+.sp-nav-link:hover {
+  color: var(--sp-accent);
+}
+
+/* Theme Toggle Button */
+.sp-theme-btn {
+  background: var(--sp-surface-secondary);
+  border: 1px solid var(--sp-border);
+  color: var(--sp-text);
+  padding: 0.45rem 0.75rem;
+  border-radius: var(--sp-radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: background-color 0.2s ease;
+}
+
+.sp-theme-btn:hover {
+  background: var(--sp-border);
+}
+
+/* Hero Section */
+.sp-hero {
+  padding: 3.5rem 0 2.5rem;
+  text-align: center;
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+.sp-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background-color: var(--sp-accent-light);
+  color: var(--sp-accent);
+  font-weight: 700;
+  font-size: 0.88rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 50px;
+  margin-bottom: 1.2rem;
+  border: 1px solid rgba(182, 83, 59, 0.2);
+}
+
+.sp-hero-title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--sp-primary);
+  line-height: 1.35;
+  margin-bottom: 1.1rem;
+}
+
+.sp-hero-desc {
+  font-size: 1.12rem;
+  color: var(--sp-text-muted);
+  line-height: 1.8;
+  margin-bottom: 1.5rem;
+}
+
+.sp-hero-target {
+  font-size: 0.95rem;
+  color: var(--sp-text);
+  background-color: var(--sp-surface-secondary);
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--sp-radius-md);
+  display: inline-block;
+  margin-bottom: 2rem;
+  border: 1px solid var(--sp-border);
+}
+
+.sp-hero-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background-color: var(--sp-accent);
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 1.05rem;
+  padding: 0.85rem 2.2rem;
+  border-radius: var(--sp-radius-md);
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(182, 83, 59, 0.25);
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.sp-hero-cta:hover {
+  background-color: #A0442D;
+  transform: translateY(-2px);
+}
+
+/* Card Style */
+.sp-card {
+  background-color: var(--sp-surface);
+  border: 1px solid var(--sp-border);
+  border-radius: var(--sp-radius-lg);
+  padding: 2rem;
+  margin-bottom: 2.2rem;
+  box-shadow: var(--sp-card-shadow);
+}
+
+.sp-section-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--sp-primary);
+  margin-bottom: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.sp-section-subtitle {
+  font-size: 0.98rem;
+  color: var(--sp-text-muted);
+  margin-bottom: 1.6rem;
+}
+
+/* Planner Inputs Form */
+.sp-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.4rem;
+  margin-bottom: 1.8rem;
+}
+
+.sp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.sp-field label {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--sp-text);
+}
+
+.sp-input, .sp-select {
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  background-color: var(--sp-bg);
+  border: 1px solid var(--sp-border);
+  border-radius: var(--sp-radius-md);
+  color: var(--sp-text);
+  font-family: inherit;
+  font-size: 0.95rem;
+  transition: border-color 0.2s ease;
+}
+
+.sp-input:focus, .sp-select:focus {
+  outline: none;
+  border-color: var(--sp-border-focus);
+}
+
+/* Subjects Manager */
+.sp-subjects-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.sp-subjects-header h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--sp-primary);
+}
+
+.sp-subjects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.sp-subject-item {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr 1.5fr auto;
+  gap: 0.8rem;
+  align-items: center;
+  background-color: var(--sp-surface-secondary);
+  padding: 0.9rem 1rem;
+  border-radius: var(--sp-radius-md);
+  border: 1px solid var(--sp-border);
+}
+
+.sp-btn-icon-danger {
+  background: transparent;
+  border: 1px solid var(--sp-border);
+  color: var(--sp-accent);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--sp-radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  transition: background-color 0.2s ease;
+}
+
+.sp-btn-icon-danger:hover {
+  background-color: var(--sp-accent-light);
+}
+
+.sp-btn-secondary {
+  background-color: var(--sp-surface-secondary);
+  border: 1px solid var(--sp-border);
+  color: var(--sp-text);
+  font-weight: 700;
+  padding: 0.65rem 1.2rem;
+  border-radius: var(--sp-radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.92rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: background-color 0.2s ease;
+}
+
+.sp-btn-secondary:hover {
+  background-color: var(--sp-border);
+}
+
+.sp-btn-primary {
+  background-color: var(--sp-primary);
+  border: none;
+  color: #FFFFFF;
+  font-weight: 700;
+  padding: 0.85rem 2rem;
+  border-radius: var(--sp-radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: 1rem;
+  transition: background-color 0.2s ease;
+}
+
+.sp-btn-primary:hover {
+  background-color: var(--sp-primary-hover);
+}
+
+/* Results Card & Display */
+.sp-results-card {
+  border-top: 4px solid var(--sp-accent);
+}
+
+.sp-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.1rem;
+  margin-bottom: 2rem;
+}
+
+.sp-metric-box {
+  background-color: var(--sp-surface-secondary);
+  border-radius: var(--sp-radius-md);
+  padding: 1.2rem 1rem;
+  text-align: center;
+  border: 1px solid var(--sp-border);
+}
+
+.sp-metric-val {
+  font-size: 1.9rem;
+  font-weight: 800;
+  color: var(--sp-primary);
+  line-height: 1.2;
+}
+
+.sp-metric-lbl {
+  font-size: 0.88rem;
+  color: var(--sp-text-muted);
+  font-weight: 600;
+  margin-top: 0.3rem;
+}
+
+/* Subject Hours Allocation Bars */
+.sp-allocation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  margin-bottom: 2.2rem;
+}
+
+.sp-alloc-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.sp-alloc-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.sp-alloc-subject {
+  color: var(--sp-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sp-alloc-hours {
+  color: var(--sp-accent);
+}
+
+.sp-progress-track {
+  height: 12px;
+  background-color: var(--sp-surface-secondary);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--sp-border);
+}
+
+.sp-progress-fill {
+  height: 100%;
+  background-color: var(--sp-accent);
+  border-radius: 6px;
+  transition: width 0.4s ease;
+}
+
+/* Timeline & Phase Breakdown */
+.sp-phases-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--sp-primary);
+  margin-bottom: 1rem;
+  border-bottom: 2px solid var(--sp-border);
+  padding-bottom: 0.5rem;
+}
+
+.sp-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sp-phase-card {
+  background-color: var(--sp-surface-secondary);
+  border-radius: var(--sp-radius-md);
+  padding: 1.2rem;
+  border-right: 4px solid var(--sp-primary);
+  border-top: 1px solid var(--sp-border);
+  border-left: 1px solid var(--sp-border);
+  border-bottom: 1px solid var(--sp-border);
+}
+
+.sp-phase-card.final-review {
+  border-right-color: var(--sp-accent);
+  background-color: var(--sp-accent-light);
+}
+
+.sp-phase-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.sp-phase-name {
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--sp-primary);
+}
+
+.sp-phase-days {
+  font-size: 0.85rem;
+  font-weight: 700;
+  background-color: var(--sp-surface);
+  color: var(--sp-text);
+  padding: 0.25rem 0.65rem;
+  border-radius: 50px;
+  border: 1px solid var(--sp-border);
+}
+
+.sp-phase-desc {
+  font-size: 0.92rem;
+  color: var(--sp-text-muted);
+  line-height: 1.65;
+}
+
+/* Methodology Section (Explanatory Content) */
+.sp-content-section {
+  line-height: 1.85;
+}
+
+.sp-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.2rem;
+}
+
+.sp-method-card {
+  background-color: var(--sp-surface);
+  border: 1px solid var(--sp-border);
+  border-radius: var(--sp-radius-md);
+  padding: 1.4rem;
+}
+
+.sp-method-card h3 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--sp-primary);
+  margin-bottom: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sp-method-card p {
+  font-size: 0.96rem;
+  color: var(--sp-text);
+}
+
+.sp-quote-box {
+  background-color: var(--sp-surface-secondary);
+  border-right: 4px solid var(--sp-accent);
+  padding: 1.2rem 1.4rem;
+  border-radius: var(--sp-radius-sm);
+  margin: 1.5rem 0;
+  font-size: 0.98rem;
+  color: var(--sp-text);
+}
+
+/* Scenarios Section */
+.sp-scenario-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.4rem;
+  margin-top: 1.2rem;
+}
+
+.sp-scenario-card {
+  background-color: var(--sp-surface);
+  border: 1px solid var(--sp-border);
+  border-radius: var(--sp-radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.sp-scenario-tag {
+  align-self: flex-start;
+  background-color: var(--sp-accent-light);
+  color: var(--sp-accent);
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 0.25rem 0.75rem;
+  border-radius: 50px;
+  margin-bottom: 0.8rem;
+}
+
+.sp-scenario-card h3 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--sp-primary);
+  margin-bottom: 0.6rem;
+}
+
+.sp-scenario-card p {
+  font-size: 0.94rem;
+  color: var(--sp-text-muted);
+  line-height: 1.7;
+  margin-bottom: 1rem;
+}
+
+.sp-scenario-solution {
+  background-color: var(--sp-surface-secondary);
+  border-radius: var(--sp-radius-md);
+  padding: 1rem;
+  font-size: 0.92rem;
+  color: var(--sp-text);
+  border: 1px solid var(--sp-border);
+  margin-top: auto;
+}
+
+/* Common Errors Section */
+.sp-errors-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.2rem;
+}
+
+.sp-error-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  background-color: var(--sp-surface);
+  border: 1px solid var(--sp-border);
+  padding: 1.1rem 1.3rem;
+  border-radius: var(--sp-radius-md);
+}
+
+.sp-error-icon {
+  color: var(--sp-accent);
+  font-size: 1.2rem;
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+
+.sp-error-item h4 {
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: var(--sp-primary);
+  margin-bottom: 0.3rem;
+}
+
+.sp-error-item p {
+  font-size: 0.93rem;
+  color: var(--sp-text-muted);
+}
+
+/* When NOT to use this tool (Anti-fit) */
+.sp-antifit-box {
+  background-color: var(--sp-warning-bg);
+  border: 1px solid var(--sp-warning);
+  border-radius: var(--sp-radius-lg);
+  padding: 1.8rem;
+  margin-top: 1.2rem;
+}
+
+.sp-antifit-title {
+  color: var(--sp-warning);
+  font-size: 1.2rem;
+  font-weight: 800;
+  margin-bottom: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.sp-antifit-list {
+  padding-right: 1.4rem;
+  color: var(--sp-text);
+  font-size: 0.96rem;
+  line-height: 1.8;
+}
+
+.sp-antifit-list li {
+  margin-bottom: 0.5rem;
+}
+
+/* FAQ Section */
+.sp-faq-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  margin-top: 1.2rem;
+}
+
+.sp-faq-item {
+  background-color: var(--sp-surface);
+  border: 1px solid var(--sp-border);
+  border-radius: var(--sp-radius-md);
+  padding: 1.3rem 1.5rem;
+}
+
+.sp-faq-item h3 {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--sp-primary);
+  margin-bottom: 0.5rem;
+}
+
+.sp-faq-item p {
+  font-size: 0.95rem;
+  color: var(--sp-text-muted);
+  line-height: 1.75;
+}
+
+/* Conclusion & Action Steps */
+.sp-conclusion-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.2rem;
+  margin-top: 1.4rem;
+}
+
+.sp-step-card {
+  background-color: var(--sp-surface-secondary);
+  border: 1px solid var(--sp-border);
+  border-radius: var(--sp-radius-md);
+  padding: 1.3rem;
+  position: relative;
+}
+
+.sp-step-num {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--sp-accent);
+  margin-bottom: 0.4rem;
+}
+
+.sp-step-card h4 {
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: var(--sp-primary);
+  margin-bottom: 0.4rem;
+}
+
+.sp-step-card p {
+  font-size: 0.92rem;
+  color: var(--sp-text-muted);
+}
+
+/* Footer */
+.sp-footer {
+  background-color: var(--sp-surface);
+  border-top: 1px solid var(--sp-border);
+  padding: 2.2rem 0;
+  margin-top: 3.5rem;
+  text-align: center;
+}
+
+.sp-footer-text {
+  font-size: 0.92rem;
+  color: var(--sp-text-muted);
+  margin-bottom: 0.8rem;
+}
+
+.sp-footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 1.4rem;
+  flex-wrap: wrap;
+}
+
+.sp-footer-link {
+  color: var(--sp-text);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.sp-footer-link:hover {
+  color: var(--sp-accent);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .sp-hero-title {
+    font-size: 1.75rem;
+  }
+  .sp-hero-desc {
+    font-size: 1rem;
+  }
+  .sp-card {
+    padding: 1.4rem 1.1rem;
+  }
+  .sp-subject-item {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+  .sp-metrics-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .sp-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+  .sp-hero-cta {
+    width: 100%;
+    justify-content: center;
+  }
+}
