@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://hayyze.github.io/sitemap.xml
+Sitemap: https://hayyze.hayyze.workers.dev/sitemap.xml
