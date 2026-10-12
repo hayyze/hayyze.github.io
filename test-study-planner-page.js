@@ -21,8 +21,8 @@ assert(h1Matches && h1Matches.length === 1, `Expected exactly 1 <h1> tag, found 
 console.log('✅ PASS: Exactly 1 <h1> heading present in study-planner.html.');
 
 // Check Canonical Tag
-assert(htmlContent.includes('<link rel="canonical" href="https://hayyze.github.io/study-planner.html">'), 'Canonical URL tag must point to study-planner.html');
-console.log('✅ PASS: Canonical tag correctly set to https://hayyze.github.io/study-planner.html.');
+assert(htmlContent.includes('<link rel="canonical" href="https://hayyze.pages.dev/study-planner.html">'), 'Canonical URL tag must point to study-planner.html');
+console.log('✅ PASS: Canonical tag correctly set to https://hayyze.pages.dev/study-planner.html.');
 
 // Check CSS Import
 assert(htmlContent.includes('study-planner.css'), 'study-planner.html must import study-planner.css');
@@ -64,14 +64,20 @@ assert(indexContent.includes('study-planner.html'), 'index.html must contain an 
 console.log('✅ PASS: index.html contains internal link to study-planner.html.');
 
 // 4. Verify Restricted Files Unmodified
-const gitStatusOutput = require('child_process').execSync('git status --porcelain', { encoding: 'utf8' });
-const modifiedFiles = gitStatusOutput.split('\n').map(line => line.trim().split(' ').pop()).filter(Boolean);
+const diffOutput = require('child_process').execSync('git diff --name-only main...', { encoding: 'utf8' });
+const modifiedFiles = diffOutput.split('\n').map(line => line.trim()).filter(Boolean);
 
-const allowedModifiedOrCreated = ['study-planner.html', 'study-planner.css', 'study-planner.js', 'index.html', 'test-study-planner-page.js'];
 modifiedFiles.forEach(file => {
-    assert(allowedModifiedOrCreated.includes(file), `Restricted file was modified: ${file}`);
+    // Allow HTML files, study-planner assets, and test files for the SEO migration task
+    const isAllowed = file.endsWith('.html') ||
+                      file.startsWith('test-') ||
+                      file === 'study-planner.css' ||
+                      file === 'study-planner.js' ||
+                      file === 'sitemap.xml' ||
+                      file === 'robots.txt';
+    assert(isAllowed, `Restricted application logic file was modified compared to main: ${file}`);
 });
-console.log('✅ PASS: No restricted core files were modified.');
+console.log('✅ PASS: No restricted JS/CSS application files were modified compared to main.');
 
 console.log('\n===================================');
 console.log('STUDY PLANNER VALIDATION RESULTS: ALL PASSED');

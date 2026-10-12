@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://hayyze.hayyze.workers.dev/sitemap.xml
+Sitemap: https://hayyze.pages.dev/sitemap.xml
