@@ -964,6 +964,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof hayyizSyncTool === 'function') {
         hayyizSyncTool('todos');
     }
+
+    if (typeof hayyizFetchAndSyncWorkspaceTasks === 'function') {
+        hayyizFetchAndSyncWorkspaceTasks().then(() => {
+            todos = typeof hayyizGetTodos === 'function' ? hayyizGetTodos() : todos;
+            renderTodos();
+        }).catch(() => {});
+    }
+
     if (typeof initAuthListener === 'function') {
         initAuthListener();
     }
