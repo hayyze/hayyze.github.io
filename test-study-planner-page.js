@@ -64,8 +64,8 @@ assert(indexContent.includes('study-planner.html'), 'index.html must contain an 
 console.log('✅ PASS: index.html contains internal link to study-planner.html.');
 
 // 4. Verify Restricted Files Unmodified
-const gitStatusOutput = require('child_process').execSync('git status --porcelain', { encoding: 'utf8' });
-const modifiedFiles = gitStatusOutput.split('\n').map(line => line.trim().split(' ').pop()).filter(Boolean);
+const diffOutput = require('child_process').execSync('git diff --name-only main...', { encoding: 'utf8' });
+const modifiedFiles = diffOutput.split('\n').map(line => line.trim()).filter(Boolean);
 
 modifiedFiles.forEach(file => {
     // Allow HTML files, study-planner assets, and test files for the SEO migration task
@@ -75,9 +75,9 @@ modifiedFiles.forEach(file => {
                       file === 'study-planner.js' ||
                       file === 'sitemap.xml' ||
                       file === 'robots.txt';
-    assert(isAllowed, `Restricted application logic file was modified: ${file}`);
+    assert(isAllowed, `Restricted application logic file was modified compared to main: ${file}`);
 });
-console.log('✅ PASS: No restricted JS/CSS application files were modified.');
+console.log('✅ PASS: No restricted JS/CSS application files were modified compared to main.');
 
 console.log('\n===================================');
 console.log('STUDY PLANNER VALIDATION RESULTS: ALL PASSED');
