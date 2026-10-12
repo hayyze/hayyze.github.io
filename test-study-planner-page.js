@@ -63,8 +63,21 @@ const indexContent = fs.readFileSync('index.html', 'utf8');
 assert(indexContent.includes('study-planner.html'), 'index.html must contain an internal link to study-planner.html');
 console.log('✅ PASS: index.html contains internal link to study-planner.html.');
 
-// 4. Verify Restricted Files Unmodified (skipped when modifying site-wide SEO domain migration)
-console.log('✅ PASS: Study planner page validation completed.');
+// 4. Verify Restricted Files Unmodified
+const gitStatusOutput = require('child_process').execSync('git status --porcelain', { encoding: 'utf8' });
+const modifiedFiles = gitStatusOutput.split('\n').map(line => line.trim().split(' ').pop()).filter(Boolean);
+
+modifiedFiles.forEach(file => {
+    // Allow HTML files, study-planner assets, and test files for the SEO migration task
+    const isAllowed = file.endsWith('.html') ||
+                      file.startsWith('test-') ||
+                      file === 'study-planner.css' ||
+                      file === 'study-planner.js' ||
+                      file === 'sitemap.xml' ||
+                      file === 'robots.txt';
+    assert(isAllowed, `Restricted application logic file was modified: ${file}`);
+});
+console.log('✅ PASS: No restricted JS/CSS application files were modified.');
 
 console.log('\n===================================');
 console.log('STUDY PLANNER VALIDATION RESULTS: ALL PASSED');
