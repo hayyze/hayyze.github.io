@@ -7,7 +7,7 @@ const assert = require('assert');
 console.log('=== RUNNING AUTOMATED SEO DOMAIN MIGRATION AUDIT SUITE ===\n');
 
 const DOMAIN = 'https://hayyze.pages.dev';
-const OLD_DOMAIN = 'https://hayyze.github.io';
+const OLD_DOMAINS = ['https://hayyze.github.io', 'https://hayyze.hayyze.workers.dev'];
 
 const htmlFiles = fs.readdirSync('.').filter(file => file.endsWith('.html') && !file.startsWith('google'));
 
@@ -19,8 +19,10 @@ htmlFiles.forEach(file => {
     totalAuditedPages++;
     const content = fs.readFileSync(file, 'utf8');
 
-    // 1. Verify zero legacy domain references in HTML
-    assert(!content.includes(OLD_DOMAIN), `[${file}] Contains legacy domain: ${OLD_DOMAIN}`);
+    // 1. Verify zero legacy domain references in HTML SEO blocks
+    OLD_DOMAINS.forEach(oldDomain => {
+        assert(!content.includes(oldDomain), `[${file}] Contains legacy domain: ${oldDomain}`);
+    });
 
     // Normalized content without line breaks or multi-space formatting for tag checking
     const normalizedContent = content.replace(/\s+/g, ' ');
@@ -38,28 +40,35 @@ htmlFiles.forEach(file => {
     assert(ogUrlMatch, `[${file}] Missing og:url meta tag.`);
     assert.strictEqual(ogUrlMatch[1], `${DOMAIN}${expectedCanonicalPath}`, `[${file}] og:url mismatch. Found: ${ogUrlMatch[1]}`);
 
-    // 4. og:image & twitter:image validation
-    const ogImageMatches = content.match(/<meta\s+(?:property="og:image"|name="twitter:image")\s+content="([^"]+)"/g) || [];
-    ogImageMatches.forEach(tag => {
-        const urlMatch = tag.match(/content="([^"]+)"/);
-        if (urlMatch && urlMatch[1]) {
-            const imgUrl = urlMatch[1];
-            assert(imgUrl.startsWith(DOMAIN), `[${file}] Image meta URL does not start with new domain: ${imgUrl}`);
+    // 4. Strict og:image & twitter:image validation
+    const ogImageMatch = normalizedContent.match(/<meta\s+property="og:image"\s+content="([^"]+)"\s*\/?>/i) ||
+                         normalizedContent.match(/<meta\s+content="([^"]+)"\s+property="og:image"\s*\/?>/i);
+    assert(ogImageMatch, `[${file}] Missing required og:image meta tag.`);
 
-            // Check that image asset file exists locally
-            const localPath = imgUrl.replace(`${DOMAIN}/`, '');
-            assert(fs.existsSync(localPath), `[${file}] Referenced image asset file does not exist locally: ${localPath}`);
-        }
-    });
+    const ogImageUrl = ogImageMatch[1];
+    assert(ogImageUrl.startsWith(DOMAIN), `[${file}] og:image URL does not start with target domain: ${ogImageUrl}`);
+    const localImgPath = ogImageUrl.replace(`${DOMAIN}/`, '');
+    assert(fs.existsSync(localImgPath), `[${file}] Referenced og:image asset file does not exist locally: ${localImgPath}`);
+
+    const twitterImageMatch = normalizedContent.match(/<meta\s+name="twitter:image"\s+content="([^"]+)"\s*\/?>/i) ||
+                              normalizedContent.match(/<meta\s+content="([^"]+)"\s+name="twitter:image"\s*\/?>/i);
+    if (twitterImageMatch) {
+        const twitterImageUrl = twitterImageMatch[1];
+        assert(twitterImageUrl.startsWith(DOMAIN), `[${file}] twitter:image URL does not start with target domain: ${twitterImageUrl}`);
+        const localTwitterImgPath = twitterImageUrl.replace(`${DOMAIN}/`, '');
+        assert(fs.existsSync(localTwitterImgPath), `[${file}] Referenced twitter:image asset file does not exist locally: ${localTwitterImgPath}`);
+    }
 
     // 5. JSON-LD Structured Data domain check
     const jsonLdScripts = content.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi) || [];
     jsonLdScripts.forEach(scriptTag => {
-        assert(!scriptTag.includes(OLD_DOMAIN), `[${file}] JSON-LD contains legacy domain: ${OLD_DOMAIN}`);
+        OLD_DOMAINS.forEach(oldDomain => {
+            assert(!scriptTag.includes(oldDomain), `[${file}] JSON-LD contains legacy domain: ${oldDomain}`);
+        });
     });
 });
 
-console.log(`✅ PASS: All ${totalAuditedPages} HTML pages verified for canonical, og:url, images, and JSON-LD structure.`);
+console.log(`✅ PASS: All ${totalAuditedPages} HTML pages strictly verified for canonical, og:url, og:image, and JSON-LD structure.`);
 
 // 6. Sitemap.xml & robots.txt Validation
 console.log('Auditing sitemap.xml and robots.txt...');
@@ -71,8 +80,10 @@ const sitemapContent = fs.readFileSync('sitemap.xml', 'utf8');
 const robotsContent = fs.readFileSync('robots.txt', 'utf8');
 
 // Ensure no old domain references in sitemap or robots
-assert(!sitemapContent.includes(OLD_DOMAIN), 'sitemap.xml contains legacy domain references');
-assert(!robotsContent.includes(OLD_DOMAIN), 'robots.txt contains legacy domain references');
+OLD_DOMAINS.forEach(oldDomain => {
+    assert(!sitemapContent.includes(oldDomain), `sitemap.xml contains legacy domain reference: ${oldDomain}`);
+    assert(!robotsContent.includes(oldDomain), `robots.txt contains legacy domain reference: ${oldDomain}`);
+});
 
 // Verify sitemap directive in robots.txt
 assert(robotsContent.includes(`Sitemap: ${DOMAIN}/sitemap.xml`), 'robots.txt must point to Cloudflare sitemap.xml URL');
@@ -83,7 +94,7 @@ assert(locMatches.length > 0, 'sitemap.xml must contain at least one <loc> entry
 
 locMatches.forEach(locTag => {
     const url = locTag.replace('<loc>', '').replace('</loc>', '');
-    assert(url.startsWith(DOMAIN), `Sitemap <loc> URL does not use new domain: ${url}`);
+    assert(url.startsWith(DOMAIN), `Sitemap <loc> URL does not use target domain: ${url}`);
 
     // Extract local file path and confirm file existence
     let relativePath = url.replace(`${DOMAIN}/`, '').replace(`${DOMAIN}`, '');
