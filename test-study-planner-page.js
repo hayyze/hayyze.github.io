@@ -21,8 +21,8 @@ assert(h1Matches && h1Matches.length === 1, `Expected exactly 1 <h1> tag, found 
 console.log('✅ PASS: Exactly 1 <h1> heading present in study-planner.html.');
 
 // Check Canonical Tag
-assert(htmlContent.includes('<link rel="canonical" href="https://hayyze.hayyze.workers.dev/study-planner.html">'), 'Canonical URL tag must point to study-planner.html');
-console.log('✅ PASS: Canonical tag correctly set to https://hayyze.hayyze.workers.dev/study-planner.html.');
+assert(htmlContent.includes('<link rel="canonical" href="https://hayyze.pages.dev/study-planner.html">'), 'Canonical URL tag must point to study-planner.html');
+console.log('✅ PASS: Canonical tag correctly set to https://hayyze.pages.dev/study-planner.html.');
 
 // Check CSS Import
 assert(htmlContent.includes('study-planner.css'), 'study-planner.html must import study-planner.css');

@@ -6,7 +6,7 @@ const assert = require('assert');
 
 console.log('=== RUNNING AUTOMATED SEO DOMAIN MIGRATION AUDIT SUITE ===\n');
 
-const DOMAIN = 'https://hayyze.hayyze.workers.dev';
+const DOMAIN = 'https://hayyze.pages.dev';
 const OLD_DOMAIN = 'https://hayyze.github.io';
 
 const htmlFiles = fs.readdirSync('.').filter(file => file.endsWith('.html') && !file.startsWith('google'));
