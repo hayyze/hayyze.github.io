@@ -15,7 +15,7 @@ CREATE SCHEMA IF NOT EXISTS private;
 -- 2. MAIN SYNC TABLE STRUCTURE & POLICIES
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS public.sync_items (
-    user_id UUID NOT NULL DEFAULT auth.uid(),
+    user_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
     tool TEXT NOT NULL,
     item_id TEXT NOT NULL,
     data JSONB NOT NULL,
