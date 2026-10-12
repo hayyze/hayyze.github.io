@@ -1,3 +1,4 @@
+# Canonical site hosted on Cloudflare Pages.
 User-agent: *
 Allow: /
 
