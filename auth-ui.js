@@ -270,7 +270,7 @@
                                 email,
                                 password,
                                 options: {
-                                    emailRedirectTo: 'https://hayyze.github.io/'
+                                    emailRedirectTo: 'https://hayyze.pages.dev/'
                                 }
                             });
                         }
