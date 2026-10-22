@@ -310,20 +310,17 @@ const server = http.createServer((req, res) => {
         assert.equal(await recPage.evaluate(()=>hayyizGetFocusState().context.id),'rec-next');
         // A running or paused saved session remains resumable even when the daily budget is zero.
         for(const status of ['running','paused']) {
-            const end=await recPage.evaluate(status=>{
-                hayyizSetTodayRemainingMinutes(0);
-                const end=status==='running'?Date.now()+300000:null;
-                hayyizSaveFocusState({mode:'focus',status,remainingSeconds:300,totalDuration:1500,endTime:end,
-                    context:{type:'task',id:'rec-next',title:'الواجب التالي'}});
-                return end;
-            },status);
+            await recPage.locator(status==='running'?'#timer-start-btn':'#timer-pause-btn').click();
+            await recPage.evaluate(()=>hayyizSetTodayRemainingMinutes(0));
+            const saved=await recPage.evaluate(()=>hayyizGetFocusState());
             await recPage.goto(base+'/todo.html');
             assert.match(await recPage.locator('#hero-action-btn').textContent(),/متابعة الجلسة المحفوظة/);
             await recPage.locator('#hero-action-btn').click();
             await recPage.waitForURL(base+'/pomodoro.html');await recPage.waitForLoadState('load');
             const resumed=await recPage.evaluate(()=>hayyizGetFocusState());
             assert.equal(resumed.status,status);assert.equal(resumed.context.id,'rec-next');
-            assert.equal(resumed.totalDuration,1500);assert.equal(resumed.endTime,end);
+            assert.equal(resumed.totalDuration,saved.totalDuration);assert.equal(resumed.endTime,saved.endTime);
+            assert.equal(resumed.sessionId,saved.sessionId);
         }
         assert.deepEqual(recommendationErrors,[]);
         console.log('Shared recommendations PASSED: dashboard/Todo agreement, budgeted launch, stale/zero budget, next task, preserved running/paused sessions.');
