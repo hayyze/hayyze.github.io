@@ -138,6 +138,7 @@
         metrics.addEventListener('change', () => {
             localStorage.setItem('hayyiz-planning-metrics', metrics.checked ? 'enabled' : 'disabled');
             if (!metrics.checked) localStorage.removeItem('hayyiz-planning-pending-events');
+            else hayyizFlushPlanningEvents();
         });
         metricsLabel.append(metrics, document.createTextNode('أسمح بقياس خطوات الاستخدام لتحسين التخطيط، دون إرسال محتوى المهام أو الملاحظات.'));
         form.appendChild(metricsLabel); details.appendChild(form); host.appendChild(details);

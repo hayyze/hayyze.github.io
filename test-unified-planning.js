@@ -84,10 +84,10 @@ assert.equal(c.hayyizGetMultiDayPlan(adopted.targetId).includeSubjectTasks,false
 c.hayyizReevaluateMultiDayPlan(); assert.equal(c.hayyizGetMultiDayPlan(adopted.targetId).includeSubjectTasks,false);
 assert.equal(c.hayyizExtendTaskEstimate(adoptedTask.id,25),true); assert.equal(c.hayyizGetTaskById(adoptedTask.id).minutes,145);
 assert.equal(c.hayyizSaveDayReview('arbitrary private text'),false); assert.equal(c.hayyizSaveDayReview('difficulty'),true);
-const metrics=[]; c.gtag=(...args)=>metrics.push(args);
+const metrics=[]; c.hayyizSendPlanningEvent=name=>{metrics.push(name);return true;};
 c.hayyizTrackPlanningEvent('focus_started'); assert.equal(metrics.length,0,'Metrics are opt-in');
 storage.setItem('hayyiz-planning-metrics','enabled'); c.hayyizTrackPlanningEvent('secret task title'); assert.equal(metrics.length,0);
-c.hayyizTrackPlanningEvent('focus_started'); assert.equal(metrics.length,1); assert.equal(metrics[0].length,3);
+c.hayyizTrackPlanningEvent('focus_started'); assert.equal(metrics.length,1); assert.equal(metrics[0],'focus_started');
 assert.equal(c.hayyizSanitizeValue('hayyiz-planning-preferences','{"week":{"1":60}}'),'{"week":{"1":60}}');
 c.hayyizLaunchPomodoro({id:'event',name:'Exam review',date:today,type:'exam'}, null, 10);
 assert(c.location.href.endsWith('&sessionMinutes=10'),'Exam review sessions respect the same short daily allocation as task sessions');

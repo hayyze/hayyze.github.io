@@ -2631,27 +2631,27 @@ function hayyizAdoptStudyPlan(config) {
 
 function hayyizTrackPlanningEvent(name) {
     const allowed = ['first_plan', 'plan_adopted', 'focus_started', 'focus_completed', 'task_completed', 'time_updated', 'day_reviewed', 'estimate_extended'];
-    // No titles, IDs, notes, email addresses or task content leave the browser.
     if (!allowed.includes(name) || localStorage.getItem('hayyiz-planning-metrics') !== 'enabled') return;
     if (typeof navigator !== 'undefined' && (navigator.doNotTrack === '1' || navigator.globalPrivacyControl === true)) return;
-    if (typeof window.gtag === 'function') {
-        hayyizFlushPlanningEvents();
-        window.gtag('event', 'planning_' + name, { event_category: 'student_planning' });
-    } else {
-        const stored = hayyizParseJSON('hayyiz-planning-pending-events', []);
-        const queue = Array.isArray(stored) ? stored.filter(event => allowed.includes(event)).slice(-49) : [];
-        hayyizSaveJSON('hayyiz-planning-pending-events', queue.concat(name));
-    }
+    // Store action names only. A sensitive route or unavailable SDK must never fall back to raw gtag.
+    const stored = hayyizParseJSON('hayyiz-planning-pending-events', []);
+    const queue = Array.isArray(stored) ? stored.filter(event => allowed.includes(event)).slice(-49) : [];
+    hayyizSaveJSON('hayyiz-planning-pending-events', queue.concat(name));
+    hayyizFlushPlanningEvents();
 }
 
 function hayyizFlushPlanningEvents() {
-    if (localStorage.getItem('hayyiz-planning-metrics') !== 'enabled' || typeof window.gtag !== 'function') return;
+    if (localStorage.getItem('hayyiz-planning-metrics') !== 'enabled' || typeof window.hayyizSendPlanningEvent !== 'function') return;
     if (typeof navigator !== 'undefined' && (navigator.doNotTrack === '1' || navigator.globalPrivacyControl === true)) return;
     const queue = hayyizParseJSON('hayyiz-planning-pending-events', []);
-    localStorage.removeItem('hayyiz-planning-pending-events');
-    if (!Array.isArray(queue)) return;
+    if (!Array.isArray(queue)) { localStorage.removeItem('hayyiz-planning-pending-events'); return; }
     const allowed = new Set(['first_plan', 'plan_adopted', 'focus_started', 'focus_completed', 'task_completed', 'time_updated', 'day_reviewed', 'estimate_extended']);
-    queue.slice(-50).filter(event => allowed.has(event)).forEach(event => window.gtag('event', 'planning_' + event, { event_category: 'student_planning' }));
+    const remaining = queue.slice(-50).filter(event => allowed.has(event)).filter(event => {
+        try { return window.hayyizSendPlanningEvent(event) !== true; }
+        catch (_) { return true; }
+    });
+    if (remaining.length) hayyizSaveJSON('hayyiz-planning-pending-events', remaining);
+    else localStorage.removeItem('hayyiz-planning-pending-events');
 }
 document.addEventListener('DOMContentLoaded', hayyizFlushPlanningEvents);
 

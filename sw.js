@@ -33,6 +33,7 @@ const ASSETS = [
   './founder.html',
   './style.css',
   './common.js',
+  './analytics.js',
   './summary.js',
   './day-planning.js',
   './study-planner.html',

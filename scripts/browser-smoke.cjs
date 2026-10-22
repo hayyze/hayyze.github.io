@@ -231,6 +231,50 @@ const server = http.createServer((req, res) => {
         assert.deepEqual(errors,[],'No uncaught application errors in task/calendar integration');
         console.log('Task/calendar integration PASSED: real datetime input, title-only edits, long estimates, re-adoption, manual edits, restored and zero capacity.');
         await standalone.close();
+        // Intercept the SDK request: exercise loading and queue delivery without sending test data to Google.
+        const privacy = await browser.newContext({serviceWorkers:'block'});
+        await privacy.addInitScript(()=>localStorage.setItem('hayyiz-planning-metrics','enabled'));
+        const sdkRequests=[], analyticsRequests=[];
+        await privacy.route('**/*', async route=>{
+            const request=route.request(), url=new URL(request.url());
+            if(url.origin===base) return route.continue();
+            if(url.hostname==='www.googletagmanager.com' && url.pathname==='/gtag/js') {
+                sdkRequests.push({url:request.url(),referrer:request.headers().referer});
+                return route.fulfill({status:200,contentType:'application/javascript',body:'window.__privacySdkLoaded = true;'});
+            }
+            if(url.hostname.includes('google-analytics.com')) analyticsRequests.push(request.url());
+            return route.abort();
+        });
+        const privacyPage=await privacy.newPage(); privacyPage.setDefaultTimeout(10000);
+        const privacyErrors=[];privacyPage.on('pageerror',e=>privacyErrors.push(e.message));
+        for(const path of ['/pomodoro.html?task=PRIVATE_TITLE&taskId=PRIVATE_ID&sessionMinutes=10',
+            '/notes.html?title=PRIVATE_TITLE&task=PRIVATE_TITLE', '/index.html#access_token=PRIVATE_TOKEN', '/index.html?code=PRIVATE_TOKEN']) {
+            await privacyPage.goto(base+path);
+            await privacyPage.evaluate(()=>hayyizTrackPlanningEvent('focus_started'));
+            assert.equal(sdkRequests.length,0,'No analytics SDK request on sensitive URLs');
+            assert.equal(await privacyPage.locator('script[src*="googletagmanager.com/gtag"]').count(),0);
+            const names=await privacyPage.evaluate(()=>JSON.parse(localStorage.getItem('hayyiz-planning-pending-events')||'[]'));
+            assert(names.length>0); assert(names.every(name=>name==='focus_started'));
+            assert(!JSON.stringify(names).includes('PRIVATE'));
+        }
+        // The same-origin referrer contains the previous token-bearing URL; only its origin may reach analytics.
+        await Promise.all([privacyPage.waitForURL(base+'/index.html'), privacyPage.locator('a[href="index.html"]').first().click()]);
+        await privacyPage.waitForLoadState('load');
+        assert((await privacyPage.evaluate(()=>document.referrer)).includes('PRIVATE_TOKEN'),'Exercise a real sensitive same-origin referrer');
+        await privacyPage.waitForFunction(()=>window.__privacySdkLoaded===true);
+        assert.equal(sdkRequests.length,1);assert.equal(sdkRequests[0].referrer,undefined);
+        const payload=await privacyPage.evaluate(()=>{
+            document.title='PRIVATE_TITLE';
+            window.gtag('event','planning_focus_completed',{task:'PRIVATE_TITLE',page_location:'PRIVATE_TOKEN',user_id:'PRIVATE_ID'});
+            return JSON.stringify(window.dataLayer);
+        });
+        assert(!payload.includes('PRIVATE'),'No private URL, referrer, dynamic title, ID or caller field enters the SDK queue');
+        const pageViews=await privacyPage.evaluate(()=>window.dataLayer.filter(args=>args[0]==='event'&&args[1]==='page_view').length);
+        assert.equal(pageViews,1);
+        assert.equal(await privacyPage.evaluate(()=>localStorage.getItem('hayyiz-planning-pending-events')),null,'Buffered names flush on a clean page after SDK load');
+        assert.deepEqual(analyticsRequests,[]);assert.deepEqual(privacyErrors,[]);
+        await privacy.close();
+        console.log('Analytics browser privacy PASSED: no SDK on sensitive URLs, origin-only referrer, guarded payloads, delayed flushing and one page view (intercepted SDK, no Google collection).');
         // Warm app shell, then verify offline navigation in a fresh service-worker-enabled context.
         const offline = await browser.newContext();
         await offline.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());
@@ -241,7 +285,9 @@ const server = http.createServer((req, res) => {
         await offPage.goto(base+'/study-planner.html');
         await offPage.locator('#sp-adopt-plan').waitFor();
         assert.equal(await offPage.locator('#sp-exam-select').count(),1);
-        console.log('Offline app shell PASSED: study planner loads without a previous visit.');
+        await offPage.goto(base+'/index.html');
+        assert.equal(await offPage.evaluate(()=>typeof window.hayyizSendPlanningEvent),'function','The shared analytics guard is cached offline');
+        console.log('Offline app shell PASSED: study planner loads without a previous visit and analytics guard is cached.');
         await offline.close();
     } finally { await browser.close(); }
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>server.close());
