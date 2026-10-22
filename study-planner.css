@@ -238,7 +238,7 @@ body {
 /* Planner Inputs Form */
 .sp-form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
   gap: 1.4rem;
   margin-bottom: 1.8rem;
 }
@@ -516,7 +516,7 @@ body {
 
 .sp-grid-2 {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
   gap: 1.5rem;
   margin-top: 1.2rem;
 }
@@ -556,7 +556,7 @@ body {
 /* Scenarios Section */
 .sp-scenario-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
   gap: 1.4rem;
   margin-top: 1.2rem;
 }
@@ -703,7 +703,7 @@ body {
 /* Conclusion & Action Steps */
 .sp-conclusion-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
   gap: 1.2rem;
   margin-top: 1.4rem;
 }
@@ -789,6 +789,10 @@ body {
 }
 
 @media (max-width: 480px) {
+  .sp-nav-wrap, .sp-nav-links {
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
   .sp-metrics-grid {
     grid-template-columns: 1fr;
   }

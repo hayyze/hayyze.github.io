@@ -76,6 +76,48 @@ const server = http.createServer((req, res) => {
         assert.equal(await page.evaluate(()=>hayyizGetTodos().length),count);
         await page.reload();
         assert.equal(await page.locator('.sp-subj-name').first().inputValue(),'الرياضيات');
+        // Real DOM regression: switching from a saved exam to a new target must not overwrite it.
+        const savedExam = await page.evaluate(() => {
+            const d = new Date(); d.setDate(d.getDate() + 7);
+            const date = [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+            const exam = {id:'physics-final',name:'اختبار الفيزياء النهائي',date,type:'exam',created:100};
+            const exams = hayyizGetExams(); exams.push(exam); hayyizSaveJSON('hayyiz-student-exams',exams); return exam;
+        });
+        await page.reload();
+        await page.locator('#sp-exam-select').selectOption('physics-final');
+        await page.locator('#sp-adopt-plan').click();
+        await page.locator('#sp-exam-select').selectOption('');
+        await page.locator('#sp-adopt-plan').click();
+        assert.deepEqual(await page.evaluate(()=>hayyizGetExams().find(e=>e.id==='physics-final')),savedExam);
+        const adoptedBefore = await page.evaluate(()=>{
+            const id=hayyizParseJSON('hayyiz-planner-draft',{}).targetId;
+            return hayyizGetTodos().find(t=>t.eventId===id);
+        });
+        assert.notEqual(adoptedBefore.eventId,'physics-final');
+        await page.evaluate(()=>{
+            const input=document.getElementById('sp-daily-hours'); input.value='4.5'; input.dispatchEvent(new Event('input',{bubbles:true}));
+        });
+        await page.locator('#sp-adopt-plan').click();
+        assert.notEqual(await page.evaluate(id=>hayyizGetTaskById(id).minutes,adoptedBefore.id),adoptedBefore.minutes,'Changed hours update the adopted estimate');
+        await page.evaluate(id=>hayyizUpdateTask(id,{minutes:9999,focusDone:25}),adoptedBefore.id);
+        await page.locator('#sp-adopt-plan').click();
+        assert.equal(await page.evaluate(id=>hayyizGetTaskById(id).minutes,adoptedBefore.id),9999);
+        assert.equal(await page.evaluate(id=>hayyizGetTaskById(id).focusDone,adoptedBefore.id),25);
+        assert.match(await page.locator('#sp-adopt-status').textContent(),/احتُفظ بالتعديلات اليدوية/);
+        for (const width of [320,390]) {
+            await page.setViewportSize({width,height:844});
+            assert(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth+1),'Planner controls fit '+width+'px mobile');
+        }
+        await page.screenshot({path:'/tmp/hayyiz-planner-mobile.png',fullPage:true});
+        const examCount = await page.evaluate(()=>hayyizGetExams().length);
+        await page.locator('#sp-new-plan').click();
+        assert.equal(await page.evaluate(()=>hayyizGetExams().length),examCount,'Starting a new draft does not save it prematurely');
+        await page.locator('#sp-adopt-plan').click();
+        assert.equal(await page.evaluate(()=>hayyizGetExams().length),examCount+1);
+        const targetAfterNew = await page.evaluate(()=>hayyizParseJSON('hayyiz-planner-draft',{}).targetId);
+        assert.notEqual(targetAfterNew,adoptedBefore.eventId);
+        await page.reload(); await page.locator('#sp-adopt-plan').click();
+        assert.equal(await page.evaluate(()=>hayyizGetExams().length),examCount+1,'Reload preserves the new target identity');
         await page.goto(base);
         await page.locator('.planning-settings summary').first().click();
         await page.locator('#planning-week-0').fill('٦٠');
@@ -97,7 +139,7 @@ const server = http.createServer((req, res) => {
         assert(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth+1),'Desktop controls fit viewport');
         await page.screenshot({path:process.env.HAYYIZ_SCREENSHOT_DIR ? path.join(process.env.HAYYIZ_SCREENSHOT_DIR,'hayyiz-desktop.png') : '/tmp/hayyiz-desktop.png',fullPage:true});
         assert.deepEqual(errors,[], 'No uncaught application errors');
-        console.log('Browser smoke PASSED: first plan, Arabic time, 10-minute session, reload/expiry, estimate extension, completion, planner adoption/reload, week, commitment, review, dark mode, mobile and desktop.');
+        console.log('Browser smoke PASSED: first plan, Arabic time, 10-minute session, reload/expiry, estimate extension, completion, planner adoption/reload, exam identity, estimate reconciliation, manual edits, new-plan action, week, commitment, review, dark mode, mobile and desktop.');
         await context.close();
         // Warm app shell, then verify offline navigation in a fresh service-worker-enabled context.
         const offline = await browser.newContext();

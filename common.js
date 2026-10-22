@@ -1329,14 +1329,10 @@ function hayyizBuildDailyPlan(snapshot, rankedTasks, primaryDecision) {
     // Use the shared schedules for planned tasks and fill only genuinely free time.
     const capacity = hayyizGetDayCapacity(snap.today);
     const scheduledToday = new Map(), plannedTaskIds = new Set();
-    Object.values(hayyizGetMultiDayPlans()).forEach(plan => {
-        if (!plan || !Array.isArray(plan.schedule)) return;
-        plan.schedule.filter(day => day.date >= snap.today).forEach(day => {
-            (day.tasks || []).forEach(task => {
-                plannedTaskIds.add(task.taskId);
-                if (day.date === snap.today) scheduledToday.set(task.taskId, (scheduledToday.get(task.taskId) || 0) + task.remainingMinutes);
-            });
-        });
+    const allocation = hayyizBuildSharedStudyAllocation(hayyizGetMultiDayPlans());
+    allocation.allocations.forEach((days, taskId) => {
+        plannedTaskIds.add(taskId);
+        scheduledToday.set(taskId, days.get(snap.today) || 0);
     });
     let remaining = capacity.remainingMinutes;
     let reserved = Math.min(remaining, Array.from(scheduledToday.values()).reduce((sum, minutes) => sum + minutes, 0));
@@ -1348,7 +1344,7 @@ function hayyizBuildDailyPlan(snapshot, rankedTasks, primaryDecision) {
         const inPlan = item.task && plannedTaskIds.has(item.task.id);
         const todayShare = item.task ? scheduledToday.get(item.task.id) || 0 : 0;
         if (inPlan && !todayShare) {
-            deferred.push(Object.assign({}, item, { deferredMinutes: needed, deferredReason: 'موزعة على أيام لاحقة' })); return;
+            deferred.push(Object.assign({}, item, { deferredMinutes: needed, deferredReason: allocation.allocations.get(item.task.id)?.size ? 'موزعة على أيام لاحقة' : 'لا يتسع لها الوقت قبل موعدها' })); return;
         }
         if (needed > 0) {
             const free = inPlan ? Math.min(todayShare, remaining) : Math.max(0, remaining - reserved);
@@ -2540,37 +2536,67 @@ function hayyizAdoptStudyPlan(config) {
     if (!config || (config.dailyCapacityMinutes !== undefined && hayyizParseMinutes(config.dailyCapacityMinutes) === null) || !hayyizValidDate(config.targetDate) || hayyizDaysUntil(config.targetDate) < 1 ||
         hayyizDaysUntil(config.targetDate) > 366 || !Array.isArray(config.subjects) || !config.subjects.length || config.subjects.length > 50) return null;
     if (config.subjects.some(s => !s || !String(s.name || '').trim() || !Number.isFinite(s.minutes) || s.minutes <= 0 || s.minutes > 527040)) return null;
-    const existingExam = config.examId ? hayyizGetExams().find(ex => ex.id === config.examId) : null;
+    const exams = hayyizParseJSON('hayyiz-student-exams', []);
+    const existingExam = config.examId ? exams.find(ex => ex.id === config.examId) : null;
+    if (config.examId && !existingExam) return null;
     if (existingExam && (!hayyizValidDate(existingExam.date) || hayyizDaysUntil(existingExam.date) < 1 || hayyizDaysUntil(existingExam.date) > 366)) return null;
-    const targetId = existingExam ? existingExam.id : (config.targetId || hayyizGenerateId());
-    const targetName = existingExam ? existingExam.name : 'خطة مراجعة قبل الاختبار';
+    // A remembered target is reusable only when the planner created that exam.
+    const draft = hayyizParseJSON('hayyiz-planner-draft', {});
+    const previous = exams.find(ex => ex && ex.id === config.targetId && (ex.plannerSource === true ||
+        // Backward compatibility: only an explicit saved new-plan draft establishes legacy ownership.
+        (draft.targetId === ex.id && draft.examId === '' && ex.name === 'خطة مراجعة قبل الاختبار' && hayyizGetMultiDayPlan(ex.id))));
+    const targetId = existingExam ? existingExam.id : (previous ? previous.id : hayyizGenerateId());
+    const targetName = existingExam ? existingExam.name : (previous ? previous.name : 'خطة مراجعة قبل الاختبار');
     const now = Date.now();
     if (!existingExam) {
-        const exams = hayyizParseJSON('hayyiz-student-exams', []);
-        const exam = { id: targetId, name: targetName, date: config.targetDate, type: 'exam', created: now, updated: now };
+        const exam = Object.assign({}, previous || {}, { id: targetId, name: previous ? previous.name : targetName, date: config.targetDate,
+            type: 'exam', created: previous ? previous.created : now, updated: now, plannerSource: true });
         const index = exams.findIndex(ex => ex && ex.id === targetId);
         if (index >= 0) exams[index] = Object.assign({}, exams[index], exam); else exams.push(exam);
         hayyizSaveJSON('hayyiz-student-exams', exams);
         if (typeof hayyizUploadItem === 'function') hayyizUploadItem('student-exams', targetId, exam);
     }
     const todos = hayyizGetTodos();
+    const adoption = { created: 0, updated: 0, protectedFields: [], retainedTaskIds: [] };
+    const adoptedTasks = new Set();
     config.subjects.forEach(row => {
         const name = String(row.name).trim().slice(0, 80);
         const subject = hayyizGetSubjects().find(s => s.name === name) || hayyizAddSubject(name);
         let task = todos.find(t => t.eventId === targetId && t.subjectId === subject.id && t.plannerSource === true);
+        const generated = { date: existingExam ? existingExam.date : config.targetDate, minutes: Math.ceil(row.minutes),
+            priority: ['high', 'medium', 'low'].includes(row.priority) ? row.priority : 'medium' };
         if (!task) {
             task = { id: hayyizGenerateId(), text: 'مراجعة ' + name, subjectId: subject.id, eventId: targetId,
                 date: config.targetDate, minutes: Math.ceil(row.minutes), priority: row.priority || 'medium', taskType: 'review',
                 completed: false, created: now, updated: now, plannerSource: true };
+            Object.assign(task, generated);
+            task.plannerDefaults = generated;
             todos.push(task);
+            adoption.created++;
+        } else {
+            const baseline = task.plannerDefaults;
+            Object.keys(generated).forEach(field => {
+                // Older tasks have no baseline: preserve them rather than guessing which fields were edited.
+                if (baseline && task[field] === baseline[field]) {
+                    if (task[field] !== generated[field]) adoption.updated++;
+                    task[field] = generated[field];
+                } else if (task[field] !== generated[field]) {
+                    adoption.protectedFields.push({ taskId: task.id, field });
+                }
+            });
+            task.plannerDefaults = generated;
+            task.updated = Math.max(now, Number(task.updated || 0) + 1);
         }
-        // Re-adoption never resets progress or overwrites student edits.
+        adoptedTasks.add(task.id);
+        // Never reset text, completion or focus progress, and never delete omitted subjects.
         if (typeof hayyizUploadItem === 'function') hayyizUploadItem('todos', task.id, task);
     });
+    adoption.retainedTaskIds = todos.filter(t => t.eventId === targetId && t.plannerSource === true && !adoptedTasks.has(t.id)).map(t => t.id);
     hayyizSaveTodos(todos);
     const plan = hayyizComputeMultiDayPlan({ targetId, targetName, targetDate: existingExam ? existingExam.date : config.targetDate,
         dailyCapacityMinutes: config.dailyCapacityMinutes, includeSubjectTasks: false });
     hayyizTrackPlanningEvent('plan_adopted');
+    if (plan) plan.adoption = adoption;
     return plan;
 }
 
@@ -2659,9 +2685,61 @@ function hayyizComputeMultiDayPlan(config) {
     return hayyizRebuildStudyPlans(plans)[id] || null;
 }
 
+// One derived allocation over canonical tasks, ordered by the earliest usable deadline.
+// No extra task store is created; all plans and the daily view consume the same slices.
+function hayyizBuildSharedStudyAllocation(plans) {
+    const today = getTodayLocal();
+    const ordered = Object.values(plans || {}).filter(p => p && p.targetId && hayyizValidDate(p.targetDate) &&
+        hayyizDaysUntil(p.targetDate) >= 0 && hayyizDaysUntil(p.targetDate) <= 366)
+        .sort((a, b) => a.targetDate.localeCompare(b.targetDate) || String(a.targetId).localeCompare(String(b.targetId)));
+    const shared = { owners: new Map(), allocations: new Map() };
+    if (!ordered.length) return shared;
+    const dateAt = offset => { const d = new Date(today + 'T12:00:00'); d.setDate(d.getDate() + offset);
+        return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'); };
+    const lastWorkDate = p => dateAt(Math.max(0, hayyizDaysUntil(p.targetDate) - (hayyizDaysUntil(p.targetDate) >= 2 ? 2 : 1)));
+    const horizon = ordered[ordered.length - 1].targetDate;
+    const work = [];
+    hayyizGetTodos().forEach(task => {
+        if (!task) return;
+        const owner = ordered.find(p => task.eventId ? String(task.eventId) === String(p.targetId) :
+            task.goalId ? String(task.goalId) === String(p.targetId) :
+            p.includeSubjectTasks !== false && p.subjectId && String(task.subjectId) === String(p.subjectId));
+        if (owner) shared.owners.set(task.id, String(owner.targetId));
+        if (task.completed) return;
+        // Overdue work competes for today, while its real deadline remains untouched on the task.
+        const due = hayyizValidDate(task.date) ? (task.date < today ? today : task.date) : null;
+        if (!owner && (!due || due > horizon)) return;
+        let deadline = owner ? lastWorkDate(owner) : (due < today ? today : due);
+        if (owner && due && due < deadline) deadline = due;
+        shared.allocations.set(task.id, new Map());
+        work.push({ task, owner, deadline });
+    });
+    const priority = { high: 3, medium: 2, low: 1 };
+    work.sort((a, b) => a.deadline.localeCompare(b.deadline) ||
+        (priority[b.task.priority] || 2) - (priority[a.task.priority] || 2) ||
+        String(a.owner?.targetDate || a.deadline).localeCompare(String(b.owner?.targetDate || b.deadline)) ||
+        String(a.owner?.targetId || '').localeCompare(String(b.owner?.targetId || '')) ||
+        (a.task.created || 0) - (b.task.created || 0) || String(a.task.id).localeCompare(String(b.task.id)));
+    const reserved = new Map(), capacity = new Map();
+    work.forEach(({ task, deadline }) => {
+        let remaining = hayyizTaskRemainingMinutes(task, parseInt(localStorage.getItem('hayyiz-pref-work'), 10) || 25);
+        for (let offset = 0; offset <= 366 && remaining > 0; offset++) {
+            const date = dateAt(offset);
+            if (date > deadline) break;
+            if (!capacity.has(date)) capacity.set(date, hayyizGetDayCapacity(date).remainingMinutes);
+            const minutes = Math.min(remaining, Math.max(0, capacity.get(date) - (reserved.get(date) || 0)));
+            if (!minutes) continue;
+            shared.allocations.get(task.id).set(date, minutes);
+            reserved.set(date, (reserved.get(date) || 0) + minutes);
+            remaining -= minutes;
+        }
+    });
+    return shared;
+}
+
 function hayyizRebuildStudyPlans(plansInput) {
     const plans = plansInput || hayyizGetMultiDayPlans();
-    const shared = { reserved: Object.create(null), owned: new Set() };
+    const shared = hayyizBuildSharedStudyAllocation(plans);
     const rebuilt = Object.assign({}, plans);
     Object.values(plans).filter(p => p && p.targetId && hayyizValidDate(p.targetDate))
         .sort((a, b) => a.targetDate.localeCompare(b.targetDate) || String(a.targetId).localeCompare(String(b.targetId)))
@@ -2729,24 +2807,7 @@ function hayyizAllocateMultiDayPlan(config, shared) {
     // 2. ربط دقيق ومستهدف للمهام الحقيقية (المفتوحة والمكتملة)
     const todos = hayyizGetTodos();
     const includeSubjectTasks = config.includeSubjectTasks !== false;
-    const linkedTasks = todos.filter((t) => {
-        if (!t || shared.owned.has(t.id)) return false;
-        // إذا كانت المهمة مرتبطة صراحة باختبار/حدث معين، يجب أن تطابق targetId فقط
-        if (t.eventId) {
-            return String(t.eventId) === targetId;
-        }
-        // إذا كانت المهمة مرتبطة بهدف معين
-        if (t.goalId) {
-            return String(t.goalId) === targetId;
-        }
-        // عند عدم وجود ربط صريح بحدث/هدف آخر وكان للمستهدف أو المادة subjectId
-        if (includeSubjectTasks && subjectId && t.subjectId && String(t.subjectId) === String(subjectId)) {
-            return true;
-        }
-        return false;
-    });
-
-    linkedTasks.forEach(t => shared.owned.add(t.id));
+    const linkedTasks = todos.filter(t => t && shared.owners.get(t.id) === targetId);
     const openTasks = linkedTasks.filter((t) => !t.completed);
     const completedTasks = linkedTasks.filter((t) => t.completed);
 
@@ -2807,79 +2868,23 @@ function hayyizAllocateMultiDayPlan(config, shared) {
         };
     });
 
-    // 4. خوارزمية التوزيع العادل مع احترام القدرة اليومية وتقسيم العمل المتبقي
-    const sortedOpenTasks = [...openTasks].sort((a, b) => {
-        const priMap = { high: 3, medium: 2, low: 1 };
-        const pA = priMap[a.priority] || 2;
-        const pB = priMap[b.priority] || 2;
-        if (pB !== pA) return pB - pA;
-        return (a.created || 0) - (b.created || 0);
-    });
-
+    // Consume the globally reserved slices; never reserve a whole exam before other deadlines.
     let totalPlannedMinutes = 0;
     let totalUnallocatedMinutes = 0;
-
-    if (sortedOpenTasks.length > 0 && allocatableDates.length > 0) {
-        let currentAllocIdx = 0;
-        sortedOpenTasks.forEach((t) => {
-            let taskRemainingMin = hayyizTaskRemainingMinutes(t, workMinDefault);
-
-            while (taskRemainingMin > 0) {
-                // البحث عن أول يوم متاح بدءاً من المؤشر الحالي لديه سعة متبقية دون تجاوز capacityPerDay
-                let bestDate = null;
-
-                for (let k = 0; k < allocatableDates.length; k++) {
-                    const candidateIdx = (currentAllocIdx + k) % allocatableDates.length;
-                    const d = allocatableDates[candidateIdx];
-                    const dayObj = dayScheduleMap[d];
-                    const capacity = hayyizGetDayCapacity(d);
-                    const reserved = shared.reserved[d] || 0;
-                    if (t.date && d > String(t.date).slice(0, 10)) continue;
-                    if (dayObj.plannedMinutes + reserved < capacity.remainingMinutes) {
-                        bestDate = d;
-                        currentAllocIdx = candidateIdx;
-                        break;
-                    }
-                }
-
-                // إذا كانت جميع الأيام ممتلئة حتى القدرة اليومية بالكامل، فإن المتبقي لا يمكن استيعابه ضمن السعة
-                if (!bestDate) {
-                    totalUnallocatedMinutes += taskRemainingMin;
-                    taskRemainingMin = 0;
-                    break;
-                }
-
-                const targetDayObj = dayScheduleMap[bestDate];
-                const availableSpace = Math.max(0, hayyizGetDayCapacity(bestDate).remainingMinutes - (shared.reserved[bestDate] || 0) - targetDayObj.plannedMinutes);
-
-                // تخصيص المساحة المتاحة فقط دون تجاوز capacityPerDay
-                const allocatedMin = Math.min(taskRemainingMin, availableSpace);
-
-                if (allocatedMin > 0) {
-                    targetDayObj.tasks.push({
-                        taskId: t.id,
-                        text: t.text,
-                        taskType: t.taskType || 'general',
-                        priority: t.priority || 'medium',
-                        totalMinutes: parseInt(t.minutes, 10) || workMinDefault,
-                        focusDone: parseInt(t.focusDone, 10) || 0,
-                        remainingMinutes: allocatedMin,
-                        isSplit: allocatedMin < (parseInt(t.minutes, 10) || workMinDefault),
-                        completed: Boolean(t.completed)
-                    });
-
-                    targetDayObj.plannedMinutes += allocatedMin;
-                    totalPlannedMinutes += allocatedMin;
-                    taskRemainingMin -= allocatedMin;
-                }
-
-                // التدوير لليوم التالي عند امتلاء اليوم الحالي
-                if (targetDayObj.plannedMinutes + (shared.reserved[bestDate] || 0) >= hayyizGetDayCapacity(bestDate).remainingMinutes) {
-                    currentAllocIdx = (currentAllocIdx + 1) % allocatableDates.length;
-                }
-            }
+    openTasks.forEach(t => {
+        let allocated = 0;
+        (shared.allocations.get(t.id) || new Map()).forEach((minutes, date) => {
+            const day = dayScheduleMap[date];
+            if (!day || !allocatableDates.includes(date)) return;
+            day.tasks.push({ taskId: t.id, text: t.text, taskType: t.taskType || 'general', priority: t.priority || 'medium',
+                totalMinutes: parseInt(t.minutes, 10) || workMinDefault, focusDone: parseInt(t.focusDone, 10) || 0,
+                remainingMinutes: minutes, isSplit: minutes < hayyizTaskRemainingMinutes(t, workMinDefault), completed: false });
+            day.plannedMinutes += minutes;
+            allocated += minutes;
         });
-    }
+        totalPlannedMinutes += allocated;
+        totalUnallocatedMinutes += Math.max(0, hayyizTaskRemainingMinutes(t, workMinDefault) - allocated);
+    });
 
     const futureSchedule = dates.map((d) => {
         const item = dayScheduleMap[d];
@@ -2959,7 +2964,6 @@ function hayyizAllocateMultiDayPlan(config, shared) {
         createdAt: config.createdAt || Date.now(),
         updatedAt: config.updatedAt || Date.now()
     };
-    futureSchedule.forEach(day => { shared.reserved[day.date] = (shared.reserved[day.date] || 0) + day.plannedMinutes; });
     return plan;
 }
 

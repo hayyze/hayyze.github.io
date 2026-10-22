@@ -337,14 +337,28 @@
       var option = document.createElement('option'); option.value = ex.id; option.textContent = ex.name + ' · ' + ex.date; examSelect.appendChild(option);
     });
     examSelect.value = selectedExamId;
-    if (!examSelect.value) selectedExamId = '';
-    examDateInput.disabled = Boolean(selectedExamId);
+    if (!examSelect.value && selectedExamId) { selectedExamId = ''; adoptedTargetId = null; }
+    var currentExam = hayyizGetExams().find(function(ex) { return ex.id === selectedExamId; });
+    if (currentExam) examDateInput.value = currentExam.date;
+    examDateInput.disabled = Boolean(currentExam);
+    generatePlan();
     examSelect.addEventListener('change', function() {
       selectedExamId = examSelect.value;
+      adoptedTargetId = null; // Switching targets starts a distinct adoption identity.
       var exam = hayyizGetExams().find(function(ex) { return ex.id === selectedExamId; });
       if (exam) examDateInput.value = exam.date;
+      document.getElementById('sp-adopt-status').textContent = '';
       examDateInput.disabled = Boolean(exam);
       generatePlan();
+    });
+    document.getElementById('sp-new-plan').addEventListener('click', function() {
+      selectedExamId = '';
+      adoptedTargetId = null;
+      examSelect.value = '';
+      examDateInput.disabled = false;
+      generatePlan();
+      document.getElementById('sp-adopt-status').textContent = 'جاهزة كخطة جديدة؛ اضغط اعتماد الخطة لحفظها.';
+      examDateInput.focus();
     });
     document.getElementById('sp-adopt-plan').addEventListener('click', function() {
       generatePlan();
@@ -359,6 +373,9 @@
       adoptedTargetId = plan.targetId;
       generatePlan();
       status.replaceChildren(document.createTextNode('حُفظت الخطة في المهام. ' + plan.statusLabel + ' '));
+      if (plan.adoption && (plan.adoption.protectedFields.length || plan.adoption.retainedTaskIds.length)) {
+        status.appendChild(document.createTextNode('احتُفظ بالتعديلات اليدوية والمهام القديمة؛ راجع تقديراتها ومواعيدها في المهام. '));
+      }
       var link = document.createElement('a'); link.href = 'index.html#daily-summary'; link.textContent = 'افتح خطة يومي وابدأ'; status.appendChild(link);
     });
   });

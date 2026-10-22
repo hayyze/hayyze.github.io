@@ -738,13 +738,22 @@
     async function hayyizSyncTool(toolName) {
         const adapter = TOOL_ADAPTERS[toolName];
         if (!adapter) return;
-
-        // دمج الطلبات المتوازية لنفس الأداة
-        if (inFlightToolPromises.has(toolName)) {
-            return await inFlightToolPromises.get(toolName);
-        }
-
+        if (inFlightToolPromises.has(toolName)) return await inFlightToolPromises.get(toolName);
+        const fingerprint = () => JSON.stringify(typeof adapter.getLocalStorage === 'function'
+            ? adapter.getLocalStorage() : getLocalStorageItem(adapter.storageKey, null));
         const syncPromise = (async () => {
+            let before;
+            do {
+                before = fingerprint();
+                // A failed round leaves local changes for the next explicit retry; do not spin offline.
+                if (!await syncRound()) break;
+            } while (before !== fingerprint());
+        })();
+        inFlightToolPromises.set(toolName, syncPromise);
+        try { return await syncPromise; }
+        finally { inFlightToolPromises.delete(toolName); }
+
+        async function syncRound() {
             const user = await getAuthenticatedUser();
             if (!user) return;
 
@@ -859,16 +868,14 @@
                         });
                     }
                 }
+                return true;
             } catch (e) {
                 console.warn(`[Sync Engine] Error syncing tool ${toolName}:`, e);
+                return false;
             } finally {
                 syncingTools.delete(toolName);
-                inFlightToolPromises.delete(toolName);
             }
-        })();
-
-        inFlightToolPromises.set(toolName, syncPromise);
-        return await syncPromise;
+        }
     }
 
     /**
