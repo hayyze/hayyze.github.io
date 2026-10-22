@@ -235,6 +235,7 @@ const server = http.createServer((req, res) => {
         const recommendations = await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'});
         await recommendations.addInitScript(()=>{window.global=window;});
         await recommendations.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());
+        await recommendations.route(base+'/__test_blank',route=>route.fulfill({status:200,contentType:'text/html',body:'<!doctype html><title>Test transition</title>'}));
         const recommendationErrors=[];
         let recPage=await recommendations.newPage();
         const watchRecommendations = p=>{p.setDefaultTimeout(10000);p.on('pageerror',e=>recommendationErrors.push(e.message));p.on('dialog',d=>d.accept());};
@@ -260,11 +261,13 @@ const server = http.createServer((req, res) => {
         assert.equal(await recPage.locator('#timer-display').textContent(),'10:00');
         assert.equal(await recPage.evaluate(()=>localStorage.getItem('hayyiz-pref-work')),null);
         await recPage.locator('#timer-start-btn').click();
+        const completedURL=recPage.url();
+        // Leave the timer before expiring storage so its tick cannot consume the completion modal.
+        await recPage.goto(base+'/__test_blank');
         await recPage.evaluate(()=>{
             const value=JSON.parse(localStorage.getItem('hayyiz-pomodoro-state'));
             value.endTime=Date.now()-1000;localStorage.setItem('hayyiz-pomodoro-state',JSON.stringify(value));
         });
-        const completedURL=recPage.url();await recPage.close();recPage=await recommendations.newPage();watchRecommendations(recPage);
         await recPage.goto(completedURL);
         await recPage.locator('.session-end-overlay').waitFor();
         assert.equal(await recPage.getByRole('button',{name:/المهمة التالية:/}).count(),0,'No automatic next task after the daily budget is spent');
