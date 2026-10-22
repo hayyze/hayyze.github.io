@@ -1051,6 +1051,7 @@
             }
         }
 
+        if (typeof hayyizReevaluateMultiDayPlan === 'function') hayyizReevaluateMultiDayPlan();
         let plan = typeof hayyizGetMultiDayPlan === 'function' ? hayyizGetMultiDayPlan(config.targetId) : null;
         if (!plan || (config.targetDate && plan.targetDate !== config.targetDate)) {
             if (typeof hayyizComputeMultiDayPlan === 'function') {
@@ -1158,7 +1159,7 @@
         metaBar.innerHTML = `
             <div>
                 <strong style="font-size: 1.05rem; color: var(--text);">${escapeHtml(plan.targetName)}</strong>
-                <span style="font-size: 0.85rem; color: var(--text-muted); display: block;">${formatDateArabic(plan.targetDate)} · ${daysText} · القدرة: ${plan.dailyCapacityMinutes} د/يوم (جلسة بومودورو: ${workMin}د)</span>
+                <span style="font-size: 0.85rem; color: var(--text-muted); display: block;">${formatDateArabic(plan.targetDate)} · ${daysText} · القدرة: ${plan.dailyCapacityMinutes} د افتراضيًا، مع مراعاة الأسبوع والالتزامات (جلسة بومودورو: ${workMin}د)</span>
             </div>
             <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                 <span class="badge ${plan.isCapacityExceeded ? 'badge-assignment' : 'badge-exam'}">${escapeHtml(plan.statusLabel)}</span>

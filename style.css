@@ -3449,3 +3449,21 @@ html.theme-dark .notes-dropdowns select {
     color: var(--color-primary);
     font-weight: 600;
 }
+/* Student planning controls: inherit Hayyiz typography, colors and buttons. */
+.planning-inline { display:flex; flex-wrap:wrap; gap:.75rem; align-items:end; }
+.planning-field { display:flex; flex-direction:column; gap:.35rem; min-width:0; flex:1 1 140px; margin:.5rem 0; }
+.planning-field input, .planning-settings select { width:100%; min-width:0; padding:.65rem; border:1px solid var(--color-border); border-radius:var(--radius-sm, 6px); color:var(--color-text); background:var(--color-surface); font:inherit; }
+.planning-field input:focus-visible, .planning-settings summary:focus-visible { outline:2px solid var(--color-primary); outline-offset:2px; }
+.planning-week-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:.6rem; }
+.planning-settings { border-top:1px solid var(--color-border); padding:.8rem 0; margin-top:.75rem; }
+.planning-settings summary { cursor:pointer; font-weight:700; }
+.planning-muted { font-size:.88rem; color:var(--color-text-secondary); margin:.5rem 0; }
+.planning-budget { font-weight:700; margin:.75rem 0; }
+.planning-message { min-height:1.4em; font-size:.88rem; margin:.5rem 0; }
+.planning-reservations { list-style:none; padding:0; }
+.planning-reservations li { display:flex; justify-content:space-between; flex-wrap:wrap; gap:.5rem; margin:.6rem 0; }
+.planning-days { display:flex; flex-wrap:wrap; gap:.75rem; border:1px solid var(--color-border); padding:.75rem; margin:.75rem 0; }
+.planning-days label, .planning-metrics { display:flex; align-items:center; gap:.4rem; }
+.planning-metrics { margin-top:1rem; font-size:.85rem; }
+.planning-setup { padding:1rem; margin-bottom:1rem; }
+@media (max-width:480px) { .planning-inline > .btn { width:100%; } .planning-settings form > .btn { margin:.4rem 0; } }

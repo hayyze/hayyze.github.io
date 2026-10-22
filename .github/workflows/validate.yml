@@ -1,0 +1,34 @@
+name: Validate Hayyiz
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check JavaScript syntax
+        run: for file in *.js; do node --check "$file"; done
+      - name: Run all regression and security tests
+        run: node scripts/run-tests.cjs
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install isolated browser test tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/hayyiz-browser" --no-audit --no-fund playwright@1.62.1
+          node "$RUNNER_TEMP/hayyiz-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Verify student workflow and offline app shell
+        run: NODE_PATH="$RUNNER_TEMP/hayyiz-browser/node_modules" node scripts/browser-smoke.cjs

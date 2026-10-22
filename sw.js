@@ -1,4 +1,4 @@
-const CACHE_NAME = 'heez-v1.9.9';
+const CACHE_NAME = 'heez-v1.10.0';
 
 const ASSETS = [
   './',
@@ -34,6 +34,15 @@ const ASSETS = [
   './style.css',
   './common.js',
   './summary.js',
+  './day-planning.js',
+  './study-planner.html',
+  './study-planner.css',
+  './study-planner.js',
+  './workspaces.html',
+  './spaces.js',
+  './spaces-realtime-runtime.js',
+  './pdf.min.js',
+  './pdf.worker.min.js',
   './supabase.js',
   './sync.js',
   './auth-ui.js',

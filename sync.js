@@ -312,6 +312,28 @@
             itemId: 'history',
             getTimestamp: () => Number(localStorage.getItem('hayyiz-focus-history-updated') || 0)
         },
+        'multi-day-plans': {
+            tool: 'multi-day-plans', type: 'single', storageKey: 'hayyiz-multi-day-plans', itemId: 'plans',
+            mergeMap: true,
+            getLocalStorage: () => typeof hayyizGetPlanSyncData === 'function' ? hayyizGetPlanSyncData(getLocalStorageItem('hayyiz-multi-day-plans', {})) : getLocalStorageItem('hayyiz-multi-day-plans', {}),
+            setLocalStorage: data => {
+                const existing = getLocalStorageItem('hayyiz-multi-day-plans', {}) || {};
+                const merged = {};
+                Object.keys(data || {}).filter(key => !['__proto__', 'constructor', 'prototype'].includes(key)).forEach(key => {
+                    merged[key] = Object.assign({}, existing[key] || {}, data[key]);
+                });
+                setLocalStorageItem('hayyiz-multi-day-plans', merged);
+            },
+            getTimestamp: item => Math.max(0, ...Object.values(item || {}).map(p => Number(p && p.updatedAt) || 0))
+        },
+        'planning-preferences': {
+            tool: 'planning-preferences', type: 'single', storageKey: 'hayyiz-planning-preferences', itemId: 'preferences',
+            getTimestamp: item => Number(item && item.updatedAt) || 0
+        },
+        'day-reviews': {
+            tool: 'day-reviews', type: 'single', storageKey: 'hayyiz-day-reviews', itemId: 'reviews', mergeMap: true,
+            getTimestamp: item => Math.max(0, ...Object.values(item || {}).map(p => Number(p && p.updatedAt) || 0))
+        },
         'pomodoro-prefs': {
             tool: 'pomodoro-prefs',
             type: 'single',
@@ -341,7 +363,7 @@
         // إذا كان هناك عمليات حذف محلي لم تُرفع بعد، قم بجلب كامل السجلات لضمان عدم حجب أي صف بالخطأ عبر GT
         const deletedRegistry = getDeletedItemsRegistry();
         const hasPendingLocalDeletes = Object.keys(deletedRegistry).some(k => k.startsWith(toolName + ':'));
-        const sinceIso = hasPendingLocalDeletes ? null : getLastSyncTime(toolName);
+        const sinceIso = hasPendingLocalDeletes || (TOOL_ADAPTERS[toolName] && TOOL_ADAPTERS[toolName].mergeMap) ? null : getLastSyncTime(toolName);
 
         const fetchOperation = async () => {
             let query = supabaseClient
@@ -589,6 +611,20 @@
             }
         }
 
+        if (adapter.mergeMap && remoteRow && !remoteRow.deleted_at && !localDelTime) {
+            const localMap = localData && typeof localData === 'object' ? localData : {};
+            const remoteMap = remoteRow.data && typeof remoteRow.data === 'object' ? remoteRow.data : {};
+            const merged = Object.create(null);
+            Object.keys(remoteMap).filter(key => !['__proto__', 'constructor', 'prototype'].includes(key)).forEach(key => { merged[key] = remoteMap[key]; });
+            Object.keys(localMap).filter(key => !['__proto__', 'constructor', 'prototype'].includes(key)).forEach(key => {
+                if (!merged[key] || Number(localMap[key] && localMap[key].updatedAt) > Number(merged[key] && merged[key].updatedAt || 0)) {
+                    merged[key] = localMap[key];
+                }
+            });
+            finalData = merged;
+            needsUpload = JSON.stringify(merged) !== JSON.stringify(remoteMap);
+        }
+
         return { finalData, needsUpload, tombstoneToPush };
     }
 
@@ -624,9 +660,8 @@
 
             if (res && res.error) {
                 console.warn(`[Sync Engine] Upload item failed for tool ${toolName}:`, res.error.message);
-            } else {
-                setLastSyncTime(toolName, nowIso);
             }
+            return res;
         } catch (e) {
             console.warn(`[Sync Engine] Upload item exception for tool ${toolName}:`, e);
         }
@@ -749,11 +784,12 @@
                             };
                         });
 
-                        await executeWithBackoff(() =>
+                        const uploadResult = await executeWithBackoff(() =>
                             supabaseClient
                                 .from('sync_items')
                                 .upsert(payloads, { onConflict: 'user_id,tool,item_id' })
                         );
+                        if (!uploadResult || uploadResult.error) throw new Error('Collection upload not saved');
                     }
 
                     if (tombstonesToPush && tombstonesToPush.length > 0) {
@@ -772,11 +808,11 @@
                                 .upsert(tombstonePayloads, { onConflict: 'user_id,tool,item_id' })
                         );
 
-                        if (!tombRes || !tombRes.error) {
+                        if (tombRes && !tombRes.error) {
                             tombstonesToPush.forEach(t => {
                                 hayyizClearLocalDelete(toolName, t.id);
                             });
-                        }
+                        } else { throw new Error('Deletion upload not saved'); }
                     }
 
                     setLastSyncTime(toolName, syncStartTimeIso);
@@ -811,7 +847,8 @@
                     if (tombstoneToPush) {
                         await hayyizDeleteRemoteItem(toolName, tombstoneToPush.id, tombstoneToPush.data);
                     } else if (needsUpload && finalData !== null && finalData !== undefined) {
-                        await hayyizUploadItem(toolName, adapter.itemId, finalData);
+                        const result = await hayyizUploadItem(toolName, adapter.itemId, finalData);
+                        if (!result || result.error) throw new Error('Planning upload not saved');
                     }
 
                     setLastSyncTime(toolName, syncStartTimeIso);
@@ -851,7 +888,10 @@
             }
 
             const toolKeys = Object.keys(TOOL_ADAPTERS);
-            await Promise.all(toolKeys.map(t => hayyizSyncTool(t)));
+            await Promise.all(toolKeys.filter(t => t !== 'multi-day-plans').map(t => hayyizSyncTool(t)));
+            await hayyizSyncTool('multi-day-plans');
+            if (typeof hayyizReevaluateMultiDayPlan === 'function') hayyizReevaluateMultiDayPlan();
+            if (typeof hayyizNotifyPlanningChanged === 'function') hayyizNotifyPlanningChanged();
         } catch (e) {
             console.warn('[Sync Engine] hayyizSyncAllUserData exception:', e);
         } finally {
