@@ -13,6 +13,7 @@
     let countdownInterval = null;
     let currentFilter = 'all';
     let showPastEvents = false;
+    let activePlanConfig = null;
 
     document.addEventListener('DOMContentLoaded', initCalculator);
 
@@ -42,6 +43,7 @@
         if (typeof hayyizRegisterSyncCallback === 'function') {
             hayyizRegisterSyncCallback('student-exams', () => renderStudentTimeline());
             hayyizRegisterSyncCallback('custom-events', () => renderStudentTimeline());
+            hayyizRegisterSyncCallback('planning-preferences', refreshActiveStudyPlan);
             hayyizRegisterSyncCallback('birthdate', () => {
                 loadSavedBirthdate();
                 renderStudentTimeline();
@@ -57,6 +59,7 @@
             initAuthListener();
         }
 
+        window.addEventListener('hayyiz:planning-changed', refreshActiveStudyPlan);
         // قراءة المعاملات من الرابط للفتح المباشر لخطة عدة أيام
         try {
             const urlParams = new URLSearchParams(window.location.search);
@@ -1028,6 +1031,11 @@
             .replace(/'/g, '&#039;');
     }
 
+    function refreshActiveStudyPlan() {
+        const section = document.getElementById('multi-day-plan-section');
+        if (activePlanConfig && section && section.style.display !== 'none') showMultiDayPlanUI(activePlanConfig);
+    }
+
     function showMultiDayPlanUI(config) {
         if (!config || !config.targetId) return;
 
@@ -1037,7 +1045,9 @@
         const capacityCustom = document.getElementById('multi-plan-capacity-custom');
         if (!sec || !container) return;
 
-        const savedCap = localStorage.getItem('hayyiz-pref-daily-capacity') || '120';
+        activePlanConfig = config;
+        if (capacityCustom) capacityCustom.setCustomValidity('');
+        const savedCap = String(hayyizDefaultCapacity());
         if (capacitySelect) {
             if (['60', '120', '180', '240'].includes(String(savedCap))) {
                 capacitySelect.value = String(savedCap);
@@ -1067,19 +1077,20 @@
         renderMultiDayPlanCards(container, plan, config);
 
         const getSelectedCapacity = () => {
-            if (!capacitySelect) return 120;
-            if (capacitySelect.value === 'custom') {
-                const val = capacityCustom ? parseInt(capacityCustom.value, 10) : 120;
-                return (val && val > 0) ? val : 120;
-            }
-            return parseInt(capacitySelect.value, 10) || 120;
+            if (!capacitySelect) return hayyizDefaultCapacity();
+            return hayyizParseMinutes(capacitySelect.value === 'custom' ? capacityCustom?.value : capacitySelect.value);
         };
 
         const updatePlanForCapacity = () => {
             if (typeof hayyizComputeMultiDayPlan === 'function') {
                 const capVal = getSelectedCapacity();
+                if (capacityCustom) {
+                    capacityCustom.setCustomValidity(capVal === null ? 'أدخل دقائق صحيحة من صفر إلى 1440.' : '');
+                    if (capVal === null) { capacityCustom.reportValidity(); return; }
+                }
+                if (capVal === null) return;
                 const fresh = hayyizComputeMultiDayPlan(Object.assign({}, config, { dailyCapacityMinutes: capVal }));
-                renderMultiDayPlanCards(container, fresh, config);
+                if (fresh) renderMultiDayPlanCards(container, fresh, config);
             }
         };
 
@@ -1090,7 +1101,8 @@
 
         const reevalBtn = document.getElementById('reevaluate-multi-plan-btn');
         if (reevalBtn) {
-            reevalBtn.onclick = updatePlanForCapacity;
+            // Rebuild using current shared preferences; only an explicit capacity edit changes them.
+            reevalBtn.onclick = () => showMultiDayPlanUI(config);
         }
 
         if (capacitySelect) {

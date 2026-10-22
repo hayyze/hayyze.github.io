@@ -2422,6 +2422,17 @@ function hayyizValidDate(value) {
         date.getMonth() + 1 === Number(value.slice(5, 7)) && date.getDate() === Number(value.slice(8, 10));
 }
 
+// Tasks may store a date or an HTML datetime-local value. Scheduling uses its local day;
+// the original deadline (including its time) stays on the canonical task.
+function hayyizTaskDateKey(value) {
+    if (typeof value !== 'string') return null;
+    const day = value.slice(0, 10);
+    if (!hayyizValidDate(day)) return null;
+    const time = value.slice(10);
+    if (time && !/^T([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,3})?)?$/.test(time)) return null;
+    return day;
+}
+
 function hayyizDefaultCapacity() {
     const configured = hayyizParseMinutes(hayyizGetPlanningPreferences().defaultMinutes);
     const value = configured !== null ? configured : hayyizParseMinutes(localStorage.getItem('hayyiz-pref-daily-capacity'));
@@ -2592,10 +2603,13 @@ function hayyizAdoptStudyPlan(config) {
             const baseline = task.plannerDefaults;
             Object.keys(generated).forEach(field => {
                 // Older tasks have no baseline: preserve them rather than guessing which fields were edited.
-                if (baseline && task[field] === baseline[field]) {
-                    if (task[field] !== generated[field]) adoption.updated++;
+                const same = (a, b) => field === 'minutes'
+                    ? a != null && b != null && a !== '' && b !== '' && Number.isFinite(Number(a)) && Number(a) === Number(b)
+                    : a === b;
+                if (baseline && same(task[field], baseline[field])) {
+                    if (!same(task[field], generated[field])) adoption.updated++;
                     task[field] = generated[field];
-                } else if (task[field] !== generated[field]) {
+                } else if (!same(task[field], generated[field])) {
                     adoption.protectedFields.push({ taskId: task.id, field });
                 }
             });
@@ -2722,7 +2736,8 @@ function hayyizBuildSharedStudyAllocation(plans) {
         if (owner) shared.owners.set(task.id, String(owner.targetId));
         if (task.completed) return;
         // Overdue work competes for today, while its real deadline remains untouched on the task.
-        const due = hayyizValidDate(task.date) ? (task.date < today ? today : task.date) : null;
+        const taskDay = hayyizTaskDateKey(task.date);
+        const due = taskDay ? (taskDay < today ? today : taskDay) : null;
         if (!owner && (!due || due > horizon)) return;
         let deadline = owner ? lastWorkDate(owner) : (due < today ? today : due);
         if (owner && due && due < deadline) deadline = due;

@@ -154,16 +154,82 @@ const server = http.createServer((req, res) => {
         await standalone.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());
         const taskPage = await standalone.newPage();
         taskPage.on('pageerror',error=>errors.push(error.message));
-        await taskPage.goto(base);
+        await taskPage.goto(base+'/todo.html');
         await taskPage.evaluate(()=>{
             localStorage.setItem('hayyiz-pref-daily-capacity','120');
-            hayyizSaveTodos([{id:'flex',text:'عمل مرن',minutes:145,focusDone:25,priority:'high'},
-                {id:'due',text:'واجب اليوم',minutes:60,date:getTodayLocal(),priority:'low'}]);
-            hayyizNotifyPlanningChanged();
+            hayyizSaveTodos([{id:'flex',text:'عمل مرن',minutes:145,focusDone:25,priority:'high'}]);
         });
-        assert.equal(await taskPage.evaluate(()=>hayyizComputeStudentDecisionState().dailyPlan.find(i=>i.task?.id==='due')?.plannedMinutes),60);
-        assert.match(await taskPage.locator('.dash-plan-list').textContent(),/واجب اليوم/);
-        assert.deepEqual(errors,[],'No uncaught application errors in standalone task planning');
+        await taskPage.reload();
+        await taskPage.locator('#todo-input').fill('واجب اليوم');
+        await taskPage.locator('#toggle-more-options').click();
+        await taskPage.locator('#todo-priority').selectOption('low');
+        const dueValue=await taskPage.evaluate(()=>getTodayLocal()+'T18:30');
+        await taskPage.locator('#todo-date').fill(dueValue);
+        await taskPage.locator('#todo-minutes').fill('60');
+        await taskPage.locator('#todo-form button[type=submit]').click();
+        await taskPage.getByRole('button',{name:'ليس الآن',exact:true}).click();
+        await taskPage.getByRole('button',{name:'تعديل مهمة واجب اليوم',exact:true}).click();
+        assert.equal(await taskPage.locator('#modal-input-date').getAttribute('type'),'datetime-local');
+        await taskPage.locator('#modal-input-title').fill('واجب اليوم بعد التعديل');
+        await taskPage.locator('#modal-task-form button[type=submit]').click();
+        assert.equal(await taskPage.evaluate(()=>hayyizGetTodos().find(t=>t.text==='واجب اليوم بعد التعديل').date),dueValue);
+        await taskPage.goto(base);
+        assert.equal(await taskPage.evaluate(()=>hayyizComputeStudentDecisionState().dailyPlan.find(i=>i.task?.text==='واجب اليوم بعد التعديل')?.plannedMinutes),60);
+        assert.match(await taskPage.locator('.dash-plan-list').textContent(),/واجب اليوم بعد التعديل/);
+        const adopted=await taskPage.evaluate(()=>{
+            const d=new Date(); d.setDate(d.getDate()+7);
+            const date=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+            const p=hayyizAdoptStudyPlan({targetDate:date,subjects:[{name:'مادة للاختبار',minutes:1800}]});
+            const task=hayyizGetTodos().find(t=>t.eventId===p.targetId); return {id:task.id,targetId:p.targetId,date,text:task.text};
+        });
+        await taskPage.goto(base+'/todo.html');
+        await taskPage.getByRole('button',{name:'تعديل مهمة '+adopted.text,exact:true}).click();
+        assert.equal(await taskPage.locator('#modal-input-date').inputValue(),adopted.date);
+        assert.equal(await taskPage.locator('#modal-input-date').getAttribute('type'),'date');
+        await taskPage.locator('#modal-input-title').fill('تغيير العنوان فقط');
+        await taskPage.locator('#modal-task-form button[type=submit]').click();
+        assert(await taskPage.locator('#task-details-modal').evaluate(el=>el.classList.contains('hidden')),'A multi-day estimate can be saved through the real editor');
+        assert.equal(await taskPage.evaluate(id=>hayyizGetTaskById(id).date,adopted.id),adopted.date);
+        const reconciled=await taskPage.evaluate(({targetId,date,id})=>{
+            const plan=hayyizAdoptStudyPlan({targetId,targetDate:date,subjects:[{name:'مادة للاختبار',minutes:2100}]});
+            return {task:hayyizGetTaskById(id),protectedFields:plan.adoption.protectedFields};
+        },adopted);
+        assert.equal(reconciled.task.minutes,2100); assert.equal(reconciled.task.text,'تغيير العنوان فقط'); assert.deepEqual(reconciled.protectedFields,[]);
+        await taskPage.reload();
+        await taskPage.getByRole('button',{name:'تعديل مهمة تغيير العنوان فقط',exact:true}).click();
+        await taskPage.locator('#modal-input-minutes').fill('2200');
+        await taskPage.locator('#modal-input-date').fill(dueValue.slice(0,10));
+        await taskPage.locator('#modal-task-form button[type=submit]').click();
+        const protectedTask=await taskPage.evaluate(({targetId,date,id})=>{
+            hayyizAdoptStudyPlan({targetId,targetDate:date,subjects:[{name:'مادة للاختبار',minutes:2300}]});
+            return hayyizGetTaskById(id);
+        },adopted);
+        assert.equal(protectedTask.minutes,2200); assert.equal(protectedTask.date,dueValue.slice(0,10));
+        // A fresh device may have preferences without the legacy capacity key.
+        await taskPage.evaluate(()=>{
+            localStorage.removeItem('hayyiz-pref-daily-capacity');
+            hayyizSaveJSON('hayyiz-planning-preferences',{defaultMinutes:60,week:{},updatedAt:Date.now()});
+        });
+        await taskPage.goto(base+'/calculator.html');
+        await taskPage.locator('.btn-multi-plan[data-id="'+adopted.targetId+'"]').click();
+        assert.equal(await taskPage.locator('#multi-plan-capacity-input').inputValue(),'60');
+        await taskPage.locator('#reevaluate-multi-plan-btn').click();
+        assert.equal(await taskPage.evaluate(()=>hayyizDefaultCapacity()),60);
+        await taskPage.locator('#multi-plan-capacity-input').selectOption('custom');
+        await taskPage.locator('#multi-plan-capacity-custom').fill('0');
+        await taskPage.locator('#reevaluate-multi-plan-btn').click();
+        assert.equal(await taskPage.evaluate(()=>hayyizDefaultCapacity()),0,'Zero capacity stays zero through recalculation');
+        await taskPage.locator('#multi-plan-capacity-custom').fill('-1');
+        await taskPage.locator('#multi-plan-capacity-custom').dispatchEvent('change');
+        assert.equal(await taskPage.evaluate(()=>hayyizDefaultCapacity()),0,'Invalid capacity never becomes a fallback budget');
+        assert.equal(await taskPage.locator('#multi-plan-capacity-custom').evaluate(el=>el.checkValidity()),false);
+        await taskPage.evaluate(()=>hayyizSavePlanningPreferences({defaultMinutes:75,week:{},updatedAt:Date.now()}));
+        assert.equal(await taskPage.locator('#multi-plan-capacity-custom').inputValue(),'75','An open calendar refreshes after preference changes');
+        assert.equal(await taskPage.locator('#multi-plan-capacity-custom').evaluate(el=>el.checkValidity()),true);
+        await taskPage.locator('#reevaluate-multi-plan-btn').click();
+        assert.equal(await taskPage.evaluate(()=>hayyizDefaultCapacity()),75);
+        assert.deepEqual(errors,[],'No uncaught application errors in task/calendar integration');
+        console.log('Task/calendar integration PASSED: real datetime input, title-only edits, long estimates, re-adoption, manual edits, restored and zero capacity.');
         await standalone.close();
         // Warm app shell, then verify offline navigation in a fresh service-worker-enabled context.
         const offline = await browser.newContext();

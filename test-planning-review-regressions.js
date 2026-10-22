@@ -171,5 +171,29 @@ await check('Preferences saves share a serial drain, including capacity changes 
     assert.equal(remote.find(r=>r.tool==='planning-preferences').data.defaultMinutes,180);
     await c.hayyizSyncTool('multi-day-plans');
 });
+await check('HTML datetime deadlines participate without changing stored local time',()=>{
+    const c=device(); c.localStorage.setItem('hayyiz-pref-daily-capacity','120');
+    for (const value of [today, today+'T00:00', today+'T18:30:05.125']) assert.equal(c.hayyizTaskDateKey(value),today);
+    for (const value of ['2026-02-30T18:30', today+'T25:00', today+'T18:99', today+'garbage']) assert.equal(c.hayyizTaskDateKey(value),null);
+    c.hayyizSaveTodos([{id:'flex',text:'Flexible',minutes:145,focusDone:25,priority:'high'},
+        {id:'due',text:'Homework',minutes:60,date:today+'T18:30',priority:'low'}]);
+    assert.equal(c.hayyizComputeStudentDecisionState().dailyPlan.find(i=>i.task?.id==='due')?.plannedMinutes,60);
+    assert.equal(c.hayyizGetTaskById('due').date,today+'T18:30');
+    c.hayyizSaveTodos([{id:'late',text:'Flexible',eventId:'exam',minutes:120,priority:'high'},
+        {id:'due',text:'Homework',eventId:'exam',minutes:60,date:today+'T18:30:00',priority:'low'}]);
+    const p=c.hayyizComputeMultiDayPlan({targetId:'exam',targetDate:later});
+    assert.equal(p.totalUnallocatedMinutes,0); assert.equal(p.schedule[0].tasks.find(t=>t.taskId==='due')?.remainingMinutes,60);
+});
+await check('Legacy numeric strings are compared by value while real manual edits stay protected',()=>{
+    const c=device(); const config={targetDate:later,subjects:[{name:'Math',minutes:120}]};
+    let p=c.hayyizAdoptStudyPlan(config); const id=c.hayyizGetTodos()[0].id;
+    c.hayyizUpdateTask(id,{text:'Edited title',minutes:'120',focusDone:25});
+    p=c.hayyizAdoptStudyPlan({...config,targetId:p.targetId,subjects:[{name:'Math',minutes:180}]});
+    assert.equal(c.hayyizGetTaskById(id).minutes,180); assert.equal(c.hayyizGetTaskById(id).text,'Edited title');
+    assert.equal(c.hayyizGetTaskById(id).focusDone,25); assert.equal(p.adoption.protectedFields.length,0);
+    c.hayyizUpdateTask(id,{minutes:'200'});
+    p=c.hayyizAdoptStudyPlan({...config,targetId:p.targetId,subjects:[{name:'Math',minutes:240}]});
+    assert.equal(c.hayyizGetTaskById(id).minutes,'200'); assert(p.adoption.protectedFields.some(f=>f.field==='minutes'));
+});
 if(failures.length) process.exitCode=1;
 })();

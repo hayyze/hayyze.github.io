@@ -768,7 +768,7 @@ document.addEventListener('DOMContentLoaded', () => {
             taskType: (todoTaskType && todoTaskType.value) ? todoTaskType.value : (selectedTaskType || 'general'),
             priority: todoPriority ? todoPriority.value : 'medium',
             date: (todoDate && todoDate.value) ? todoDate.value : null,
-            minutes: (todoMinutes && todoMinutes.value) ? todoMinutes.value : null,
+            minutes: (todoMinutes && todoMinutes.value) ? Number(todoMinutes.value) : null,
             subjectId: (todoSubject && todoSubject.value) ? todoSubject.value : null,
             goalId: (todoGoal && todoGoal.value) ? todoGoal.value : null,
             completed: false,
@@ -826,6 +826,8 @@ document.addEventListener('DOMContentLoaded', () => {
         modalTitle.value = task.text || '';
         if (modalTaskType) modalTaskType.value = task.taskType || 'general';
         modalPriority.value = task.priority || 'medium';
+        // Date-only planner deadlines stay date-only; datetime-local fields reject those values.
+        modalDate.type = typeof hayyizValidDate === 'function' && hayyizValidDate(task.date) ? 'date' : 'datetime-local';
         modalDate.value = task.date || '';
         modalMinutes.value = task.minutes || '';
 
@@ -897,7 +899,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 priority: modalPriority.value,
                 subjectId: modalSubject.value || null,
                 date: modalDate.value || null,
-                minutes: modalMinutes.value || null,
+                minutes: modalMinutes.value ? Number(modalMinutes.value) : null,
                 updated: nowMs
             };
 
