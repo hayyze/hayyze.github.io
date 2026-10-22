@@ -266,7 +266,7 @@ function hayyizRenderDailySummary() {
                 launchPomodoroForTask(suggestion.task, idx >= 0 ? idx : 0, studentState?.dailyPlan.find(item => item.task?.id === suggestion.task.id)?.plannedMinutes);
             } else if (suggestion.actionType === 'pomo-event' && suggestion.event) {
                 if (typeof hayyizLaunchPomodoro === 'function') {
-                    hayyizLaunchPomodoro(suggestion.event);
+                    hayyizLaunchPomodoro(suggestion.event, null, studentState?.dailyPlan.find(item => item.event?.id === suggestion.event.id)?.plannedMinutes);
                 } else if (suggestion.url) {
                     window.location.href = suggestion.url;
                 }
@@ -583,7 +583,7 @@ function hayyizRenderDailySummary() {
                     launchPomodoroForTask(item.task, idx >= 0 ? idx : 0, item.plannedMinutes);
                 } else if (item.actionType === 'pomo-event' && item.event) {
                     if (typeof hayyizLaunchPomodoro === 'function') {
-                        hayyizLaunchPomodoro(item.event);
+                        hayyizLaunchPomodoro(item.event, null, item.plannedMinutes);
                     } else if (item.url) {
                         window.location.href = item.url;
                     }

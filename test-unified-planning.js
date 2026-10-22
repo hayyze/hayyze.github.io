@@ -89,6 +89,8 @@ c.hayyizTrackPlanningEvent('focus_started'); assert.equal(metrics.length,0,'Metr
 storage.setItem('hayyiz-planning-metrics','enabled'); c.hayyizTrackPlanningEvent('secret task title'); assert.equal(metrics.length,0);
 c.hayyizTrackPlanningEvent('focus_started'); assert.equal(metrics.length,1); assert.equal(metrics[0].length,3);
 assert.equal(c.hayyizSanitizeValue('hayyiz-planning-preferences','{"week":{"1":60}}'),'{"week":{"1":60}}');
+c.hayyizLaunchPomodoro({id:'event',name:'Exam review',date:today,type:'exam'}, null, 10);
+assert(c.location.href.endsWith('&sessionMinutes=10'),'Exam review sessions respect the same short daily allocation as task sessions');
 const compact = c.hayyizGetPlanSyncData(c.hayyizGetMultiDayPlans());
 assert.equal(Object.values(compact)[0].schedule,undefined,'Cloud plan payload contains configuration only, not derived schedules');
 

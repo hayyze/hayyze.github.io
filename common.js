@@ -2001,7 +2001,9 @@ function hayyizLaunchPomodoro(target, indexHint, plannedMinutes) {
         localStorage.removeItem('hayyiz-current-task-index');
         localStorage.removeItem('hayyiz-current-task-id');
         localStorage.removeItem('hayyiz-task-session');
-        window.location.href = 'pomodoro.html?event=' + encodeURIComponent(eventSnapshot.name);
+        let eventUrl = 'pomodoro.html?event=' + encodeURIComponent(eventSnapshot.name);
+        if (Number.isFinite(plannedMinutes) && plannedMinutes > 0) eventUrl += '&sessionMinutes=' + Math.max(1, Math.min(180, Math.floor(plannedMinutes)));
+        window.location.href = eventUrl;
         return;
     }
 
