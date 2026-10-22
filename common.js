@@ -1590,14 +1590,18 @@ function hayyizComputeStudentDecisionState() {
     if (dailyPlan.length && !dailyPlan.some(item => item.isPrimaryNextAction)) dailyPlan[0].isPrimaryNextAction = true;
     const dayStatus = hayyizComputeDayStatus(snapshot);
 
+    const rankingById = new Map(taskRanking.rankedTasks.map(row => [row.task.id, row]));
+    const plannedTasks = dailyPlan.filter(item => item.task && item.plannedMinutes > 0).map(item =>
+        Object.assign({}, rankingById.get(item.task.id), { task: item.task, plannedMinutes: item.plannedMinutes }));
     const getRecommendations = (limit) => {
-        const max = typeof limit === 'number' ? limit : 5;
-        const top = taskRanking.rankedTasks.slice(0, max);
+        const max = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 5;
+        const top = plannedTasks.slice(0, max);
         const next = top[0] || null;
         return {
             next: next ? next.task : null,
-            reason: next ? next.reasons.join(' · ') : '',
+            reason: next ? (next.reasons || []).join(' · ') : '',
             isInProgress: next ? !!next.isInProgress : false,
+            plannedMinutes: next ? next.plannedMinutes : 0,
             ranked: top,
             allActive: snapshot.activeTodos
         };
@@ -1619,9 +1623,9 @@ function hayyizComputeStudentDecisionState() {
         focusMinutesToday: snapshot.focusMinutesToday,
         workMin: snapshot.workMin,
         rankedTasks: taskRanking.rankedTasks,
-        nextTask: dailyPlan.find(item => item.task)?.task || null,
-        nextReason: taskRanking.nextReason,
-        isInProgress: taskRanking.isInProgress,
+        nextTask: recommendation.next,
+        nextReason: recommendation.reason,
+        isInProgress: recommendation.isInProgress,
         candidates: evaluation.candidates,
         primaryDecision: evaluation.primaryDecision,
         dailyPlan,
@@ -1634,36 +1638,18 @@ function hayyizComputeStudentDecisionState() {
 }
 
 /**
- * 6. Thin Compatibility Wrappers
- * تضمن التوافقية الكاملة دون تشغيل مراحل غير ضرورية من المحرك
+ * 6. Compatibility wrappers share the same allocated decisions as the dashboard.
  */
 function hayyizRecommendNext(limit) {
-    const snapshot = hayyizBuildStudentSnapshot();
-    const taskRanking = hayyizRankTasks(snapshot);
-    const max = typeof limit === 'number' ? limit : 5;
-    const top = taskRanking.rankedTasks.slice(0, max);
-    const next = top[0] || null;
-    return {
-        next: next ? next.task : null,
-        reason: next ? next.reasons.join(' · ') : '',
-        isInProgress: next ? !!next.isInProgress : false,
-        ranked: top,
-        allActive: snapshot.activeTodos
-    };
+    return hayyizComputeStudentDecisionState().getRecommendations(limit);
 }
 
 function hayyizEvaluateStudentState() {
-    const snapshot = hayyizBuildStudentSnapshot();
-    const taskRanking = hayyizRankTasks(snapshot);
-    const evaluation = hayyizEvaluateDecisions(snapshot, taskRanking.rankedTasks);
-    return evaluation.primaryDecision;
+    return hayyizComputeStudentDecisionState().primaryDecision;
 }
 
 function hayyizGenerateDailyPlan() {
-    const snapshot = hayyizBuildStudentSnapshot();
-    const taskRanking = hayyizRankTasks(snapshot);
-    const evaluation = hayyizEvaluateDecisions(snapshot, taskRanking.rankedTasks);
-    return hayyizBuildDailyPlan(snapshot, taskRanking.rankedTasks, evaluation.primaryDecision);
+    return hayyizComputeStudentDecisionState().dailyPlan;
 }
 
 /* ---------- Focus Engine Data Layer Helpers ---------- */
@@ -1968,6 +1954,20 @@ function hayyizCalculateStreak() {
 }
 
 /* ---------- إطلاق جلسة تركيز موحّد ---------- */
+
+// Automatic suggestions recheck today's allocation at click time. Manual task selection
+// continues to use hayyizLaunchPomodoro directly, including work outside today's plan.
+function hayyizLaunchPlannedTask(taskId) {
+    const state = hayyizComputeStudentDecisionState();
+    const item = state.dailyPlan.find(row => row.task && row.task.id === taskId && row.plannedMinutes > 0);
+    if (!item) return false;
+    if (state.focusState && ['running', 'paused'].includes(state.focusState.status) && state.focusState.remainingSeconds > 0) {
+        window.location.href = 'pomodoro.html';
+        return true;
+    }
+    hayyizLaunchPomodoro(item.task, undefined, item.plannedMinutes);
+    return true;
+}
 
 /**
  * يجهّز التخزين وينتقل إلى صفحة البومودورو مرتبطاً بمهمة أو حدث تقويم أو تركيز حر.

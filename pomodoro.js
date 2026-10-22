@@ -1007,9 +1007,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const truncatedText = nextRecTask.text.length > 25 ? nextRecTask.text.slice(0, 25) + '…' : nextRecTask.text;
                     nextBtn.innerHTML = `<i class="fa-solid fa-forward"></i> المهمة التالية: ${escapeHtml(truncatedText)}`;
                     nextBtn.addEventListener('click', () => {
-                        closeModal();
-                        if (typeof hayyizLaunchPomodoro === 'function') {
-                            hayyizLaunchPomodoro(nextRecTask);
+                        if (hayyizLaunchPlannedTask(nextRecTask.id)) closeModal();
+                        else {
+                            nextBtn.remove();
+                            summaryP.textContent = 'تغيّرت خطة اليوم أو انتهى وقتها المتاح. راجع خطة يومك قبل جلسة جديدة.';
                         }
                     });
                     actions.appendChild(nextBtn);

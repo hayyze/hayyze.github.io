@@ -231,6 +231,100 @@ const server = http.createServer((req, res) => {
         assert.deepEqual(errors,[],'No uncaught application errors in task/calendar integration');
         console.log('Task/calendar integration PASSED: real datetime input, title-only edits, long estimates, re-adoption, manual edits, restored and zero capacity.');
         await standalone.close();
+        // Automatic recommendations must follow the same daily allocation across all three tools.
+        const recommendations = await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'});
+        await recommendations.addInitScript(()=>{window.global=window;});
+        await recommendations.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());
+        const recommendationErrors=[];
+        let recPage=await recommendations.newPage();
+        const watchRecommendations = p=>{p.setDefaultTimeout(10000);p.on('pageerror',e=>recommendationErrors.push(e.message));p.on('dialog',d=>d.accept());};
+        watchRecommendations(recPage);
+        await recPage.goto(base);
+        await recPage.evaluate(()=>{
+            localStorage.clear();
+            const d=new Date();d.setDate(d.getDate()+5);
+            const later=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+            localStorage.setItem('hayyiz-pref-daily-capacity','10');
+            hayyizSaveTodos([
+                {id:'rec-urgent',text:'واجب اليوم',date:getTodayLocal(),minutes:30,priority:'medium',completed:false},
+                {id:'rec-later',text:'مراجعة مؤجلة',date:later,minutes:120,focusDone:30,priority:'high',completed:false}
+            ]);
+        });
+        await recPage.goto(base);
+        assert.equal(await recPage.locator('.dash-now-title').textContent(),'واجب اليوم');
+        await recPage.goto(base+'/todo.html');
+        assert.equal(await recPage.locator('.todo-hero-title').textContent(),'واجب اليوم');
+        assert.match(await recPage.locator('.todo-hero-meta').textContent(),/ضمن خطة اليوم 10 دقيقة/);
+        await recPage.locator('#hero-action-btn').click();
+        await recPage.waitForURL('**/pomodoro.html?**');await recPage.waitForLoadState('load');
+        assert.equal(await recPage.locator('#timer-display').textContent(),'10:00');
+        assert.equal(await recPage.evaluate(()=>localStorage.getItem('hayyiz-pref-work')),null);
+        await recPage.locator('#timer-start-btn').click();
+        await recPage.evaluate(()=>{
+            const value=JSON.parse(localStorage.getItem('hayyiz-pomodoro-state'));
+            value.endTime=Date.now()-1000;localStorage.setItem('hayyiz-pomodoro-state',JSON.stringify(value));
+        });
+        const completedURL=recPage.url();await recPage.close();recPage=await recommendations.newPage();watchRecommendations(recPage);
+        await recPage.goto(completedURL);
+        await recPage.locator('.session-end-overlay').waitFor();
+        assert.equal(await recPage.getByRole('button',{name:/المهمة التالية:/}).count(),0,'No automatic next task after the daily budget is spent');
+        await recPage.goto(base+'/todo.html');
+        assert.match(await recPage.locator('.todo-hero-card').textContent(),/مهامك محفوظة خارج وقت اليوم المتاح/);
+        assert.equal(await recPage.locator('#hero-action-btn').count(),0);
+        assert.equal(await recPage.evaluate(()=>hayyizGetTodos().filter(t=>!t.completed).length),2);
+        // A stale card must recheck the budget even if storage changes without a UI notification.
+        await recPage.evaluate(()=>{
+            localStorage.removeItem('hayyiz-focus-history');
+            localStorage.removeItem('hayyiz-pomodoro-state');
+            localStorage.removeItem('hayyiz-focus-minutes-today');
+            hayyizSetTodayRemainingMinutes(10);
+        });
+        await recPage.locator('#hero-action-btn').waitFor();
+        await recPage.evaluate(()=>{
+            const prefs=hayyizGetPlanningPreferences();prefs.overrides[getTodayLocal()].minutes=0;
+            localStorage.setItem('hayyiz-planning-preferences',JSON.stringify(prefs));
+        });
+        await recPage.locator('#hero-action-btn').click();
+        assert.equal(new URL(recPage.url()).pathname,'/todo.html');
+        assert.equal(await recPage.locator('#hero-action-btn').count(),0);
+        // Recovered completion: only seven daily minutes remain for the next planned task.
+        await recPage.evaluate(()=>{
+            localStorage.clear();localStorage.setItem('hayyiz-pref-daily-capacity','10');
+            hayyizSaveTodos([
+                {id:'rec-done',text:'مهمة منجزة',minutes:3,focusDone:3,completed:true},
+                {id:'rec-next',text:'الواجب التالي',date:getTodayLocal(),minutes:30,priority:'medium',completed:false},
+                {id:'rec-deferred',text:'عمل غير مؤرخ',minutes:120,focusDone:30,priority:'high',completed:false}
+            ]);
+            hayyizSaveJSON('hayyiz-focus-history',{[getTodayLocal()]:3});
+            hayyizSaveFocusState({mode:'focus',status:'idle',remainingSeconds:0,totalDuration:180,endTime:null,
+                context:{type:'task',id:'rec-done',title:'مهمة منجزة'},pendingNextMode:'break',
+                pendingCompletionModal:{workMinJustDone:3,isLongBreak:false,breakMin:5}});
+        });
+        await recPage.goto(base+'/pomodoro.html');
+        await recPage.getByRole('button',{name:'المهمة التالية: الواجب التالي',exact:true}).click();
+        await recPage.waitForURL('**/pomodoro.html?**');await recPage.waitForLoadState('load');
+        assert.equal(await recPage.locator('#timer-display').textContent(),'07:00');
+        assert.equal(await recPage.evaluate(()=>hayyizGetFocusState().context.id),'rec-next');
+        // A running or paused saved session remains resumable even when the daily budget is zero.
+        for(const status of ['running','paused']) {
+            const end=await recPage.evaluate(status=>{
+                hayyizSetTodayRemainingMinutes(0);
+                const end=status==='running'?Date.now()+300000:null;
+                hayyizSaveFocusState({mode:'focus',status,remainingSeconds:300,totalDuration:1500,endTime:end,
+                    context:{type:'task',id:'rec-next',title:'الواجب التالي'}});
+                return end;
+            },status);
+            await recPage.goto(base+'/todo.html');
+            assert.match(await recPage.locator('#hero-action-btn').textContent(),/متابعة الجلسة المحفوظة/);
+            await recPage.locator('#hero-action-btn').click();
+            await recPage.waitForURL(base+'/pomodoro.html');await recPage.waitForLoadState('load');
+            const resumed=await recPage.evaluate(()=>hayyizGetFocusState());
+            assert.equal(resumed.status,status);assert.equal(resumed.context.id,'rec-next');
+            assert.equal(resumed.totalDuration,1500);assert.equal(resumed.endTime,end);
+        }
+        assert.deepEqual(recommendationErrors,[]);
+        console.log('Shared recommendations PASSED: dashboard/Todo agreement, budgeted launch, stale/zero budget, next task, preserved running/paused sessions.');
+        await recommendations.close();
         // Intercept the SDK request: exercise loading and queue delivery without sending test data to Google.
         const privacy = await browser.newContext({serviceWorkers:'block'});
         await privacy.addInitScript(()=>localStorage.setItem('hayyiz-planning-metrics','enabled'));

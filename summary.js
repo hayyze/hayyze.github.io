@@ -80,6 +80,10 @@ function hayyizRenderDailySummary() {
     if (!content) return;
 
     function launchPomodoroForTask(task, index, plannedMinutes) {
+        if (Number.isFinite(plannedMinutes) && typeof hayyizLaunchPlannedTask === 'function') {
+            if (!hayyizLaunchPlannedTask(task.id)) hayyizRenderDailySummary();
+            return;
+        }
         if (typeof hayyizLaunchPomodoro === 'function') {
             hayyizLaunchPomodoro(task, index, plannedMinutes);
             return;
