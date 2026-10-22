@@ -116,5 +116,60 @@ await check('An upload failure stops draining, preserves edits and retries expli
     fail=false; await c.hayyizSyncTool('multi-day-plans');
     assert(remote[0].data.a); assert(remote[0].data.b); assert.equal(uploads,2);
 });
+await check('Dated tasks use deadlines without needing an exam plan',()=>{
+    const c=device(); c.localStorage.setItem('hayyiz-pref-daily-capacity','120');
+    c.hayyizSaveTodos([{id:'flex',text:'Flexible',minutes:145,focusDone:25,priority:'high'},
+        {id:'due',text:'Homework',minutes:60,date:today,priority:'low'}]);
+    const before=c.hayyizComputeStudentDecisionState();
+    assert.equal(before.dailyPlan.find(i=>i.task?.id==='due')?.plannedMinutes,60);
+    assert.equal(before.dailyPlan.find(i=>i.task?.id==='flex')?.plannedMinutes,60);
+    c.hayyizComputeMultiDayPlan({targetId:'empty',targetDate:later});
+    const after=c.hayyizComputeStudentDecisionState();
+    assert.equal(JSON.stringify(before.dailyPlan.filter(i=>i.task).map(i=>[i.task.id,i.plannedMinutes])),
+        JSON.stringify(after.dailyPlan.filter(i=>i.task).map(i=>[i.task.id,i.plannedMinutes])));
+    assert.equal(c.hayyizGetTaskById('due').date,today);
+});
+await check('Duplicate subject rows preserve the sum and strongest priority on re-adoption',()=>{
+    const c=device(); const config={targetDate:later,subjects:[{name:' Math ',minutes:90,priority:'low'},{name:'Math',minutes:60,priority:'high'}]};
+    const p=c.hayyizAdoptStudyPlan(config); let task=c.hayyizGetTodos()[0];
+    assert.equal(task.minutes,150); assert.equal(task.priority,'high'); assert.equal(c.hayyizGetTodos().length,1);
+    assert.equal(p.totalRequiredMinutes,150); assert.equal(p.adoption.mergedSubjects,1);
+    c.hayyizUpdateTask(task.id,{focusDone:25});
+    c.hayyizAdoptStudyPlan({...config,targetId:p.targetId}); task=c.hayyizGetTaskById(task.id);
+    assert.equal(task.minutes,150); assert.equal(task.focusDone,25); assert.equal(c.hayyizGetTodos().length,1);
+    c.hayyizUpdateTask(task.id,{minutes:200});
+    const protectedPlan=c.hayyizAdoptStudyPlan({...config,targetId:p.targetId});
+    assert.equal(c.hayyizGetTaskById(task.id).minutes,200); assert(protectedPlan.adoption.protectedFields.some(f=>f.field==='minutes'));
+    const count=c.hayyizGetExams().length;
+    assert.equal(c.hayyizAdoptStudyPlan({targetDate:later,subjects:[{name:'Too much',minutes:527040},{name:'Too much',minutes:1}]}),null);
+    assert.equal(c.hayyizGetExams().length,count,'Invalid aggregated input has no partial side effects');
+});
+await check('Preferences saves share a serial drain, including capacity changes during upload',async()=>{
+    const c=device(); let remote=[],uploads=0,active=0,maxActive=0,release,started;
+    const firstStarted=new Promise(r=>started=r);
+    c.supabaseClient={auth:{async getUser(){return {data:{user:{id:'student'}}};}},from(){return {
+        select(){return this;},eq(k,v){if(k==='tool')this.tool=v;return this;},gt(){return this;},
+        then(resolve){resolve({data:JSON.parse(JSON.stringify(remote.filter(r=>r.tool===this.tool))),error:null});},
+        async upsert(payload){
+            const rows=JSON.parse(JSON.stringify(Array.isArray(payload)?payload:[payload]));
+            const preferences=rows[0].tool==='planning-preferences';
+            if(preferences){active++; maxActive=Math.max(maxActive,active); uploads++;}
+            if(preferences&&uploads===1){started(); await new Promise(r=>release=r);}
+            rows.forEach(row=>{const i=remote.findIndex(r=>r.tool===row.tool&&r.item_id===row.item_id);if(i<0)remote.push(row);else remote[i]=row;});
+            if(preferences)active--; return {error:null};}
+    };}};
+    vm.runInContext(fs.readFileSync('sync.js','utf8'),c);
+    c.hayyizSavePlanningPreferences({week:{1:60},studyStart:'16:00',studyEnd:'22:00'});
+    await firstStarted;
+    c.hayyizSavePlanningPreferences({week:{1:120},studyStart:'16:00',studyEnd:'22:00'});
+    c.hayyizComputeMultiDayPlan({targetId:'capacity',targetDate:later,dailyCapacityMinutes:180});
+    await new Promise(r=>setTimeout(r,0));
+    const uploadsBeforeRelease=uploads;
+    release(); await c.hayyizSyncTool('planning-preferences');
+    assert.equal(uploadsBeforeRelease,1,'A second write must wait rather than race the first');
+    assert.equal(remote.find(r=>r.tool==='planning-preferences').data.week[1],120); assert.equal(maxActive,1);
+    assert.equal(remote.find(r=>r.tool==='planning-preferences').data.defaultMinutes,180);
+    await c.hayyizSyncTool('multi-day-plans');
+});
 if(failures.length) process.exitCode=1;
 })();

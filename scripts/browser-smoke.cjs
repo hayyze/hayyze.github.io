@@ -69,8 +69,17 @@ const server = http.createServer((req, res) => {
         assert.equal(await page.evaluate(()=>hayyizGetTodos()[0].completed),true);
         await page.goto(base+'/study-planner.html');
         assert.equal(await page.locator('.sp-subj-name').first().inputValue(),'الرياضيات');
+        await page.locator('#sp-add-subject-btn').click();
+        await page.locator('.sp-subj-name').nth(1).fill('الرياضيات');
+        const previewMinutes = await page.evaluate(()=>hayyizParseJSON('hayyiz-planner-draft',{}).subjects.reduce((sum,s)=>sum+Math.round(s.allocatedHours*60),0));
         await page.getByRole('button',{name:'اعتمد الخطة في مهامي',exact:true}).click();
         await page.locator('#sp-adopt-status a').waitFor();
+        assert.match(await page.locator('#sp-adopt-status').textContent(),/جُمعت دقائق المواد المكررة/);
+        assert.equal(await page.evaluate(()=>{
+            const id=hayyizParseJSON('hayyiz-planner-draft',{}).targetId;
+            const tasks=hayyizGetTodos().filter(t=>t.eventId===id);
+            return tasks.length===1 ? tasks[0].minutes : -1;
+        }),previewMinutes,'Duplicate rows preserve their entire preview allocation in one canonical task');
         const count=await page.evaluate(()=>hayyizGetTodos().length);
         await page.getByRole('button',{name:'اعتمد الخطة في مهامي',exact:true}).click();
         assert.equal(await page.evaluate(()=>hayyizGetTodos().length),count);
@@ -139,8 +148,23 @@ const server = http.createServer((req, res) => {
         assert(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth+1),'Desktop controls fit viewport');
         await page.screenshot({path:process.env.HAYYIZ_SCREENSHOT_DIR ? path.join(process.env.HAYYIZ_SCREENSHOT_DIR,'hayyiz-desktop.png') : '/tmp/hayyiz-desktop.png',fullPage:true});
         assert.deepEqual(errors,[], 'No uncaught application errors');
-        console.log('Browser smoke PASSED: first plan, Arabic time, 10-minute session, reload/expiry, estimate extension, completion, planner adoption/reload, exam identity, estimate reconciliation, manual edits, new-plan action, week, commitment, review, dark mode, mobile and desktop.');
+        console.log('Browser smoke PASSED: first plan, Arabic time, 10-minute session, reload/expiry, estimate extension, completion, planner adoption/reload, duplicate aggregation, standalone task deadlines, exam identity, estimate reconciliation, manual edits, new-plan action, week, commitment, review, dark mode, mobile and desktop.');
         await context.close();
+        const standalone = await browser.newContext({serviceWorkers:'block'});
+        await standalone.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());
+        const taskPage = await standalone.newPage();
+        taskPage.on('pageerror',error=>errors.push(error.message));
+        await taskPage.goto(base);
+        await taskPage.evaluate(()=>{
+            localStorage.setItem('hayyiz-pref-daily-capacity','120');
+            hayyizSaveTodos([{id:'flex',text:'عمل مرن',minutes:145,focusDone:25,priority:'high'},
+                {id:'due',text:'واجب اليوم',minutes:60,date:getTodayLocal(),priority:'low'}]);
+            hayyizNotifyPlanningChanged();
+        });
+        assert.equal(await taskPage.evaluate(()=>hayyizComputeStudentDecisionState().dailyPlan.find(i=>i.task?.id==='due')?.plannedMinutes),60);
+        assert.match(await taskPage.locator('.dash-plan-list').textContent(),/واجب اليوم/);
+        assert.deepEqual(errors,[],'No uncaught application errors in standalone task planning');
+        await standalone.close();
         // Warm app shell, then verify offline navigation in a fresh service-worker-enabled context.
         const offline = await browser.newContext();
         await offline.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());

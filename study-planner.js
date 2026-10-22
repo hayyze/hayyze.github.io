@@ -373,6 +373,9 @@
       adoptedTargetId = plan.targetId;
       generatePlan();
       status.replaceChildren(document.createTextNode('حُفظت الخطة في المهام. ' + plan.statusLabel + ' '));
+      if (plan.adoption && plan.adoption.mergedSubjects) {
+        status.appendChild(document.createTextNode('جُمعت دقائق المواد المكررة في مهمة واحدة لكل مادة مع الاحتفاظ بأعلى أولوية. '));
+      }
       if (plan.adoption && (plan.adoption.protectedFields.length || plan.adoption.retainedTaskIds.length)) {
         status.appendChild(document.createTextNode('احتُفظ بالتعديلات اليدوية والمهام القديمة؛ راجع تقديراتها ومواعيدها في المهام. '));
       }

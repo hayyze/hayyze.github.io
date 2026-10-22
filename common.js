@@ -2443,7 +2443,7 @@ function hayyizGetPlanningPreferences() {
 function hayyizSavePlanningPreferences(prefs) {
     const next = Object.assign({}, prefs, { updatedAt: Math.max(Date.now(), Number(hayyizGetPlanningPreferences().updatedAt || 0) + 1) });
     hayyizSaveJSON('hayyiz-planning-preferences', next);
-    if (typeof hayyizUploadItem === 'function') hayyizUploadItem('planning-preferences', 'preferences', next);
+    if (typeof hayyizSyncTool === 'function') hayyizSyncTool('planning-preferences');
     hayyizReevaluateMultiDayPlan();
     hayyizNotifyPlanningChanged();
 }
@@ -2536,6 +2536,21 @@ function hayyizAdoptStudyPlan(config) {
     if (!config || (config.dailyCapacityMinutes !== undefined && hayyizParseMinutes(config.dailyCapacityMinutes) === null) || !hayyizValidDate(config.targetDate) || hayyizDaysUntil(config.targetDate) < 1 ||
         hayyizDaysUntil(config.targetDate) > 366 || !Array.isArray(config.subjects) || !config.subjects.length || config.subjects.length > 50) return null;
     if (config.subjects.some(s => !s || !String(s.name || '').trim() || !Number.isFinite(s.minutes) || s.minutes <= 0 || s.minutes > 527040)) return null;
+    // Group by the same canonical name used to find subjects, before any writes.
+    // One task per subject must preserve all requested minutes rather than keeping the last row.
+    const subjectsByName = new Map();
+    const priorities = { low: 1, medium: 2, high: 3 };
+    config.subjects.forEach(row => {
+        const name = String(row.name).trim().slice(0, 80);
+        const priority = ['low', 'medium', 'high'].includes(row.priority) ? row.priority : 'medium';
+        const existing = subjectsByName.get(name);
+        if (existing) {
+            existing.minutes += Math.ceil(row.minutes);
+            if (priorities[priority] > priorities[existing.priority]) existing.priority = priority;
+        } else subjectsByName.set(name, { name, minutes: Math.ceil(row.minutes), priority });
+    });
+    const subjects = Array.from(subjectsByName.values());
+    if (subjects.some(row => row.minutes > 527040)) return null;
     const exams = hayyizParseJSON('hayyiz-student-exams', []);
     const existingExam = config.examId ? exams.find(ex => ex.id === config.examId) : null;
     if (config.examId && !existingExam) return null;
@@ -2557,10 +2572,10 @@ function hayyizAdoptStudyPlan(config) {
         if (typeof hayyizUploadItem === 'function') hayyizUploadItem('student-exams', targetId, exam);
     }
     const todos = hayyizGetTodos();
-    const adoption = { created: 0, updated: 0, protectedFields: [], retainedTaskIds: [] };
+    const adoption = { created: 0, updated: 0, protectedFields: [], retainedTaskIds: [], mergedSubjects: config.subjects.length - subjects.length };
     const adoptedTasks = new Set();
-    config.subjects.forEach(row => {
-        const name = String(row.name).trim().slice(0, 80);
+    subjects.forEach(row => {
+        const name = row.name;
         const subject = hayyizGetSubjects().find(s => s.name === name) || hayyizAddSubject(name);
         let task = todos.find(t => t.eventId === targetId && t.subjectId === subject.id && t.plannerSource === true);
         const generated = { date: existingExam ? existingExam.date : config.targetDate, minutes: Math.ceil(row.minutes),
@@ -2676,7 +2691,7 @@ function hayyizComputeMultiDayPlan(config) {
             prefs.defaultMinutes = minutes;
             prefs.updatedAt = Math.max(Date.now(), Number(prefs.updatedAt || 0) + 1);
             hayyizSaveJSON('hayyiz-planning-preferences', prefs);
-            if (typeof hayyizUploadItem === 'function') hayyizUploadItem('planning-preferences', 'preferences', prefs);
+            if (typeof hayyizSyncTool === 'function') hayyizSyncTool('planning-preferences');
         }
     }
     const plans = hayyizGetMultiDayPlans();
@@ -2693,11 +2708,11 @@ function hayyizBuildSharedStudyAllocation(plans) {
         hayyizDaysUntil(p.targetDate) >= 0 && hayyizDaysUntil(p.targetDate) <= 366)
         .sort((a, b) => a.targetDate.localeCompare(b.targetDate) || String(a.targetId).localeCompare(String(b.targetId)));
     const shared = { owners: new Map(), allocations: new Map() };
-    if (!ordered.length) return shared;
     const dateAt = offset => { const d = new Date(today + 'T12:00:00'); d.setDate(d.getDate() + offset);
         return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'); };
     const lastWorkDate = p => dateAt(Math.max(0, hayyizDaysUntil(p.targetDate) - (hayyizDaysUntil(p.targetDate) >= 2 ? 2 : 1)));
-    const horizon = ordered[ordered.length - 1].targetDate;
+    // Dated tasks must compete even when no exam plan exists. Bound the horizon independently.
+    const horizon = dateAt(366);
     const work = [];
     hayyizGetTodos().forEach(task => {
         if (!task) return;
