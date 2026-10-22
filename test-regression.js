@@ -98,7 +98,7 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
 
 // --- 4. SERVICE WORKER CACHE VERSION TEST ---
 {
-    assert(swJs.includes("const CACHE_NAME = 'heez-v1.9.9';"), 'Service Worker uses cache version heez-v1.9.9');
+    assert(swJs.includes("const CACHE_NAME = 'heez-v1.10.0';"), 'Service Worker uses cache version heez-v1.10.0');
     assert(swJs.includes('.filter((key) => key !== CACHE_NAME)'), 'Service Worker activates clean deletion of old cache versions');
     assert(swJs.includes('./contact.html') && swJs.includes('./terms.html') && swJs.includes('./privacy.html') && swJs.includes('./founder.html'), 'Service Worker caches newly added static HTML pages for offline support');
 }
@@ -1027,19 +1027,11 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
     // 3. primaryDecision, dailyPlan, and recommendation share same snapshot/state
     assert(singlePassState.primaryDecision !== undefined && singlePassState.dailyPlan !== undefined && singlePassState.recommendation !== undefined, 'Central state contains primaryDecision, dailyPlan, and recommendation');
 
-    // 4. Thin wrappers execute only required primitives without rerun of full pipeline
-    let evalCount = 0;
-    const origEvalDec = hayyizEvaluateDecisions;
-    hayyizEvaluateDecisions = function(...args) {
-        evalCount++;
-        return origEvalDec.apply(this, args);
-    };
-
-    evalCount = 0;
-    hayyizRecommendNext(3);
-    assert(evalCount === 0, 'hayyizRecommendNext wrapper does NOT rerun decision evaluation primitive');
-
-    hayyizEvaluateDecisions = origEvalDec;
+    // 4. Compatibility recommendations must use the same budgeted plan as the dashboard.
+    const compatibleRecommendation = hayyizRecommendNext(3);
+    assert(JSON.stringify(compatibleRecommendation.ranked.map(row => row.task.id)) ===
+        JSON.stringify(singlePassState.dailyPlan.filter(item => item.task).slice(0, 3).map(item => item.task.id)),
+        'hayyizRecommendNext follows the same allocated tasks and order as the central state');
 
     // 5. Consistency between Summary decision and Daily Plan top primary action
     const getOffsetDateStr = (offsetDays) => {

@@ -71,26 +71,26 @@ htmlFiles.forEach(file => {
 console.log(`✅ PASS: All ${totalAuditedPages} HTML pages strictly verified for canonical, og:url, og:image, and JSON-LD structure.`);
 
 // 6. Sitemap.xml & robots.txt Validation
-console.log('Auditing sitemap.xml and robots.txt...');
+console.log('Auditing sitemap-hayyiz.xml and robots.txt...');
 
-assert(fs.existsSync('sitemap.xml'), 'sitemap.xml must exist');
+assert(fs.existsSync('sitemap-hayyiz.xml'), 'sitemap-hayyiz.xml must exist');
 assert(fs.existsSync('robots.txt'), 'robots.txt must exist');
 
-const sitemapContent = fs.readFileSync('sitemap.xml', 'utf8');
+const sitemapContent = fs.readFileSync('sitemap-hayyiz.xml', 'utf8');
 const robotsContent = fs.readFileSync('robots.txt', 'utf8');
 
 // Ensure no old domain references in sitemap or robots
 OLD_DOMAINS.forEach(oldDomain => {
-    assert(!sitemapContent.includes(oldDomain), `sitemap.xml contains legacy domain reference: ${oldDomain}`);
+    assert(!sitemapContent.includes(oldDomain), `sitemap-hayyiz.xml contains legacy domain reference: ${oldDomain}`);
     assert(!robotsContent.includes(oldDomain), `robots.txt contains legacy domain reference: ${oldDomain}`);
 });
 
 // Verify sitemap directive in robots.txt
-assert(robotsContent.includes(`Sitemap: ${DOMAIN}/sitemap.xml`), 'robots.txt must point to Cloudflare sitemap.xml URL');
+assert(robotsContent.includes(`Sitemap: ${DOMAIN}/sitemap-hayyiz.xml`), 'robots.txt must point to Cloudflare sitemap-hayyiz.xml URL');
 
-// Verify all <loc> entries in sitemap.xml
+// Verify all <loc> entries in sitemap-hayyiz.xml
 const locMatches = sitemapContent.match(/<loc>(.*?)<\/loc>/g) || [];
-assert(locMatches.length > 0, 'sitemap.xml must contain at least one <loc> entry');
+assert(locMatches.length > 0, 'sitemap-hayyiz.xml must contain at least one <loc> entry');
 
 locMatches.forEach(locTag => {
     const url = locTag.replace('<loc>', '').replace('</loc>', '');
@@ -104,7 +104,7 @@ locMatches.forEach(locTag => {
     assert(fs.existsSync(relativePath), `Sitemap <loc> points to non-existent file: ${relativePath}`);
 });
 
-console.log(`✅ PASS: sitemap.xml contains ${locMatches.length} valid URLs pointing to existing files, and robots.txt correctly references sitemap.`);
+console.log(`✅ PASS: sitemap-hayyiz.xml contains ${locMatches.length} valid URLs pointing to existing files, and robots.txt correctly references sitemap.`);
 
 console.log('\n===================================');
 console.log('SEO DOMAIN MIGRATION AUDIT RESULTS: ALL PASSED');

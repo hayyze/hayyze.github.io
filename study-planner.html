@@ -124,6 +124,10 @@
                 أدخل تفاصيل وقتك المتبقي والمواد الدراسية ليقوم المنظم بتحليل حمولتك الدراسية وحساب الخطة الموزونة.
             </p>
 
+            <div class="sp-field">
+                <label for="sp-exam-select">اختبار محفوظ في حيز (اختياري)</label>
+                <select id="sp-exam-select" class="sp-select"><option value="">خطة لاختبار جديد</option></select>
+            </div>
             <div class="sp-form-grid">
                 <div class="sp-field">
                     <label for="sp-exam-date"><i class="fa-solid fa-calendar-day" aria-hidden="true"></i> تاريخ بدء الاختبار</label>
@@ -193,6 +197,10 @@
                 <!-- Javascript renders dynamic progress bars here -->
             </div>
 
+            <p>التوزيع أعلاه تقدير أولي. عند الاعتماد، يجمع حيز هذه الخطة مع خططك الأخرى ويحترم وقتك الأسبوعي والتزاماتك، ويعرض أي عجز.</p>
+            <button type="button" id="sp-new-plan" class="sp-btn-secondary">بدء خطة جديدة بهذه المدخلات</button>
+            <button type="button" id="sp-adopt-plan" class="sp-btn-primary">اعتمد الخطة في مهامي</button>
+            <p id="sp-adopt-status" role="status"></p>
             <!-- Timeline Phases -->
             <div class="sp-phases-title">
                 <i class="fa-solid fa-timeline" aria-hidden="true"></i> مراحل التنفيذ حتى موعد الاختبار
@@ -440,6 +448,7 @@
     </footer>
 
     <!-- Interactive Script -->
+    <script src="common.js" defer></script>
     <script src="study-planner.js" defer></script>
 </body>
 </html>

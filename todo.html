@@ -62,13 +62,7 @@
     <!-- التحقق من جوجل -->
     <meta name="google-site-verification" content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw">
     <!-- Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'G-F94Z3H2D3S');
-    </script>
+    <script src="analytics.js"></script>
     <!-- Structured Data -->
 <script type="application/ld+json">
 {
@@ -236,7 +230,7 @@
                 </div>
                 <div class="option-field">
                     <label for="todo-minutes">المدة التقديرية (دقيقة)</label>
-                    <input type="number" id="todo-minutes" min="1" max="1440" placeholder="مثال: 45">
+                    <input type="number" id="todo-minutes" min="1" max="527040" placeholder="مثال: 45">
                 </div>
                 <div class="option-field" style="grid-column: 1 / -1;">
                     <label for="todo-subject-new">إضافة مادة جديدة (اختياري)</label>
@@ -342,7 +336,7 @@
                     </div>
                     <div class="option-field">
                         <label for="modal-input-minutes">المدة المتوقعة (دقيقة)</label>
-                        <input type="number" id="modal-input-minutes" min="1" max="1440">
+                        <input type="number" id="modal-input-minutes" min="1" max="527040">
                     </div>
                 </div>
 

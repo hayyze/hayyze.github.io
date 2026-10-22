@@ -66,13 +66,7 @@
     <!-- التحقق من جوجل -->
     <meta name="google-site-verification" content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw">
     <!-- Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'G-F94Z3H2D3S');
-    </script>
+    <script src="analytics.js"></script>
     <!-- Structured Data -->
 <script type="application/ld+json">
 {
@@ -755,7 +749,7 @@
                 </div>
                 <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                     <div style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem;">
-                        <label for="multi-plan-capacity-input" style="font-weight: 600; color: var(--text-muted);">القدرة اليومية:</label>
+                        <label for="multi-plan-capacity-input" style="font-weight: 600; color: var(--text-muted);">السعة الافتراضية:</label>
                         <select id="multi-plan-capacity-input" class="calc-input" style="padding: 0.25rem 0.5rem; font-size: 0.85rem; width: auto;">
                             <option value="60">خفيف (60 دقيقة / يوم)</option>
                             <option value="120" selected>متوازن (120 دقيقة / يوم)</option>
@@ -763,7 +757,7 @@
                             <option value="240">متقدم (240 دقيقة / يوم)</option>
                             <option value="custom">مخصص...</option>
                         </select>
-                        <input type="number" id="multi-plan-capacity-custom" class="calc-input" style="display: none; padding: 0.25rem 0.5rem; font-size: 0.85rem; width: 80px;" min="15" max="1440" placeholder="الدقائق">
+                        <input type="number" id="multi-plan-capacity-custom" class="calc-input" style="display: none; padding: 0.25rem 0.5rem; font-size: 0.85rem; width: 80px;" min="0" max="1440" placeholder="الدقائق">
                     </div>
                     <button type="button" id="reevaluate-multi-plan-btn" class="action-btn-mini" title="إعادة توزيع الخطة المستقبلية بناءً على التقدم الحالي">
                         <i class="fa-solid fa-rotate"></i> إعادة التخطيط التكيفي
@@ -774,6 +768,7 @@
                 </div>
             </div>
 
+            <p class="section-desc">تُطبّق ميزانية الأسبوع ووقت اليوم عند تحديدهما.</p>
             <div id="multi-day-plan-content">
                 <!-- Populated dynamically by calculator.js -->
             </div>

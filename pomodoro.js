@@ -1,5 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
 
+    const sessionParam = new URLSearchParams(window.location.search || '').get('sessionMinutes');
+    let plannedSessionMinutes = typeof hayyizParseMinutes === 'function' ? hayyizParseMinutes(sessionParam) : null;
+    if (!plannedSessionMinutes || plannedSessionMinutes > 180) plannedSessionMinutes = null;
+
     // ========== DOM Elements ==========
     const timerDisplay = document.getElementById('timer-display');
     const progressBar = document.getElementById('timer-progress-bar');
@@ -156,8 +160,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let foundTask = null;
             let subjectId = null;
 
-            if (typeof hayyizGetTodos === 'function') {
-                const todos = hayyizGetTodos();
+            const todos = typeof hayyizGetTodos === 'function' ? hayyizGetTodos() : [];
+            if (todos.length) {
                 if (searchId) {
                     foundTask = todos.find(t => t && String(t.id) === String(searchId));
                 }
@@ -421,15 +425,25 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('hayyiz-session-in-cycle', String(state.sessionInCycle));
     }
 
+    function clearSessionParameter() {
+        if (sessionParam && window.history && typeof window.history.replaceState === 'function') {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('sessionMinutes');
+            window.history.replaceState(null, '', url);
+        }
+    }
+
     function loadState() {
         if (typeof hayyizEnsureTodayStats === 'function') hayyizEnsureTodayStats();
         else ensureTodayStats();
         loadPreferences();
 
+        const requestedContext = Object.assign({}, state.context);
         let restored = typeof hayyizReconcilePomodoroState === 'function' ? hayyizReconcilePomodoroState() : null;
 
         if (!restored) {
             resetTimerToCurrentMode();
+            clearSessionParameter();
             return;
         }
 
@@ -441,6 +455,14 @@ document.addEventListener('DOMContentLoaded', () => {
         state.sessionInCycle = typeof restored.sessionInCycle === 'number' ? restored.sessionInCycle : 0;
         state.sessionId = restored.sessionId || null;
         if (restored.context) state.context = restored.context;
+
+        if (plannedSessionMinutes && state.status === 'idle' && !restored.pendingCompletionModal && !restored.pendingNextMode) {
+            state.context = requestedContext;
+            state.mode = 'focus';
+            resetTimerToCurrentMode();
+            updateContextUI();
+        }
+        clearSessionParameter();
 
         // عرض نافذة الاكتمال إذا حُسب الانتهاء أثناء عدم التواجد بالصفحة
         if (restored.pendingCompletionModal) {
@@ -496,6 +518,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let mins = 25;
         if (state.mode === 'focus') {
             mins = parseInt(workInput?.value || '25', 10) || 25;
+            if (plannedSessionMinutes) mins = Math.min(mins, plannedSessionMinutes);
         } else if (state.mode === 'longBreak') {
             mins = parseInt(longBreakInput?.value || '15', 10) || 15;
         } else {
@@ -515,6 +538,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let rem = state.remainingSeconds;
         if (rem <= 0) rem = state.totalDuration;
 
+        if (state.mode === 'focus' && state.status === 'idle' && typeof hayyizTrackPlanningEvent === 'function') hayyizTrackPlanningEvent('focus_started');
         state.endTime = Date.now() + rem * 1000;
         state.status = 'running';
         state.sessionId = 's_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
@@ -761,8 +785,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Daily Goal Progress
         const dailyGoal = typeof hayyizGetDailyGoal === 'function' ? hayyizGetDailyGoal() : null;
         if (dailyGoalProgressEl && dailyGoalTextEl) {
-            const goalTargetMin = 120; // Default daily focus target 120 mins
-            const pct = Math.min(100, Math.round((todayMinutes / goalTargetMin) * 100));
+            const capacity = typeof hayyizGetDayCapacity === 'function' ? hayyizGetDayCapacity(getTodayLocal()) : null;
+            const goalTargetMin = capacity ? capacity.remainingMinutes + capacity.focusedMinutes : 120; // Default daily focus target 120 mins
+            const pct = Math.min(100, Math.round((todayMinutes / Math.max(1, goalTargetMin)) * 100));
             dailyGoalProgressEl.style.width = pct + '%';
             dailyGoalTextEl.textContent = `هدف اليوم: ${todayMinutes}/${goalTargetMin} دقيقة (${pct}%)`;
         }
@@ -835,6 +860,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.error('Error logging workspace focus session:', e);
                 }
             }
+
+            if (typeof hayyizTrackPlanningEvent === 'function') hayyizTrackPlanningEvent('focus_completed');
+            plannedSessionMinutes = null;
 
             // Apply focus to Task / Subject if connected
             if (state.context.type === 'task') {
@@ -945,11 +973,26 @@ document.addEventListener('DOMContentLoaded', () => {
             completeTaskBtn.addEventListener('click', () => {
                 if (typeof hayyizCompleteTask === 'function') {
                     hayyizCompleteTask(state.context.id, state.context.title);
+                    if (typeof hayyizReevaluateMultiDayPlan === 'function') hayyizReevaluateMultiDayPlan();
                 }
                 closeModal();
                 updateContextUI();
             });
             actions.appendChild(completeTaskBtn);
+        }
+
+        if (state.context.type === 'task' && state.context.id) {
+            const more = document.createElement('button');
+            more.type = 'button'; more.className = 'btn btn-outline';
+            more.textContent = 'أحتاج وقتًا إضافيًا · أضف 25 دقيقة للتقدير';
+            more.addEventListener('click', () => {
+                if (typeof hayyizExtendTaskEstimate === 'function' && hayyizExtendTaskEstimate(state.context.id, 25)) {
+                    summaryP.textContent = 'أُضيفت 25 دقيقة للتقدير وأُعيد توزيع المتبقي. خذ استراحتك ثم استكمل المهمة.';
+                    more.disabled = true;
+                    updateContextUI();
+                }
+            });
+            actions.appendChild(more);
         }
 
         // 2. المهمة التالية
@@ -964,9 +1007,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const truncatedText = nextRecTask.text.length > 25 ? nextRecTask.text.slice(0, 25) + '…' : nextRecTask.text;
                     nextBtn.innerHTML = `<i class="fa-solid fa-forward"></i> المهمة التالية: ${escapeHtml(truncatedText)}`;
                     nextBtn.addEventListener('click', () => {
-                        closeModal();
-                        if (typeof hayyizLaunchPomodoro === 'function') {
-                            hayyizLaunchPomodoro(nextRecTask);
+                        if (hayyizLaunchPlannedTask(nextRecTask.id)) closeModal();
+                        else {
+                            nextBtn.remove();
+                            summaryP.textContent = 'تغيّرت خطة اليوم أو انتهى وقتها المتاح. راجع خطة يومك قبل جلسة جديدة.';
                         }
                     });
                     actions.appendChild(nextBtn);

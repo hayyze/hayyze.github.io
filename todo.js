@@ -334,24 +334,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!heroCard) return;
 
         const focusState = typeof hayyizGetFocusState === 'function' ? hayyizGetFocusState() : null;
-        const activeFocusRunning = focusState && focusState.status === 'running' && focusState.remainingSeconds > 0;
+        const activeFocusSession = focusState && ['running', 'paused'].includes(focusState.status) && focusState.remainingSeconds > 0;
 
         let activeTask = null;
-        if (activeFocusRunning && focusState.context && focusState.context.type === 'task') {
+        if (activeFocusSession && focusState.context && focusState.context.type === 'task') {
             activeTask = todos.find(t => t && (t.id === focusState.context.id || t.text === focusState.context.title));
         }
 
         const recommendation = typeof hayyizRecommendNext === 'function' ? hayyizRecommendNext(1) : null;
-        const recommendedTask = activeTask || (recommendation ? recommendation.next : null);
+        const recommendedTask = activeTask || (!activeFocusSession && recommendation ? recommendation.next : null);
 
         if (!recommendedTask) {
+            const hasOpenTasks = recommendation ? recommendation.allActive.length > 0 : todos.some(task => task && !task.completed);
             heroCard.className = 'card todo-hero-card empty-hero';
             heroCard.innerHTML = `
-                <div class="dash-now-label"><i class="fa-solid fa-circle-check" style="color: var(--success);"></i> يومك الدراسي منظم بالكامل!</div>
-                <h2 style="font-size: 1.3rem; margin: 0.4rem 0 0.2rem;">لا توجد مهام نشطة حاليًا</h2>
-                <p style="color: var(--text-muted); font-size: 0.92rem; margin-bottom: 0.85rem;">أضف أداء دراسيًا جديدًا أو ابدأ جلسة تركيز حرة لإنجاز المزيد.</p>
+                <div class="dash-now-label"><i class="fa-solid fa-circle-check" style="color: var(--success);"></i> ${activeFocusSession ? 'جلسة تركيز محفوظة' : hasOpenTasks ? 'خطة اليوم' : 'يومك الدراسي منظم بالكامل!'}</div>
+                <h2 style="font-size: 1.3rem; margin: 0.4rem 0 0.2rem;">${activeFocusSession ? escapeHtml(focusState.context?.title || 'جلسة تركيز') : hasOpenTasks ? 'مهامك محفوظة خارج وقت اليوم المتاح' : 'لا توجد مهام نشطة حاليًا'}</h2>
+                <p style="color: var(--text-muted); font-size: 0.92rem; margin-bottom: 0.85rem;">${activeFocusSession ? 'تابع الجلسة المحفوظة بنفس المدة والسياق.' : hasOpenTasks ? 'راجع خطة يومك أو عدّل الوقت المتاح. يمكنك اختيار مهمة يدويًا من القائمة أدناه.' : 'أضف أداء دراسيًا جديدًا أو ابدأ جلسة تركيز حرة لإنجاز المزيد.'}</p>
                 <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
-                    <button type="button" class="btn btn-primary" id="hero-start-free-btn"><i class="fa-solid fa-play"></i> ابدأ جلسة تركيز حرة</button>
+                    ${activeFocusSession ? '<a class="btn btn-primary" href="pomodoro.html">متابعة الجلسة المحفوظة</a>' : hasOpenTasks ? '<a class="btn btn-primary" href="index.html#daily-summary">راجع خطة يومي ووقتي</a>' : '<button type="button" class="btn btn-primary" id="hero-start-free-btn"><i class="fa-solid fa-play"></i> ابدأ جلسة تركيز حرة</button>'}
                     <button type="button" class="btn btn-outline" id="hero-add-quick-btn"><i class="fa-solid fa-plus"></i> أضف مهمة</button>
                 </div>
             `;
@@ -376,14 +377,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const focusDone = parseInt(recommendedTask.focusDone, 10) || 0;
         const totalMin = parseInt(recommendedTask.minutes, 10) || 0;
-        const isTaskActiveFocus = activeFocusRunning && focusState.context && focusState.context.title === recommendedTask.text;
+        const isTaskActiveFocus = Boolean(activeTask);
 
         heroCard.className = 'card todo-hero-card';
         heroCard.innerHTML = `
             <div class="todo-hero-header">
                 <div class="dash-now-label">
                     <i class="fa-solid fa-bullseye" style="color: var(--primary);"></i>
-                    ${isTaskActiveFocus ? 'جلسة تركيز نشطة الآن' : (focusDone > 0 ? 'أكمل ما بدأت' : 'ماذا أفعل الآن؟')}
+                    ${isTaskActiveFocus ? 'جلسة تركيز محفوظة' : (focusDone > 0 ? 'أكمل ما بدأت' : 'ماذا أفعل الآن؟')}
                 </div>
                 <span class="badge ${dueInfo.cssClass || 'badge-personal'}">${dueInfo.label}</span>
             </div>
@@ -394,17 +395,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span><i class="fa-solid fa-layer-group"></i> أولوية ${priMap[recommendedTask.priority] || 'عادية'}</span>
                 ${subName ? `<a href="subject.html?id=${encodeURIComponent(recommendedTask.subjectId)}" style="color: inherit; text-decoration: underline;"><i class="fa-solid fa-book"></i> ${escapeHtml(subName)}</a>` : ''}
                 ${totalMin > 0 ? `<span><i class="fa-solid fa-hourglass-half"></i> ${focusDone}/${totalMin} دقيقة</span>` : (focusDone > 0 ? `<span><i class="fa-solid fa-clock"></i> ${focusDone} دقيقة تركيز</span>` : '')}
+                ${!isTaskActiveFocus && recommendation?.plannedMinutes > 0 ? `<span>ضمن خطة اليوم ${recommendation.plannedMinutes} دقيقة</span>` : ''}
             </div>
 
-            ${recommendation && recommendation.reason ? `
+            ${isTaskActiveFocus || recommendation?.reason ? `
                 <div class="todo-hero-reason">
-                    <i class="fa-solid fa-lightbulb" style="color: var(--warning);"></i> <strong>لماذا اخترنا هذه المهمة؟</strong> ${escapeHtml(recommendation.reason)}
+                    <i class="fa-solid fa-lightbulb" style="color: var(--warning);"></i> <strong>لماذا اخترنا هذه المهمة؟</strong> ${isTaskActiveFocus ? 'تابع جلستك المحفوظة بنفس المدة والمهمة.' : escapeHtml(recommendation.reason)}
                 </div>
             ` : ''}
 
             <div class="todo-hero-actions">
                 <button type="button" class="btn btn-primary btn-lg" id="hero-action-btn">
-                    <i class="fa-solid ${isTaskActiveFocus ? 'fa-play' : 'fa-play'}"></i> ${isTaskActiveFocus ? 'متابعة الجلسة الجارية' : 'ابدأ التركيز على هذه المهمة'}
+                    <i class="fa-solid fa-play"></i> ${isTaskActiveFocus ? 'متابعة الجلسة المحفوظة' : 'ابدأ التركيز على هذه المهمة'}
                 </button>
                 <button type="button" class="btn btn-secondary" id="hero-details-btn">
                     <i class="fa-solid fa-pen-to-square"></i> التفاصيل والتعديل
@@ -413,8 +415,11 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         document.getElementById('hero-action-btn')?.addEventListener('click', () => {
-            const realIdx = todos.indexOf(recommendedTask);
-            startFocusForTask(recommendedTask, realIdx >= 0 ? realIdx : 0);
+            if (isTaskActiveFocus) { window.location.href = 'pomodoro.html'; return; }
+            if (!hayyizLaunchPlannedTask(recommendedTask.id)) {
+                renderHeroCard();
+                announceToScreenReader('تغيّرت خطة اليوم؛ حُدّثت الاقتراحات حسب وقتك الحالي.');
+            }
         });
 
         document.getElementById('hero-details-btn')?.addEventListener('click', () => {
@@ -768,7 +773,7 @@ document.addEventListener('DOMContentLoaded', () => {
             taskType: (todoTaskType && todoTaskType.value) ? todoTaskType.value : (selectedTaskType || 'general'),
             priority: todoPriority ? todoPriority.value : 'medium',
             date: (todoDate && todoDate.value) ? todoDate.value : null,
-            minutes: (todoMinutes && todoMinutes.value) ? todoMinutes.value : null,
+            minutes: (todoMinutes && todoMinutes.value) ? Number(todoMinutes.value) : null,
             subjectId: (todoSubject && todoSubject.value) ? todoSubject.value : null,
             goalId: (todoGoal && todoGoal.value) ? todoGoal.value : null,
             completed: false,
@@ -826,6 +831,8 @@ document.addEventListener('DOMContentLoaded', () => {
         modalTitle.value = task.text || '';
         if (modalTaskType) modalTaskType.value = task.taskType || 'general';
         modalPriority.value = task.priority || 'medium';
+        // Date-only planner deadlines stay date-only; datetime-local fields reject those values.
+        modalDate.type = typeof hayyizValidDate === 'function' && hayyizValidDate(task.date) ? 'date' : 'datetime-local';
         modalDate.value = task.date || '';
         modalMinutes.value = task.minutes || '';
 
@@ -897,7 +904,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 priority: modalPriority.value,
                 subjectId: modalSubject.value || null,
                 date: modalDate.value || null,
-                minutes: modalMinutes.value || null,
+                minutes: modalMinutes.value ? Number(modalMinutes.value) : null,
                 updated: nowMs
             };
 
@@ -924,6 +931,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial render
     renderTodos();
+    if (typeof window.addEventListener === 'function') {
+        window.addEventListener('hayyiz:planning-changed', renderHeroCard);
+        window.addEventListener('storage', event => {
+            if (['hayyiz-planning-preferences', 'hayyiz-pref-daily-capacity', 'hayyiz-focus-history'].includes(event.key)) renderHeroCard();
+        });
+    }
 
     // Handling URL parameters (subjectId / taskId / id)
     try {
@@ -953,6 +966,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (typeof hayyizRegisterSyncCallback === 'function') {
+        hayyizRegisterSyncCallback('planning-preferences', renderHeroCard);
         hayyizRegisterSyncCallback('todos', (merged) => {
             if (Array.isArray(merged)) {
                 todos = merged;

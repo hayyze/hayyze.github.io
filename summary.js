@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+function hayyizRenderDailySummary() {
     function getToday() {
         if (typeof getTodayLocal === 'function') return getTodayLocal();
         const now = new Date();
@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     ensureTodayStats();
+    hayyizReevaluateMultiDayPlan();
 
     const today = getToday();
 
@@ -78,9 +79,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const content = document.getElementById('summary-content');
     if (!content) return;
 
-    function launchPomodoroForTask(task, index) {
+    function launchPomodoroForTask(task, index, plannedMinutes) {
+        if (Number.isFinite(plannedMinutes) && typeof hayyizLaunchPlannedTask === 'function') {
+            if (!hayyizLaunchPlannedTask(task.id)) hayyizRenderDailySummary();
+            return;
+        }
         if (typeof hayyizLaunchPomodoro === 'function') {
-            hayyizLaunchPomodoro(task, index);
+            hayyizLaunchPomodoro(task, index, plannedMinutes);
             return;
         }
         const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
@@ -262,10 +267,10 @@ document.addEventListener('DOMContentLoaded', () => {
         startBtn.addEventListener('click', () => {
             if (suggestion.actionType === 'pomo-task' && suggestion.task) {
                 const idx = todos.indexOf(suggestion.task);
-                launchPomodoroForTask(suggestion.task, idx >= 0 ? idx : 0);
+                launchPomodoroForTask(suggestion.task, idx >= 0 ? idx : 0, studentState?.dailyPlan.find(item => item.task?.id === suggestion.task.id)?.plannedMinutes);
             } else if (suggestion.actionType === 'pomo-event' && suggestion.event) {
                 if (typeof hayyizLaunchPomodoro === 'function') {
-                    hayyizLaunchPomodoro(suggestion.event);
+                    hayyizLaunchPomodoro(suggestion.event, null, studentState?.dailyPlan.find(item => item.event?.id === suggestion.event.id)?.plannedMinutes);
                 } else if (suggestion.url) {
                     window.location.href = suggestion.url;
                 }
@@ -332,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
             : '<i class="fa-solid fa-play" aria-hidden="true"></i> ابدأ جلسة تركيز';
         startNowBtn.addEventListener('click', () => {
             const idx = todos.indexOf(nextTask);
-            launchPomodoroForTask(nextTask, idx >= 0 ? idx : 0);
+            launchPomodoroForTask(nextTask, idx >= 0 ? idx : 0, studentState?.dailyPlan.find(item => item.task?.id === nextTask.id)?.plannedMinutes);
         });
         nowActions.appendChild(startNowBtn);
 
@@ -384,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         nowCard.appendChild(nowActions);
     }
-    content.appendChild(nowCard);
+    if (!studentState || studentState.dailyBudget.remainingMinutes > 0 || suggestion?.id === 'running-focus') content.appendChild(nowCard);
 
     // ==========================================
     // 3.5 الخطة متعددة الأيام النشطة (Active Multi-Day Study Plan)
@@ -486,6 +491,28 @@ document.addEventListener('DOMContentLoaded', () => {
     planHead.appendChild(planTitle);
     planHead.appendChild(planLink);
     planCard.appendChild(planHead);
+    const controls = document.createElement('div');
+    controls.id = 'day-planning-controls';
+    planCard.appendChild(controls);
+    const budget = studentState && studentState.dailyBudget;
+    if (budget) {
+        const budgetText = document.createElement('p');
+        budgetText.className = 'planning-budget';
+        budgetText.textContent = `المخطط الآن ${budget.plannedMinutes} د من ${budget.remainingMinutes} د متاحة · المتبقي خارج خطة اليوم ${budget.deferredMinutes} د`;
+        planCard.appendChild(budgetText);
+    }
+    if (studentState && studentState.deferredItems.length) {
+        const details = document.createElement('details');
+        details.className = 'planning-settings';
+        const title = document.createElement('summary'); title.textContent = 'أعمال لم تتسع لها خطة اليوم'; details.appendChild(title);
+        const list = document.createElement('ul');
+        studentState.deferredItems.forEach(item => {
+            const li = document.createElement('li');
+            li.textContent = `${item.title}: ${item.deferredMinutes} د · ${item.deferredReason || 'خارج الخطة الحالية'}. يمكنك تعديل الوقت أو المهمة؛ موعدها لم يتغير.`;
+            list.appendChild(li);
+        });
+        details.appendChild(list); planCard.appendChild(details);
+    }
 
     if (planItems && planItems.length > 0) {
         // ملخص التقدم لخطة اليوم
@@ -544,7 +571,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const sub = document.createElement('span');
             sub.className = 'dash-plan-sub';
-            sub.textContent = item.subtitle;
+            sub.textContent = item.subtitle + (item.task ? ' · ' + hayyizScoreTask(item.task, { today }).reasons.join(' · ') : '');
 
             info.appendChild(badge);
             info.appendChild(titleWrap);
@@ -557,10 +584,10 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.addEventListener('click', () => {
                 if (item.actionType === 'pomo-task' && item.task) {
                     const idx = todos.indexOf(item.task);
-                    launchPomodoroForTask(item.task, idx >= 0 ? idx : 0);
+                    launchPomodoroForTask(item.task, idx >= 0 ? idx : 0, item.plannedMinutes);
                 } else if (item.actionType === 'pomo-event' && item.event) {
                     if (typeof hayyizLaunchPomodoro === 'function') {
-                        hayyizLaunchPomodoro(item.event);
+                        hayyizLaunchPomodoro(item.event, null, item.plannedMinutes);
                     } else if (item.url) {
                         window.location.href = item.url;
                     }
@@ -583,11 +610,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const emptyTitle = document.createElement('strong');
         emptyTitle.className = 'dash-empty-plan-title';
-        emptyTitle.textContent = 'لا توجد مهام مخططة لليوم';
+        emptyTitle.textContent = activeTodos.length ? 'مهامك محفوظة خارج وقت اليوم المتاح' : 'لا توجد مهام مخططة لليوم';
 
         const emptyDesc = document.createElement('p');
         emptyDesc.className = 'dash-empty-plan-desc';
-        emptyDesc.textContent = 'أضف مهامك أو مواعيد اختباراتك ليقوم حيز بتنظيم خطتك الدراسية التكيفية تلقائياً.';
+        emptyDesc.textContent = activeTodos.length ? 'عدّل الوقت المتبقي من الحقل أعلاه أو راجع التوزيع على الأيام القادمة. لم تُحذف مهامك ولم تتغير مواعيدها.' : 'أضف مهامك أو مواعيد اختباراتك ليقوم حيز بتنظيم خطتك الدراسية التكيفية تلقائياً.';
 
         const emptyActions = document.createElement('div');
         emptyActions.className = 'dash-empty-plan-actions';
@@ -1032,10 +1059,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const startBtn = document.getElementById('start-focus-session-btn');
     if (startBtn) {
-        startBtn.addEventListener('click', () => {
+        startBtn.disabled = !!studentState && studentState.dailyBudget.remainingMinutes === 0;
+        startBtn.onclick = () => {
             if (nextTask) {
                 const idx = todos.indexOf(nextTask);
-                launchPomodoroForTask(nextTask, idx >= 0 ? idx : 0);
+                launchPomodoroForTask(nextTask, idx >= 0 ? idx : 0, studentState?.dailyPlan.find(item => item.task?.id === nextTask.id)?.plannedMinutes);
             } else if (typeof hayyizLaunchPomodoro === 'function') {
                 hayyizLaunchPomodoro(null);
             } else {
@@ -1045,6 +1073,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.removeItem('hayyiz-task-session');
                 window.location.href = 'pomodoro.html';
             }
-        });
+        };
     }
+    if (typeof window.dispatchEvent === 'function') window.dispatchEvent(new Event('hayyiz:summary-rendered'));
+}
+document.addEventListener('DOMContentLoaded', hayyizRenderDailySummary);
+if (typeof window.addEventListener === 'function') {
+window.addEventListener('hayyiz:planning-changed', hayyizRenderDailySummary);
+window.addEventListener('storage', event => {
+    if (event.key && (event.key === 'hayyiz-todos' || event.key === 'hayyiz-planning-preferences')) hayyizRenderDailySummary();
 });
+}

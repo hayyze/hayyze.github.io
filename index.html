@@ -74,27 +74,7 @@
     <meta name="google-site-verification" content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw">
     <meta name="msvalidate.01" content="21A3AAB7205E4F7DE4A93876DD8633A6" />
     <!-- Google Analytics -->
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'G-F94Z3H2D3S');
-        (function() {
-            var loadGtag = function() {
-                if (window.__gtagScriptLoaded) return;
-                window.__gtagScriptLoaded = true;
-                var s = document.createElement('script');
-                s.async = true;
-                s.src = 'https://www.googletagmanager.com/gtag/js?id=G-F94Z3H2D3S';
-                document.head.appendChild(s);
-            };
-            if (document.readyState === 'complete') {
-                setTimeout(loadGtag, 800);
-            } else {
-                window.addEventListener('load', function() { setTimeout(loadGtag, 800); });
-            }
-        })();
-    </script>
+    <script src="analytics.js"></script>
 <!-- Structured Data -->
 <script type="application/ld+json">
 {
@@ -415,6 +395,7 @@
 </footer>
 <script src="common.js" defer></script>
 <script src="summary.js" defer></script>
+<script src="day-planning.js" defer></script>
 <script src="supabase.js" defer></script>
 <script src="sync.js" defer></script>
 <script src="auth-ui.js" defer></script>

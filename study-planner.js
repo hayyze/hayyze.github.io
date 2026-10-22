@@ -4,11 +4,12 @@
   'use strict';
 
   // State Management
-  var subjects = [
-    { id: 'subj_1', name: 'الرياضيات / الفيزياء', priority: 'high', difficulty: 'hard' },
-    { id: 'subj_2', name: 'الكيمياء / الأحياء', priority: 'medium', difficulty: 'medium' },
-    { id: 'subj_3', name: 'اللغة الإنجليزية / التخصص', priority: 'medium', difficulty: 'review' }
-  ];
+  var savedDraft = hayyizParseJSON('hayyiz-planner-draft', {}) || {};
+  var subjects = Array.isArray(savedDraft.subjects) && savedDraft.subjects.length ? savedDraft.subjects.filter(function(s) { return s && typeof s.name === 'string'; }).slice(0, 50) :
+    hayyizGetSubjects().map(function (s) { return { id: s.id, name: s.name, priority: 'medium', difficulty: 'medium' }; });
+  if (!subjects.length) subjects = [{ id: 'subj_1', name: '', priority: 'medium', difficulty: 'medium' }];
+  var selectedExamId = savedDraft.examId || '';
+  var adoptedTargetId = savedDraft.targetId || null;
 
   // DOM Elements
   var examDateInput = document.getElementById('sp-exam-date');
@@ -50,8 +51,9 @@
     var yyyy = target.getFullYear();
     var mm = String(target.getMonth() + 1).padStart(2, '0');
     var dd = String(target.getDate()).padStart(2, '0');
-    examDateInput.value = yyyy + '-' + mm + '-' + dd;
-    examDateInput.min = new Date().toISOString().split('T')[0];
+    examDateInput.value = hayyizValidDate(savedDraft.date) && savedDraft.date >= getTodayLocal() ? savedDraft.date : yyyy + '-' + mm + '-' + dd;
+    examDateInput.min = getTodayLocal();
+    if (dailyHoursInput && savedDraft.hours) dailyHoursInput.value = savedDraft.hours;
   }
 
   // Render Subject Input Rows
@@ -66,17 +68,17 @@
 
       itemDiv.innerHTML =
         '<div class="sp-field">' +
-          '<input type="text" class="sp-input sp-subj-name" value="' + escapeHtml(subj.name) + '" placeholder="اسم المادة" data-index="' + index + '">' +
+          '<input type="text" class="sp-input sp-subj-name" value="' + escapeHtml(subj.name) + '" placeholder="اسم المادة" aria-label="اسم المادة" data-index="' + index + '">' +
         '</div>' +
         '<div class="sp-field">' +
-          '<select class="sp-select sp-subj-priority" data-index="' + index + '">' +
+          '<select class="sp-select sp-subj-priority" aria-label="أولوية المادة" data-index="' + index + '">' +
             '<option value="high"' + (subj.priority === 'high' ? ' selected' : '') + '>أولوية عالية</option>' +
             '<option value="medium"' + (subj.priority === 'medium' ? ' selected' : '') + '>أولوية متوسطة</option>' +
             '<option value="low"' + (subj.priority === 'low' ? ' selected' : '') + '>أولوية منخفضة</option>' +
           '</select>' +
         '</div>' +
         '<div class="sp-field">' +
-          '<select class="sp-select sp-subj-difficulty" data-index="' + index + '">' +
+          '<select class="sp-select sp-subj-difficulty" aria-label="صعوبة المادة" data-index="' + index + '">' +
             '<option value="hard"' + (subj.difficulty === 'hard' ? ' selected' : '') + '>صعبة (تأسيس وشرح)</option>' +
             '<option value="medium"' + (subj.difficulty === 'medium' ? ' selected' : '') + '>متوسطة (فهم وتمارين)</option>' +
             '<option value="review"' + (subj.difficulty === 'review' ? ' selected' : '') + '>سهلة (مراجعة وتثبيت)</option>' +
@@ -103,7 +105,8 @@
       input.addEventListener('input', function (e) {
         var idx = parseInt(e.target.dataset.index, 10);
         if (subjects[idx]) {
-          subjects[idx].name = e.target.value.trim() || 'مادة بدون عنوان';
+          subjects[idx].name = e.target.value.trim();
+          generatePlan();
         }
       });
     });
@@ -113,6 +116,7 @@
         var idx = parseInt(e.target.dataset.index, 10);
         if (subjects[idx]) {
           subjects[idx].priority = e.target.value;
+          generatePlan();
         }
       });
     });
@@ -122,6 +126,7 @@
         var idx = parseInt(e.target.dataset.index, 10);
         if (subjects[idx]) {
           subjects[idx].difficulty = e.target.value;
+          generatePlan();
         }
       });
     });
@@ -142,10 +147,11 @@
 
   // Add Subject
   function addSubject() {
-    var newId = 'subj_' + Date.now();
+    if (subjects.length >= 50) return;
+    var newId = hayyizGenerateId();
     subjects.push({
       id: newId,
-      name: 'مادة جديدة ' + (subjects.length + 1),
+      name: '',
       priority: 'medium',
       difficulty: 'medium'
     });
@@ -169,6 +175,7 @@
     }
 
     var dailyHours = parseFloat(dailyHoursInput.value) || 3;
+    if (dailyHoursVal) dailyHoursVal.textContent = dailyHoursInput.value + ' ساعات';
     var totalAvailableHours = remainingDays * dailyHours;
 
     // Determine Final Review Days Buffer (1 day if >= 4 days, else 0.5)
@@ -192,6 +199,8 @@
       subj.allocatedHours = Math.round((ratio * netStudyHours) * 10) / 10;
       subj.percentage = Math.round((subj.allocatedHours / netStudyHours) * 100);
     });
+
+    hayyizSaveJSON('hayyiz-planner-draft', { subjects: subjects, date: examDateInput.value, hours: dailyHoursInput.value, examId: selectedExamId, targetId: adoptedTargetId });
 
     // Update Metrics DOM
     if (metricDays) metricDays.textContent = remainingDays + ' أيام';
@@ -323,6 +332,55 @@
     renderSubjectsInputs();
     generatePlan();
     initEvents();
+    var examSelect = document.getElementById('sp-exam-select');
+    hayyizGetExams().filter(function(ex) { return ex && ex.date > getTodayLocal(); }).forEach(function(ex) {
+      var option = document.createElement('option'); option.value = ex.id; option.textContent = ex.name + ' · ' + ex.date; examSelect.appendChild(option);
+    });
+    examSelect.value = selectedExamId;
+    if (!examSelect.value && selectedExamId) { selectedExamId = ''; adoptedTargetId = null; }
+    var currentExam = hayyizGetExams().find(function(ex) { return ex.id === selectedExamId; });
+    if (currentExam) examDateInput.value = currentExam.date;
+    examDateInput.disabled = Boolean(currentExam);
+    generatePlan();
+    examSelect.addEventListener('change', function() {
+      selectedExamId = examSelect.value;
+      adoptedTargetId = null; // Switching targets starts a distinct adoption identity.
+      var exam = hayyizGetExams().find(function(ex) { return ex.id === selectedExamId; });
+      if (exam) examDateInput.value = exam.date;
+      document.getElementById('sp-adopt-status').textContent = '';
+      examDateInput.disabled = Boolean(exam);
+      generatePlan();
+    });
+    document.getElementById('sp-new-plan').addEventListener('click', function() {
+      selectedExamId = '';
+      adoptedTargetId = null;
+      examSelect.value = '';
+      examDateInput.disabled = false;
+      generatePlan();
+      document.getElementById('sp-adopt-status').textContent = 'جاهزة كخطة جديدة؛ اضغط اعتماد الخطة لحفظها.';
+      examDateInput.focus();
+    });
+    document.getElementById('sp-adopt-plan').addEventListener('click', function() {
+      generatePlan();
+      var status = document.getElementById('sp-adopt-status');
+      if (!subjects.every(function(s) { return s.name.trim() && s.allocatedHours > 0; })) {
+        status.textContent = 'أدخل أسماء المواد وتأكد أن كل مادة لها وقت مخصص.'; return;
+      }
+      var plan = hayyizAdoptStudyPlan({ targetId: adoptedTargetId, examId: selectedExamId, targetDate: examDateInput.value,
+        dailyCapacityMinutes: Math.round(Number(dailyHoursInput.value) * 60),
+        subjects: subjects.map(function(s) { return { name:s.name, minutes:Math.round(s.allocatedHours * 60), priority:s.priority }; }) });
+      if (!plan) { status.textContent = 'اختر تاريخًا من الغد وحتى سنة واحدة، وتحقق من الوقت والمواد.'; return; }
+      adoptedTargetId = plan.targetId;
+      generatePlan();
+      status.replaceChildren(document.createTextNode('حُفظت الخطة في المهام. ' + plan.statusLabel + ' '));
+      if (plan.adoption && plan.adoption.mergedSubjects) {
+        status.appendChild(document.createTextNode('جُمعت دقائق المواد المكررة في مهمة واحدة لكل مادة مع الاحتفاظ بأعلى أولوية. '));
+      }
+      if (plan.adoption && (plan.adoption.protectedFields.length || plan.adoption.retainedTaskIds.length)) {
+        status.appendChild(document.createTextNode('احتُفظ بالتعديلات اليدوية والمهام القديمة؛ راجع تقديراتها ومواعيدها في المهام. '));
+      }
+      var link = document.createElement('a'); link.href = 'index.html#daily-summary'; link.textContent = 'افتح خطة يومي وابدأ'; status.appendChild(link);
+    });
   });
 
 })();
