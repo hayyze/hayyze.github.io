@@ -31,7 +31,12 @@ const sensitive=[
     'index.html?utm_source=PRIVATE',
     'index.html#access_token=PRIVATE',
     'index.html#daily-summary',
-    'PRIVATE.html'
+    'pomodoro?task=PRIVATE&taskId=PRIVATE_ID',
+    'notes?title=PRIVATE',
+    'index?code=PRIVATE',
+    'index#access_token=PRIVATE',
+    'PRIVATE.html',
+    'PRIVATE'
 ];
 for(const path of sensitive) {
     const d=device('https://hayyze.pages.dev/'+path,{optIn:true}); d.load();
@@ -43,6 +48,15 @@ for(const path of sensitive) {
     // Removing parameters later must not unexpectedly start analytics in the sensitive document.
     d.c.location=new URL(d.c.location.origin+d.c.location.pathname);
     d.load();assert.equal(d.c.hayyizSendPlanningEvent('focus_started'),false);
+}
+for(const path of ['pomodoro','todo','index','blog-1']) {
+    const alias=device('https://hayyze.pages.dev/'+path,{optIn:true});alias.load();
+    assert.equal(alias.scripts.length,1,'Known Cloudflare Pages routes must load the guarded SDK: '+path);
+    assert.equal(events(alias.c).filter(e=>e[1]==='page_view').length,1);
+    assert.equal(events(alias.c)[0][2].page_location,'https://hayyze.pages.dev/'+path);
+    alias.ready();alias.c.hayyizTrackPlanningEvent('focus_started');
+    assert.equal(events(alias.c).at(-1)[1],'planning_focus_started');
+    assert(!JSON.stringify(alias.c.dataLayer).includes('PRIVATE'));
 }
 let legacyCalls=0;
 const legacy=device('https://hayyze.pages.dev/pomodoro.html?task=PRIVATE',{optIn:true,analytics:false,legacy(){legacyCalls++;}});

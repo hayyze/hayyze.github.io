@@ -6,8 +6,16 @@ const http = require('node:http');
 const assert = require('node:assert/strict');
 const root = process.cwd();
 const server = http.createServer((req, res) => {
-    const file = path.resolve(root, '.' + new URL(req.url, 'http://localhost').pathname.replace(/\/$/, '/index.html'));
+    const url = new URL(req.url, 'http://localhost');
+    const pathname = url.pathname.replace(/\/$/, '/index.html');
+    let file = path.resolve(root, '.' + pathname);
     if (!file.startsWith(root + path.sep)) { res.writeHead(403).end(); return; }
+    // An isolated context opts into Pages-style HTML redirects; other smoke flows keep file URLs.
+    if (req.headers['x-hayyiz-test-clean-urls'] === '1' && url.pathname.endsWith('.html') && fs.existsSync(file)) {
+        const route = pathname === '/index.html' ? '/' : pathname.slice(0, -5);
+        res.writeHead(301, {Location:route + url.search}).end(); return;
+    }
+    if (!path.extname(file) && fs.existsSync(file + '.html')) file += '.html';
     fs.readFile(file, (err, data) => {
         if (err) { res.writeHead(404).end(); return; }
         const types = { '.html':'text/html; charset=utf-8', '.js':'text/javascript', '.css':'text/css', '.json':'application/json', '.webmanifest':'application/manifest+json', '.png':'image/png' };
@@ -366,9 +374,27 @@ const server = http.createServer((req, res) => {
         const pageViews=await privacyPage.evaluate(()=>window.dataLayer.filter(args=>args[0]==='event'&&args[1]==='page_view').length);
         assert.equal(pageViews,1);
         assert.equal(await privacyPage.evaluate(()=>localStorage.getItem('hayyiz-planning-pending-events')),null,'Buffered names flush on a clean page after SDK load');
+        // Verify canonical extensionless paths and real HTTP redirects used by Cloudflare Pages.
+        await privacyPage.setExtraHTTPHeaders({'X-Hayyiz-Test-Clean-Urls':'1'});
+        await privacyPage.goto(base+'/pomodoro.html');
+        await privacyPage.waitForFunction(()=>window.__privacySdkLoaded===true);
+        assert.equal(new URL(privacyPage.url()).pathname,'/pomodoro');
+        assert.equal(sdkRequests.length,2);
+        assert.equal(await privacyPage.evaluate(()=>window.dataLayer.find(args=>args[0]==='event'&&args[1]==='page_view')[2].page_location),base+'/pomodoro');
+        await privacyPage.goto(base+'/notes.html?title=PRIVATE_TITLE');
+        assert.equal(new URL(privacyPage.url()).pathname,'/notes');
+        await privacyPage.evaluate(()=>hayyizTrackPlanningEvent('focus_started'));
+        assert.equal(sdkRequests.length,2,'A redirected sensitive route still cannot load analytics');
+        assert.equal(await privacyPage.locator('script[src*="googletagmanager.com/gtag"]').count(),0);
+        await privacyPage.goto(base+'/todo.html');
+        await privacyPage.waitForFunction(()=>window.__privacySdkLoaded===true);
+        assert.equal(new URL(privacyPage.url()).pathname,'/todo');
+        assert.equal(sdkRequests.length,3);
+        assert(!await privacyPage.evaluate(()=>JSON.stringify(window.dataLayer).includes('PRIVATE')));
+        assert.equal(await privacyPage.evaluate(()=>localStorage.getItem('hayyiz-planning-pending-events')),null);
         assert.deepEqual(analyticsRequests,[]);assert.deepEqual(privacyErrors,[]);
         await privacy.close();
-        console.log('Analytics browser privacy PASSED: no SDK on sensitive URLs, origin-only referrer, guarded payloads, delayed flushing and one page view (intercepted SDK, no Google collection).');
+        console.log('Analytics browser privacy PASSED: sensitive guards, safe context, delayed flushing, one page view, extensionless routes and Pages-style HTTP redirects (intercepted SDK, no Google collection).');
         // Warm app shell, then verify offline navigation in a fresh service-worker-enabled context.
         const offline = await browser.newContext();
         await offline.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());

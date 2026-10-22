@@ -5,6 +5,10 @@
     window.__hayyizAnalyticsInitialized = true;
     const stream = 'G-F94Z3H2D3S';
     const pages = new Set(["/", "/about.html", "/blog-1.html", "/blog-10.html", "/blog-11.html", "/blog-12.html", "/blog-13.html", "/blog-14.html", "/blog-15.html", "/blog-16.html", "/blog-2.html", "/blog-3.html", "/blog-4.html", "/blog-5.html", "/blog-6.html", "/blog-7.html", "/blog-8.html", "/blog-9.html", "/blog.html", "/calculator.html", "/contact.html", "/cumulative.html", "/draw.html", "/first-intermediate.html", "/first-secondary.html", "/founder.html", "/game.html", "/gpa.html", "/habits.html", "/index.html", "/intermediate.html", "/notes.html", "/pomodoro.html", "/privacy.html", "/required-score.html", "/second-intermediate.html", "/second-secondary.html", "/secondary.html", "/third-intermediate.html", "/third-secondary.html", "/todo.html", "/university.html", "/weighted.html"]);
+    // Cloudflare Pages redirects these HTML files to their extensionless routes.
+    for (const page of Array.from(pages)) {
+        if (page.endsWith('.html')) pages.add(page.slice(0, -5));
+    }
     const actions = new Set(['first_plan', 'plan_adopted', 'focus_started', 'focus_completed', 'task_completed', 'time_updated', 'day_reviewed', 'estimate_extended']);
     const initial = new URL(window.location.href);
     const title = document.title || 'حيز'; // Capture the static head title, never a later task/timer title.
@@ -62,7 +66,7 @@
         document.head.appendChild(tag);
     }
     // Preserve the home page's existing delayed load; other pages keep an asynchronous SDK load.
-    if (!['/', '/index.html'].includes(initial.pathname)) load();
+    if (!['/', '/index', '/index.html'].includes(initial.pathname)) load();
     else if (document.readyState === 'complete') setTimeout(load, 800);
     else window.addEventListener('load', () => setTimeout(load, 800), { once: true });
 })();
