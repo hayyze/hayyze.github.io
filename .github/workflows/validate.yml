@@ -39,7 +39,8 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f scripts/bootstrap-postgres-test.sql
           git show origin/main:supabase-schema-and-security.sql > "$RUNNER_TEMP/hayyiz-base-schema.sql"
           psql -v ON_ERROR_STOP=1 -f "$RUNNER_TEMP/hayyiz-base-schema.sql"
-          psql -v ON_ERROR_STOP=1 -f supabase/account-security-integrity.sql
+          node scripts/build-verified-migration.cjs supabase/account-security-integrity.sql > "$RUNNER_TEMP/hayyiz-verified-migration.sql"
+          psql -v ON_ERROR_STOP=1 --single-transaction -f "$RUNNER_TEMP/hayyiz-verified-migration.sql"
           psql -v ON_ERROR_STOP=1 -f scripts/test-database-security.sql
       - name: Verify schema can be reapplied without breaking permissions
         run: |
