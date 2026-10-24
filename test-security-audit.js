@@ -119,15 +119,16 @@ runTest('SQL Security: private.check_rate_limit uses row locking FOR UPDATE', ()
 
 runTest('SQL Security: All SECURITY DEFINER functions set search_path = \'\'', () => {
     const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema-and-security.sql'), 'utf8');
-    const matches = sql.match(/SECURITY DEFINER/g) || [];
-    const searchPathMatches = sql.match(/SET search_path = ''/g) || [];
-    assert.strictEqual(matches.length, searchPathMatches.length,
-        'All SECURITY DEFINER functions must set search_path = \'\'');
+    const headers = sql.split(/CREATE OR REPLACE FUNCTION\s+/i).slice(1).map(part => part.split(/\bAS\s+\$\$/i)[0]);
+    const definers = headers.filter(header => /\bSECURITY DEFINER\b/i.test(header));
+    assert.ok(definers.length > 0, 'Expected privileged functions in the schema');
+    definers.forEach(header => assert.match(header, /SET\s+search_path\s*=\s*''/i,
+        'Privileged function must set its own empty search_path: ' + header.split('(')[0]));
 });
 
 runTest('SQL Security: RLS policies strictly enforce auth.uid() = user_id', () => {
     const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema-and-security.sql'), 'utf8');
-    assert.ok(sql.includes('auth.uid() = user_id'), 'RLS policies must check auth.uid() = user_id');
+    assert.match(sql, /\(select auth\.uid\(\)\) = user_id/i, 'Own-row policies must check the caller ID once per statement');
 });
 
 runTest('SQL Security: Private schema permissions revoked from public, anon, and authenticated', () => {

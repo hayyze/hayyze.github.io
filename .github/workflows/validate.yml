@@ -9,6 +9,43 @@ concurrency:
   group: validate-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
+  database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: hayyiz-test-only
+          POSTGRES_DB: hayyiz_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: hayyiz-test-only
+      PGDATABASE: hayyiz_test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Bootstrap isolated Auth roles and verify database boundaries
+        run: |
+          psql -v ON_ERROR_STOP=1 -f scripts/bootstrap-postgres-test.sql
+          git show origin/main:supabase-schema-and-security.sql > "$RUNNER_TEMP/hayyiz-base-schema.sql"
+          psql -v ON_ERROR_STOP=1 -f "$RUNNER_TEMP/hayyiz-base-schema.sql"
+          node scripts/build-verified-migration.cjs supabase/account-security-integrity.sql > "$RUNNER_TEMP/hayyiz-verified-migration.sql"
+          psql -v ON_ERROR_STOP=1 --single-transaction -f "$RUNNER_TEMP/hayyiz-verified-migration.sql"
+          psql -v ON_ERROR_STOP=1 -f scripts/test-database-security.sql
+      - name: Verify schema can be reapplied without breaking permissions
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase-schema-and-security.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/test-database-security.sql
   regression:
     runs-on: ubuntu-latest
     steps:

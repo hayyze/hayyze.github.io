@@ -1,4 +1,4 @@
-const CACHE_NAME = 'heez-v1.10.0';
+const CACHE_NAME = 'heez-v1.11.1';
 
 const ASSETS = [
   './',
@@ -33,6 +33,10 @@ const ASSETS = [
   './founder.html',
   './style.css',
   './common.js',
+  './account-storage.js',
+  './focus-history.js',
+  './backup.js',
+  './account-import.js',
   './analytics.js',
   './summary.js',
   './day-planning.js',
@@ -63,6 +67,46 @@ const ASSETS = [
   './favicon-32x32.png',
   './apple-touch-icon.png'
 ];
+
+// The HTML cache is a static app shell. Task IDs, OAuth parameters and other
+// query strings belong to the open document, never to separate cached copies.
+const APP_BASE = new URL('./', self.location.href);
+const ASSET_URLS = new Set(ASSETS.map((asset) => new URL(asset, APP_BASE).href));
+const HTML_ROUTES = new Map();
+ASSETS.filter((asset) => asset.endsWith('.html')).forEach((asset) => {
+  const url = new URL(asset, APP_BASE);
+  HTML_ROUTES.set(url.pathname, url.href);
+  HTML_ROUTES.set(url.pathname.slice(0, -5), url.href);
+});
+HTML_ROUTES.set(APP_BASE.pathname, new URL('./index.html', APP_BASE).href);
+
+function htmlCacheKey(request) {
+  const url = new URL(typeof request === 'string' ? request : request.url, APP_BASE);
+  return url.origin === APP_BASE.origin ? HTML_ROUTES.get(url.pathname) || null : null;
+}
+
+function documentResponse(response) {
+  // Cache.addAll follows Pages' .html redirects. A redirected cached Response
+  // cannot be returned for every navigation redirect mode, so remove only that
+  // transport flag; the document bytes, status and security headers stay intact.
+  return response && response.redirected
+    ? new Response(response.body, { status: response.status, statusText: response.statusText, headers: response.headers })
+    : response;
+}
+
+function offlineResponse() {
+  return new Response('تعذر فتح هذه الصفحة دون اتصال. أعد المحاولة عند عودة الإنترنت.', {
+    status: 503,
+    statusText: 'Offline',
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+  });
+}
+
+function keepCached(event, key, response) {
+  if (!key || !response || response.status !== 200) return;
+  const copy = response.clone();
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(key, copy)).catch(() => {}));
+}
 
 // تثبيت Service Worker وتخزين الملفات الأساسية
 self.addEventListener('install', (event) => {
@@ -96,6 +140,10 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const request = event.request;
+  const url = new URL(request.url);
+  // Remote auth/data endpoints must keep their normal network semantics.
+  if (url.origin !== APP_BASE.origin) return;
+  const documentKey = request.destination === 'document' ? htmlCacheKey(request) : null;
 
   /*
    * HTML + JavaScript + CSS
@@ -111,19 +159,13 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response && response.status === 200) {
-            const responseToCache = response.clone();
-
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(request, responseToCache);
-              });
-          }
-
+          keepCached(event, documentKey || (ASSET_URLS.has(url.href) ? request : null), response);
           return response;
         })
-        .catch(() => {
-          return caches.match(request);
+        .catch(async () => {
+          if (request.destination === 'document' && !documentKey) return offlineResponse();
+          const cached = await caches.match(documentKey || request);
+          return (request.destination === 'document' ? documentResponse(cached) : cached) || offlineResponse();
         })
     );
 
@@ -136,6 +178,7 @@ self.addEventListener('fetch', (event) => {
    * إذا كانت موجودة في الكاش نستخدمها.
    * وإذا لم تكن موجودة، نحاول تحميلها من الشبكة وتخزينها.
    */
+  if (!ASSET_URLS.has(url.href)) return;
   event.respondWith(
     caches.match(request)
       .then((cached) => {
@@ -153,27 +196,12 @@ self.addEventListener('fetch', (event) => {
               return response;
             }
 
-            const responseToCache = response.clone();
-
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(request, responseToCache);
-              });
-
+            keepCached(event, request, response);
             return response;
           });
       })
       .catch(() => {
-        const accept = request.headers.get('accept') || '';
-
-        if (accept.includes('text/html')) {
-          return caches.match('./index.html');
-        }
-
-        return new Response('', {
-          status: 503,
-          statusText: 'Offline'
-        });
+        return offlineResponse();
       })
   );
 });
@@ -190,7 +218,7 @@ self.addEventListener('notificationclick', (event) => {
       .then((clientList) => {
         for (const client of clientList) {
           if (
-            client.url.includes('pomodoro.html') &&
+            htmlCacheKey(client.url) === new URL('./pomodoro.html', APP_BASE).href &&
             'focus' in client
           ) {
             return client.focus();

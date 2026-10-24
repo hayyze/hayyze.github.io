@@ -1,3 +1,4 @@
+var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (typeof localStorage !== 'undefined' ? localStorage : undefined);
 /**
  * auth-ui.js — واجهة المستخدم والمصادقة الخاصة بمنصة حيز عبر Supabase Auth
  * يتضمن ترجمة وتفسير أخطاء تجاوز الحدود (429 Rate Limiting) والتحكم بتبريد أزرار الواجهة (Cooldown UI)
@@ -177,17 +178,33 @@
                 `;
 
                 modalContent.querySelector('.close-modal').addEventListener('click', closeAuthModal);
+                if (hayyizStorage.accountId && hayyizStorage.guestSnapshot) {
+                    const device = hayyizStorage.guestSnapshot();
+                    const hasData = ['hayyiz-todos', 'hayyiz-notes', 'hayyiz-habits', 'hayyiz-free-spaces-v1'].some(key => {
+                        try { const value = JSON.parse(device[key] || 'null'); return Array.isArray(value) ? value.length > 0 : value && Array.isArray(value.spaces) && value.spaces.length > 0; }
+                        catch (_) { return false; }
+                    });
+                    if (hasData) {
+                        const link = document.createElement('a');
+                        link.href = 'about.html#hayyiz-device-data-controls';
+                        link.className = 'btn btn-outline width-full';
+                        link.textContent = 'إضافة بيانات هذا الجهاز إلى حسابي';
+                        modalContent.querySelector('.auth-actions').appendChild(link);
+                    }
+                }
                 modalContent.querySelector('#auth-logout-btn').addEventListener('click', async () => {
                     const logoutBtn = modalContent.querySelector('#auth-logout-btn');
                     logoutBtn.disabled = true;
                     logoutBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري تسجيل الخروج...';
 
                     try {
+                        let result;
                         if (typeof hayyizSignOut === 'function') {
-                            await hayyizSignOut();
+                            result = await hayyizSignOut();
                         } else if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
-                            await supabaseClient.auth.signOut();
+                            result = await supabaseClient.auth.signOut();
                         }
+                        if (result && result.error) throw result.error;
                         closeAuthModal();
                     } catch (e) {
                         showAuthAlert(formatAuthError(e), 'danger');
@@ -414,23 +431,31 @@
     }
 
     function setupAuth() {
+        if (typeof initAuthListener === 'function') initAuthListener();
         updateNavAuthButton(null);
+        const attachedClients = new WeakSet();
+        let authRenderEpoch = 0;
 
         const applyClientAuth = (client) => {
-            if (!client || !client.auth) return;
+            if (!client || !client.auth || attachedClients.has(client)) return;
+            attachedClients.add(client);
+            const epoch = authRenderEpoch;
             client.auth.getUser().then(({ data, error }) => {
+                if (epoch !== authRenderEpoch) return;
                 if (!error && data && data.user) {
                     updateNavAuthButton(data.user);
                 } else {
                     updateNavAuthButton(null);
                 }
             }).catch(() => {
+                if (epoch !== authRenderEpoch) return;
                 updateNavAuthButton(null);
             });
 
             if (!window.__hayyizAuthUIListenerRegistered) {
                 window.__hayyizAuthUIListenerRegistered = true;
                 client.auth.onAuthStateChange((event, session) => {
+                    authRenderEpoch++;
                     const user = session ? session.user : null;
                     updateNavAuthButton(user);
 
@@ -442,6 +467,10 @@
                 });
             }
         };
+
+        if (typeof window.addEventListener === 'function') {
+            window.addEventListener('hayyiz:supabase-ready', event => applyClientAuth(event.detail));
+        }
 
         if (typeof hasSavedSupabaseSession === 'function' && hasSavedSupabaseSession()) {
             if (typeof ensureSupabaseLoaded === 'function') {

@@ -10,8 +10,11 @@ const server = http.createServer((req, res) => {
     const pathname = url.pathname.replace(/\/$/, '/index.html');
     let file = path.resolve(root, '.' + pathname);
     if (!file.startsWith(root + path.sep)) { res.writeHead(403).end(); return; }
-    // An isolated context opts into Pages-style HTML redirects; other smoke flows keep file URLs.
-    if (req.headers['x-hayyiz-test-clean-urls'] === '1' && url.pathname.endsWith('.html') && fs.existsSync(file)) {
+    // The cookie also reaches service-worker precache requests, exercising the
+    // redirected Responses returned by Pages without changing other contexts.
+    const cleanUrls = req.headers['x-hayyiz-test-clean-urls'] === '1' ||
+        /(?:^|;\s*)hayyiz-smoke-clean-urls=1(?:;|$)/.test(req.headers.cookie || '');
+    if (cleanUrls && url.pathname.endsWith('.html') && fs.existsSync(file)) {
         const route = pathname === '/index.html' ? '/' : pathname.slice(0, -5);
         res.writeHead(301, {Location:route + url.search}).end(); return;
     }
@@ -30,6 +33,7 @@ const server = http.createServer((req, res) => {
         args: ['--no-sandbox','--disable-gpu','--disable-software-rasterizer','--disable-dev-shm-usage']
     });
     try {
+        await require('./ux-regressions.cjs')(browser, base);
         const context = await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'});
         await context.addInitScript(() => { window.global = window; });
         await context.route('**/*', route => new URL(route.request().url()).origin === base ? route.continue() : route.abort());
@@ -286,6 +290,7 @@ const server = http.createServer((req, res) => {
         // A stale card must recheck the budget even if storage changes without a UI notification.
         await recPage.evaluate(()=>{
             localStorage.removeItem('hayyiz-focus-history');
+            localStorage.removeItem('hayyiz-focus-history-state');
             localStorage.removeItem('hayyiz-pomodoro-state');
             localStorage.removeItem('hayyiz-focus-minutes-today');
             hayyizSetTodayRemainingMinutes(10);
@@ -306,6 +311,7 @@ const server = http.createServer((req, res) => {
                 {id:'rec-next',text:'الواجب التالي',date:getTodayLocal(),minutes:30,priority:'medium',completed:false},
                 {id:'rec-deferred',text:'عمل غير مؤرخ',minutes:120,focusDone:30,priority:'high',completed:false}
             ]);
+            localStorage.removeItem('hayyiz-focus-history-state');
             hayyizSaveJSON('hayyiz-focus-history',{[getTodayLocal()]:3});
             hayyizSaveFocusState({mode:'focus',status:'idle',remainingSeconds:0,totalDuration:180,endTime:null,
                 context:{type:'task',id:'rec-done',title:'مهمة منجزة'},pendingNextMode:'break',
@@ -333,6 +339,127 @@ const server = http.createServer((req, res) => {
         assert.deepEqual(recommendationErrors,[]);
         console.log('Shared recommendations PASSED: dashboard/Todo agreement, budgeted launch, stale/zero budget, next task, preserved running/paused sessions.');
         await recommendations.close();
+        // Use the production backup UI and real browser IndexedDB. No SDK or
+        // remote account is needed to verify local data ownership after reload.
+        const integrity = await browser.newContext({serviceWorkers:'block',acceptDownloads:true});
+        await integrity.addInitScript(()=>{window.global=window;});
+        await integrity.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());
+        const integrityPage=await integrity.newPage(); integrityPage.setDefaultTimeout(10000);
+        const integrityErrors=[];integrityPage.on('pageerror',error=>integrityErrors.push(error.message));
+        integrityPage.on('dialog',dialog=>dialog.accept());
+        await integrityPage.goto(base+'/about.html');
+        assert.equal(await integrityPage.evaluate(()=>hayyizStorage.scope),'guest');
+        // A small valid one-page PDF, including real object offsets and xref.
+        const pdfParts=['%PDF-1.4\n'], pdfOffsets=[0];
+        const pdfObjects=['<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Count 1 /Kids [3 0 R] >>',
+            '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 300] /Contents 4 0 R >>','<< /Length 0 >>\nstream\n\nendstream'];
+        pdfObjects.forEach((body,index)=>{pdfOffsets.push(Buffer.byteLength(pdfParts.join('')));pdfParts.push((index+1)+' 0 obj\n'+body+'\nendobj\n');});
+        const xref=Buffer.byteLength(pdfParts.join(''));
+        pdfParts.push('xref\n0 5\n0000000000 65535 f \n'+pdfOffsets.slice(1).map(offset=>String(offset).padStart(10,'0')+' 00000 n \n').join('')+
+            'trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF\n');
+        const pdfSource=pdfParts.join('');
+        const whiteboard={spaces:[{id:'smoke-pdf-space',name:'رسم النسخة الاحتياطية',updated:1,pageIndex:0,bgStyle:'plain',
+            metadata:{pdf:{fileName:'smoke-lesson.pdf',pageCount:1}},pages:[{
+                strokes:[{tool:'pen',color:'#000000',size:2,points:[{x:10,y:20,pressure:0.5},{x:30,y:40,pressure:0.75}]}],
+                texts:[{id:'smoke-text',text:'فكرة محفوظة',x:15,y:25,size:18,color:'#1e293b'}]
+            }]}]};
+        await integrityPage.evaluate(async({whiteboard,pdfSource})=>{
+            hayyizStorage.setItem('hayyiz-notes',JSON.stringify([{id:'guest-note',content:'ملاحظة الزائر المحفوظة'}]));
+            hayyizSaveJSON('hayyiz-subjects',[{id:'smoke-subject',name:'الرياضيات'}]);
+            hayyizSaveTodos([{id:'smoke-keyboard-task',text:'مراجعة باللوحة',subjectId:'smoke-subject',completed:false,minutes:15}]);
+            hayyizStorage.setItem('hayyiz-free-spaces-v1',JSON.stringify(whiteboard));
+            hayyizStorage.setItem('hayyiz-draw-prefs',JSON.stringify({penSize:3,inputMode:'pen-only'}));
+            const db=await new Promise((resolve,reject)=>{
+                const request=indexedDB.open(hayyizStorage.databaseName('hayyiz-pdf-db'),1);
+                request.onupgradeneeded=()=>request.result.createObjectStore('pdf_blobs',{keyPath:'spaceId'});
+                request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);
+            });
+            try { await new Promise((resolve,reject)=>{
+                const transaction=db.transaction('pdf_blobs','readwrite');
+                transaction.objectStore('pdf_blobs').put({spaceId:'smoke-pdf-space',fileName:'smoke-lesson.pdf',
+                    data:new TextEncoder().encode(pdfSource).buffer,updated:1});
+                transaction.oncomplete=resolve;transaction.onabort=()=>reject(transaction.error);
+            }); } finally { db.close(); }
+        },{whiteboard,pdfSource});
+        const [download]=await Promise.all([integrityPage.waitForEvent('download'),integrityPage.locator('#hayyiz-export-btn').click()]);
+        const archive=JSON.parse(fs.readFileSync(await download.path(),'utf8'));
+        assert.equal(archive.version,3);assert.equal(archive.pdfFiles.length,1);
+        assert.equal(archive.pdfFiles[0].id,'smoke-pdf-space');
+        assert.equal(Buffer.from(archive.pdfFiles[0].data,'base64').toString('ascii'),pdfSource);
+        assert.deepEqual(JSON.parse(archive.keys['hayyiz-free-spaces-v1']),whiteboard,'Actual export preserves stroke points and text');
+        await integrityPage.evaluate(async()=>{
+            ['hayyiz-notes','hayyiz-todos','hayyiz-free-spaces-v1','hayyiz-draw-prefs'].forEach(key=>hayyizStorage.removeItem(key));
+            const db=await new Promise((resolve,reject)=>{
+                const request=indexedDB.open(hayyizStorage.databaseName('hayyiz-pdf-db'),1);
+                request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);
+            });
+            try { await new Promise((resolve,reject)=>{
+                const transaction=db.transaction('pdf_blobs','readwrite');transaction.objectStore('pdf_blobs').clear();
+                transaction.oncomplete=resolve;transaction.onabort=()=>reject(transaction.error);
+            }); } finally { db.close(); }
+        });
+        await Promise.all([
+            integrityPage.waitForNavigation({waitUntil:'load'}),
+            integrityPage.locator('#hayyiz-import-file').setInputFiles({name:'hayyiz-v3.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(archive))})
+        ]);
+        const restored=await integrityPage.evaluate(async()=>{
+            const db=await new Promise((resolve,reject)=>{
+                const request=indexedDB.open(hayyizStorage.databaseName('hayyiz-pdf-db'),1);
+                request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);
+            });
+            let record;
+            try { record=await new Promise((resolve,reject)=>{
+                const transaction=db.transaction('pdf_blobs','readonly'), request=transaction.objectStore('pdf_blobs').get('smoke-pdf-space');
+                transaction.oncomplete=()=>resolve(request.result);transaction.onabort=()=>reject(transaction.error);
+            }); } finally { db.close(); }
+            return {drawing:JSON.parse(hayyizStorage.getItem('hayyiz-free-spaces-v1')),notes:JSON.parse(hayyizStorage.getItem('hayyiz-notes')),
+                prefs:JSON.parse(hayyizStorage.getItem('hayyiz-draw-prefs')),fileName:record.fileName,bytes:Array.from(new Uint8Array(record.data))};
+        });
+        assert.deepEqual(restored.drawing,whiteboard);assert.equal(restored.fileName,'smoke-lesson.pdf');
+        assert.equal(Buffer.from(restored.bytes).toString('ascii'),pdfSource);
+        assert.equal(restored.notes[0].content,'ملاحظة الزائر المحفوظة');assert.equal(restored.prefs.penSize,3);
+        // Native button semantics must work with both Space and Enter, including
+        // the re-render and the completed-task tab, without a mouse click.
+        await integrityPage.goto(base+'/subject.html?id=smoke-subject');
+        const completeTask=integrityPage.getByRole('button',{name:'إكمال مهمة مراجعة باللوحة',exact:true});
+        assert.equal(await completeTask.getAttribute('aria-pressed'),'false');
+        await completeTask.focus();assert(await completeTask.evaluate(el=>document.activeElement===el));
+        await integrityPage.keyboard.press('Space');
+        await integrityPage.waitForFunction(()=>hayyizGetTaskById('smoke-keyboard-task')?.completed===true);
+        await integrityPage.locator('#tab-tasks-done').focus();await integrityPage.keyboard.press('Enter');
+        const reopenTask=integrityPage.getByRole('button',{name:'إلغاء إكمال مهمة مراجعة باللوحة',exact:true});
+        assert.equal(await reopenTask.getAttribute('aria-pressed'),'true');
+        await reopenTask.focus();await integrityPage.keyboard.press('Enter');
+        await integrityPage.waitForFunction(()=>hayyizGetTaskById('smoke-keyboard-task')?.completed===false);
+        await integrityPage.reload();assert.equal(await integrityPage.evaluate(()=>hayyizGetTaskById('smoke-keyboard-task').completed),false);
+        await integrityPage.goto(base+'/about.html');
+        const authKey='sb-dzfdbjnqtgltuguqqdkz-auth-token';
+        const guestNotes=await integrityPage.evaluate(()=>hayyizStorage.getItem('hayyiz-notes'));
+        await integrityPage.evaluate(({authKey})=>{
+            localStorage.setItem(authKey,JSON.stringify({user:{id:'smoke-user-a'}}));
+        },{authKey});
+        assert.equal(await integrityPage.evaluate(()=>hayyizStorage.scope),'guest','An existing document retains its original owner');
+        await integrityPage.reload();
+        assert.equal(await integrityPage.evaluate(()=>hayyizStorage.scope),'user:smoke-user-a');
+        assert.equal(await integrityPage.evaluate(()=>hayyizStorage.getItem('hayyiz-notes')),null,'Sign-in does not silently claim guest notes');
+        assert.equal(await integrityPage.evaluate(()=>hayyizStorage.getItem('hayyiz-free-spaces-v1')),null,'Guest drawings stay separate');
+        assert.equal(await integrityPage.evaluate(()=>hayyizStorage.databaseName('hayyiz-pdf-db')),'hayyiz-pdf-db--smoke-user-a');
+        await integrityPage.evaluate(()=>hayyizStorage.setItem('hayyiz-notes','[{"id":"account-a","content":"ملاحظة حساب أ"}]'));
+        await integrityPage.evaluate(({authKey})=>localStorage.setItem(authKey,JSON.stringify({user:{id:'smoke-user-b'}})),{authKey});
+        await integrityPage.reload();
+        assert.equal(await integrityPage.evaluate(()=>hayyizStorage.scope),'user:smoke-user-b');
+        assert.equal(await integrityPage.evaluate(()=>hayyizStorage.getItem('hayyiz-notes')),null,'A second account cannot inherit the first account');
+        await integrityPage.evaluate(()=>hayyizStorage.setItem('hayyiz-notes','[{"id":"account-b","content":"ملاحظة حساب ب"}]'));
+        await integrityPage.evaluate(({authKey})=>localStorage.setItem(authKey,JSON.stringify({user:{id:'smoke-user-a'}})),{authKey});
+        await integrityPage.reload();
+        assert.equal(await integrityPage.evaluate(()=>JSON.parse(hayyizStorage.getItem('hayyiz-notes'))[0].id),'account-a');
+        assert(!await integrityPage.evaluate(()=>Object.keys(hayyizStorage.guestSnapshot()).some(key=>key.startsWith('hayyiz-account:'))));
+        await integrityPage.evaluate(authKey=>localStorage.removeItem(authKey),authKey);await integrityPage.reload();
+        assert.equal(await integrityPage.evaluate(()=>hayyizStorage.scope),'guest');
+        assert.equal(await integrityPage.evaluate(()=>hayyizStorage.getItem('hayyiz-notes')),guestNotes,'Signing out recovers guest data unchanged');
+        assert.deepEqual(integrityErrors,[],'Backup, account reloads and keyboard completion have no uncaught errors');
+        await integrity.close();
+        console.log('Storage/backup/keyboard PASSED: real v3 export/import UI, drawing geometry and PDF bytes in IndexedDB, guest/account reload isolation, subject completion by Space and Enter.');
         // Intercept the SDK request: exercise loading and queue delivery without sending test data to Google.
         const privacy = await browser.newContext({serviceWorkers:'block'});
         await privacy.addInitScript(()=>localStorage.setItem('hayyiz-planning-metrics','enabled'));
@@ -397,17 +524,40 @@ const server = http.createServer((req, res) => {
         console.log('Analytics browser privacy PASSED: sensitive guards, safe context, delayed flushing, one page view, extensionless routes and Pages-style HTTP redirects (intercepted SDK, no Google collection).');
         // Warm app shell, then verify offline navigation in a fresh service-worker-enabled context.
         const offline = await browser.newContext();
+        await offline.addCookies([{url:base,name:'hayyiz-smoke-clean-urls',value:'1'}]);
         await offline.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());
-        const offPage=await offline.newPage(); await offPage.goto(base);
+        const offPage=await offline.newPage();offPage.setDefaultTimeout(10000);
+        const offlineErrors=[];offPage.on('pageerror',error=>offlineErrors.push(error.message));
+        await offPage.goto(base);
         await offPage.evaluate(()=>navigator.serviceWorker.ready.then(()=>true));
-        await offPage.waitForFunction(async()=>!!(await navigator.serviceWorker.getRegistration())?.active);
+        await offPage.waitForFunction(()=>!!navigator.serviceWorker.controller);
+        assert.equal(await offPage.evaluate(async()=>!!(await caches.match(new URL('./todo.html',location.href).href))?.redirected),true,
+            'The actual precache contains a Pages-style redirected HTML response');
+        await offPage.evaluate(()=>{
+            hayyizSaveJSON('hayyiz-subjects',[{id:'offline-subject',name:'مادة دون اتصال'}]);
+            hayyizSaveTodos([{id:'offline-task',text:'مهمة محفوظة دون اتصال',subjectId:'offline-subject',minutes:15,completed:false}]);
+        });
         await offline.setOffline(true);
+        for(const route of ['/todo.html?subjectId=offline-subject&source=PRIVATE_OFFLINE',
+            '/todo?subjectId=offline-subject&source=PRIVATE_OFFLINE']) {
+            const response=await offPage.goto(base+route);
+            assert.equal(response.status(),200);assert.equal(new URL(offPage.url()).searchParams.get('subjectId'),'offline-subject');
+            await offPage.locator('.todo-text').filter({hasText:'مهمة محفوظة دون اتصال'}).waitFor();
+            await offPage.reload();
+            assert.equal(await offPage.locator('.todo-text').filter({hasText:'مهمة محفوظة دون اتصال'}).count(),1,'Query-bearing Todo reloads while offline');
+        }
+        const cachedUrls=await offPage.evaluate(async()=>{
+            const urls=[];for(const name of await caches.keys()) for(const request of await(await caches.open(name)).keys()) urls.push(request.url);return urls;
+        });
+        assert(!cachedUrls.some(url=>url.includes('PRIVATE_OFFLINE')||url.includes('subjectId=')),'Task-specific queries do not become cache keys');
+        assert.equal((await offPage.goto(base+'/unknown-student-route?private=1')).status(),503,'Unknown routes cannot receive a cached application document');
         await offPage.goto(base+'/study-planner.html');
         await offPage.locator('#sp-adopt-plan').waitFor();
         assert.equal(await offPage.locator('#sp-exam-select').count(),1);
         await offPage.goto(base+'/index.html');
         assert.equal(await offPage.evaluate(()=>typeof window.hayyizSendPlanningEvent),'function','The shared analytics guard is cached offline');
-        console.log('Offline app shell PASSED: study planner loads without a previous visit and analytics guard is cached.');
+        assert.deepEqual(offlineErrors,[],'Offline query/alias/reload flows have no uncaught errors');
+        console.log('Offline app shell PASSED: redirected precache, Todo query/extensionless navigation and reload, preserved tasks, canonical cache keys, unknown-route rejection, unvisited planner and analytics guard.');
         await offline.close();
     } finally { await browser.close(); }
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>server.close());
