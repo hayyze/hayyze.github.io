@@ -1,10 +1,11 @@
+var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (typeof localStorage !== 'undefined' ? localStorage : undefined);
 /**
  * subject.js — صفحة المادة المركزية في منصة حيز (Subject Hub)
  */
 
 if (typeof document !== 'undefined' && document.documentElement) {
     try {
-        if (localStorage.getItem('hayyiz-theme') === 'dark') {
+        if (hayyizStorage.getItem('hayyiz-theme') === 'dark') {
             document.documentElement.classList.add('theme-dark');
         }
     } catch (e) {}
@@ -255,7 +256,7 @@ function initSubjectPage() {
 
     let rawNotes = [];
     try {
-        const parsed = JSON.parse(localStorage.getItem('hayyiz-notes') || '[]');
+        const parsed = JSON.parse(hayyizStorage.getItem('hayyiz-notes') || '[]');
         rawNotes = Array.isArray(parsed) ? parsed : [];
     } catch (e) {
         rawNotes = [];
@@ -728,18 +729,44 @@ function renderTasksSection(subject, openTasks, doneTasks) {
             const rightDiv = document.createElement('div');
             rightDiv.style.cssText = 'display: flex; align-items: center; gap: 0.75rem; flex: 1; min-width: 200px;';
 
+            const checkButton = document.createElement('button');
+            checkButton.type = 'button';
+            checkButton.className = 'btn subject-task-toggle';
+            checkButton.style.cssText = `border: 0; background: transparent; padding: 0.3rem; min-width: 36px; min-height: 36px; line-height: 1; box-shadow: none; color: ${task.completed || task.done ? 'var(--primary)' : 'var(--text-muted)'};`;
+            checkButton.setAttribute('aria-label', `${task.completed || task.done ? 'إلغاء إكمال مهمة' : 'إكمال مهمة'} ${task.text || task.title || ''}`);
+            checkButton.setAttribute('aria-pressed', String(Boolean(task.completed || task.done)));
             const checkIcon = document.createElement('i');
             checkIcon.className = task.completed || task.done ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle';
-            checkIcon.style.cssText = `font-size: 1.1rem; color: ${task.completed || task.done ? 'var(--primary)' : 'var(--text-muted)'}; cursor: pointer;`;
+            checkIcon.style.fontSize = '1.1rem';
+            checkIcon.setAttribute('aria-hidden', 'true');
+            checkButton.appendChild(checkIcon);
 
             // إمكانية التبديل السريع لحالة الإكمال
-            checkIcon.addEventListener('click', () => {
-                if (typeof hayyizToggleTodoComplete === 'function') {
-                    hayyizToggleTodoComplete(task.id);
-                } else if (typeof hayyizUpdateTask === 'function') {
-                    hayyizUpdateTask(task.id, { completed: !(task.completed || task.done), updated: Date.now() });
+            let completionFeedback = null;
+            checkButton.addEventListener('click', async () => {
+                if (checkButton.disabled) return;
+                checkButton.disabled = true;
+                if (completionFeedback) completionFeedback.remove();
+                try {
+                    let result;
+                    if (typeof hayyizUpdateTask === 'function') {
+                        result = await hayyizUpdateTask(task.id, { completed: !(task.completed || task.done), updated: Date.now() });
+                    } else if (typeof hayyizToggleTodoComplete === 'function') {
+                        result = await hayyizToggleTodoComplete(task.id);
+                    } else {
+                        throw new Error('Task update unavailable');
+                    }
+                    if (result === false || result === null) throw new Error('Task update failed');
+                    initSubjectPage();
+                } catch (error) {
+                    completionFeedback = document.createElement('p');
+                    completionFeedback.setAttribute('role', 'alert');
+                    completionFeedback.style.cssText = 'margin: 0; color: var(--danger); font-size: 0.85rem;';
+                    completionFeedback.textContent = 'تعذر تحديث حالة المهمة. حاول مجددًا عند توفر الاتصال.';
+                    card.appendChild(completionFeedback);
+                } finally {
+                    checkButton.disabled = false;
                 }
-                initSubjectPage();
             });
 
             const titleDiv = document.createElement('div');
@@ -777,7 +804,7 @@ function renderTasksSection(subject, openTasks, doneTasks) {
             titleDiv.appendChild(taskText);
             if (metaDiv.children.length > 0) titleDiv.appendChild(metaDiv);
 
-            rightDiv.appendChild(checkIcon);
+            rightDiv.appendChild(checkButton);
             rightDiv.appendChild(titleDiv);
 
             const actionsDiv = document.createElement('div');

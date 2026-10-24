@@ -1,4 +1,5 @@
 const fs = require('fs');
+const vm = require('node:vm');
 
 console.log('=== RUNNING RIGOROUS HAYYIZ WORKSPACES & SYNCHRONIZED TASKS TEST SUITE (30 SCENARIOS + SCHEMA VERIFICATION) ===\n');
 
@@ -987,15 +988,10 @@ let ws = null;
 async function runAsyncScenarios() {
     {
         const wsTask = db.createTask(user1, { title: 'مهمة حقيقية من صفحة المهام', scope: 'workspace', workspace_id: ws.id, completion_mode: 'independent' });
-        let mockTodos = [
-            { id: 'todo_ws_real', text: 'مهمة حقيقية من صفحة المهام', workspaceTaskId: wsTask.id, workspaceId: ws.id, completed: false }
-        ];
-
-        let rpcCalls = [];
+        const rpcCalls = [], alerts = [], callbacks = [];
         let rpcShouldFail = false;
-
-        // Mock ensureSupabaseLoaded for todo.js
-        global.ensureSupabaseLoaded = async () => ({
+        const client = {
+            auth: { async getUser() { return { data: { user: user1 }, error: null }; } },
             rpc: async (name, params) => {
                 rpcCalls.push({ name, params });
                 if (rpcShouldFail) {
@@ -1004,84 +1000,62 @@ async function runAsyncScenarios() {
                 db.updateTaskProgress(user1, user1.id, params.p_task_id, params.p_completed);
                 return { data: { success: true }, error: null };
             }
-        });
-
-        global.hayyizGetTodos = () => mockTodos;
-        global.hayyizSaveTodos = (todos) => { mockTodos = todos; };
-        global.hayyizUpdateTask = (id, patch) => {
-            const item = mockTodos.find(t => t.id === id);
-            if (item) Object.assign(item, patch);
-            return item;
         };
-        global.hayyizUploadItem = () => {};
-        global.announceToScreenReader = () => {};
-        global.hayyizGetFocusState = () => null;
-        global.renderTodos = () => {};
-        global.alert = () => {};
-
-        // Load todo.js source string to execute createTaskItemNode directly
-        const todoJsSource = fs.readFileSync('./todo.js', 'utf8');
-
-        // Mock DOM environment for createTaskItemNode execution
-        let capturedCheckboxListener = null;
-        let realCheckboxEl = null;
-
-        global.document = {
-            readyState: 'loading',
-            addEventListener: (evt, fn) => {
-                if (evt === 'DOMContentLoaded') fn();
+        function element(tag = 'div') {
+            return {
+                tagName: tag, checked: false, children: [], listeners: {}, dataset: {}, style: {}, innerHTML: '',
+                setAttribute() {}, addEventListener(type, callback) { this.listeners[type] = callback; },
+                appendChild(child) { this.children.push(child); }, focus() {},
+                classList: { add() {}, remove() {}, contains() { return false; }, toggle() {} }
+            };
+        }
+        const elements = new Map(), data = new Map();
+        const browser = vm.createContext({
+            console, navigator: {}, URLSearchParams, setTimeout, clearTimeout,
+            location: { search: '' }, addEventListener() {}, alert(message) { alerts.push(message); },
+            ensureSupabaseLoaded: async () => client, hayyizUploadItem() {},
+            localStorage: {
+                getItem(key) { return data.get(key) ?? null; },
+                setItem(key, value) { data.set(key, String(value)); }, removeItem(key) { data.delete(key); }
             },
-            getElementById: () => ({ addEventListener: () => {}, innerHTML: '', appendChild: () => {}, focus: () => {}, classList: { add: () => {}, remove: () => {}, contains: () => false, toggle: () => {} } }),
-            querySelectorAll: () => [],
-            createElement: (tag) => {
-                const children = [];
-                const listeners = {};
-                const el = {
-                    tagName: tag,
-                    type: tag === 'input' ? 'checkbox' : '',
-                    checked: false,
-                    children: children,
-                    dataset: {},
-                    style: {},
-                    setAttribute: () => {},
-                    addEventListener: (evt, handler) => {
-                        listeners[evt] = handler;
-                        if (evt === 'change' && tag === 'input') {
-                            capturedCheckboxListener = handler;
-                            realCheckboxEl = el;
-                        }
-                    },
-                    appendChild: (child) => { children.push(child); },
-                    classList: { add: () => {}, remove: () => {}, toggle: () => {} }
-                };
-                return el;
+            document: {
+                readyState: 'loading', addEventListener(type, callback) { if (type === 'DOMContentLoaded') callbacks.push(callback); },
+                getElementById(id) { if (!elements.has(id)) elements.set(id, element()); return elements.get(id); },
+                querySelectorAll() { return []; }, createElement: element
             }
-        };
+        });
+        browser.window = browser; browser.global = browser;
+        // Both production layers participate; no fake hayyizUpdateTask can bypass the RPC.
+        vm.runInContext(fs.readFileSync('./common.js', 'utf8'), browser, { filename: 'common.js' });
+        browser.hayyizSaveTodos([
+            { id: 'todo_ws_real', text: 'مهمة حقيقية من صفحة المهام', workspaceTaskId: wsTask.id, workspaceId: ws.id, completed: false }
+        ]);
+        const before = callbacks.length;
+        vm.runInContext(fs.readFileSync('./todo.js', 'utf8'), browser, { filename: 'todo.js' });
+        callbacks.slice(before).forEach(callback => callback());
+        const item = browser.createTaskItemNode(browser.hayyizGetTodos()[0]);
+        const realCheckboxEl = item.children[0];
 
-        // Evaluate todo.js inside global context so createTaskItemNode is defined and registers listener on mock DOM
-        eval(todoJsSource);
-
-        // Call actual createTaskItemNode from todo.js
-        createTaskItemNode(mockTodos[0]);
-
-        // Execute real change listener captured by createElement
         realCheckboxEl.checked = true;
-        await capturedCheckboxListener();
+        const saving = realCheckboxEl.listeners.change();
+        assert(realCheckboxEl.disabled && browser.hayyizGetTodos()[0].completed === false,
+            '38a. Real todo.js waits for common.js workspace persistence before completing the local task');
+        await saving;
 
         const dbProg = db.task_progress.find(p => p.task_id === wsTask.id && p.user_id === user1.id);
         const successResult = rpcCalls.length === 1 && rpcCalls[0].name === 'set_task_progress_and_recalculate' &&
                               rpcCalls[0].params.p_task_id === wsTask.id && rpcCalls[0].params.p_completed === true &&
-                              dbProg && dbProg.completed === true && mockTodos[0].completed === true;
+                              dbProg && dbProg.completed === true && browser.hayyizGetTodos()[0].completed === true;
 
-        assert(successResult, '38a. Real todo.js change handler invokes set_task_progress_and_recalculate RPC and marks local todo completed on RPC success');
+        assert(successResult, '38b. Real todo.js and common.js invoke the workspace RPC and persist local completion after success');
 
-        // 2. Failure test: RPC error reverts checkbox and leaves task incomplete
         rpcShouldFail = true;
-        realCheckboxEl.checked = false; // user unchecks
-        await capturedCheckboxListener();
+        realCheckboxEl.checked = false;
+        await realCheckboxEl.listeners.change();
 
-        const failureResult = realCheckboxEl.checked === true && mockTodos[0].completed === true;
-        assert(failureResult, '38b. Real todo.js change handler reverts checkbox state and preserves completed state upon RPC error');
+        const failureResult = rpcCalls.length === 2 && rpcCalls[1].params.p_completed === false &&
+            realCheckboxEl.checked === true && !realCheckboxEl.disabled && browser.hayyizGetTodos()[0].completed === true && alerts.length === 1;
+        assert(failureResult, '38c. Real workspace RPC failure restores the checkbox, preserves completion and reports the failure');
     }
 
     // Scenario 40: Personal tasks (workspace_id == null) remain untouched during syncWorkspaceTasksToLocalTodos
@@ -1224,47 +1198,56 @@ async function runAsyncScenarios() {
             '42. Real pomodoro.js context initialization reads workspace_task_id and workspace_id into state.context');
     }
 
-    // Scenario 43: Real pomodoro.js focus session completion logs to Supabase focus_sessions
+    // Scenario 43: Production reconciliation durably queues the workspace session and flushes its RPC once.
     {
-        let supabaseInserts = [];
-
-        global.ensureSupabaseLoaded = async () => ({
-            from: (tableName) => {
-                if (tableName === 'focus_sessions') {
-                    return {
-                        insert: async (payload) => {
-                            supabaseInserts.push(payload);
-                            return { error: null };
-                        }
-                    };
-                }
-                return {};
+        const data = new Map(), rpcCalls = [];
+        const client = {
+            auth: { async getUser() { return { data: { user: user1 }, error: null }; } },
+            async rpc(name, params) { rpcCalls.push({ name, params }); return { data: { success: true }, error: null }; },
+            from() {
+                const query = {
+                    select() { return query; }, eq() { return query; }, gt() { return query; },
+                    then(resolve, reject) { return Promise.resolve({ data: [], error: null }).then(resolve, reject); },
+                    async upsert() { return { error: null }; }
+                };
+                return query;
             }
+        };
+        const browser = vm.createContext({
+            console, navigator: {}, setTimeout, clearTimeout, addEventListener() {},
+            supabaseClient: client, ensureSupabaseLoaded: async () => client,
+            localStorage: {
+                getItem(key) { return data.get(key) ?? null; },
+                setItem(key, value) { data.set(key, String(value)); }, removeItem(key) { data.delete(key); }
+            },
+            document: { addEventListener() {}, getElementById() { return null; }, querySelectorAll() { return []; } }
         });
-
-        // Set state required for handleTimerCompletion using production global.setState hook
-        if (typeof global.setState === 'function') {
-            global.setState({
-                mode: 'focus',
-                totalDuration: 25 * 60,
-                context: {
-                    type: 'task',
-                    id: 'task_local_43',
-                    title: 'تجربة الكيمياء',
-                    workspaceTaskId: 'ws_task_43_chem',
-                    workspaceId: 'ws_chem_200'
-                }
-            });
+        browser.window = browser; browser.global = browser;
+        for (const file of ['focus-history.js', 'common.js', 'sync.js']) {
+            vm.runInContext(fs.readFileSync(file, 'utf8'), browser, { filename: file });
         }
+        browser.hayyizSaveTodos([{ id: 'task_local_43', text: 'تجربة الكيمياء', completed: false }]);
+        const endedAt = Date.now() - 1000;
+        const startedAt = new Date(endedAt - 25 * 60000).toISOString();
+        browser.hayyizSaveFocusState({
+            mode: 'focus', status: 'running', sessionId: 'production_session_43',
+            totalDuration: 25 * 60, remainingSeconds: 1, endTime: endedAt, startedAt,
+            context: { type: 'task', id: 'task_local_43', title: 'تجربة الكيمياء', workspaceTaskId: 'ws_task_43_chem', workspaceId: 'ws_chem_200' }
+        });
+        browser.hayyizReconcilePomodoroState();
+        browser.hayyizReconcilePomodoroState();
+        await browser.hayyizFlushWorkspaceFocusSessions();
+        await browser.hayyizFlushWorkspaceFocusSessions();
 
-        // Call production handleTimerCompletion directly
-        if (typeof global.handleTimerCompletion === 'function') {
-            await global.handleTimerCompletion();
-        }
-
-        const loggedSession = supabaseInserts.find(s => s.task_id === 'ws_task_43_chem');
-        assert(loggedSession && loggedSession.workspace_id === 'ws_chem_200' && loggedSession.duration_seconds === 1500,
-            '43. Real pomodoro.js completion handler logs focus session with task_id, workspace_id, and duration_seconds to Supabase focus_sessions');
+        const loggedSession = rpcCalls.find(call => call.name === 'record_focus_session');
+        assert(rpcCalls.length === 1 && loggedSession &&
+            loggedSession.params.p_client_session_id === 'production_session_43' &&
+            loggedSession.params.p_task_id === 'ws_task_43_chem' && loggedSession.params.p_workspace_id === 'ws_chem_200' &&
+            loggedSession.params.p_duration_seconds === 1500 && loggedSession.params.p_started_at === startedAt &&
+            loggedSession.params.p_ended_at === new Date(endedAt).toISOString() &&
+            browser.hayyizGetFocusSessions().length === 1 && browser.hayyizGetTaskById('task_local_43').focusDone === 25 &&
+            Object.keys(JSON.parse(data.get('hayyiz-workspace-focus-outbox'))).length === 0,
+            '43. Production reconciliation and outbox RPC record one workspace focus session after repeated reconcile/flush calls');
     }
 
     // Scenario 39: Collaborative task completed by one user does not mark completed for everyone
@@ -1292,4 +1275,4 @@ async function runAsyncScenarios() {
     if (failed > 0) process.exit(1);
 }
 
-runAsyncScenarios();
+runAsyncScenarios().catch(error => { console.error(error); process.exitCode = 1; });

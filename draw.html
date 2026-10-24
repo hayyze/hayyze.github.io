@@ -33,7 +33,9 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     
-     <script src="analytics.js"></script>
+     <script src="account-storage.js"></script>
+    <script src="focus-history.js" defer></script>
+    <script src="analytics.js"></script>
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>مساحة كتابة حرة | حيز</title>
@@ -535,7 +537,8 @@
         }
 
         // ——— IndexedDB engine لتخزين ملفات PDF بشكل آمن وبشكل منفصل عن LocalStorage ———
-        const PDF_DB_NAME = 'hayyiz-pdf-db';
+        const storage = window.hayyizStorage || localStorage;
+        const PDF_DB_NAME = storage.databaseName ? storage.databaseName('hayyiz-pdf-db') : 'hayyiz-pdf-db';
         const PDF_STORE_NAME = 'pdf_blobs';
 
         function openPdfDb() {
@@ -846,7 +849,7 @@
         // ——— تحميل البيانات القديمة وتوافقيها ———
         function loadAll() {
             try {
-                const raw = localStorage.getItem(STORAGE_KEY);
+                const raw = storage.getItem(STORAGE_KEY);
                 if (raw) {
                     const data = JSON.parse(raw);
                     spaces = (data.spaces || []).map(function (s) {
@@ -887,7 +890,7 @@
                 spaces = [];
             }
             try {
-                const prefs = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
+                const prefs = JSON.parse(storage.getItem(PREFS_KEY) || '{}');
                 penColor = prefs.penColor || '#1e293b';
                 penSize = prefs.penSize || 3;
                 inputMode = prefs.inputMode || 'pen-only';
@@ -900,7 +903,7 @@
 
         function migrateOld() {
             try {
-                const old = localStorage.getItem('hayyiz-free-notes-v2');
+                const old = storage.getItem('hayyiz-free-notes-v2');
                 if (!old) return;
                 const data = JSON.parse(old);
                 if (!data.pages || !data.pages.length) return;
@@ -930,7 +933,7 @@
                     bgStyle: data.bgStyle || 'plain',
                     updated: data.updated || Date.now()
                 });
-                localStorage.removeItem('hayyiz-free-notes-v2');
+                storage.removeItem('hayyiz-free-notes-v2');
             } catch (e) {}
         }
 
@@ -962,7 +965,7 @@
                         updated: s.updated
                     };
                 });
-                localStorage.setItem(STORAGE_KEY, JSON.stringify({ spaces: slim }));
+                storage.setItem(STORAGE_KEY, JSON.stringify({ spaces: slim }));
                 saveDot.classList.add('show');
                 clearTimeout(saveTimer);
                 saveTimer = setTimeout(function () { saveDot.classList.remove('show'); }, 1000);
@@ -973,7 +976,7 @@
 
         function savePrefs() {
             try {
-                localStorage.setItem(PREFS_KEY, JSON.stringify({
+                storage.setItem(PREFS_KEY, JSON.stringify({
                     penColor: penColor, penSize: penSize, inputMode: inputMode
                 }));
             } catch (e) {}
@@ -1237,7 +1240,7 @@
 
         // ——— طبقة الرسم + ثيم الموقع ———
         function isSiteDark() {
-            return localStorage.getItem('hayyiz-theme') === 'dark';
+            return storage.getItem('hayyiz-theme') === 'dark';
         }
 
         function applySiteTheme() {
@@ -2023,7 +2026,7 @@
                 s.updated = Date.now();
             }
             if (bgPicker.value === 'dark') {
-                localStorage.setItem('hayyiz-theme', 'dark');
+                storage.setItem('hayyiz-theme', 'dark');
             }
             applySiteTheme();
             drawBackground();

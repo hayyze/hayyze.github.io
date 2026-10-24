@@ -1,3 +1,4 @@
+var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (typeof localStorage !== 'undefined' ? localStorage : undefined);
 function hayyizRenderDailySummary() {
     function getToday() {
         if (typeof getTodayLocal === 'function') return getTodayLocal();
@@ -10,11 +11,11 @@ function hayyizRenderDailySummary() {
 
     function ensureTodayStats() {
         const today = getToday();
-        const lastDay = localStorage.getItem('hayyiz-sessions-day');
+        const lastDay = hayyizStorage.getItem('hayyiz-sessions-day');
         if (lastDay !== today) {
-            localStorage.setItem('hayyiz-sessions-today', '0');
-            localStorage.setItem('hayyiz-focus-minutes-today', '0');
-            localStorage.setItem('hayyiz-sessions-day', today);
+            hayyizStorage.setItem('hayyiz-sessions-today', '0');
+            hayyizStorage.setItem('hayyiz-focus-minutes-today', '0');
+            hayyizStorage.setItem('hayyiz-sessions-day', today);
         }
     }
 
@@ -29,13 +30,13 @@ function hayyizRenderDailySummary() {
         : null;
 
     const todos = studentState ? studentState.todos : (
-        typeof hayyizGetTodos === 'function' ? hayyizGetTodos() : JSON.parse(localStorage.getItem('hayyiz-todos') || '[]')
+        typeof hayyizGetTodos === 'function' ? hayyizGetTodos() : JSON.parse(hayyizStorage.getItem('hayyiz-todos') || '[]')
     );
     const habits = studentState ? studentState.habits : (
-        typeof hayyizGetHabits === 'function' ? hayyizGetHabits() : JSON.parse(localStorage.getItem('hayyiz-habits') || '[]')
+        typeof hayyizGetHabits === 'function' ? hayyizGetHabits() : JSON.parse(hayyizStorage.getItem('hayyiz-habits') || '[]')
     );
-    const sessionsToday = parseInt(localStorage.getItem('hayyiz-sessions-today') || '0', 10);
-    const focusMinutes = studentState ? studentState.focusMinutesToday : parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
+    const sessionsToday = parseInt(hayyizStorage.getItem('hayyiz-sessions-today') || '0', 10);
+    const focusMinutes = studentState ? studentState.focusMinutesToday : parseInt(hayyizStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
 
     const activeTodos = studentState ? studentState.activeTodos : todos.filter((t) => t && !t.completed);
     const completedToday = todos.filter((t) => t && t.completed && t.completedAt === today).length;
@@ -88,7 +89,7 @@ function hayyizRenderDailySummary() {
             hayyizLaunchPomodoro(task, index, plannedMinutes);
             return;
         }
-        const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
+        const workMin = parseInt(hayyizStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
         const totalMinutes = task.minutes ? parseInt(task.minutes, 10) : null;
         const plan = {
             text: task.text,
@@ -103,10 +104,10 @@ function hayyizRenderDailySummary() {
                     ? Math.ceil(totalMinutes / workMin)
                     : null
         };
-        localStorage.setItem('hayyiz-current-task', task.text);
-        if (task.id) localStorage.setItem('hayyiz-current-task-id', task.id);
-        localStorage.setItem('hayyiz-current-task-index', String(index));
-        localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
+        hayyizStorage.setItem('hayyiz-current-task', task.text);
+        if (task.id) hayyizStorage.setItem('hayyiz-current-task-id', task.id);
+        hayyizStorage.setItem('hayyiz-current-task-index', String(index));
+        hayyizStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
         let pomoUrl = 'pomodoro.html?task=' + encodeURIComponent(task.text);
         if (task.id) pomoUrl += '&taskId=' + encodeURIComponent(task.id);
         window.location.href = pomoUrl;
@@ -372,10 +373,10 @@ function hayyizRenderDailySummary() {
             if (typeof hayyizLaunchPomodoro === 'function') {
                 hayyizLaunchPomodoro(null);
             } else {
-                localStorage.removeItem('hayyiz-current-task');
-                localStorage.removeItem('hayyiz-current-task-index');
-                localStorage.removeItem('hayyiz-current-task-id');
-                localStorage.removeItem('hayyiz-task-session');
+                hayyizStorage.removeItem('hayyiz-current-task');
+                hayyizStorage.removeItem('hayyiz-current-task-index');
+                hayyizStorage.removeItem('hayyiz-current-task-id');
+                hayyizStorage.removeItem('hayyiz-task-session');
                 window.location.href = 'pomodoro.html';
             }
         });
@@ -834,7 +835,7 @@ function hayyizRenderDailySummary() {
                     const hideBtn = document.getElementById('hide-age-dash-btn');
                     if (hideBtn) {
                         hideBtn.addEventListener('click', () => {
-                            localStorage.setItem('hayyiz-show-age-in-dashboard', 'false');
+                            hayyizStorage.setItem('hayyiz-show-age-in-dashboard', 'false');
                             window.location.reload();
                         });
                     }
@@ -853,7 +854,7 @@ function hayyizRenderDailySummary() {
                     const showBtn = document.getElementById('show-age-dash-btn');
                     if (showBtn) {
                         showBtn.addEventListener('click', () => {
-                            localStorage.setItem('hayyiz-show-age-in-dashboard', 'true');
+                            hayyizStorage.setItem('hayyiz-show-age-in-dashboard', 'true');
                             window.location.reload();
                         });
                     }
@@ -876,13 +877,13 @@ function hayyizRenderDailySummary() {
                     const decBtn = document.getElementById('decline-show-age-btn');
                     if (accBtn) {
                         accBtn.addEventListener('click', () => {
-                            localStorage.setItem('hayyiz-show-age-in-dashboard', 'true');
+                            hayyizStorage.setItem('hayyiz-show-age-in-dashboard', 'true');
                             window.location.reload();
                         });
                     }
                     if (decBtn) {
                         decBtn.addEventListener('click', () => {
-                            localStorage.setItem('hayyiz-show-age-in-dashboard', 'false');
+                            hayyizStorage.setItem('hayyiz-show-age-in-dashboard', 'false');
                             window.location.reload();
                         });
                     }
@@ -929,7 +930,7 @@ function hayyizRenderDailySummary() {
 
     // و) تركيز الأسبوع والإحصائيات الخاصة بالمواد (Weekly Focus & Subjects Breakdown)
     try {
-        const hist = JSON.parse(localStorage.getItem('hayyiz-focus-history') || '{}');
+        const hist = JSON.parse(hayyizStorage.getItem('hayyiz-focus-history') || '{}');
         if (focusMinutes > 0) {
             hist[today] = Math.max(parseInt(hist[today], 10) || 0, focusMinutes);
         }
@@ -1067,10 +1068,10 @@ function hayyizRenderDailySummary() {
             } else if (typeof hayyizLaunchPomodoro === 'function') {
                 hayyizLaunchPomodoro(null);
             } else {
-                localStorage.removeItem('hayyiz-current-task');
-                localStorage.removeItem('hayyiz-current-task-index');
-                localStorage.removeItem('hayyiz-current-task-id');
-                localStorage.removeItem('hayyiz-task-session');
+                hayyizStorage.removeItem('hayyiz-current-task');
+                hayyizStorage.removeItem('hayyiz-current-task-index');
+                hayyizStorage.removeItem('hayyiz-current-task-id');
+                hayyizStorage.removeItem('hayyiz-task-session');
                 window.location.href = 'pomodoro.html';
             }
         };

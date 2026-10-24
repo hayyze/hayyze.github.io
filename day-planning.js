@@ -1,3 +1,4 @@
+var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (typeof localStorage !== 'undefined' ? localStorage : undefined);
 /* Dashboard controls reuse the shared tasks, subjects, timer and planning engine. */
 (function () {
     'use strict';
@@ -134,10 +135,10 @@
             if (hayyizSaveDayReview(select.value)) status.textContent = 'حُفظت مراجعتك وأُعيد تقييم الخطط. يمكنك تعديل وقت الغد من إعدادات الأسبوع.';
         });
         const metricsLabel = node('label', '', 'planning-metrics');
-        const metrics = node('input'); metrics.type = 'checkbox'; metrics.checked = localStorage.getItem('hayyiz-planning-metrics') === 'enabled';
+        const metrics = node('input'); metrics.type = 'checkbox'; metrics.checked = hayyizStorage.getItem('hayyiz-planning-metrics') === 'enabled';
         metrics.addEventListener('change', () => {
-            localStorage.setItem('hayyiz-planning-metrics', metrics.checked ? 'enabled' : 'disabled');
-            if (!metrics.checked) localStorage.removeItem('hayyiz-planning-pending-events');
+            hayyizStorage.setItem('hayyiz-planning-metrics', metrics.checked ? 'enabled' : 'disabled');
+            if (!metrics.checked) hayyizStorage.removeItem('hayyiz-planning-pending-events');
             else hayyizFlushPlanningEvents();
         });
         metricsLabel.append(metrics, document.createTextNode('أسمح بقياس خطوات الاستخدام لتحسين التخطيط، دون إرسال محتوى المهام أو الملاحظات.'));
@@ -145,7 +146,7 @@
     }
     function renderSetup() {
         document.getElementById('student-quick-setup')?.remove();
-        if (hayyizGetTodos().length || localStorage.getItem('hayyiz-setup-dismissed') === 'yes') return;
+        if (hayyizGetTodos().length || hayyizStorage.getItem('hayyiz-setup-dismissed') === 'yes') return;
         const summary = document.getElementById('summary-content'); if (!summary) return;
         const section = node('section', '', 'card planning-setup'); section.id = 'student-quick-setup';
         section.appendChild(node('h3', 'ابدأ يومك بثلاث خطوات بسيطة'));
@@ -155,7 +156,7 @@
         const title = field(form, 'ما المهمة التي تريد إنجازها؟', 'setup-task', '', 'text'); title.maxLength = 200; title.required = true;
         const minutes = field(form, 'الوقت المتبقي لي اليوم (دقيقة)', 'setup-minutes', hayyizGetDayCapacity(getTodayLocal()).remainingMinutes);
         const save = button('ابنِ خطتي الأولى', true); save.type = 'submit'; form.appendChild(save);
-        const dismiss = button('لاحقًا'); dismiss.addEventListener('click', () => { localStorage.setItem('hayyiz-setup-dismissed', 'yes'); section.remove(); }); form.appendChild(dismiss);
+        const dismiss = button('لاحقًا'); dismiss.addEventListener('click', () => { hayyizStorage.setItem('hayyiz-setup-dismissed', 'yes'); section.remove(); }); form.appendChild(dismiss);
         const status = message(form);
         form.addEventListener('submit', e => {
             e.preventDefault();

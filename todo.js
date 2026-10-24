@@ -1,3 +1,4 @@
+var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (typeof localStorage !== 'undefined' ? localStorage : undefined);
 document.addEventListener('DOMContentLoaded', () => {
 
     function playNotificationSound() {
@@ -33,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let todos = typeof hayyizGetTodos === 'function'
         ? hayyizGetTodos()
-        : JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
+        : JSON.parse(hayyizStorage.getItem('hayyiz-todos') || '[]');
 
     let currentFilter = 'all';
     let searchQuery = '';
@@ -44,18 +45,18 @@ document.addEventListener('DOMContentLoaded', () => {
     function isPomodoroPromptSuppressed() {
         try {
             const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
-            const hiddenToday = localStorage.getItem('hayyiz-hide-pomo-prompt-today');
+            const hiddenToday = hayyizStorage.getItem('hayyiz-hide-pomo-prompt-today');
             if (hiddenToday === todayStr) {
                 return true;
             }
 
-            const hiddenUntil = localStorage.getItem('hayyiz-hide-pomo-prompt-hour');
+            const hiddenUntil = hayyizStorage.getItem('hayyiz-hide-pomo-prompt-hour');
             if (hiddenUntil) {
                 const expiresAt = parseInt(hiddenUntil, 10);
                 if (!isNaN(expiresAt) && Date.now() < expiresAt) {
                     return true;
                 } else if (!isNaN(expiresAt) && Date.now() >= expiresAt) {
-                    localStorage.removeItem('hayyiz-hide-pomo-prompt-hour');
+                    hayyizStorage.removeItem('hayyiz-hide-pomo-prompt-hour');
                 }
             }
         } catch (e) { /* ignore */ }
@@ -66,10 +67,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             if (type === 'today') {
                 const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
-                localStorage.setItem('hayyiz-hide-pomo-prompt-today', todayStr);
+                hayyizStorage.setItem('hayyiz-hide-pomo-prompt-today', todayStr);
             } else if (type === 'hour') {
                 const oneHourLater = Date.now() + (60 * 60 * 1000);
-                localStorage.setItem('hayyiz-hide-pomo-prompt-hour', String(oneHourLater));
+                hayyizStorage.setItem('hayyiz-hide-pomo-prompt-hour', String(oneHourLater));
             }
         } catch (e) { /* ignore */ }
     }
@@ -259,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof hayyizSaveTodos === 'function') {
             hayyizSaveTodos(todos);
         } else {
-            localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
+            hayyizStorage.setItem('hayyiz-todos', JSON.stringify(todos));
         }
         if (changedTask && changedTask.id && typeof hayyizUploadItem === 'function') {
             hayyizUploadItem('todos', changedTask.id, changedTask);
@@ -588,30 +589,17 @@ document.addEventListener('DOMContentLoaded', () => {
         checkbox.setAttribute('aria-label', `تعديل حالة مهمة ${todo.text}`);
         checkbox.addEventListener('change', async () => {
             const isChecked = checkbox.checked;
-            const wsTaskId = todo.workspaceTaskId || todo.workspace_task_id;
-
-            if (wsTaskId && typeof ensureSupabaseLoaded === 'function') {
-                try {
-                    const client = await ensureSupabaseLoaded();
-                    if (client) {
-                        const { data, error } = await client.rpc('set_task_progress_and_recalculate', {
-                            p_task_id: wsTaskId,
-                            p_completed: isChecked
-                        });
-                        if (error) throw new Error(error.message || 'فشل تحديث حالة مهمة المساحة المتزامنة');
-                        if (data && !data.success) throw new Error(data.message || 'فشل تحديث حالة مهمة المساحة');
-                    }
-                } catch (err) {
-                    checkbox.checked = !isChecked;
-                    alert('حدث خطأ أثناء تحديث حالة المهمة المتزامنة: ' + (err.message || ''));
-                    return;
-                }
-            }
-
             const nowMs = Date.now();
             let updatedTask = null;
             if (typeof hayyizUpdateTask === 'function') {
-                updatedTask = hayyizUpdateTask(todo.id, { completed: isChecked, updated: nowMs });
+                try {
+                    checkbox.disabled = true;
+                    updatedTask = await hayyizUpdateTask(todo.id, { completed: isChecked, updated: nowMs });
+                } catch (error) {
+                    checkbox.checked = !isChecked;
+                    alert(error.message || 'تعذر حفظ حالة المهمة.');
+                    return;
+                } finally { checkbox.disabled = false; }
             } else {
                 todo.completed = isChecked;
                 todo.updated = nowMs;

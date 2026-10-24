@@ -1,3 +1,4 @@
+var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (typeof localStorage !== 'undefined' ? localStorage : undefined);
 /**
  * دفتر الملاحظات الدراسية - حيز
  * إدارة الملاحظات وتنظيمها، البحث، التصفية، والربط بالمهام والمواد
@@ -91,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadAndNormalizeNotes() {
         let rawNotes = [];
         try {
-            const raw = localStorage.getItem('hayyiz-notes');
+            const raw = hayyizStorage.getItem('hayyiz-notes');
             rawNotes = raw ? JSON.parse(raw) : [];
             if (!Array.isArray(rawNotes)) rawNotes = [];
         } catch (e) {
@@ -138,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }).filter(Boolean);
 
         if (hasChanges) {
-            try { localStorage.setItem('hayyiz-notes', JSON.stringify(normalized)); } catch (e) {}
+            try { hayyizStorage.setItem('hayyiz-notes', JSON.stringify(normalized)); } catch (e) {}
         }
 
         return normalized;
@@ -146,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function saveNotes() {
         try {
-            localStorage.setItem('hayyiz-notes', JSON.stringify(notes));
+            hayyizStorage.setItem('hayyiz-notes', JSON.stringify(notes));
         } catch (e) {
             showToast('تعذر حفظ الملاحظات على هذا الجهاز');
         }
@@ -191,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
             todos = hayyizGetTodos();
         } else {
             try {
-                todos = JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
+                todos = JSON.parse(hayyizStorage.getItem('hayyiz-todos') || '[]');
             } catch (e) { todos = []; }
         }
 
@@ -305,16 +306,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 isFavorite: favVal,
                 isReview: reviewVal
             };
-            try { localStorage.setItem('hayyiz-note-draft', JSON.stringify(draftObj)); } catch (e) {}
+            try { hayyizStorage.setItem('hayyiz-note-draft', JSON.stringify(draftObj)); } catch (e) {}
         } else {
-            try { localStorage.removeItem('hayyiz-note-draft'); } catch (e) {}
+            try { hayyizStorage.removeItem('hayyiz-note-draft'); } catch (e) {}
         }
     }
 
     function loadDraft() {
         if (prefillTitle || urlTaskName) return; // تفضيل البيانات القادمة من البومودورو أو المهمة
         try {
-            const raw = localStorage.getItem('hayyiz-note-draft');
+            const raw = hayyizStorage.getItem('hayyiz-note-draft');
             if (raw) {
                 const draft = JSON.parse(raw);
                 if (draft && typeof draft === 'object') {
@@ -397,7 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (customSubjectField) customSubjectField.classList.add('hidden');
         if (noteSubjectCustom) noteSubjectCustom.value = '';
         if (notesExtraDetails) notesExtraDetails.open = false;
-        try { localStorage.removeItem('hayyiz-note-draft'); } catch (e) {}
+        try { hayyizStorage.removeItem('hayyiz-note-draft'); } catch (e) {}
 
         if (submitBtn) {
             submitBtn.innerHTML = '<i class="fa-solid fa-plus"></i> حفظ الملاحظة';
@@ -488,7 +489,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof hayyizGetTodos === 'function') {
             currentTodos = hayyizGetTodos();
         } else {
-            try { currentTodos = JSON.parse(localStorage.getItem('hayyiz-todos') || '[]'); } catch (e) {}
+            try { currentTodos = JSON.parse(hayyizStorage.getItem('hayyiz-todos') || '[]'); } catch (e) {}
         }
 
         filtered.forEach(note => {
@@ -962,7 +963,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (note.relatedTaskId || note.relatedTask) {
                 let currentTodos = [];
                 if (typeof hayyizGetTodos === 'function') currentTodos = hayyizGetTodos();
-                else { try { currentTodos = JSON.parse(localStorage.getItem('hayyiz-todos') || '[]'); } catch(e){} }
+                else { try { currentTodos = JSON.parse(hayyizStorage.getItem('hayyiz-todos') || '[]'); } catch(e){} }
 
                 let matchedTask = null;
                 if (note.relatedTaskId) matchedTask = currentTodos.find(t => t && t.id === note.relatedTaskId) || null;

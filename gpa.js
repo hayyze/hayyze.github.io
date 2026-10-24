@@ -1,3 +1,4 @@
+var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (typeof localStorage !== 'undefined' ? localStorage : undefined);
 /* gpa.js - محرك منظومة حاسبات المعدل الشامل لمنصة حيز */
 (function () {
   function escapeHtml(str) {
@@ -1404,23 +1405,31 @@
     let nextWeightedId = 4;
 
     function totalWeightedPercent() {
-      return weightedItems.reduce((sum, item) => sum + (parseFloat(item.percent) || 0), 0);
+      return weightedItems.reduce((sum, item) => sum + parseStrictNumber(item.percent), 0);
+    }
+
+    function invalidateWeightedResult() {
+      weightedResult.classList.add("hidden");
+      weightedScore.textContent = "0.00";
+      removeShareButtons(weightedResult);
     }
 
     function updateWeightedRemaining() {
       if (!weightedRemainingEl || !weightedLeftEl) return;
       const total = totalWeightedPercent();
       const left = Math.max(0, 100 - total);
-      weightedLeftEl.textContent = left.toFixed(0) + "%";
       weightedRemainingEl.classList.remove("warn", "ok");
-      if (total > 100) {
+      if (!Number.isFinite(total) || weightedItems.some(item => parseStrictNumber(item.percent) < 0)) {
         weightedRemainingEl.classList.add("warn");
-        weightedRemainingEl.innerHTML = "تجاوزت 100% — مجموع النسب حالياً <strong>" + total.toFixed(0) + "%</strong>";
-      } else if (total === 100) {
+        weightedRemainingEl.textContent = "أدخل وزنًا صحيحًا لكل اختبار بين 0 و100%.";
+      } else if (total > 100.000001) {
+        weightedRemainingEl.classList.add("warn");
+        weightedRemainingEl.innerHTML = "تجاوزت 100% — مجموع النسب حالياً <strong>" + total.toFixed(2).replace(/\.?0+$/, '') + "%</strong>";
+      } else if (Math.abs(total - 100) <= 0.000001) {
         weightedRemainingEl.classList.add("ok");
         weightedRemainingEl.innerHTML = "ممتاز — مجموع النسب <strong>100%</strong>";
       } else {
-        weightedRemainingEl.innerHTML = "لا يمكن تجاوز 100% — النسبة المتبقية <strong id=\"weighted-left\">" + left.toFixed(0) + "%</strong>";
+        weightedRemainingEl.innerHTML = "لا يمكن تجاوز 100% — النسبة المتبقية <strong id=\"weighted-left\">" + left.toFixed(2).replace(/\.?0+$/, '') + "%</strong>";
       }
     }
 
@@ -1446,7 +1455,7 @@
         pctInput.className = "w-percent";
         pctInput.min = "0";
         pctInput.max = "100";
-        pctInput.step = "1";
+        pctInput.step = "0.01";
         pctInput.value = item.percent;
         pctInput.placeholder = "0";
         const pctSpan = document.createElement("span");
@@ -1491,13 +1500,15 @@
           const id = parseInt(e.target.closest(".weighted-row").dataset.id, 10);
           const item = weightedItems.find((x) => x.id === id);
           if (item) item.name = e.target.value;
+          invalidateWeightedResult();
         });
       });
       weightedRowsEl.querySelectorAll(".w-percent").forEach((inp) => {
         inp.addEventListener("input", (e) => {
           const id = parseInt(e.target.closest(".weighted-row").dataset.id, 10);
           const item = weightedItems.find((x) => x.id === id);
-          if (item) item.percent = parseFloat(e.target.value) || 0;
+          if (item) item.percent = e.target.value;
+          invalidateWeightedResult();
           updateWeightedRemaining();
         });
       });
@@ -1506,6 +1517,7 @@
           const id = parseInt(e.target.closest(".weighted-row").dataset.id, 10);
           const item = weightedItems.find((x) => x.id === id);
           if (item) item.score = e.target.value;
+          invalidateWeightedResult();
         });
       });
       weightedRowsEl.querySelectorAll(".remove-btn").forEach((btn) => {
@@ -1516,6 +1528,7 @@
             return;
           }
           weightedItems = weightedItems.filter((x) => x.id !== id);
+          invalidateWeightedResult();
           renderWeightedRows();
         });
       });
@@ -1524,6 +1537,7 @@
     }
 
     function addWeightedItem() {
+      invalidateWeightedResult();
       weightedItems.push({
         id: nextWeightedId++,
         name: "اختبار جديد",
@@ -1534,29 +1548,30 @@
     }
 
     function calculateWeighted() {
+      invalidateWeightedResult();
       const totalPct = totalWeightedPercent();
-      if (totalPct > 100) {
-        alert("مجموع النسب يتجاوز 100%. عدّل النسب أولاً.");
+      if (weightedItems.some(item => {
+        const percent = parseStrictNumber(item.percent);
+        return !Number.isFinite(percent) || percent < 0 || percent > 100;
+      })) {
+        alert("أدخل وزنًا صحيحًا لكل اختبار بين 0 و100%.");
         return;
       }
-      if (totalPct === 0) {
-        alert("أدخل نسباً صحيحة أولاً");
+      if (!Number.isFinite(totalPct) || Math.abs(totalPct - 100) > 0.000001) {
+        alert("مجموع أوزان الاختبارات يجب أن يساوي 100% قبل حساب النسبة الموزونة.");
         return;
       }
 
-      let sum = 0, filled = 0;
-      weightedItems.forEach((item) => {
-        const score = parseFloat(item.score);
-        const pct = parseFloat(item.percent) || 0;
-        if (!isNaN(score) && score >= 0 && score <= 100 && pct > 0) {
-          sum += score * (pct / 100);
-          filled++;
+      let sum = 0;
+      for (const item of weightedItems) {
+        const pct = parseStrictNumber(item.percent);
+        const hasScore = String(item.score).trim() !== "";
+        const score = parseStrictNumber(item.score);
+        if ((pct > 0 && !hasScore) || (hasScore && (!Number.isFinite(score) || score < 0 || score > 100))) {
+          alert("أدخل درجة صحيحة بين 0 و100 لكل اختبار له وزن، أو اجعل وزن الاختبار غير المستخدم صفرًا.");
+          return;
         }
-      });
-
-      if (filled === 0) {
-        alert("أدخل درجة واحدة على الأقل");
-        return;
+        if (pct > 0) sum += score * (pct / 100);
       }
 
       weightedScore.textContent = sum.toFixed(2);
@@ -1913,7 +1928,7 @@
       } else if (typeof hayyizSaveJSON === 'function') {
         hayyizSaveJSON('hayyiz-todos', todos);
       } else {
-        localStorage.setItem('hayyiz-todos', JSON.stringify(todos));
+        hayyizStorage.setItem('hayyiz-todos', JSON.stringify(todos));
       }
     }
 

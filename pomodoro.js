@@ -1,3 +1,4 @@
+var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (typeof localStorage !== 'undefined' ? localStorage : undefined);
 document.addEventListener('DOMContentLoaded', () => {
 
     const sessionParam = new URLSearchParams(window.location.search || '').get('sessionMinutes');
@@ -40,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
         totalDuration: 25 * 60,
         sessionInCycle: 0,
         sessionId: null,
+        startedAt: null,
         context: {
             type: 'free', // 'task' | 'event' | 'free'
             id: null,
@@ -52,9 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ========== Prefs & Goal Helper Functions ==========
     function loadPreferences() {
-        const savedWork = localStorage.getItem('hayyiz-pref-work');
-        const savedBreak = localStorage.getItem('hayyiz-pref-break');
-        const savedLong = localStorage.getItem('hayyiz-pref-long');
+        const savedWork = hayyizStorage.getItem('hayyiz-pref-work');
+        const savedBreak = hayyizStorage.getItem('hayyiz-pref-break');
+        const savedLong = hayyizStorage.getItem('hayyiz-pref-long');
 
         if (workInput && savedWork) workInput.value = savedWork;
         if (breakInput && savedBreak) breakInput.value = savedBreak;
@@ -67,10 +69,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const lb = longBreakInput ? Math.max(1, Math.min(60, parseInt(longBreakInput.value, 10) || 15)) : 15;
 
         const nowMs = Date.now();
-        localStorage.setItem('hayyiz-pref-work', String(w));
-        localStorage.setItem('hayyiz-pref-break', String(b));
-        localStorage.setItem('hayyiz-pref-long', String(lb));
-        localStorage.setItem('hayyiz-pomodoro-prefs-updated', String(nowMs));
+        hayyizStorage.setItem('hayyiz-pref-work', String(w));
+        hayyizStorage.setItem('hayyiz-pref-break', String(b));
+        hayyizStorage.setItem('hayyiz-pref-long', String(lb));
+        hayyizStorage.setItem('hayyiz-pomodoro-prefs-updated', String(nowMs));
 
         if (typeof hayyizUploadItem === 'function') {
             hayyizUploadItem('pomodoro-prefs', 'prefs', { work: String(w), break: String(b), long: String(lb) });
@@ -127,9 +129,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const wsTaskIdFromUrl = urlParams.get('workspace_task_id') || urlParams.get('workspaceTaskId');
         const wsIdFromUrl = urlParams.get('workspace_id') || urlParams.get('workspaceId');
 
-        const savedTaskName = localStorage.getItem('hayyiz-current-task');
-        const savedTaskId = localStorage.getItem('hayyiz-current-task-id');
-        const savedEventRaw = localStorage.getItem('hayyiz-current-event');
+        const savedTaskName = hayyizStorage.getItem('hayyiz-current-task');
+        const savedTaskId = hayyizStorage.getItem('hayyiz-current-task-id');
+        const savedEventRaw = hayyizStorage.getItem('hayyiz-current-event');
 
         let eventObj = null;
         try { eventObj = savedEventRaw ? JSON.parse(savedEventRaw) : null; } catch (e) {}
@@ -185,8 +187,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 workspaceTaskId: finalWsTaskId,
                 workspaceId: finalWsId
             };
-            localStorage.setItem('hayyiz-current-task', title);
-            if (taskId) localStorage.setItem('hayyiz-current-task-id', taskId);
+            hayyizStorage.setItem('hayyiz-current-task', title);
+            if (taskId) hayyizStorage.setItem('hayyiz-current-task-id', taskId);
 
             if (foundTask) {
                 const workMin = workInput ? (parseInt(workInput.value, 10) || 25) : 25;
@@ -201,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     sessionsDone: foundTask.sessionsDone ? parseInt(foundTask.sessionsDone, 10) || 0 : 0,
                     sessionsNeeded: totalMinutes && totalMinutes > 0 ? Math.ceil(totalMinutes / workMin) : null
                 };
-                localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
+                hayyizStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
             }
         } else if (eventFromUrl || (eventObj && eventObj.name)) {
             const title = eventFromUrl || eventObj.name;
@@ -302,9 +304,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const val = contextSelect.value;
             if (val === 'free') {
                 state.context = { type: 'free', id: null, title: 'تركيز حر', subjectId: null };
-                localStorage.removeItem('hayyiz-current-task');
-                localStorage.removeItem('hayyiz-current-task-id');
-                localStorage.removeItem('hayyiz-current-event');
+                hayyizStorage.removeItem('hayyiz-current-task');
+                hayyizStorage.removeItem('hayyiz-current-task-id');
+                hayyizStorage.removeItem('hayyiz-current-event');
             } else if (val.startsWith('task:')) {
                 const id = val.replace('task:', '');
                 const todos = typeof hayyizGetTodos === 'function' ? hayyizGetTodos() : [];
@@ -315,8 +317,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
                     state.context = { type: 'task', id: t.id, title: t.text, subjectId: t.subjectId || null };
-                    localStorage.setItem('hayyiz-current-task', t.text);
-                    localStorage.setItem('hayyiz-current-task-id', t.id);
+                    hayyizStorage.setItem('hayyiz-current-task', t.text);
+                    hayyizStorage.setItem('hayyiz-current-task-id', t.id);
                 }
             } else if (val.startsWith('event:')) {
                 const id = val.replace('event:', '');
@@ -324,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ev = events.find(x => x.id === id);
                 if (ev) {
                     state.context = { type: 'event', id: ev.id, title: ev.name, subjectId: ev.subjectId || null };
-                    localStorage.setItem('hayyiz-current-event', JSON.stringify(ev));
+                    hayyizStorage.setItem('hayyiz-current-event', JSON.stringify(ev));
                 }
             }
             updateContextUI();
@@ -333,7 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function loadTaskSession() {
         try {
-            return JSON.parse(localStorage.getItem('hayyiz-task-session') || 'null');
+            return JSON.parse(hayyizStorage.getItem('hayyiz-task-session') || 'null');
         } catch (e) { return null; }
     }
 
@@ -390,11 +392,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========== State Machine Persistence & Load ==========
     function ensureTodayStats() {
         const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
-        const lastDay = localStorage.getItem('hayyiz-sessions-day');
+        const lastDay = hayyizStorage.getItem('hayyiz-sessions-day');
         if (lastDay !== today) {
-            localStorage.setItem('hayyiz-sessions-today', '0');
-            localStorage.setItem('hayyiz-focus-minutes-today', '0');
-            localStorage.setItem('hayyiz-sessions-day', today);
+            hayyizStorage.setItem('hayyiz-sessions-today', '0');
+            hayyizStorage.setItem('hayyiz-focus-minutes-today', '0');
+            hayyizStorage.setItem('hayyiz-sessions-day', today);
         }
     }
 
@@ -410,6 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
             totalDuration: state.totalDuration,
             sessionInCycle: state.sessionInCycle,
             sessionId: state.sessionId,
+            startedAt: state.startedAt,
             workMinutes: workInput ? workInput.value : '25',
             breakMinutes: breakInput ? breakInput.value : '5',
             longBreakMinutes: longBreakInput ? longBreakInput.value : '15',
@@ -420,9 +423,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof hayyizSaveFocusState === 'function') {
             hayyizSaveFocusState(payload);
         } else {
-            localStorage.setItem('hayyiz-pomodoro-state', JSON.stringify(payload));
+            hayyizStorage.setItem('hayyiz-pomodoro-state', JSON.stringify(payload));
         }
-        localStorage.setItem('hayyiz-session-in-cycle', String(state.sessionInCycle));
+        hayyizStorage.setItem('hayyiz-session-in-cycle', String(state.sessionInCycle));
     }
 
     function clearSessionParameter() {
@@ -454,6 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.endTime = restored.endTime || null;
         state.sessionInCycle = typeof restored.sessionInCycle === 'number' ? restored.sessionInCycle : 0;
         state.sessionId = restored.sessionId || null;
+        state.startedAt = restored.startedAt || null;
         if (restored.context) state.context = restored.context;
 
         if (plannedSessionMinutes && state.status === 'idle' && !restored.pendingCompletionModal && !restored.pendingNextMode) {
@@ -466,6 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // عرض نافذة الاكتمال إذا حُسب الانتهاء أثناء عدم التواجد بالصفحة
         if (restored.pendingCompletionModal) {
+            plannedSessionMinutes = null;
             const p = restored.pendingCompletionModal;
             playNotificationSound();
             showNotification(
@@ -492,6 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (restored.pendingNextMode) {
+            plannedSessionMinutes = null;
             if (state.mode !== restored.pendingNextMode) {
                 state.mode = restored.pendingNextMode;
                 restored.mode = restored.pendingNextMode;
@@ -514,6 +520,8 @@ document.addEventListener('DOMContentLoaded', () => {
         clearInterval(timerInterval);
         state.status = 'idle';
         state.endTime = null;
+        state.sessionId = null;
+        state.startedAt = null;
 
         let mins = 25;
         if (state.mode === 'focus') {
@@ -539,9 +547,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (rem <= 0) rem = state.totalDuration;
 
         if (state.mode === 'focus' && state.status === 'idle' && typeof hayyizTrackPlanningEvent === 'function') hayyizTrackPlanningEvent('focus_started');
+        if (state.status !== 'paused' || !state.sessionId) {
+            state.sessionId = 's_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+            state.startedAt = new Date().toISOString();
+        }
         state.endTime = Date.now() + rem * 1000;
         state.status = 'running';
-        state.sessionId = 's_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
 
         announceSR('بدأت جلسة ' + (state.mode === 'focus' ? 'التركيز' : 'الراحة'));
 
@@ -584,6 +595,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (reconciled && (reconciled.status === 'completed' || reconciled.status === 'idle')) {
             clearInterval(timerInterval);
+            state = Object.assign(state, reconciled);
+            plannedSessionMinutes = null;
             if (reconciled.pendingNextMode) {
                 state.mode = reconciled.pendingNextMode;
                 reconciled.mode = reconciled.pendingNextMode;
@@ -609,6 +622,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        if (reconciled) state = Object.assign(state, reconciled);
         state.remainingSeconds = Math.max(0, Math.round((state.endTime - Date.now()) / 1000));
         updateUI();
         saveState();
@@ -766,15 +780,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Completed sessions & Stats
-        const totalCompleted = parseInt(localStorage.getItem('hayyiz-sessions') || '0', 10);
+        const totalCompleted = parseInt(hayyizStorage.getItem('hayyiz-sessions') || '0', 10);
         if (sessionsCount) sessionsCount.textContent = totalCompleted;
 
         updateStatsAndInsightsUI();
     }
 
     function updateStatsAndInsightsUI() {
-        const todayMinutes = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
-        const todaySessions = parseInt(localStorage.getItem('hayyiz-sessions-today') || '0', 10);
+        const todayMinutes = parseInt(hayyizStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
+        const todaySessions = parseInt(hayyizStorage.getItem('hayyiz-sessions-today') || '0', 10);
 
         const todayMinEl = document.getElementById('focus-minutes-today');
         const todaySessEl = document.getElementById('focus-sessions-today');
@@ -800,126 +814,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ========== Completion & Workflow Flow ==========
-    async function handleTimerCompletion(wasAway) {
-        playNotificationSound();
-
-        if (state.mode === 'focus') {
-            const workMin = Math.round(state.totalDuration / 60) || 25;
-
-            // 1. Update totals
-            const completedTotal = parseInt(localStorage.getItem('hayyiz-sessions') || '0', 10) + 1;
-            localStorage.setItem('hayyiz-sessions', String(completedTotal));
-
-            ensureTodayStats();
-            const todaySess = parseInt(localStorage.getItem('hayyiz-sessions-today') || '0', 10) + 1;
-            const todayMin = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10) + workMin;
-            localStorage.setItem('hayyiz-sessions-today', String(todaySess));
-            localStorage.setItem('hayyiz-focus-minutes-today', String(todayMin));
-
-            // Focus history map
-            try {
-                const hist = JSON.parse(localStorage.getItem('hayyiz-focus-history') || '{}');
-                const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
-                const nowMs = Date.now();
-                hist[today] = (parseInt(hist[today], 10) || 0) + workMin;
-                localStorage.setItem('hayyiz-focus-history', JSON.stringify(hist));
-                localStorage.setItem('hayyiz-focus-history-updated', String(nowMs));
-                if (typeof hayyizUploadItem === 'function') {
-                    hayyizUploadItem('focus-history', 'history', hist);
-                }
-            } catch (e) {}
-
-            // Log immutable focus session entry
-            if (typeof hayyizLogFocusSession === 'function') {
-                hayyizLogFocusSession({
-                    durationMinutes: workMin,
-                    mode: 'focus',
-                    contextType: state.context.type,
-                    contextId: state.context.id,
-                    contextTitle: state.context.title,
-                    subjectId: state.context.subjectId
-                });
-            }
-
-            // Log focus session to Supabase if linked to a workspace task
-            const wsTaskIdToLog = state.context.workspaceTaskId || (loadTaskSession() && loadTaskSession().workspaceTaskId);
-            const wsIdToLog = state.context.workspaceId || (loadTaskSession() && loadTaskSession().workspaceId);
-
-            if (wsTaskIdToLog && typeof ensureSupabaseLoaded === 'function') {
-                try {
-                    const client = await ensureSupabaseLoaded();
-                    if (client) {
-                        const { error } = await client.from('focus_sessions').insert({
-                            task_id: wsTaskIdToLog,
-                            workspace_id: wsIdToLog || null,
-                            duration_seconds: workMin * 60
-                        });
-                        if (error) console.error('Failed to log workspace focus session to Supabase:', error);
-                    }
-                } catch (e) {
-                    console.error('Error logging workspace focus session:', e);
-                }
-            }
-
-            if (typeof hayyizTrackPlanningEvent === 'function') hayyizTrackPlanningEvent('focus_completed');
-            plannedSessionMinutes = null;
-
-            // Apply focus to Task / Subject if connected
-            if (state.context.type === 'task') {
-                if (typeof hayyizApplyFocusResult === 'function') {
-                    hayyizApplyFocusResult({
-                        workMin: workMin,
-                        taskId: state.context.id,
-                        taskText: state.context.title
-                    });
-                }
-            } else if (state.context.subjectId && typeof hayyizBumpSubjectProgress === 'function') {
-                hayyizBumpSubjectProgress(state.context.subjectId, workMin);
-            }
-
-            // Session cycle counter (4 focus sessions -> long break)
-            state.sessionInCycle++;
-            let isLong = false;
-            if (state.sessionInCycle >= 4) {
-                state.sessionInCycle = 0;
-                isLong = true;
-            }
-
-            const nextBreakMin = isLong
-                ? (parseInt(longBreakInput?.value || '15', 10) || 15)
-                : (parseInt(breakInput?.value || '5', 10) || 5);
-
-            showNotification(
-                'حيز - بومودورو',
-                isLong
-                    ? `أنت بطل! أكملت 4 جلسات تركيز. خذ راحة طويلة (${nextBreakMin} د).`
-                    : `أحسنت! أتممت جلسة التركيز (${workMin} د). خذ استراحة (${nextBreakMin} د).`
-            );
-
-            announceSR('انتهت جلسة التركيز بنجاح');
-
-            // Switch mode to break
-            state.mode = isLong ? 'longBreak' : 'break';
-            resetTimerToCurrentMode();
-
-            showCompletionModal(workMin, isLong, nextBreakMin);
-
-        } else {
-            // Break completed
-            showNotification('حيز - بومودورو', 'انتهت الاستراحة! حان وقت جلسة التركيز التالية.');
-            announceSR('انتهت الاستراحة! حان وقت التركيز');
-
-            state.mode = 'focus';
-            resetTimerToCurrentMode();
-
-            if (!wasAway) {
-                alert('انتهت الاستراحة! اضغط تشغيل للبدء بالجلسة التالية 💪');
-            }
-        }
-
-        saveState();
-    }
-
     function escapeHtml(str) {
         if (!str) return '';
         return String(str)
@@ -970,13 +864,18 @@ document.addEventListener('DOMContentLoaded', () => {
             completeTaskBtn.type = 'button';
             completeTaskBtn.className = 'btn btn-primary';
             completeTaskBtn.innerHTML = '<i class="fa-solid fa-check"></i> المهمة مكتملة';
-            completeTaskBtn.addEventListener('click', () => {
-                if (typeof hayyizCompleteTask === 'function') {
-                    hayyizCompleteTask(state.context.id, state.context.title);
+            completeTaskBtn.addEventListener('click', async () => {
+                completeTaskBtn.disabled = true;
+                try {
+                    const completed = await hayyizCompleteTask(state.context.id, state.context.title);
+                    if (!completed) throw new Error('المهمة لم تعد موجودة.');
                     if (typeof hayyizReevaluateMultiDayPlan === 'function') hayyizReevaluateMultiDayPlan();
+                    closeModal();
+                    updateContextUI();
+                } catch (error) {
+                    completeTaskBtn.disabled = false;
+                    summaryP.textContent = error.message || 'تعذر حفظ إكمال المهمة؛ حاول عند عودة الاتصال.';
                 }
-                closeModal();
-                updateContextUI();
             });
             actions.appendChild(completeTaskBtn);
         }
@@ -1143,7 +1042,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (typeof global !== 'undefined') {
         global.initContextFromParamsAndStorage = initContextFromParamsAndStorage;
-        global.handleTimerCompletion = handleTimerCompletion;
         global.getState = () => state;
         global.setState = (newState) => { state = Object.assign(state, newState); };
     }
@@ -1172,8 +1070,7 @@ document.addEventListener('DOMContentLoaded', () => {
 if (typeof module !== 'undefined' && module.exports) {
     try {
         module.exports = {
-            initContextFromParamsAndStorage: typeof initContextFromParamsAndStorage !== 'undefined' ? initContextFromParamsAndStorage : null,
-            handleTimerCompletion: typeof handleTimerCompletion !== 'undefined' ? handleTimerCompletion : null
+            initContextFromParamsAndStorage: typeof initContextFromParamsAndStorage !== 'undefined' ? initContextFromParamsAndStorage : null
         };
     } catch (e) {}
 }

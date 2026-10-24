@@ -1,3 +1,4 @@
+var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (typeof localStorage !== 'undefined' ? localStorage : undefined);
 /**
  * تقويم الطالب وخطة المواعيد الدراسية — Hayyiz Student Calendar & Timeline
  * إدارة العمر، والخط الزمني التفاعلي للاختبارات والمواعيد والواجبات
@@ -114,8 +115,8 @@
 
                 showBirthdateError('');
                 const nowMs = Date.now();
-                localStorage.setItem(STORAGE_KEY_BIRTHDATE, dateVal);
-                localStorage.setItem('hayyiz-birthdate-updated', String(nowMs));
+                hayyizStorage.setItem(STORAGE_KEY_BIRTHDATE, dateVal);
+                hayyizStorage.setItem('hayyiz-birthdate-updated', String(nowMs));
                 if (typeof hayyizUploadItem === 'function') {
                     hayyizUploadItem('birthdate', 'birthdate', dateVal);
                 }
@@ -145,7 +146,7 @@
     }
 
     function loadSavedBirthdate() {
-        const saved = localStorage.getItem(STORAGE_KEY_BIRTHDATE);
+        const saved = hayyizStorage.getItem(STORAGE_KEY_BIRTHDATE);
         const birthInput = document.getElementById('birthdate-input');
         const btnLbl = document.getElementById('birthdate-btn-lbl');
         if (saved && birthInput) {
@@ -155,7 +156,7 @@
     }
 
     function updateHeroDashboard() {
-        const birthdate = localStorage.getItem(STORAGE_KEY_BIRTHDATE);
+        const birthdate = hayyizStorage.getItem(STORAGE_KEY_BIRTHDATE);
         const heroAgeVal = document.getElementById('hero-age-val');
         const heroAgeSub = document.getElementById('hero-age-sub');
         const heroNearestVal = document.getElementById('hero-nearest-val');
@@ -469,7 +470,7 @@
 
     function saveEventToStorage(eventObj, storageKey) {
         try {
-            const raw = localStorage.getItem(storageKey);
+            const raw = hayyizStorage.getItem(storageKey);
             let list = raw ? JSON.parse(raw) : [];
             if (!Array.isArray(list)) list = [];
 
@@ -479,22 +480,22 @@
             } else {
                 list.push(eventObj);
             }
-            localStorage.setItem(storageKey, JSON.stringify(list));
+            hayyizStorage.setItem(storageKey, JSON.stringify(list));
         } catch (e) {
-            localStorage.setItem(storageKey, JSON.stringify([eventObj]));
+            hayyizStorage.setItem(storageKey, JSON.stringify([eventObj]));
         }
     }
 
     function deleteEventFromStorage(id, storageKey) {
         if (!id || !storageKey) return;
         try {
-            const raw = localStorage.getItem(storageKey);
+            const raw = hayyizStorage.getItem(storageKey);
             let list = raw ? JSON.parse(raw) : [];
             let eventToDelete = null;
             if (Array.isArray(list)) {
                 eventToDelete = list.find(item => item && item.id === id) || null;
                 list = list.filter(item => item && item.id !== id);
-                localStorage.setItem(storageKey, JSON.stringify(list));
+                hayyizStorage.setItem(storageKey, JSON.stringify(list));
             }
             const toolName = storageKey === STORAGE_KEY_EXAMS ? 'student-exams' : 'custom-events';
             if (typeof hayyizDeleteRemoteItem === 'function') {
@@ -864,7 +865,7 @@
     function getSavedEventsFallback() {
         const events = [];
         try {
-            const rawExams = localStorage.getItem(STORAGE_KEY_EXAMS);
+            const rawExams = hayyizStorage.getItem(STORAGE_KEY_EXAMS);
             const examsList = rawExams ? JSON.parse(rawExams) : [];
             if (Array.isArray(examsList)) {
                 examsList.forEach(item => {
@@ -885,7 +886,7 @@
         } catch (e) { /* تجاهل */ }
 
         try {
-            const rawEvents = localStorage.getItem(STORAGE_KEY_EVENTS);
+            const rawEvents = hayyizStorage.getItem(STORAGE_KEY_EVENTS);
             const customList = rawEvents ? JSON.parse(rawEvents) : [];
             if (Array.isArray(customList)) {
                 customList.forEach(item => {
@@ -907,22 +908,19 @@
     }
 
     function calculateExactAgeFallback(birthDateObj, nowObj) {
-        let years = nowObj.getFullYear() - birthDateObj.getFullYear();
-        let months = nowObj.getMonth() - birthDateObj.getMonth();
-        let days = nowObj.getDate() - birthDateObj.getDate();
-
-        if (days < 0) {
-            months--;
-            const prevMonthLastDay = new Date(nowObj.getFullYear(), nowObj.getMonth(), 0).getDate();
-            days += prevMonthLastDay;
-        }
-
-        if (months < 0) {
-            years--;
-            months += 12;
-        }
-
-        return { years, months, days };
+        const end = new Date(nowObj.getFullYear(), nowObj.getMonth(), nowObj.getDate());
+        const start = new Date(birthDateObj.getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate());
+        if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) return { years: 0, months: 0, days: 0 };
+        let count = (end.getFullYear() - start.getFullYear()) * 12 + end.getMonth() - start.getMonth();
+        const anniversary = months => {
+            const anchor = new Date(start.getFullYear(), start.getMonth() + months, 1);
+            anchor.setDate(Math.min(start.getDate(), new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate()));
+            return anchor;
+        };
+        if (anniversary(count) > end) count--;
+        const anchor = anniversary(count);
+        const days = Math.round((Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) - Date.UTC(anchor.getFullYear(), anchor.getMonth(), anchor.getDate())) / 86400000);
+        return { years: Math.floor(count / 12), months: count % 12, days };
     }
 
     function get18StatusFallback(birthDateObj, nowObj) {
@@ -996,8 +994,8 @@
             const ok = confirm('هل أنت متأكد من أتك تريد إعادة تعيين كافة بيانات تقويم الطالب (تاريخ الميلاد، الاختبارات، والمواعيد المحفوظة)؟');
             if (!ok) return;
 
-            const examsList = JSON.parse(localStorage.getItem(STORAGE_KEY_EXAMS) || '[]');
-            const eventsList = JSON.parse(localStorage.getItem(STORAGE_KEY_EVENTS) || '[]');
+            const examsList = JSON.parse(hayyizStorage.getItem(STORAGE_KEY_EXAMS) || '[]');
+            const eventsList = JSON.parse(hayyizStorage.getItem(STORAGE_KEY_EVENTS) || '[]');
 
             if (Array.isArray(examsList) && typeof hayyizDeleteRemoteItem === 'function') {
                 examsList.forEach(e => { if (e && e.id) hayyizDeleteRemoteItem('student-exams', e.id, e); });
@@ -1005,14 +1003,14 @@
             if (Array.isArray(eventsList) && typeof hayyizDeleteRemoteItem === 'function') {
                 eventsList.forEach(e => { if (e && e.id) hayyizDeleteRemoteItem('custom-events', e.id, e); });
             }
-            const birthdateVal = localStorage.getItem(STORAGE_KEY_BIRTHDATE);
+            const birthdateVal = hayyizStorage.getItem(STORAGE_KEY_BIRTHDATE);
             if (typeof hayyizDeleteRemoteItem === 'function') {
                 hayyizDeleteRemoteItem('birthdate', 'birthdate', birthdateVal);
             }
 
-            localStorage.removeItem(STORAGE_KEY_BIRTHDATE);
-            localStorage.removeItem(STORAGE_KEY_EXAMS);
-            localStorage.removeItem(STORAGE_KEY_EVENTS);
+            hayyizStorage.removeItem(STORAGE_KEY_BIRTHDATE);
+            hayyizStorage.removeItem(STORAGE_KEY_EXAMS);
+            hayyizStorage.removeItem(STORAGE_KEY_EVENTS);
 
             const birthInput = document.getElementById('birthdate-input');
             if (birthInput) birthInput.value = '';
@@ -1127,7 +1125,7 @@
     function renderMultiDayPlanCards(container, plan, config) {
         container.innerHTML = '';
 
-        const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
+        const workMin = parseInt(hayyizStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
         const calcPomoSessions = (min) => {
             if (typeof hayyizCalculateFocusSessions === 'function') {
                 return hayyizCalculateFocusSessions(min, workMin);

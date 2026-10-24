@@ -108,6 +108,8 @@
     <meta name="google-site-verification" content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw">
 
     <!-- Google Analytics -->
+    <script src="account-storage.js"></script>
+    <script src="focus-history.js" defer></script>
     <script src="analytics.js"></script>
     <style>
         body{
@@ -178,7 +180,7 @@
 
 <p><strong>الخصوصية:</strong> تعمل معظم الأدوات محليًا داخل متصفحك باستخدام تقنية <code>localStorage</code>.</p>
 
-<p>تُحفظ بياناتك كزائر محليًا على جهازك، وعند تسجيل الدخول حسابيًا يتم مزامنتها سحابيًا بأمان لتتمكن من الوصول إليها من أي جهاز آخر.</p>
+<p>تُحفظ بيانات الزائر محليًا على هذا الجهاز، وتُزامن البيانات المرتبطة بحسابك عند تسجيل الدخول. لإضافة بيانات الزائر إلى حسابك، استخدم زر «إضافة بيانات هذا الجهاز إلى حسابي» في <a href="#hayyiz-backup-section">قسم النسخ الاحتياطي</a>.</p>
 
 
 </div>
@@ -280,9 +282,9 @@
 
 </div>
 
-<div class="about-section card backup-section" style="margin-top: 2rem; padding: 1.5rem;">
+<div id="hayyiz-backup-section" class="about-section card backup-section" style="margin-top: 2rem; padding: 1.5rem;">
     <h2>نسخ احتياطي واستعادة</h2>
-    <p>يمكنك تصدير جميع بيانات حيز (المهام، الملاحظات، العادات، جلسات التركيز، التفضيلات) إلى ملف JSON، أو استيرادها لاحقًا. تتم عملية التصدير والاستيراد مباشرة على جهازك بسرعة وأمان.</p>
+    <p>يمكنك تصدير بيانات حيز في حسابك الحالي، بما فيها المهام والملاحظات والعادات وجلسات التركيز والتفضيلات ومساحات الرسم وملفات PDF المحفوظة على هذا الجهاز، ثم استعادتها لاحقًا. تتم العملية محليًا على جهازك.</p>
     <div class="backup-actions">
         <button type="button" id="hayyiz-export-btn" class="btn btn-primary">
             <i class="fa-solid fa-download" aria-hidden="true"></i> تصدير بيانات حيز
@@ -293,6 +295,13 @@
         <input type="file" id="hayyiz-import-file" accept="application/json,.json" hidden>
     </div>
     <p class="backup-hint">عند الاستيراد سيتم استبدال البيانات الحالية بعد تأكيدك. احتفظ بنسخة قبل الاستيراد.</p>
+    <p class="backup-hint">تُقبل النسخ القديمة أيضًا. الحد الأقصى لملف PDF واحد 25 ميجابايت، ولمجموع ملفات PDF في النسخة 100 ميجابايت.</p>
+    <p id="hayyiz-backup-status" role="status" aria-live="polite"></p>
+    <div id="hayyiz-device-data-controls" hidden>
+        <p>يمكنك إضافة بيانات الزائر المحفوظة على هذا الجهاز إلى حسابك. تبقى بيانات الحساب الحالية محفوظة عند الدمج.</p>
+        <button type="button" id="hayyiz-claim-device-data" class="btn btn-outline">إضافة بيانات هذا الجهاز إلى حسابي</button>
+        <p id="hayyiz-claim-status" role="status" aria-live="polite"></p>
+    </div>
 </div>
 
 <footer class="footer">
@@ -313,6 +322,8 @@
 </footer>
 
 <script src="common.js"></script>
+<script src="backup.js"></script>
+    <script src="account-import.js"></script>
 
 </body>
 </html>

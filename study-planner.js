@@ -1,3 +1,4 @@
+var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (typeof localStorage !== 'undefined' ? localStorage : undefined);
 /* study-planner.js - Interactive engine for Study Planner */
 
 (function () {
@@ -290,7 +291,7 @@
   function toggleTheme() {
     var isDark = document.documentElement.classList.toggle('theme-dark');
     try {
-      localStorage.setItem('hayyiz-theme', isDark ? 'dark' : 'light');
+      hayyizStorage.setItem('hayyiz-theme', isDark ? 'dark' : 'light');
     } catch (e) {}
   }
 
