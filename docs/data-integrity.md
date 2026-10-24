@@ -73,6 +73,35 @@ IndexedDB cannot form one crash-safe transaction across abrupt browser shutdown;
 keep the exported file until restoration is verified. The drawing/PDF backup is
 portable; it does not add cloud synchronization for drawing files.
 
+## Notes and user-facing integrity
+
+Notes commit one identified change against the latest account-scoped collection
+inside a Web Lock where available; storage events refresh other open tabs without
+replacing their editors. A changed/deleted edit target is a conflict, with an
+explicit save-as-copy action rather than silently overwriting the newer record.
+Failed local writes preserve the editor and its existing saved records. Each tab
+stores a recoverable new/edit draft under `hayyiz-note-draft-<editor id>`; old
+`hayyiz-note-draft` values remain readable. Drafts retain the original edit version,
+and saving one tab does not erase another tab's draft. Current browsers support
+Web Locks; the fallback still reads the latest collection for sequential writes.
+
+Notes use the shared material IDs, retain links to completed tasks, and honor
+note-ID deep links. Calendar conversions retain event/material IDs and task type;
+focus launched from the calendar uses the existing event context. Planner budgets
+are allocated in whole minutes, with exact half-day phases and hour/minute labels.
+The shared navigation exposes the planner and local backup/restore controls.
+
+The sync indicator follows read/write results, with an explicit retry after a
+failure. A failed local download write does not advance its cloud cursor. The
+cloud upload and deletion entry points accept only the existing structured-tool
+adapters. There is deliberately no PDF, drawing-file or backup-file adapter.
+
+The drawing editor reports local save failures persistently and offers a local
+emergency download using its current in-memory geometry plus locally stored PDF
+bytes. PDF transactions wait for IndexedDB commit and surface import failures.
+No PDF bytes are sent to Supabase; including files in a user-downloaded backup
+does not add cloud storage or bandwidth usage.
+
 ## Database changes and verification
 
 The targeted SQL patch adds indexes, private RLS helpers, immutable sharing

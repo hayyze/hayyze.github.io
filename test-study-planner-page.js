@@ -26,8 +26,8 @@ console.log('✅ PASS: Canonical tag correctly set to https://hayyze.pages.dev/s
 
 // Check CSS Import
 assert(htmlContent.includes('study-planner.css'), 'study-planner.html must import study-planner.css');
-assert(!htmlContent.includes('href="style.css"'), 'study-planner.html must NOT import style.css');
-console.log('✅ PASS: study-planner.html imports study-planner.css and excludes style.css.');
+assert(htmlContent.includes('href="style.css"') && htmlContent.includes('id="nav-links"'), 'Planner must reuse the existing accessible site navigation and styles');
+console.log('✅ PASS: study-planner.html imports the shared navigation styles and preserves study-planner.css.');
 
 // Check Restricted JS File Imports in study-planner.html
 assert(htmlContent.includes('common.js'), 'study-planner.html must reuse the shared planning engine');

@@ -1447,6 +1447,7 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
         nameInput.className = "w-name";
         nameInput.value = item.name;
         nameInput.placeholder = "اسم الاختبار";
+        nameInput.setAttribute('aria-label', 'اسم الاختبار ' + item.id);
 
         const pctWrap = document.createElement("div");
         pctWrap.className = "pct-wrap";
@@ -1458,6 +1459,7 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
         pctInput.step = "0.01";
         pctInput.value = item.percent;
         pctInput.placeholder = "0";
+        pctInput.setAttribute('aria-label', 'وزن ' + item.name + ' بالنسبة المئوية');
         const pctSpan = document.createElement("span");
         pctSpan.textContent = "%";
         pctWrap.appendChild(pctInput);
@@ -1473,6 +1475,7 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
         scoreInput.step = "0.01";
         scoreInput.value = item.score;
         scoreInput.placeholder = "الدرجة";
+        scoreInput.setAttribute('aria-label', 'درجة ' + item.name + ' من 100');
         const scoreSpan = document.createElement("span");
         scoreSpan.textContent = "/100";
         scoreWrap.appendChild(scoreInput);
@@ -1482,6 +1485,7 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
         removeBtn.type = "button";
         removeBtn.className = "remove-btn";
         removeBtn.title = "حذف";
+        removeBtn.setAttribute('aria-label', 'حذف ' + item.name);
         removeBtn.dataset.id = String(item.id);
         const icon = document.createElement("i");
         icon.className = "fa-solid fa-xmark";
@@ -1500,6 +1504,10 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
           const id = parseInt(e.target.closest(".weighted-row").dataset.id, 10);
           const item = weightedItems.find((x) => x.id === id);
           if (item) item.name = e.target.value;
+          const row = e.target.closest('.weighted-row');
+          row.querySelector('.w-percent')?.setAttribute('aria-label', 'وزن ' + e.target.value + ' بالنسبة المئوية');
+          row.querySelector('.w-score')?.setAttribute('aria-label', 'درجة ' + e.target.value + ' من 100');
+          row.querySelector('.remove-btn')?.setAttribute('aria-label', 'حذف ' + e.target.value);
           invalidateWeightedResult();
         });
       });

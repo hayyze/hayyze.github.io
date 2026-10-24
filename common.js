@@ -3334,8 +3334,9 @@ function hayyizConvertEventToTodo(eventObj) {
 
     const todoText = (eventObj.type === 'exam' ? 'مراجعة: ' : 'متابعة: ') + eventObj.name;
 
-    // منع التكرار إذا كانت المهمة موجودة بنفس الاسم والتاريخ
-    const exists = todos.find(t => t && t.text === todoText && t.date && String(t.date).slice(0, 10) === eventObj.date);
+    // Event identity survives renaming/rescheduling; unrelated events may share a title.
+    const exists = todos.find(t => t && ((eventObj.id && t.eventId === eventObj.id) ||
+        (!t.eventId && t.text === todoText && t.date && String(t.date).slice(0, 10) === eventObj.date)));
     if (exists) return exists;
 
     let datetimeStr = eventObj.date;
@@ -3346,16 +3347,21 @@ function hayyizConvertEventToTodo(eventObj) {
     const newTodo = {
         id: hayyizGenerateId(),
         text: todoText,
+        subjectId: eventObj.subjectId || null,
+        taskType: eventObj.type === 'exam' ? 'review' : eventObj.type === 'assignment' ? 'assignment' : 'general',
         priority: eventObj.type === 'exam' ? 'high' : 'medium',
         date: datetimeStr,
         minutes: eventObj.type === 'exam' ? 45 : 30,
         completed: false,
+        status: 'todo',
         created: Date.now(),
+        updated: Date.now(),
         eventId: eventObj.id || null
     };
 
     todos.push(newTodo);
     hayyizSaveTodos(todos);
+    if (typeof hayyizUploadItem === 'function') hayyizUploadItem('todos', newTodo.id, newTodo);
     return newTodo;
 }
 

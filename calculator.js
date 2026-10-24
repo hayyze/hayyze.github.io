@@ -751,8 +751,10 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
         if (todoBtn) {
             todoBtn.addEventListener('click', () => {
                 if (typeof hayyizConvertEventToTodo === 'function') {
-                    hayyizConvertEventToTodo(ev);
-                    alert(`تمت إضافة "${ev.name}" إلى قائمة المهام الدراسية بنجاح!`);
+                    try {
+                        const task = hayyizConvertEventToTodo(ev);
+                        if (task) alert(`مهمة "${ev.name}" محفوظة في قائمة المهام الدراسية.`);
+                    } catch (_) { alert('تعذر حفظ المهمة على هذا الجهاز. لم تُحفظ المهمة؛ وفّر مساحة ثم حاول مجددًا.'); }
                 }
             });
         }
@@ -760,7 +762,7 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
         if (pomoBtn) {
             pomoBtn.addEventListener('click', () => {
                 if (typeof hayyizLaunchPomodoro === 'function') {
-                    hayyizLaunchPomodoro({ text: `استعداد لاختبار: ${ev.name}`, priority: 'high', minutes: '45' });
+                    hayyizLaunchPomodoro(ev);
                 } else {
                     window.location.href = 'pomodoro.html';
                 }
