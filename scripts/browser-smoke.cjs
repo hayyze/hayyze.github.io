@@ -34,6 +34,7 @@ const server = http.createServer((req, res) => {
     });
     try {
         await require('./ux-regressions.cjs')(browser, base);
+        await require('./focus-lock-regressions.cjs')(browser, base);
         const context = await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'});
         await context.addInitScript(() => { window.global = window; });
         await context.route('**/*', route => new URL(route.request().url()).origin === base ? route.continue() : route.abort());

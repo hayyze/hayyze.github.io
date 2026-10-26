@@ -162,3 +162,22 @@ sessionStorage via window.open, draft isolation/recovery, and legacy subject edi
 
 PDF bytes and annotations remain local; these changes add no PDF cloud adapter,
 bucket, upload or synchronization path.
+
+
+## Cross-tab focus completion coordination
+
+Focus completion re-reads timer state and log while holding an account-scoped
+Web Lock. IndexedDB readwrite transactions in a separate empty coordination
+store provide the fallback when Web Locks are unavailable. This store contains
+no student data or PDF bytes and makes no network requests. If coordination
+fails, completion stays pending for retry. Environments without either API retain
+the legacy synchronous best-effort behavior.
+
+Synchronous dashboard/Todo readers normalize a read-only snapshot and request
+expired-session completion asynchronously. They do not commit outside the lock.
+Timer render ticks no longer persist their running snapshots, and a stale tab
+cannot save a running/paused session ID already present in the completed log.
+The existing storage transaction still handles rollback inside the coordinator.
+Tests cover two actual Chromium documents waiting behind the same Web Lock,
+independent IndexedDB fallback contenders, counters/log/task/subject/outbox and
+stale-state rejection. No Supabase schema or PDF synchronization changes are made.

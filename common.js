@@ -1834,13 +1834,75 @@ function hayyizEnsureTodayStats() {
 function hayyizAfterFocusCommit(effect) {
     if (hayyizStorage.afterCommit) hayyizStorage.afterCommit(effect); else effect();
 }
-function hayyizReconcilePomodoroState() {
+let hayyizFocusCommitPromise = null;
+let hayyizFocusCommitFailed = false;
+function hayyizCommitPomodoroState() {
     try {
+        if (hayyizStorage.isCurrentScope && !hayyizStorage.isCurrentScope(hayyizStorage.scope)) return null;
         return hayyizStorage.transaction ? hayyizStorage.transaction(hayyizReconcilePomodoroValues) : hayyizReconcilePomodoroValues();
     } catch (error) { console.warn('تعذر حفظ الجلسة؛ ستُعاد المحاولة.', error); return null; }
 }
-function hayyizReconcilePomodoroValues() {
-    hayyizEnsureTodayStats();
+function hayyizHasFocusCoordinator() {
+    return (typeof navigator !== 'undefined' && navigator.locks && typeof navigator.locks.request === 'function') || typeof indexedDB !== 'undefined';
+}
+function hayyizWithFocusLock(commit) {
+    const locks = typeof navigator !== 'undefined' && navigator.locks;
+    const name = 'hayyiz-focus-completion:' + (hayyizStorage.scope || 'guest');
+    if (locks && typeof locks.request === 'function') return locks.request(name, commit);
+    if (typeof indexedDB === 'undefined') return Promise.resolve().then(commit);
+    // IndexedDB readwrite transactions serialize across documents too. This
+    // dedicated database contains no student data, files or completion records.
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('hayyiz-focus-coordination', 1);
+        request.onupgradeneeded = () => request.result.createObjectStore('gate');
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+            const db = request.result;
+            let transaction, result;
+            try {
+                transaction = db.transaction('gate', 'readwrite');
+                transaction.oncomplete = () => { db.close(); resolve(result); };
+                transaction.onabort = transaction.onerror = () => { db.close(); reject(transaction.error || new Error('Focus coordination failed')); };
+                transaction.objectStore('gate').get(name).onsuccess = () => {
+                    try { result = commit(); } catch (error) { transaction.abort(); }
+                };
+            } catch (error) { db.close(); reject(error); }
+        };
+    });
+}
+function hayyizReconcilePomodoroStateAsync() {
+    if (hayyizFocusCommitPromise) return hayyizFocusCommitPromise;
+    const commit = () => hayyizCommitPomodoroState();
+    // Re-read the timer and log INSIDE the same account lock. A transaction
+    // provides rollback; the Web Lock serializes other documents' completion.
+    const pending = hayyizWithFocusLock(commit);
+    hayyizFocusCommitPromise = pending.catch(error => {
+        console.warn('تعذر قفل حفظ الجلسة.', error);
+        return null;
+    }).then(result => {
+        hayyizFocusCommitFailed = !result;
+        return result;
+    }).finally(() => { hayyizFocusCommitPromise = null; });
+    return hayyizFocusCommitPromise;
+}
+function hayyizReconcilePomodoroState() {
+    if (!hayyizHasFocusCoordinator()) return hayyizCommitPomodoroState();
+    // Synchronous dashboard/Todo readers must never write a stale snapshot
+    // outside the lock. They can request completion and render its result later.
+    let snapshot;
+    try { snapshot = hayyizReconcilePomodoroValues(true); } catch (_) { return null; }
+    if (snapshot && snapshot.status === 'running' && snapshot.endTime && snapshot.remainingSeconds === 0) {
+        hayyizReconcilePomodoroStateAsync().then(result => {
+            if (result && result.status === 'completed' && typeof window.dispatchEvent === 'function') {
+                window.dispatchEvent(new Event('hayyiz:planning-changed'));
+            }
+        });
+        if (hayyizFocusCommitFailed) return null;
+    }
+    return snapshot;
+}
+function hayyizReconcilePomodoroValues(readOnly = false) {
+    if (!readOnly) hayyizEnsureTodayStats();
     const raw = hayyizStorage.getItem('hayyiz-pomodoro-state');
     if (!raw) return null;
 
@@ -1885,7 +1947,7 @@ function hayyizReconcilePomodoroValues() {
             const now = Date.now();
             const rem = Math.round((endTime - now) / 1000);
 
-            if (rem <= 0) {
+            if (rem <= 0 && !readOnly) {
                 const completedAt = new Date(endTime).toISOString();
                 // انتهى وقت الجلسة
                 remainingSeconds = 0;
@@ -2008,8 +2070,10 @@ function hayyizReconcilePomodoroValues() {
             lastUpdated: Date.now()
         };
 
-        hayyizStorage.setItem('hayyiz-pomodoro-state', JSON.stringify(reconciled));
-        hayyizStorage.setItem('hayyiz-session-in-cycle', String(sessionInCycle));
+        if (!readOnly) {
+            hayyizStorage.setItem('hayyiz-pomodoro-state', JSON.stringify(reconciled));
+            hayyizStorage.setItem('hayyiz-session-in-cycle', String(sessionInCycle));
+        }
 
         return reconciled;
     } catch (e) { throw e; }
@@ -2030,8 +2094,11 @@ function hayyizSaveFocusState(state) {
         hayyizStorage.removeItem('hayyiz-pomodoro-state');
         return;
     }
+    // A suspended tab must not resurrect a session completed in another tab.
+    if (state.sessionId && ['running', 'paused'].includes(state.status) && hayyizGetFocusSessions().some(entry => entry && entry.id === state.sessionId)) return false;
     state.lastUpdated = Date.now();
     hayyizSaveJSON('hayyiz-pomodoro-state', state);
+    return true;
 }
 
 /**

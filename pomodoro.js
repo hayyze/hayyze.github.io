@@ -421,7 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         if (typeof hayyizSaveFocusState === 'function') {
-            hayyizSaveFocusState(payload);
+            if (hayyizSaveFocusState(payload) === false) return;
         } else {
             hayyizStorage.setItem('hayyiz-pomodoro-state', JSON.stringify(payload));
         }
@@ -638,7 +638,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (reconciled) state = Object.assign(state, reconciled);
         state.remainingSeconds = Math.max(0, Math.round((state.endTime - Date.now()) / 1000));
         updateUI();
-        saveState();
+        // endTime is already persisted; a render tick must not overwrite a
+        // newer completion from another document with its running snapshot.
     }
 
     // ========== Inline Duration Editing ==========

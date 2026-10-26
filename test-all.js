@@ -14,7 +14,8 @@ global.document = {
     getElementById: () => null,
     addEventListener: () => {}
 };
-global.navigator = { serviceWorker: { register: () => Promise.resolve() } };
+// Node 24 exposes a getter-only navigator; install the intended legacy-browser mock explicitly.
+Object.defineProperty(global, 'navigator', { configurable: true, value: { serviceWorker: { register: () => Promise.resolve() } } });
 global.localStorage = {
     _data: {},
     getItem(k) { return this._data[k] || null; },

@@ -21,7 +21,8 @@ global.document = {
     getElementById: () => null,
     addEventListener: () => {}
 };
-global.navigator = { serviceWorker: { register: () => Promise.resolve() } };
+// Node 24 exposes a getter-only navigator; install the intended legacy-browser mock explicitly.
+Object.defineProperty(global, 'navigator', { configurable: true, value: { serviceWorker: { register: () => Promise.resolve() } } });
 global.localStorage = {
     _data: {},
     getItem(k) { return this._data[k] || null; },
@@ -98,7 +99,7 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
 
 // --- 4. SERVICE WORKER CACHE VERSION TEST ---
 {
-    assert(swJs.includes("const CACHE_NAME = 'heez-v1.11.3';"), 'Service Worker uses cache version heez-v1.11.3');
+    assert(swJs.includes("const CACHE_NAME = 'heez-v1.11.4';"), 'Service Worker uses cache version heez-v1.11.4');
     assert(swJs.includes('.filter((key) => key !== CACHE_NAME)'), 'Service Worker activates clean deletion of old cache versions');
     assert(swJs.includes('./contact.html') && swJs.includes('./terms.html') && swJs.includes('./privacy.html') && swJs.includes('./founder.html'), 'Service Worker caches newly added static HTML pages for offline support');
 }
