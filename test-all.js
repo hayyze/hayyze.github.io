@@ -5,6 +5,7 @@ const commonJs = fs.readFileSync('./common.js', 'utf8');
 const gpaJs = fs.readFileSync('./gpa.js', 'utf8');
 
 global.window = global;
+global.addEventListener = () => {};
 global.document = {
     readyState: 'complete',
     body: { classList: { toggle: () => {} } },

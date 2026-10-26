@@ -12,6 +12,7 @@ const summaryJs = fs.readFileSync('./summary.js', 'utf8');
 const swJs = fs.readFileSync('./sw.js', 'utf8');
 
 global.window = global;
+global.addEventListener = () => {};
 global.document = {
     readyState: 'complete',
     body: { classList: { toggle: () => {}, add: () => {}, remove: () => {} }, appendChild: () => {} },
