@@ -117,7 +117,7 @@
     function record(date, minutes) {
         if (!dateKey(date) || !Number.isSafeInteger(minutes) || minutes <= 0) return;
         const state = normalize(localPayload());
-        let id = storage.deviceId ? storage.deviceId() : storage.getItem('hayyiz-device-id');
+        let id = storage.getItem('hayyiz-focus-writer-id') || (storage.deviceId ? storage.deviceId() : storage.getItem('hayyiz-device-id'));
         if (!id) { id = 'd_' + Date.now().toString(36) + Math.random().toString(36).slice(2); storage.setItem('hayyiz-device-id', id); }
         const map = state.devices[id] || (state.devices[id] = Object.create(null));
         const current = map[date] || { minutes: 0, sessions: 0 };

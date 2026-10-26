@@ -19,6 +19,7 @@
     const scope = accountId ? 'user:' + accountId : 'guest';
     const accountPrefix = accountId ? prefix + encodeURIComponent(accountId) + ':' : '';
     let changing = false;
+    let batch = null;
     function personal(key) { return key.startsWith('hayyiz-') && !key.startsWith(prefix) && !shared.has(key); }
     function physical(key) {
         key = String(key);
@@ -68,13 +69,39 @@
         return id;
     }
     global.hayyizStorage = Object.freeze({
-        getItem(key) { return native.getItem(physical(key)); },
-        setItem(key, value) { native.setItem(physical(key), String(value)); },
-        removeItem(key) { native.removeItem(physical(key)); },
+        getItem(key) { const name = physical(key); return batch && batch.values.has(name) ? batch.values.get(name) : native.getItem(name); },
+        setItem(key, value) { const name = physical(key); if (batch) batch.values.set(name, String(value)); else native.setItem(name, String(value)); },
+        removeItem(key) { const name = physical(key); if (batch) batch.values.set(name, null); else native.removeItem(name); },
         key(index) { return keys()[index] || null; },
         get length() { return keys().length; },
         clear() { keys().filter(personal).forEach(key => native.removeItem(physical(key))); },
+        transaction(run) {
+            if (batch) return run();
+            const pending = { values: new Map(), effects: [] }, previous = new Map();
+            batch = pending;
+            let result;
+            try {
+                result = run();
+                for (const [key, value] of pending.values) {
+                    previous.set(key, native.getItem(key));
+                    if (value === null) native.removeItem(key); else native.setItem(key, value);
+                }
+            } catch (error) {
+                for (const key of previous.keys()) native.removeItem(key);
+                for (const [key, value] of previous) if (value !== null) native.setItem(key, value);
+                throw error;
+            } finally { batch = null; }
+            pending.effects.forEach(effect => { try { Promise.resolve(effect()).catch(() => {}); } catch (_) {} });
+            return result;
+        },
+        afterCommit(effect) { if (batch) batch.effects.push(effect); else effect(); },
         accountId, scope, transitionTo, guestSnapshot, deviceId,
+        logicalKey(key) {
+            if (key === null) return null;
+            if (accountId && key.startsWith(accountPrefix)) return key.slice(accountPrefix.length);
+            if (key.startsWith(prefix) || (accountId && personal(key))) return undefined;
+            return key;
+        },
         isCurrentUser(id) { return !changing && accountId === (id || null); },
         isCurrentScope(value) { return !changing && scope === value; },
         databaseName(name) { return accountId ? name + '--' + encodeURIComponent(accountId) : name; }

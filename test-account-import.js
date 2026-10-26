@@ -183,13 +183,13 @@ async function check(name, run) {
             }, totalBaseline: 7
         } });
         const once = merge(context, current, incoming), twice = merge(context, once, incoming);
-        assert.deepEqual(read(twice, 'hayyiz-focus-history'), { [day]: 90 });
+        assert.deepEqual(read(twice, 'hayyiz-focus-history'), { [day]: 115 });
         assert.deepEqual(read(twice, 'hayyiz-focus-history-state'), read(once, 'hayyiz-focus-history-state'));
         for (const key of ['hayyiz-focus-history', 'hayyiz-focus-history-state']) storage.setItem(key, twice.keys[key]);
         context.hayyizRefreshFocusStats();
-        assert.equal(storage.getItem('hayyiz-focus-minutes-today'), '90');
-        assert.equal(storage.getItem('hayyiz-sessions-today'), '5');
-        assert.equal(storage.getItem('hayyiz-sessions'), '10');
+        assert.equal(storage.getItem('hayyiz-focus-minutes-today'), '115');
+        assert.equal(storage.getItem('hayyiz-sessions-today'), '6');
+        assert.equal(storage.getItem('hayyiz-sessions'), '11');
     });
     await check('Legacy focus counters and logs become a baseline rather than being reset by explicit import', () => {
         const { context, storage } = harness(), day = today();

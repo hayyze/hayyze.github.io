@@ -85,7 +85,10 @@
             const file = (source.pdfFiles || []).find(file => file.id === space.id);
             if (file) pdfFiles.push(file);
         });
-        const focus = global.hayyizMergeFocusHistoryPayload(focusPayload(current.keys), focusPayload(incoming.keys));
+        const incomingFocus = focusPayload(incoming.keys);
+        const devices = incomingFocus.__hayyiz_focus_v2.devices || {};
+        incomingFocus.__hayyiz_focus_v2.devices = Object.fromEntries(Object.entries(devices).map(([id, days]) => ['guest_' + id, days]));
+        const focus = global.hayyizMergeFocusHistoryPayload(focusPayload(current.keys), incomingFocus);
         keys['hayyiz-focus-history-state'] = JSON.stringify(focus.__hayyiz_focus_v2);
         keys['hayyiz-focus-history'] = JSON.stringify(Object.fromEntries(Object.entries(focus).filter(([key]) => /^\d{4}-\d{2}-\d{2}$/.test(key))));
         return { version: 3, app: 'حيز', exportedAt: new Date().toISOString(), keys, pdfFiles };

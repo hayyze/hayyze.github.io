@@ -1082,6 +1082,7 @@ document.addEventListener('DOMContentLoaded', hayyizRenderDailySummary);
 if (typeof window.addEventListener === 'function') {
 window.addEventListener('hayyiz:planning-changed', hayyizRenderDailySummary);
 window.addEventListener('storage', event => {
-    if (event.key && (event.key === 'hayyiz-todos' || event.key === 'hayyiz-planning-preferences')) hayyizRenderDailySummary();
+    const key = hayyizStorage.logicalKey ? hayyizStorage.logicalKey(event.key) : event.key;
+    if (key && (key === 'hayyiz-todos' || key === 'hayyiz-planning-preferences')) hayyizRenderDailySummary();
 });
 }

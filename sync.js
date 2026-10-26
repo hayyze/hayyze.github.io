@@ -1018,10 +1018,11 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
             if (!user) return false;
             const epoch = authEpoch, scope = hayyizStorage.scope;
             const attempted = new Set();
+            let failed = false;
             while (currentRequest(user, epoch, scope)) {
                 const queue = getLocalStorageItem('hayyiz-workspace-focus-outbox', {});
                 const id = Object.keys(queue).find(key => !attempted.has(key));
-                if (!id) return true;
+                if (!id) return !failed;
                 attempted.add(id);
                 const entry = queue[id];
                 if (!entry || entry.id !== id || !entry.taskId) continue;
@@ -1032,7 +1033,7 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
                         p_ended_at: entry.endedAt, p_duration_seconds: entry.durationSeconds
                     }) : Promise.resolve({ error: { message: 'Account changed' } }));
                 if (!currentRequest(user, epoch, scope)) return false;
-                if (!result || result.error || !result.data || result.data.success !== true) return false;
+                if (!result || result.error || !result.data || result.data.success !== true) { failed = true; continue; }
                 const latest = getLocalStorageItem('hayyiz-workspace-focus-outbox', {});
                 delete latest[id];
                 setLocalStorageItem('hayyiz-workspace-focus-outbox', latest);

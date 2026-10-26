@@ -451,6 +451,7 @@ function hayyizPrepareRestoredKeys(input) {
         keys['hayyiz-sync-last-time-pomodoro-prefs'] = '';
     }
     if (keys['hayyiz-focus-history'] !== undefined) {
+        keys['hayyiz-focus-writer-id'] = hayyizGenerateId();
         keys['hayyiz-focus-history-updated'] = String(now);
         keys['hayyiz-sync-last-time-focus-history'] = '';
         // A v2 backup must not inherit unrelated v3 counter metadata already on
@@ -902,7 +903,7 @@ function hayyizBumpSubjectProgress(subjectId, minutes, date) {
     hayyizSaveSubjects(list);
 
     if (typeof hayyizUploadItem === 'function') {
-        hayyizUploadItem('subjects', list[idx].id, list[idx]);
+        hayyizAfterFocusCommit(() => hayyizUploadItem('subjects', list[idx].id, list[idx]));
     }
 
     const progress = hayyizParseJSON('hayyiz-subject-progress', {});
@@ -1830,7 +1831,15 @@ function hayyizEnsureTodayStats() {
 /**
  * دالة مركزية لمطابقة وتحديث حالة البومودورو بشكل حتمي وidempotent اعتماداً على timestamps
  */
+function hayyizAfterFocusCommit(effect) {
+    if (hayyizStorage.afterCommit) hayyizStorage.afterCommit(effect); else effect();
+}
 function hayyizReconcilePomodoroState() {
+    try {
+        return hayyizStorage.transaction ? hayyizStorage.transaction(hayyizReconcilePomodoroValues) : hayyizReconcilePomodoroValues();
+    } catch (error) { console.warn('تعذر حفظ الجلسة؛ ستُعاد المحاولة.', error); return null; }
+}
+function hayyizReconcilePomodoroValues() {
     hayyizEnsureTodayStats();
     const raw = hayyizStorage.getItem('hayyiz-pomodoro-state');
     if (!raw) return null;
@@ -1899,7 +1908,7 @@ function hayyizReconcilePomodoroState() {
                         // Legacy counters remain readable; the shared counter module is authoritative.
                         if (typeof hayyizRecordFocusMinutes === 'function') {
                             hayyizRecordFocusMinutes(completionDate, workMinJustDone);
-                            if (typeof hayyizSyncTool === 'function') hayyizSyncTool('focus-history');
+                            if (typeof hayyizSyncTool === 'function') hayyizAfterFocusCommit(() => hayyizSyncTool('focus-history'));
                         } else {
                             const completedTotal = parseInt(hayyizStorage.getItem('hayyiz-sessions') || '0', 10) + 1;
                             hayyizStorage.setItem('hayyiz-sessions', String(completedTotal));
@@ -1921,7 +1930,7 @@ function hayyizReconcilePomodoroState() {
                                 hayyizStorage.setItem('hayyiz-focus-history', JSON.stringify(hist));
                                 hayyizStorage.setItem('hayyiz-focus-history-updated', String(nowMs));
                                 if (typeof hayyizUploadItem === 'function') {
-                                    hayyizUploadItem('focus-history', 'history', hist);
+                                    hayyizAfterFocusCommit(() => hayyizUploadItem('focus-history', 'history', hist));
                                 }
                             } catch (e) {}
                         }
@@ -1940,7 +1949,7 @@ function hayyizReconcilePomodoroState() {
                         });
                         hayyizQueueWorkspaceFocusSession({ id: sessionId, context, startedAt, completedAt, durationMinutes: workMinJustDone });
 
-                        hayyizTrackPlanningEvent('focus_completed');
+                        hayyizAfterFocusCommit(() => hayyizTrackPlanningEvent('focus_completed'));
 
                         // 4. تطبيق نتيجة التركيز على المهمة أو المادة
                         if (context.type === 'task') {
@@ -2003,9 +2012,7 @@ function hayyizReconcilePomodoroState() {
         hayyizStorage.setItem('hayyiz-session-in-cycle', String(sessionInCycle));
 
         return reconciled;
-    } catch (e) {
-        return null;
-    }
+    } catch (e) { throw e; }
 }
 
 /**
@@ -2059,7 +2066,7 @@ function hayyizLogFocusSession(sessionObj) {
     if (log.length > 200) log.length = 200;
     hayyizSaveJSON('hayyiz-focus-sessions-log', log);
     if (typeof hayyizUploadItem === 'function') {
-        hayyizUploadItem('focus-log', entry.id, entry);
+        hayyizAfterFocusCommit(() => hayyizUploadItem('focus-log', entry.id, entry));
     }
     return entry;
 }
@@ -2078,7 +2085,7 @@ function hayyizQueueWorkspaceFocusSession(entry) {
         endedAt: entry.completedAt, durationSeconds: entry.durationMinutes * 60
     };
     hayyizSaveJSON('hayyiz-workspace-focus-outbox', queue);
-    if (typeof hayyizFlushWorkspaceFocusSessions === 'function') hayyizFlushWorkspaceFocusSessions();
+    if (typeof hayyizFlushWorkspaceFocusSessions === 'function') hayyizAfterFocusCommit(() => hayyizFlushWorkspaceFocusSessions());
 }
 
 /**
@@ -2270,7 +2277,7 @@ function hayyizApplyFocusResult(opts) {
         hayyizSaveTodos(todos);
 
         if (typeof hayyizUploadItem === 'function') {
-            hayyizUploadItem('todos', todos[idx].id, todos[idx]);
+            hayyizAfterFocusCommit(() => hayyizUploadItem('todos', todos[idx].id, todos[idx]));
         }
 
         if (plan) {

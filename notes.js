@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let draftId = generateUniqueId();
     try {
         const tabKey = 'hayyiz-notes-editor:' + (hayyizStorage.scope || 'guest');
-        draftId = sessionStorage.getItem(tabKey) || draftId;
+        // Each document owns a distinct draft, including duplicated tabs.
         sessionStorage.setItem(tabKey, draftId);
     } catch (_) {}
     const draftKey = 'hayyiz-note-draft-' + draftId;
@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (hayyizStorage.isCurrentScope && !hayyizStorage.isCurrentScope(hayyizStorage.scope)) return false;
             const latest = loadAndNormalizeNotes();
             const index = latest.findIndex(note => note.id === id);
-            if (expected !== undefined && (index < 0 || JSON.stringify(latest[index]) !== expected)) {
+            if (expected !== undefined && (index < 0 || noteVersion(latest[index]) !== noteVersion(JSON.parse(expected)))) {
                 if (saveCopyBtn) saveCopyBtn.hidden = false;
                 showSaveError('تغيرت هذه الملاحظة أو حُذفت في تبويب أو جهاز آخر. احتفظ بتعديلك كنسخة جديدة.');
                 return false;
@@ -193,6 +193,11 @@ document.addEventListener('DOMContentLoaded', () => {
             showSaveError('تعذر الحفظ على هذا الجهاز. النص ما زال في المحرر؛ انسخه أو صدّر بياناتك ثم وفّر مساحة وحاول مجددًا.');
             return false;
         }
+    }
+
+    function noteVersion(note) {
+        const value = { ...note, subjectId: subjectMatch(note.subjectId, note.subject)?.id || null };
+        return JSON.stringify(Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))));
     }
 
     function showSaveError(message) {
@@ -487,7 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (notesExtraDetails) notesExtraDetails.open = false;
         try {
             hayyizStorage.removeItem(draftKey);
-            if (restoredDraftKey && restoredDraftKey !== draftKey && hayyizStorage.getItem(restoredDraftKey) === restoredDraftRaw) hayyizStorage.removeItem(restoredDraftKey);
+            // Recovered drafts may still belong to another open document.
         } catch (e) {}
         restoredDraftKey = restoredDraftRaw = null;
 
