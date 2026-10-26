@@ -199,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function noteVersion(note) {
-        const value = { ...note, subjectId: subjectMatch(note.subjectId, note.subject)?.id || null };
+        const value = { ...note, subjectId: subjectMatch(note.subjectId, note.subject)?.id || note.subjectId || null };
         return JSON.stringify(Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))));
     }
 

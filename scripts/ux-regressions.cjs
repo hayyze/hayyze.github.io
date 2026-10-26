@@ -123,6 +123,7 @@ module.exports = async function verifyUx(browser, base) {
 
         await a.evaluate(() => {
             const notes = JSON.parse(hayyizStorage.getItem('hayyiz-notes'));
+            notes.push({ id: 'unresolved-subject', title: 'ملاحظة بمادة محذوفة', content: 'نص محفوظ', subject: 'مادة غير متاحة', subjectId: 'deleted-first', tags: [], created: Date.now() });
             notes.push({ id: 'legacy-no-subject-id', title: 'ملاحظة قديمة', content: 'النص القديم', subject: 'مادة قديمة مستقلة', tags: [], created: Date.now() });
             hayyizStorage.setItem('hayyiz-notes', JSON.stringify(notes));
         });
@@ -132,6 +133,17 @@ module.exports = async function verifyUx(browser, base) {
         await a.locator('#note-submit-btn').click();
         await a.waitForFunction(() => document.getElementById('note-content').value === '');
         assert.equal(await a.evaluate(() => JSON.parse(hayyizStorage.getItem('hayyiz-notes')).find(n => n.id === 'legacy-no-subject-id').content), 'النص الجديد دون تعارض وهمي');
+
+        await card(a, 'ملاحظة بمادة محذوفة').getByRole('button', { name: 'تعديل', exact: true }).click();
+        await a.locator('#note-content').fill('تعديل لا يلغي تعارض المادة');
+        await a.evaluate(() => {
+            const notes = JSON.parse(hayyizStorage.getItem('hayyiz-notes'));
+            notes.find(n => n.id === 'unresolved-subject').subjectId = 'deleted-second';
+            hayyizStorage.setItem('hayyiz-notes', JSON.stringify(notes));
+        });
+        await a.locator('#note-submit-btn').click();
+        await a.locator('#note-save-copy-btn').waitFor({ state: 'visible' });
+        assert.equal(await a.evaluate(() => JSON.parse(hayyizStorage.getItem('hayyiz-notes')).find(n => n.id === 'unresolved-subject').content), 'نص محفوظ', 'Unresolved subject IDs retain real edit conflicts');
 
         const linked = await page('/subject.html?id=' + encodeURIComponent(subject.id));
         await linked.locator('#subject-notes-container a').filter({ hasText: 'عرض' }).first().click();
