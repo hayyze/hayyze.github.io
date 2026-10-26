@@ -1,7 +1,8 @@
+var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (typeof localStorage !== 'undefined' ? localStorage : undefined);
 document.addEventListener('DOMContentLoaded', () => {
     let habits = typeof hayyizGetHabits === 'function'
         ? hayyizGetHabits()
-        : JSON.parse(localStorage.getItem('hayyiz-habits') || '[]');
+        : JSON.parse(hayyizStorage.getItem('hayyiz-habits') || '[]');
 
     const habitForm = document.getElementById('habit-form');
     const habitInput = document.getElementById('habit-input');
@@ -36,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function saveHabits(changedHabit) {
         ensureHabitIds();
-        localStorage.setItem(
+        hayyizStorage.setItem(
             'hayyiz-habits',
             JSON.stringify(habits)
         );
@@ -211,37 +212,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const today = getToday();
             const habit = habits[i];
+            const yStr = typeof getYesterdayLocal === 'function'
+                ? getYesterdayLocal()
+                : (() => {
+                    const y = new Date();
+                    y.setDate(y.getDate() - 1);
+                    return `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`;
+                })();
 
             if (e.target.checked) {
 
                 if (habit.lastCompleted !== today) {
-                    const yStr = typeof getYesterdayLocal === 'function'
-                        ? getYesterdayLocal()
-                        : (() => {
-                            const y = new Date();
-                            y.setDate(y.getDate() - 1);
-                            const yy = y.getFullYear();
-                            const mm = String(y.getMonth() + 1).padStart(2, '0');
-                            const dd = String(y.getDate()).padStart(2, '0');
-                            return `${yy}-${mm}-${dd}`;
-                        })();
-
+                    const previousStreak = Math.max(0, parseInt(habit.streak, 10) || 0);
+                    // One snapshot is enough to undo today's check without erasing yesterday.
+                    habit.completionBeforeToday = {
+                        date: today,
+                        streak: previousStreak,
+                        lastCompleted: habit.lastCompleted || null
+                    };
                     habit.streak =
                         habit.lastCompleted === yStr
-                            ? habit.streak + 1
+                            ? previousStreak + 1
                             : 1;
 
                     habit.lastCompleted = today;
                 }
 
             } else if (habit.lastCompleted === today) {
-
-                habit.streak = Math.max(
-                    0,
-                    habit.streak - 1
-                );
-
-                habit.lastCompleted = null;
+                const previous = habit.completionBeforeToday;
+                if (previous && previous.date === today && Number.isSafeInteger(previous.streak) && previous.streak >= 0) {
+                    habit.streak = previous.streak;
+                    habit.lastCompleted = previous.lastCompleted || null;
+                } else {
+                    // Existing habits predate the snapshot. A streak > 1 necessarily included yesterday.
+                    habit.streak = Math.max(0, (parseInt(habit.streak, 10) || 0) - 1);
+                    habit.lastCompleted = habit.streak > 0 ? yStr : null;
+                }
             }
 
             habit.updated = Date.now();

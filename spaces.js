@@ -1,3 +1,4 @@
+var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (typeof localStorage !== 'undefined' ? localStorage : undefined);
 /**
  * spaces.js — نظام المساحات والمهام المتزامنة التعاونية في منصة حيز (Hayyiz)
  * يتضمن المزامنة الفورية عبر Supabase Realtime، والتحكم بالمهام المستقلة والتعاونية وإحصائيات التركيز.
@@ -18,6 +19,9 @@
     let focusSessionsCache = [];
 
     let realtimeSubscription = null;
+    let authListenerRegistered = false;
+    let workspaceEpoch = 0;
+    let uiEventsBound = false;
 
     // Helper: Safe DOM query selector
     function $(id) {
@@ -135,6 +139,7 @@
 
     async function updateTaskProgress(taskId, completed) {
         if (!currentUser) throw new Error('يرجى تسجيل الدخول أولاً');
+        const userId = currentUser.id, epoch = workspaceEpoch;
         const client = await getSupabase();
 
         // Call atomic PostgreSQL RPC function set_task_progress_and_recalculate (fail-closed)
@@ -150,6 +155,9 @@
 
         if (!data || !data.success) {
             throw new Error((data && data.message) || 'تعذر تحديث حالة المهمة');
+        }
+        if (epoch !== workspaceEpoch || currentUser?.id !== userId || (hayyizStorage.isCurrentUser && !hayyizStorage.isCurrentUser(userId))) {
+            throw new Error('تغير الحساب؛ أعد فتح المهمة.');
         }
 
         // Update local memory cache strictly AFTER RPC success
@@ -182,14 +190,19 @@
         if (task.scope === 'specific_users' || task.scope === 'me') {
             requiredMemberIds = (taskMembersCache[task.id] || []).map(m => m.user_id);
             if (!requiredMemberIds.includes(task.creator_id)) requiredMemberIds.push(task.creator_id);
+            if (task.workspace_id) {
+                const activeMembers = new Set((workspaceMembersCache[task.workspace_id] || []).map(member => member.user_id));
+                requiredMemberIds = requiredMemberIds.filter(id => activeMembers.has(id));
+            }
         } else if (task.scope === 'workspace' && task.workspace_id) {
             requiredMemberIds = (workspaceMembersCache[task.workspace_id] || []).map(m => m.user_id);
         } else {
             requiredMemberIds = [task.creator_id];
         }
 
+        requiredMemberIds = [...new Set(requiredMemberIds)];
         const totalRequired = Math.max(1, requiredMemberIds.length);
-        const completedCount = progressList.filter(p => p.completed && requiredMemberIds.includes(p.user_id)).length;
+        const completedCount = new Set(progressList.filter(p => p.completed && requiredMemberIds.includes(p.user_id)).map(p => p.user_id)).size;
         const percentage = Math.min(100, Math.round((completedCount / totalRequired) * 100));
         const isFullyCompleted = (completedCount >= totalRequired);
 
@@ -208,8 +221,9 @@
         focusSessionsCache = [];
 
         if (realtimeSubscription) {
+            const previousChannel = realtimeSubscription;
             getSupabase().then(client => {
-                if (client && realtimeSubscription) client.removeChannel(realtimeSubscription);
+                if (client) client.removeChannel(previousChannel);
             }).catch(() => {});
             realtimeSubscription = null;
         }
@@ -219,7 +233,7 @@
      * Initializer for Workspaces Module
      */
     async function initWorkspacesModule() {
-        setupUIEvents();
+        if (!uiEventsBound) { setupUIEvents(); uiEventsBound = true; }
 
         if (typeof hayyizGetUser === 'function') {
             currentUser = await hayyizGetUser();
@@ -229,36 +243,38 @@
         }
 
         const guestBanner = $('workspace-guest-banner');
+        const client = await getSupabase();
+        if (!authListenerRegistered && client && client.auth) {
+            authListenerRegistered = true;
+            client.auth.onAuthStateChange((event, session) => {
+                const newUser = session ? session.user : null;
+                if ((newUser?.id || null) === (currentUser?.id || null)) return;
+                workspaceEpoch++;
+                clearWorkspacesMemoryCache();
+                currentUser = newUser;
+                if (hayyizStorage.transitionTo && hayyizStorage.transitionTo(newUser?.id || null)) return;
+                if (guestBanner) guestBanner.classList.toggle('hidden', Boolean(newUser));
+                if (newUser) {
+                    loadAllWorkspaceData();
+                    setupRealtimeSubscriptions();
+                } else {
+                    renderWorkspaceTabs();
+                    renderActiveWorkspaceHeader();
+                    renderTasksList();
+                }
+            });
+        }
         if (!currentUser) {
             clearWorkspacesMemoryCache();
             if (guestBanner) guestBanner.classList.remove('hidden');
             renderTasksList();
             return;
-        } else {
-            if (guestBanner) guestBanner.classList.add('hidden');
         }
-
-        // Setup auth state change listener to reset cache on logout/user switch
-        if (typeof window !== 'undefined' && window.supabaseClient && window.supabaseClient.auth) {
-            window.supabaseClient.auth.onAuthStateChange((event, session) => {
-                const newUser = session ? session.user : null;
-                if (!newUser || (currentUser && newUser.id !== currentUser.id)) {
-                    clearWorkspacesMemoryCache();
-                    currentUser = newUser;
-                    if (!currentUser) {
-                        if (guestBanner) guestBanner.classList.remove('hidden');
-                        renderWorkspaceTabs();
-                        renderActiveWorkspaceHeader();
-                        renderTasksList();
-                        renderFocusStats();
-                    } else {
-                        if (guestBanner) guestBanner.classList.add('hidden');
-                        loadAllWorkspaceData();
-                        setupRealtimeSubscriptions();
-                    }
-                }
-            });
+        if (hayyizStorage.isCurrentUser && !hayyizStorage.isCurrentUser(currentUser.id)) {
+            hayyizStorage.transitionTo(currentUser.id);
+            return;
         }
+        if (guestBanner) guestBanner.classList.add('hidden');
 
         await loadAllWorkspaceData();
         setupRealtimeSubscriptions();
@@ -268,6 +284,9 @@
      * Loads Workspaces, Tasks, Progress, Members and Focus Sessions
      */
     async function loadAllWorkspaceData() {
+        const epoch = workspaceEpoch;
+        const userId = currentUser?.id;
+        const stillCurrent = () => epoch === workspaceEpoch && userId === currentUser?.id && (!hayyizStorage.isCurrentUser || hayyizStorage.isCurrentUser(userId));
         try {
             const client = await getSupabase();
             if (!client || !currentUser) return;
@@ -278,6 +297,7 @@
                 .select('id, name, description, created_by, created_at')
                 .order('created_at', { ascending: false });
 
+            if (!stillCurrent()) return;
             if (!wsError && wsData) {
                 workspacesCache = wsData;
             }
@@ -290,6 +310,7 @@
                     .select('workspace_id, user_id, role, created_at, profiles(id, display_name)')
                     .in('workspace_id', wsIds);
 
+                if (!stillCurrent()) return;
                 workspaceMembersCache = {};
                 (wm || []).forEach(m => {
                     if (!workspaceMembersCache[m.workspace_id]) workspaceMembersCache[m.workspace_id] = [];
@@ -307,6 +328,7 @@
                 .select('id, creator_id, workspace_id, title, description, scope, completion_mode, due_date, completed, completed_at, created_at')
                 .order('created_at', { ascending: false });
 
+            if (!stillCurrent()) return;
             if (!taskError && taskData) {
                 tasksCache = taskData;
             }
@@ -320,6 +342,7 @@
                     .select('task_id, user_id, role, profiles(id, display_name)')
                     .in('task_id', taskIds);
 
+                if (!stillCurrent()) return;
                 taskMembersCache = {};
                 (tm || []).forEach(m => {
                     if (!taskMembersCache[m.task_id]) taskMembersCache[m.task_id] = [];
@@ -335,6 +358,7 @@
                     .select('task_id, user_id, completed, completed_at, updated_at')
                     .in('task_id', taskIds);
 
+                if (!stillCurrent()) return;
                 taskProgressCache = {};
                 (tp || []).forEach(p => {
                     if (!taskProgressCache[p.task_id]) taskProgressCache[p.task_id] = [];
@@ -350,6 +374,7 @@
                 .gte('created_at', startOfWeekIso)
                 .order('created_at', { ascending: false });
 
+            if (!stillCurrent()) return;
             if (fsData) {
                 focusSessionsCache = fsData;
             }
@@ -373,23 +398,25 @@
      */
     function setupRealtimeSubscriptions() {
         if (!currentUser) return;
+        const userId = currentUser.id, epoch = workspaceEpoch;
+        const stillCurrent = () => epoch === workspaceEpoch && currentUser?.id === userId && (!hayyizStorage.isCurrentUser || hayyizStorage.isCurrentUser(userId));
 
         getSupabase().then(client => {
-            if (!client || realtimeSubscription) return;
+            if (!client || realtimeSubscription || !stillCurrent()) return;
 
             realtimeSubscription = client
                 .channel('hayyiz-workspaces-realtime')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-                    handleRealtimeTaskChange(payload);
+                    if (stillCurrent()) handleRealtimeTaskChange(payload);
                 })
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'task_progress' }, (payload) => {
-                    handleRealtimeProgressChange(payload);
+                    if (stillCurrent()) handleRealtimeProgressChange(payload);
                 })
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'workspace_members' }, (payload) => {
-                    handleRealtimeMemberChange(payload);
+                    if (stillCurrent()) handleRealtimeMemberChange(payload);
                 })
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'focus_sessions' }, (payload) => {
-                    handleRealtimeFocusSessionChange(payload);
+                    if (stillCurrent()) handleRealtimeFocusSessionChange(payload);
                 })
                 .subscribe();
         }).catch(() => {});
@@ -452,17 +479,18 @@
                 workspaceMembersCache[wsId] = workspaceMembersCache[wsId].filter(m => m.user_id !== payload.old.user_id);
             }
         } else if (payload.eventType === 'INSERT' && payload.new) {
+            const epoch = workspaceEpoch, userId = currentUser?.id;
             // Fetch profile info for new member without full re-fetch of all workspace data
             getSupabase().then(async (client) => {
                 if (!client) return;
-                const { data: prof } = await client.from('profiles').select('id, email, display_name').eq('id', payload.new.user_id).single();
+                const { data: prof } = await client.from('profiles').select('id, display_name').eq('id', payload.new.user_id).single();
+                if (epoch !== workspaceEpoch || currentUser?.id !== userId || (hayyizStorage.isCurrentUser && !hayyizStorage.isCurrentUser(userId))) return;
                 if (!workspaceMembersCache[wsId]) workspaceMembersCache[wsId] = [];
                 if (!workspaceMembersCache[wsId].some(m => m.user_id === payload.new.user_id)) {
                     workspaceMembersCache[wsId].push({
                         user_id: payload.new.user_id,
                         role: payload.new.role || 'member',
-                        email: prof ? prof.email : 'مستخدم',
-                        display_name: prof ? (prof.display_name || prof.email) : 'مستخدم'
+                        display_name: prof?.display_name || 'عضو'
                     });
                 }
                 renderActiveWorkspaceHeader();
@@ -685,7 +713,7 @@
         // 2. Add or Update local todo for each permitted workspace task
         wsTasksList.forEach(wsTask => {
             const userProg = (progressCache[wsTask.id] || []).find(p => p.user_id === user.id);
-            const userDone = userProg ? Boolean(userProg.completed) : Boolean(wsTask.completed);
+            const userDone = Boolean(userProg && userProg.completed);
             const subjectId = getOrCreateSubjectForWorkspace(wsTask.workspace_id, workspacesList);
 
             const existingIdx = todos.findIndex(t => (t.workspaceTaskId || t.workspace_task_id) === wsTask.id);

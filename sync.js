@@ -1,3 +1,4 @@
+var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (typeof localStorage !== 'undefined' ? localStorage : undefined);
 /**
  * sync.js — محرك المزامنة السحابية العام لمنصة حيز عبر Supabase
  * يوفر مزامنة سحابية غير معطلة لكافة أدوات حيز للمستخدمين المصادق عليهم.
@@ -16,6 +17,42 @@
     const inFlightToolPromises = new Map();
     const syncCallbacks = new Map(); // tool -> Array<Function>
     let authListenerRegistered = false;
+    let authEpoch = 0;
+    let authUserId;
+    const remoteWriteQueues = new Map();
+    let focusOutboxPromise = null;
+    const toolStatuses = new Map();
+
+    function publishSyncStatus(tool, state) {
+        const status = { tool, state, at: Date.now() };
+        toolStatuses.set(tool, status);
+        if (typeof global.dispatchEvent === 'function' && typeof global.CustomEvent === 'function') {
+            global.dispatchEvent(new global.CustomEvent('hayyiz:sync-status', { detail: status }));
+        }
+    }
+
+    function currentRequest(user, epoch, scope) {
+        return epoch === authEpoch && (authUserId === undefined || authUserId === user.id) &&
+            (!hayyizStorage.isCurrentUser || hayyizStorage.isCurrentUser(user.id)) &&
+            (!hayyizStorage.isCurrentScope || hayyizStorage.isCurrentScope(scope));
+    }
+
+    function writeRemoteRows(tool, rows, user, epoch, scope) {
+        const key = (scope || user.id) + ':' + tool;
+        const copy = JSON.parse(JSON.stringify(rows));
+        const previous = remoteWriteQueues.get(key) || Promise.resolve();
+        const write = previous.catch(() => {}).then(async () => {
+            if (!currentRequest(user, epoch, scope)) return { error: { message: 'Account changed' } };
+            publishSyncStatus(tool, 'syncing');
+            const result = await executeWithBackoff(() => currentRequest(user, epoch, scope)
+                ? supabaseClient.from('sync_items').upsert(copy, { onConflict: 'user_id,tool,item_id' })
+                : Promise.resolve({ error: { message: 'Account changed' } }));
+            if (currentRequest(user, epoch, scope)) publishSyncStatus(tool, result && !result.error ? 'synced' : 'error');
+            return result;
+        });
+        remoteWriteQueues.set(key, write);
+        return write.finally(() => { if (remoteWriteQueues.get(key) === write) remoteWriteQueues.delete(key); });
+    }
 
     function safeIsoTimestamp(ts) {
         if (ts === null || ts === undefined || ts === 0) {
@@ -56,6 +93,7 @@
      * الحصول على المستخدم الحالي بأمان
      */
     async function getAuthenticatedUser() {
+        const epoch = authEpoch;
         let client = typeof supabaseClient !== 'undefined' ? supabaseClient : null;
         if (!client && typeof ensureSupabaseLoaded === 'function') {
             try { client = await ensureSupabaseLoaded(); } catch(e){}
@@ -64,6 +102,13 @@
         try {
             const { data, error } = await client.auth.getUser();
             if (error || !data || !data.user) return null;
+            if (epoch !== authEpoch) return null;
+            if (hayyizStorage.isCurrentUser && !hayyizStorage.isCurrentUser(data.user.id)) {
+                hayyizStorage.transitionTo(data.user.id);
+                return null;
+            }
+            if (authUserId !== undefined && authUserId !== data.user.id) authEpoch++;
+            authUserId = data.user.id;
             return data.user;
         } catch (e) {
             return null;
@@ -75,7 +120,7 @@
      */
     function getLocalStorageItem(key, fallback = null) {
         try {
-            const val = localStorage.getItem(key);
+            const val = hayyizStorage.getItem(key);
             if (val === null || val === undefined) return fallback;
             return JSON.parse(val);
         } catch (e) {
@@ -89,12 +134,14 @@
     function setLocalStorageItem(key, val) {
         try {
             if (val === null || val === undefined) {
-                localStorage.removeItem(key);
+                hayyizStorage.removeItem(key);
             } else {
-                localStorage.setItem(key, typeof val === 'string' ? val : JSON.stringify(val));
+                hayyizStorage.setItem(key, typeof val === 'string' ? val : JSON.stringify(val));
             }
+            return true;
         } catch (e) {
             console.warn('[Sync Engine] LocalStorage write failed:', e);
+            return false;
         }
     }
 
@@ -177,12 +224,12 @@
      * طوابع زمنية للمزامنة التزايدية (Incremental Sync Timestamps)
      * ========================================================= */
     function getLastSyncTime(toolName) {
-        return localStorage.getItem('hayyiz-sync-last-time-' + toolName) || null;
+        return hayyizStorage.getItem('hayyiz-sync-last-time-' + toolName) || null;
     }
 
     function setLastSyncTime(toolName, isoTimestamp) {
         if (isoTimestamp) {
-            localStorage.setItem('hayyiz-sync-last-time-' + toolName, isoTimestamp);
+            hayyizStorage.setItem('hayyiz-sync-last-time-' + toolName, isoTimestamp);
         }
     }
 
@@ -268,7 +315,7 @@
             type: 'collection',
             storageKey: 'hayyiz-focus-sessions-log',
             getId: item => item && item.id,
-            getTimestamp: item => Number(item && (item.timestamp ? new Date(item.timestamp).getTime() : (item.created || 0)))
+            getTimestamp: item => Number(item && (item.updated || (item.timestamp ? new Date(item.timestamp).getTime() : (item.created || 0))))
         },
         'gpa-snapshot': {
             tool: 'gpa-snapshot',
@@ -303,14 +350,25 @@
             type: 'single',
             storageKey: 'hayyiz-birthdate',
             itemId: 'birthdate',
-            getTimestamp: () => Number(localStorage.getItem('hayyiz-birthdate-updated') || 0)
+            getLocalStorage: () => {
+                const raw = hayyizStorage.getItem('hayyiz-birthdate');
+                if (raw === null) return null;
+                try { return JSON.parse(raw); } catch (_) { return raw; }
+            },
+            getTimestamp: () => Number(hayyizStorage.getItem('hayyiz-birthdate-updated') || 0)
         },
         'focus-history': {
             tool: 'focus-history',
             type: 'single',
             storageKey: 'hayyiz-focus-history',
             itemId: 'history',
-            getTimestamp: () => Number(localStorage.getItem('hayyiz-focus-history-updated') || 0)
+            mergeHistory: true,
+            getLocalStorage: () => typeof hayyizReadFocusHistoryPayload === 'function' ? hayyizReadFocusHistoryPayload() : getLocalStorageItem('hayyiz-focus-history', {}),
+            setLocalStorage: data => {
+                if (typeof hayyizApplyFocusHistoryPayload === 'function' && data) hayyizApplyFocusHistoryPayload(data);
+                else setLocalStorageItem('hayyiz-focus-history', data);
+            },
+            getTimestamp: () => Number(hayyizStorage.getItem('hayyiz-focus-history-updated') || 0)
         },
         'multi-day-plans': {
             tool: 'multi-day-plans', type: 'single', storageKey: 'hayyiz-multi-day-plans', itemId: 'plans',
@@ -339,18 +397,18 @@
             type: 'single',
             itemId: 'prefs',
             getLocalStorage: () => ({
-                work: localStorage.getItem('hayyiz-pref-work') || '25',
-                break: localStorage.getItem('hayyiz-pref-break') || '5',
-                long: localStorage.getItem('hayyiz-pref-long') || '15'
+                work: hayyizStorage.getItem('hayyiz-pref-work') || '25',
+                break: hayyizStorage.getItem('hayyiz-pref-break') || '5',
+                long: hayyizStorage.getItem('hayyiz-pref-long') || '15'
             }),
             setLocalStorage: (data) => {
                 if (data && typeof data === 'object') {
-                    if (data.work) localStorage.setItem('hayyiz-pref-work', String(data.work));
-                    if (data.break) localStorage.setItem('hayyiz-pref-break', String(data.break));
-                    if (data.long) localStorage.setItem('hayyiz-pref-long', String(data.long));
+                    if (data.work) hayyizStorage.setItem('hayyiz-pref-work', String(data.work));
+                    if (data.break) hayyizStorage.setItem('hayyiz-pref-break', String(data.break));
+                    if (data.long) hayyizStorage.setItem('hayyiz-pref-long', String(data.long));
                 }
             },
-            getTimestamp: () => Number(localStorage.getItem('hayyiz-pomodoro-prefs-updated') || 0)
+            getTimestamp: () => Number(hayyizStorage.getItem('hayyiz-pomodoro-prefs-updated') || 0)
         }
     };
 
@@ -363,23 +421,34 @@
         // إذا كان هناك عمليات حذف محلي لم تُرفع بعد، قم بجلب كامل السجلات لضمان عدم حجب أي صف بالخطأ عبر GT
         const deletedRegistry = getDeletedItemsRegistry();
         const hasPendingLocalDeletes = Object.keys(deletedRegistry).some(k => k.startsWith(toolName + ':'));
-        const sinceIso = hasPendingLocalDeletes || (TOOL_ADAPTERS[toolName] && TOOL_ADAPTERS[toolName].mergeMap) ? null : getLastSyncTime(toolName);
+        const sinceIso = hasPendingLocalDeletes || (TOOL_ADAPTERS[toolName] && (TOOL_ADAPTERS[toolName].mergeMap || TOOL_ADAPTERS[toolName].mergeHistory)) ? null : getLastSyncTime(toolName);
 
         const fetchOperation = async () => {
-            let query = supabaseClient
-                .from('sync_items')
-                .select('tool, item_id, data, updated_at, deleted_at')
-                .eq('tool', toolName);
+            const rows = [];
+            let offset = 0;
+            while (true) {
+                let query = supabaseClient
+                    .from('sync_items')
+                    .select('tool, item_id, data, updated_at, deleted_at')
+                    .eq('user_id', user.id)
+                    .eq('tool', toolName);
 
-            if (sinceIso) {
-                const sinceMs = new Date(sinceIso).getTime();
-                if (!isNaN(sinceMs) && sinceMs > 0) {
-                    const overlapIso = new Date(Math.max(0, sinceMs - 1000)).toISOString();
-                    query = query.gt('updated_at', overlapIso);
+                if (sinceIso) {
+                    const sinceMs = new Date(sinceIso).getTime();
+                    if (!isNaN(sinceMs) && sinceMs > 0) {
+                        const overlapIso = new Date(Math.max(0, sinceMs - 1000)).toISOString();
+                        query = query.gt('updated_at', overlapIso);
+                    }
                 }
-            }
 
-            return await query;
+                const paginated = typeof query.order === 'function' && typeof query.range === 'function';
+                if (paginated) query = query.order('item_id', { ascending: true }).range(offset, offset + 499);
+                const result = await query;
+                if (!result || result.error) return result;
+                rows.push(...(result.data || []));
+                if (!paginated || !result.data || result.data.length < 500) return { data: rows, error: null };
+                offset += 500;
+            }
         };
 
         const res = await executeWithBackoff(fetchOperation);
@@ -625,6 +694,18 @@
             needsUpload = JSON.stringify(merged) !== JSON.stringify(remoteMap);
         }
 
+        if (adapter.mergeHistory && remoteRow && !remoteRow.deleted_at && !localDelTime) {
+            if (typeof hayyizMergeFocusHistoryPayload === 'function') {
+                finalData = hayyizMergeFocusHistoryPayload(localData, remoteRow.data);
+            } else {
+                finalData = Object.create(null);
+                [remoteRow.data, localData].forEach(map => Object.entries(map || {}).filter(([day]) => /^\d{4}-\d{2}-\d{2}$/.test(day)).forEach(([day, minutes]) => {
+                    finalData[day] = Math.max(Number(finalData[day]) || 0, Number(minutes) || 0);
+                }));
+            }
+            needsUpload = JSON.stringify(finalData) !== JSON.stringify(remoteRow.data);
+        }
+
         return { finalData, needsUpload, tombstoneToPush };
     }
 
@@ -632,14 +713,20 @@
      * رفع عنصر فردي أو مجمع إلى Supabase (Non-blocking)
      */
     async function hayyizUploadItem(toolName, itemId, data) {
-        if (!toolName || !itemId) return;
+        // Only the existing structured tools are cloud-syncable. Drawing/PDF
+        // bytes and local backup files must never use the cloud upload path.
+        if (!toolName || !itemId || !Object.prototype.hasOwnProperty.call(TOOL_ADAPTERS, toolName)) return;
+        if (toolName === 'focus-history') return hayyizSyncTool(toolName);
+        const copy = JSON.parse(JSON.stringify(data));
+        const scope = hayyizStorage.scope;
         hayyizClearLocalDelete(toolName, itemId);
 
         const user = await getAuthenticatedUser();
         if (!user) return;
+        const epoch = authEpoch;
 
         const adapter = TOOL_ADAPTERS[toolName];
-        const rawTs = adapter ? adapter.getTimestamp(data) : 0;
+        const rawTs = adapter ? adapter.getTimestamp(copy) : 0;
         const nowIso = safeIsoTimestamp(rawTs);
 
         try {
@@ -647,16 +734,12 @@
                 user_id: user.id,
                 tool: toolName,
                 item_id: String(itemId),
-                data: data,
+                data: copy,
                 updated_at: nowIso,
                 deleted_at: null
             };
 
-            const res = await executeWithBackoff(() =>
-                supabaseClient
-                    .from('sync_items')
-                    .upsert(payload, { onConflict: 'user_id,tool,item_id' })
-            );
+            const res = await writeRemoteRows(toolName, payload, user, epoch, scope);
 
             if (res && res.error) {
                 console.warn(`[Sync Engine] Upload item failed for tool ${toolName}:`, res.error.message);
@@ -671,7 +754,8 @@
      * تسجيل حذف عنصر في Supabase باستعمال Tombstone
      */
     async function hayyizDeleteRemoteItem(toolName, itemId, previousData) {
-        if (!toolName || !itemId) return;
+        if (!toolName || !itemId || !Object.prototype.hasOwnProperty.call(TOOL_ADAPTERS, toolName)) return;
+        const scope = hayyizStorage.scope;
         const nowMs = Date.now();
 
         let itemData = previousData;
@@ -703,6 +787,7 @@
 
         const user = await getAuthenticatedUser();
         if (!user) return;
+        const epoch = authEpoch;
 
         const nowIso = safeIsoTimestamp(nowMs);
 
@@ -716,19 +801,17 @@
                 deleted_at: nowIso
             };
 
-            const res = await executeWithBackoff(() =>
-                supabaseClient
-                    .from('sync_items')
-                    .upsert(payload, { onConflict: 'user_id,tool,item_id' })
-            );
+            const res = await writeRemoteRows(toolName, payload, user, epoch, scope);
 
             if (res && res.error) {
                 console.warn(`[Sync Engine] Delete remote item failed for tool ${toolName}:`, res.error.message);
-            } else {
+            } else if (currentRequest(user, epoch, scope)) {
                 setLastSyncTime(toolName, nowIso);
             }
+            return res;
         } catch (e) {
             console.warn(`[Sync Engine] Delete remote item exception for tool ${toolName}:`, e);
+            return { error: e };
         }
     }
 
@@ -755,18 +838,20 @@
 
         async function syncRound() {
             const user = await getAuthenticatedUser();
-            if (!user) return;
+            if (!user) { publishSyncStatus(toolName, 'local'); return; }
+            const epoch = authEpoch;
+            const scope = hayyizStorage.scope;
 
             syncingTools.add(toolName);
+            publishSyncStatus(toolName, 'syncing');
             const syncStartTimeIso = new Date().toISOString();
 
             try {
                 hayyizCleanupOldLocalTombstones();
 
                 const remoteRows = await loadRemoteToolRows(user, toolName);
-                if (remoteRows === null) {
-                    return; // فشل الشبكة -> نحتفظ بالمحلي كلياً
-                }
+                if (!currentRequest(user, epoch, scope)) return false;
+                if (remoteRows === null) { publishSyncStatus(toolName, 'error'); return false; }
 
                 if (adapter.type === 'collection') {
                     const localItems = getLocalStorageItem(adapter.storageKey, []);
@@ -777,7 +862,7 @@
                     const hasChanged = localJson !== mergedJson;
 
                     if (hasChanged) {
-                        setLocalStorageItem(adapter.storageKey, mergedList);
+                        if (!setLocalStorageItem(adapter.storageKey, mergedList)) throw new Error('Local save failed');
                     }
 
                     if (uploads.length > 0) {
@@ -793,11 +878,7 @@
                             };
                         });
 
-                        const uploadResult = await executeWithBackoff(() =>
-                            supabaseClient
-                                .from('sync_items')
-                                .upsert(payloads, { onConflict: 'user_id,tool,item_id' })
-                        );
+                        const uploadResult = await writeRemoteRows(toolName, payloads, user, epoch, scope);
                         if (!uploadResult || uploadResult.error) throw new Error('Collection upload not saved');
                     }
 
@@ -811,11 +892,7 @@
                             deleted_at: safeIsoTimestamp(t.timestamp)
                         }));
 
-                        const tombRes = await executeWithBackoff(() =>
-                            supabaseClient
-                                .from('sync_items')
-                                .upsert(tombstonePayloads, { onConflict: 'user_id,tool,item_id' })
-                        );
+                        const tombRes = await writeRemoteRows(toolName, tombstonePayloads, user, epoch, scope);
 
                         if (tombRes && !tombRes.error) {
                             tombstonesToPush.forEach(t => {
@@ -824,6 +901,7 @@
                         } else { throw new Error('Deletion upload not saved'); }
                     }
 
+                    if (!currentRequest(user, epoch, scope)) return false;
                     setLastSyncTime(toolName, syncStartTimeIso);
 
                     if (hasChanged && syncCallbacks.has(toolName)) {
@@ -849,17 +927,22 @@
                         if (typeof adapter.setLocalStorage === 'function') {
                             adapter.setLocalStorage(finalData);
                         } else {
-                            setLocalStorageItem(adapter.storageKey, finalData);
+                            if (!setLocalStorageItem(adapter.storageKey, finalData)) throw new Error('Local save failed');
                         }
                     }
 
                     if (tombstoneToPush) {
-                        await hayyizDeleteRemoteItem(toolName, tombstoneToPush.id, tombstoneToPush.data);
+                        const result = await hayyizDeleteRemoteItem(toolName, tombstoneToPush.id, tombstoneToPush.data);
+                        if (!result || result.error) throw new Error('Deletion upload not saved');
                     } else if (needsUpload && finalData !== null && finalData !== undefined) {
-                        const result = await hayyizUploadItem(toolName, adapter.itemId, finalData);
+                        const result = await writeRemoteRows(toolName, {
+                            user_id: user.id, tool: toolName, item_id: adapter.itemId,
+                            data: finalData, updated_at: safeIsoTimestamp(adapter.getTimestamp(finalData)), deleted_at: null
+                        }, user, epoch, scope);
                         if (!result || result.error) throw new Error('Planning upload not saved');
                     }
 
+                    if (!currentRequest(user, epoch, scope)) return false;
                     setLastSyncTime(toolName, syncStartTimeIso);
 
                     if (hasChanged && syncCallbacks.has(toolName)) {
@@ -868,9 +951,11 @@
                         });
                     }
                 }
+                publishSyncStatus(toolName, 'synced');
                 return true;
             } catch (e) {
                 console.warn(`[Sync Engine] Error syncing tool ${toolName}:`, e);
+                if (currentRequest(user, epoch, scope)) publishSyncStatus(toolName, 'error');
                 return false;
             } finally {
                 syncingTools.delete(toolName);
@@ -897,6 +982,7 @@
             const toolKeys = Object.keys(TOOL_ADAPTERS);
             await Promise.all(toolKeys.filter(t => t !== 'multi-day-plans').map(t => hayyizSyncTool(t)));
             await hayyizSyncTool('multi-day-plans');
+            await hayyizFlushWorkspaceFocusSessions();
             if (typeof hayyizReevaluateMultiDayPlan === 'function') hayyizReevaluateMultiDayPlan();
             if (typeof hayyizNotifyPlanningChanged === 'function') hayyizNotifyPlanningChanged();
         } catch (e) {
@@ -923,6 +1009,41 @@
         return await hayyizDeleteRemoteItem('notes', noteId, previousData);
     }
 
+    // Keep completed workspace sessions until the server acknowledges their stable
+    // client ID. Retrying after a lost response cannot create a duplicate session.
+    function hayyizFlushWorkspaceFocusSessions() {
+        if (focusOutboxPromise) return focusOutboxPromise;
+        focusOutboxPromise = (async () => {
+            const user = await getAuthenticatedUser();
+            if (!user) return false;
+            const epoch = authEpoch, scope = hayyizStorage.scope;
+            const attempted = new Set();
+            let failed = false;
+            while (currentRequest(user, epoch, scope)) {
+                const queue = getLocalStorageItem('hayyiz-workspace-focus-outbox', {});
+                const id = Object.keys(queue).find(key => !attempted.has(key));
+                if (!id) return !failed;
+                attempted.add(id);
+                const entry = queue[id];
+                if (!entry || entry.id !== id || !entry.taskId) continue;
+                const result = await executeWithBackoff(() => currentRequest(user, epoch, scope)
+                    ? supabaseClient.rpc('record_focus_session', {
+                        p_client_session_id: id, p_task_id: entry.taskId,
+                        p_workspace_id: entry.workspaceId || null, p_started_at: entry.startedAt,
+                        p_ended_at: entry.endedAt, p_duration_seconds: entry.durationSeconds
+                    }) : Promise.resolve({ error: { message: 'Account changed' } }));
+                if (!currentRequest(user, epoch, scope)) return false;
+                if (!result || result.error || !result.data || result.data.success !== true) { failed = true; continue; }
+                const latest = getLocalStorageItem('hayyiz-workspace-focus-outbox', {});
+                delete latest[id];
+                setLocalStorageItem('hayyiz-workspace-focus-outbox', latest);
+            }
+            return false;
+        })().catch(error => { console.warn('[Sync Engine] Focus session pending:', error); return false; })
+            .finally(() => { focusOutboxPromise = null; });
+        return focusOutboxPromise;
+    }
+
     /**
      * تسجيل مستمع التوثيق العام
      */
@@ -934,14 +1055,23 @@
             authListenerRegistered = true;
             try {
                 client.auth.onAuthStateChange((event, session) => {
-                    if (session && session.user) {
-                        hayyizSyncAllUserData();
+                    const nextId = session && session.user ? session.user.id : null;
+                    if (authUserId !== nextId) { authUserId = nextId; authEpoch++; }
+                    if (hayyizStorage.isCurrentUser && !hayyizStorage.isCurrentUser(nextId)) {
+                        hayyizStorage.transitionTo(nextId);
+                        return;
                     }
+                    // Supabase auth callbacks must not await another auth call.
+                    if (nextId) setTimeout(() => hayyizSyncAllUserData(), 0);
                 });
             } catch (e) {
                 console.warn('[Sync Engine] Auth state listener error:', e);
             }
         };
+
+        if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+            window.addEventListener('hayyiz:supabase-ready', event => attachListener(event.detail));
+        }
 
         if (typeof hasSavedSupabaseSession === 'function' && hasSavedSupabaseSession()) {
             if (typeof ensureSupabaseLoaded === 'function') {
@@ -964,9 +1094,11 @@
     global.hayyizCleanupOldLocalTombstones = hayyizCleanupOldLocalTombstones;
     global.hayyizRegisterSyncCallback = hayyizRegisterSyncCallback;
     global.hayyizSyncTool = hayyizSyncTool;
+    global.hayyizGetSyncStatus = tool => toolStatuses.get(tool) || { tool, state: 'local' };
     global.hayyizSyncAllUserData = hayyizSyncAllUserData;
     global.hayyizUploadItem = hayyizUploadItem;
     global.hayyizDeleteRemoteItem = hayyizDeleteRemoteItem;
+    global.hayyizFlushWorkspaceFocusSessions = hayyizFlushWorkspaceFocusSessions;
     global.hayyizRecordLocalDelete = hayyizRecordLocalDelete;
     global.hayyizClearLocalDelete = hayyizClearLocalDelete;
     global.initAuthListener = initAuthListener;

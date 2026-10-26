@@ -1,3 +1,4 @@
+var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (typeof localStorage !== 'undefined' ? localStorage : undefined);
 /*
  * Runtime reconciliation for the workspaces UI.
  * Keeps the existing spaces module intact while covering cross-user membership

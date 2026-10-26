@@ -1,3 +1,4 @@
+var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (typeof localStorage !== 'undefined' ? localStorage : undefined);
 /* One privacy boundary for page views and optional planning metrics. */
 (function () {
     'use strict';
@@ -32,7 +33,7 @@
     function push() { window.dataLayer.push(arguments); }
     window.hayyizSendPlanningEvent = function (name) {
         if (!ready || !actions.has(name) || !permitted()) return false;
-        try { if (localStorage.getItem('hayyiz-planning-metrics') !== 'enabled') return false; }
+        try { if (hayyizStorage.getItem('hayyiz-planning-metrics') !== 'enabled') return false; }
         catch (_) { return false; }
         push('event', 'planning_' + name, Object.assign(context(), { event_category: 'student_planning', send_to: stream }));
         return true;

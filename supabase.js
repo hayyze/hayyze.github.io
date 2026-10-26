@@ -3,15 +3,35 @@ const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_zXE2LbHMIAiTFjrYTyb7GA_zrHGa1rv
 
 let supabaseClient = (typeof window !== 'undefined' && window.supabaseClient) || null;
 let supabaseLoadingPromise = null;
+const supabaseReadyClients = new WeakSet();
+
+function hayyizPublishSupabaseReady(client) {
+    if (!client || supabaseReadyClients.has(client)) return client;
+    supabaseReadyClients.add(client);
+    if (typeof window !== 'undefined') {
+        window.supabaseClient = client;
+        if (window.hayyizStorage && typeof window.hayyizStorage.transitionTo === 'function' && client.auth && typeof client.auth.onAuthStateChange === 'function') {
+            client.auth.onAuthStateChange((event, session) => {
+                if (event === 'SIGNED_OUT' || (session && session.user)) {
+                    setTimeout(() => window.hayyizStorage.transitionTo(session?.user?.id || null), 0);
+                }
+            });
+        }
+        if (typeof window.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+            window.dispatchEvent(new CustomEvent('hayyiz:supabase-ready', { detail: client }));
+        }
+    }
+    return client;
+}
 
 function ensureSupabaseLoaded() {
     if (supabaseClient) {
-        return Promise.resolve(supabaseClient);
+        return Promise.resolve(hayyizPublishSupabaseReady(supabaseClient));
     }
     if (typeof window !== 'undefined' && window.supabase && typeof window.supabase.createClient === 'function') {
         supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
         window.supabaseClient = supabaseClient;
-        return Promise.resolve(supabaseClient);
+        return Promise.resolve(hayyizPublishSupabaseReady(supabaseClient));
     }
     if (supabaseLoadingPromise) {
         return supabaseLoadingPromise;
@@ -27,7 +47,7 @@ function ensureSupabaseLoaded() {
             if (window.supabase && typeof window.supabase.createClient === 'function') {
                 supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
                 window.supabaseClient = supabaseClient;
-                resolve(supabaseClient);
+                resolve(hayyizPublishSupabaseReady(supabaseClient));
             } else {
                 reject(new Error('Supabase failed to initialize'));
             }
@@ -36,12 +56,17 @@ function ensureSupabaseLoaded() {
         document.head.appendChild(script);
     });
 
+    supabaseLoadingPromise = supabaseLoadingPromise.catch(error => {
+        supabaseLoadingPromise = null;
+        throw error;
+    });
     return supabaseLoadingPromise;
 }
 
 if (typeof window !== 'undefined' && window.supabase && typeof window.supabase.createClient === 'function') {
     supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
     window.supabaseClient = supabaseClient;
+    hayyizPublishSupabaseReady(supabaseClient);
 }
 
 // إنشاء حساب جديد عبر Supabase Auth مباشرة

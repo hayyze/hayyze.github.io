@@ -71,13 +71,19 @@ htmlFiles.forEach(file => {
 console.log(`✅ PASS: All ${totalAuditedPages} HTML pages strictly verified for canonical, og:url, og:image, and JSON-LD structure.`);
 
 // 6. Sitemap.xml & robots.txt Validation
-console.log('Auditing sitemap-hayyiz.xml and robots.txt...');
+console.log('Auditing the sitemap declared in robots.txt...');
 
-assert(fs.existsSync('sitemap-hayyiz.xml'), 'sitemap-hayyiz.xml must exist');
 assert(fs.existsSync('robots.txt'), 'robots.txt must exist');
-
-const sitemapContent = fs.readFileSync('sitemap-hayyiz.xml', 'utf8');
 const robotsContent = fs.readFileSync('robots.txt', 'utf8');
+const sitemapDirective = robotsContent.match(/^Sitemap:\s*(\S+)\s*$/mi);
+assert(sitemapDirective, 'robots.txt must declare a sitemap');
+const sitemapURL = new URL(sitemapDirective[1]);
+assert.strictEqual(sitemapURL.origin, DOMAIN, 'Sitemap must use the current site origin');
+assert(!sitemapURL.search && !sitemapURL.hash, 'Sitemap must be a static file URL');
+const sitemapFile = sitemapURL.pathname.slice(1);
+assert(/^sitemap[\w-]*\.xml$/i.test(sitemapFile), 'Sitemap must reference an XML file in the site root');
+assert(fs.existsSync(sitemapFile), 'Sitemap filename must match its exact case on disk: ' + sitemapFile);
+const sitemapContent = fs.readFileSync(sitemapFile, 'utf8');
 
 // Ensure no old domain references in sitemap or robots
 OLD_DOMAINS.forEach(oldDomain => {
@@ -86,7 +92,7 @@ OLD_DOMAINS.forEach(oldDomain => {
 });
 
 // Verify sitemap directive in robots.txt
-assert(robotsContent.includes(`Sitemap: ${DOMAIN}/sitemap-hayyiz.xml`), 'robots.txt must point to Cloudflare sitemap-hayyiz.xml URL');
+assert.strictEqual(sitemapURL.href, `${DOMAIN}/${sitemapFile}`, 'Sitemap must use the exact deployed path');
 
 // Verify all <loc> entries in sitemap-hayyiz.xml
 const locMatches = sitemapContent.match(/<loc>(.*?)<\/loc>/g) || [];

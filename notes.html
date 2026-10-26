@@ -63,6 +63,8 @@
     <!-- التحقق من جوجل -->
     <meta name="google-site-verification" content="UGZBajOx-nFmjpHaPnJpcI6giJ70EzhrchPCGOnAmcw">
     <!-- Google Analytics -->
+    <script src="account-storage.js"></script>
+    <script src="focus-history.js" defer></script>
     <script src="analytics.js"></script>
     <!-- Structured Data -->
 <script type="application/ld+json">
@@ -191,6 +193,7 @@
                 <div class="nav-dropdown-menu">
                     <a href="pomodoro.html" class="dropdown-item"><i class="fa-solid fa-clock" aria-hidden="true"></i> المؤقت</a>
                     <a href="todo.html" class="dropdown-item"><i class="fa-solid fa-list-check" aria-hidden="true"></i> المهام</a>
+                    <a href="study-planner.html" class="dropdown-item"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> منظم المذاكرة</a>
                     <a href="workspaces.html" class="dropdown-item"><i class="fa-solid fa-people-group" aria-hidden="true"></i> المساحات المتزامنة</a>
                     <a href="subject.html" class="dropdown-item"><i class="fa-solid fa-book" aria-hidden="true"></i> المواد</a>
                     <a href="gpa.html" class="dropdown-item"><i class="fa-solid fa-calculator" aria-hidden="true"></i> حاسبة المعدل</a>
@@ -207,6 +210,7 @@
                 </button>
                 <div class="nav-dropdown-menu">
                     <a href="about.html" class="dropdown-item"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> عن حيز</a>
+                    <a href="about.html#hayyiz-backup-section" class="dropdown-item"><i class="fa-solid fa-download" aria-hidden="true"></i> النسخ الاحتياطي والاستعادة</a>
                     <a href="contact.html" class="dropdown-item"><i class="fa-solid fa-envelope" aria-hidden="true"></i> تواصل معنا</a>
                     <a href="privacy.html" class="dropdown-item"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> سياسة الخصوصية</a>
                     <a href="terms.html" class="dropdown-item"><i class="fa-solid fa-file-contract" aria-hidden="true"></i> شروط الاستخدام</a>
@@ -254,7 +258,8 @@
                 <p class="section-desc" style="margin:4px 0 0;">اكتب أفكارك وملاحظاتك الدراسية ونظمها للمراجعة</p>
             </div>
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                <span id="sync-status-badge" class="badge hidden" style="font-size:0.85rem; padding:4px 10px; background:var(--bg); border:1px solid var(--border); color:var(--text-muted);"><i class="fa-solid fa-cloud"></i> <span id="sync-status-text">المزامنة محلياً</span></span>
+                <span id="sync-status-badge" class="badge hidden" role="status" aria-live="polite" style="font-size:0.85rem; padding:4px 10px; background:var(--bg); border:1px solid var(--border); color:var(--text-muted);"><i class="fa-solid fa-cloud" aria-hidden="true"></i> <span id="sync-status-text">محفوظة على هذا الجهاز</span></span>
+                <button type="button" id="notes-sync-retry" class="btn btn-secondary" hidden>إعادة محاولة المزامنة</button>
                 <button type="button" class="btn btn-outline btn-sm" id="back-to-modes">
                     ← العودة للاختيار
                 </button>
@@ -342,7 +347,10 @@
                     <i class="fa-solid fa-plus"></i> حفظ الملاحظة
                 </button>
                 <button type="button" class="btn btn-secondary" id="clear-note-btn">مسح</button>
+                <button type="button" class="btn btn-secondary" id="note-save-copy-btn" hidden>حفظ كنسخة جديدة</button>
             </div>
+            <p id="note-save-status" role="status" aria-live="polite"></p>
+            <p class="backup-hint">تُحفظ مسودتك تلقائيًا على هذا الجهاز. <a href="about.html#hayyiz-backup-section">نسخ احتياطي واستعادة</a></p>
         </form>
 
         <!-- أدوات البحث والتصفية والترتيب -->

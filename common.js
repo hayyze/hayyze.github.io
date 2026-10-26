@@ -1,3 +1,4 @@
+var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (typeof localStorage !== 'undefined' ? localStorage : undefined);
 function getTodayLocal() {
     const now = new Date();
     const year = now.getFullYear();
@@ -26,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const navLinks = document.getElementById('nav-links');
 
     // الثيم
-    const savedTheme = localStorage.getItem('hayyiz-theme') || 'light';
+    const savedTheme = hayyizStorage.getItem('hayyiz-theme') || 'light';
     const isDark = savedTheme === 'dark';
     docEl.classList.toggle('theme-dark', isDark);
     body.classList.toggle('theme-dark', isDark);
@@ -38,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const nextIsDark = !currentlyDark;
             docEl.classList.toggle('theme-dark', nextIsDark);
             body.classList.toggle('theme-dark', nextIsDark);
-            localStorage.setItem('hayyiz-theme', nextIsDark ? 'dark' : 'light');
+            hayyizStorage.setItem('hayyiz-theme', nextIsDark ? 'dark' : 'light');
             updateThemeIcon();
         });
     }
@@ -167,6 +168,7 @@ var HAYYIZ_ALLOWED_BACKUP_KEYS = [
     'hayyiz-focus-minutes-today',
     'hayyiz-sessions-day',
     'hayyiz-focus-history',
+    'hayyiz-focus-history-state',
     'hayyiz-focus-sessions-log',
     'hayyiz-pref-work',
     'hayyiz-pref-break',
@@ -282,6 +284,7 @@ function hayyizSanitizeValue(key, rawVal) {
     // المفاتيح ذات الكائنات الهيكلية (Objects)
     const objectKeys = new Set([
         'hayyiz-focus-history',
+        'hayyiz-focus-history-state',
         'hayyiz-task-session',
         'hayyiz-current-event',
         'hayyiz-pomodoro-state',
@@ -350,15 +353,16 @@ function hayyizSanitizeValue(key, rawVal) {
     return null;
 }
 
-function exportHayyizData() {
-    const data = {
+async function exportHayyizData() {
+    try {
+    let data = {
         version: 2,
         exportedAt: new Date().toISOString(),
         app: 'حيز',
         keys: {}
     };
     HAYYIZ_ALLOWED_BACKUP_KEYS.forEach((key) => {
-        const val = localStorage.getItem(key);
+        const val = hayyizStorage.getItem(key);
         if (val !== null) {
             const sanitized = hayyizSanitizeValue(key, val);
             if (sanitized !== null) {
@@ -366,6 +370,8 @@ function exportHayyizData() {
             }
         }
     });
+    if (typeof window.hayyizCreateBackup === 'function') data = await window.hayyizCreateBackup();
+    if (data.missingPdfIds && data.missingPdfIds.length && !confirm('توجد ' + data.missingPdfIds.length + ' ملفات PDF غير متاحة على هذا الجهاز. ستُحفظ الرسومات دون هذه الملفات. هل تريد تنزيل النسخة؟')) return;
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -376,16 +382,117 @@ function exportHayyizData() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+    } catch (error) { alert(error.message || 'تعذر إنشاء النسخة الاحتياطية.'); }
+}
+
+// A restore is a new user edit. Stage its sync metadata with the restored values
+// so a later cloud read cannot immediately put an older snapshot back.
+function hayyizPrepareRestoredKeys(input) {
+    const keys = Object.assign(Object.create(null), input);
+    let now = Date.now();
+    const read = raw => { try { return JSON.parse(raw); } catch (_) { return null; } };
+    function clock(value, depth) {
+        if (!value || typeof value !== 'object' || depth > 40) return;
+        Object.entries(value).forEach(([field, child]) => {
+            if (['updated', 'updatedAt', 'lastUpdated', 'created', 'timestamp'].includes(field)) {
+                const time = Number(child) || (typeof child === 'string' ? Date.parse(child) : 0);
+                if (Number.isFinite(time) && time > 0 && time < 8640000000000000) now = Math.max(now, time + 1);
+            }
+            if (child && typeof child === 'object') clock(child, depth + 1);
+        });
+    }
+    Object.keys(keys).forEach(key => { clock(read(keys[key]), 0); clock(read(hayyizStorage.getItem(key)), 0); });
+    const registry = Object.assign(Object.create(null), hayyizParseJSON('hayyiz-deleted-items', {}), read(keys['hayyiz-deleted-items']) || {});
+    const collections = ['todos', 'notes', 'habits', 'student-exams', 'custom-events', 'subjects', 'subject-goals', 'focus-log'];
+    collections.forEach(tool => {
+        const key = tool === 'focus-log' ? 'hayyiz-focus-sessions-log' : 'hayyiz-' + tool;
+        if (!Object.prototype.hasOwnProperty.call(keys, key)) return;
+        const rows = read(keys[key]);
+        if (!Array.isArray(rows)) return;
+        const ids = new Set();
+        rows.forEach(row => {
+            if (!row.id) row.id = tool === 'subject-goals' && row.name ? row.name : hayyizGenerateId();
+            ids.add(String(row.id));
+            row.updated = now;
+            delete registry[tool + ':' + row.id];
+        });
+        const previous = hayyizParseJSON(key, []);
+        if (Array.isArray(previous)) previous.forEach(row => {
+            const id = row && (row.id || (tool === 'subject-goals' ? row.name : null));
+            if (id && !ids.has(String(id))) registry[tool + ':' + id] = { timestamp: now, data: row };
+        });
+        keys[key] = JSON.stringify(rows);
+        keys['hayyiz-sync-last-time-' + tool] = '';
+    });
+    const singles = { 'gpa-snapshot': 'updatedAt', 'academic-goal': 'updatedAt', 'daily-goal': 'updated', 'planning-preferences': 'updatedAt' };
+    Object.entries(singles).forEach(([tool, field]) => {
+        const key = 'hayyiz-' + tool;
+        if (!Object.prototype.hasOwnProperty.call(keys, key)) return;
+        const value = read(keys[key]);
+        if (value && typeof value === 'object') { value[field] = now; keys[key] = JSON.stringify(value); }
+        keys['hayyiz-sync-last-time-' + tool] = '';
+    });
+    ['multi-day-plans', 'day-reviews'].forEach(tool => {
+        const key = 'hayyiz-' + tool;
+        if (!Object.prototype.hasOwnProperty.call(keys, key)) return;
+        const value = read(keys[key]);
+        if (value && typeof value === 'object') {
+            Object.values(value).forEach(row => { if (row && typeof row === 'object') row.updatedAt = now; });
+            keys[key] = JSON.stringify(value);
+        }
+        keys['hayyiz-sync-last-time-' + tool] = '';
+    });
+    if (keys['hayyiz-birthdate'] !== undefined) {
+        keys['hayyiz-birthdate-updated'] = String(now);
+        keys['hayyiz-sync-last-time-birthdate'] = '';
+    }
+    if (['work', 'break', 'long'].some(mode => keys['hayyiz-pref-' + mode] !== undefined)) {
+        keys['hayyiz-pomodoro-prefs-updated'] = String(now);
+        keys['hayyiz-sync-last-time-pomodoro-prefs'] = '';
+    }
+    if (keys['hayyiz-focus-history'] !== undefined) {
+        keys['hayyiz-focus-writer-id'] = hayyizGenerateId();
+        keys['hayyiz-focus-history-updated'] = String(now);
+        keys['hayyiz-sync-last-time-focus-history'] = '';
+        // A v2 backup must not inherit unrelated v3 counter metadata already on
+        // the device. Its flat history becomes the backward-compatible baseline.
+        if (keys['hayyiz-focus-history-state'] === undefined) keys['hayyiz-focus-history-state'] = 'null';
+    }
+    const singleIds = { 'gpa-snapshot': 'snapshot', 'academic-goal': 'goal', 'daily-goal': 'goal',
+        'planning-preferences': 'preferences', 'multi-day-plans': 'plans', 'day-reviews': 'reviews',
+        birthdate: 'birthdate', 'focus-history': 'history' };
+    Object.entries(singleIds).forEach(([tool, id]) => {
+        if (keys['hayyiz-' + tool] !== undefined) delete registry[tool + ':' + id];
+    });
+    if (['work', 'break', 'long'].some(mode => keys['hayyiz-pref-' + mode] !== undefined)) delete registry['pomodoro-prefs:prefs'];
+    keys['hayyiz-deleted-items'] = JSON.stringify(registry);
+    return keys;
 }
 
 function importHayyizData(file) {
     if (!file) return;
+    if (window.hayyizBackupLimits && file.size > window.hayyizBackupLimits.maxFileBytes) {
+        alert('حجم النسخة الاحتياطية أكبر من الحد المسموح (192 ميغابايت).');
+        return;
+    }
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
         try {
             const data = JSON.parse(reader.result);
             if (!data || typeof data !== 'object' || !data.keys || typeof data.keys !== 'object') {
                 alert('الملف غير صالح. تأكد أنه نسخة احتياطية من حيز.');
+                return;
+            }
+            if (typeof window.hayyizRestoreBackup === 'function') {
+                const validated = window.hayyizValidateBackup(data);
+                if (!Object.keys(validated.keys).length) throw new Error('لم يُعثر على بيانات صالحة في النسخة.');
+                const warning = validated.missingPdfIds.length ? '\nتنبيه: ' + validated.missingPdfIds.length + ' ملفات PDF غير مضمّنة؛ ستُستعاد رسوماتها دون خلفية PDF.' : '';
+                if (!confirm('سيتم استبدال البيانات الموجودة في النسخة داخل الحساب الحالي. يُفضّل تصدير نسخة حالية أولًا.' + warning + '\nهل تريد المتابعة؟')) return;
+                await window.hayyizRestoreBackup(data);
+                if (typeof hayyizEnsureDataShape === 'function') hayyizEnsureDataShape();
+                if (typeof window.hayyizRefreshFocusStats === 'function') window.hayyizRefreshFocusStats();
+                alert('تم استيراد البيانات بنجاح.' + warning);
+                window.location.reload();
                 return;
             }
             const allowedSet = new Set(HAYYIZ_ALLOWED_BACKUP_KEYS);
@@ -414,7 +521,7 @@ function importHayyizData(file) {
             );
             if (!ok) return;
             Object.keys(toImport).forEach((key) => {
-                localStorage.setItem(key, toImport[key]);
+                hayyizStorage.setItem(key, toImport[key]);
             });
             if (typeof hayyizEnsureDataShape === 'function') {
                 hayyizEnsureDataShape();
@@ -422,7 +529,7 @@ function importHayyizData(file) {
             alert('تم استيراد البيانات بنجاح. سيتم تحديث الصفحة.');
             window.location.reload();
         } catch (e) {
-            alert('تعذر قراءة الملف. تأكد أنه JSON صالح من حيز.');
+            alert(e.message || 'تعذر قراءة الملف. تأكد أنه JSON صالح من حيز.');
         }
     };
     reader.onerror = () => alert('فشل قراءة الملف.');
@@ -458,7 +565,7 @@ function hayyizGenerateId() {
 
 function hayyizParseJSON(key, fallback) {
     try {
-        const raw = localStorage.getItem(key);
+        const raw = hayyizStorage.getItem(key);
         if (raw === null || raw === undefined) return fallback;
         return JSON.parse(raw);
     } catch (e) {
@@ -467,7 +574,7 @@ function hayyizParseJSON(key, fallback) {
 }
 
 function hayyizSaveJSON(key, value) {
-    localStorage.setItem(key, JSON.stringify(value));
+    hayyizStorage.setItem(key, JSON.stringify(value));
 }
 
 
@@ -522,16 +629,16 @@ function hayyizEnsureDataShape() {
     }
 
     // تهيئة مصفوفات فارغة إن لم تكن موجودة
-    if (localStorage.getItem('hayyiz-subjects') === null) {
+    if (hayyizStorage.getItem('hayyiz-subjects') === null) {
         hayyizSaveJSON('hayyiz-subjects', []);
     }
-    if (localStorage.getItem('hayyiz-exams') === null) {
+    if (hayyizStorage.getItem('hayyiz-exams') === null) {
         hayyizSaveJSON('hayyiz-exams', []);
     }
-    if (localStorage.getItem('hayyiz-goals') === null) {
+    if (hayyizStorage.getItem('hayyiz-goals') === null) {
         hayyizSaveJSON('hayyiz-goals', []);
     }
-    if (localStorage.getItem('hayyiz-subject-progress') === null) {
+    if (hayyizStorage.getItem('hayyiz-subject-progress') === null) {
         hayyizSaveJSON('hayyiz-subject-progress', {});
     }
 }
@@ -588,6 +695,33 @@ function hayyizUpdateTask(id, patch) {
     if (!id || !patch || typeof patch !== 'object') return null;
     const todos = hayyizGetTodos();
     const idx = todos.findIndex((t) => t && t.id === id);
+    if (idx < 0) return null;
+
+    const workspaceTaskId = todos[idx].workspaceTaskId || todos[idx].workspace_task_id;
+    if (workspaceTaskId && (patch.completed !== undefined || patch.status !== undefined)) {
+        return hayyizUpdateWorkspaceCompletion(id, workspaceTaskId, patch);
+    }
+    return hayyizPersistTaskUpdate(id, patch);
+}
+
+async function hayyizUpdateWorkspaceCompletion(id, workspaceTaskId, patch) {
+    if (typeof ensureSupabaseLoaded !== 'function') throw new Error('تحتاج المهمة المتزامنة إلى اتصال بحسابك.');
+    const client = await ensureSupabaseLoaded();
+    const scope = hayyizStorage.scope;
+    const { data: auth, error: authError } = await client.auth.getUser();
+    if (authError || !auth || !auth.user || (hayyizStorage.isCurrentUser && !hayyizStorage.isCurrentUser(auth.user.id))) {
+        throw new Error('يرجى تسجيل الدخول إلى حساب المهمة والمحاولة مرة أخرى.');
+    }
+    const completed = patch.completed !== undefined ? Boolean(patch.completed) : patch.status === 'completed';
+    const { data, error } = await client.rpc('set_task_progress_and_recalculate', { p_task_id: workspaceTaskId, p_completed: completed });
+    if (error || !data || data.success !== true) throw new Error(error?.message || data?.message || 'تعذر حفظ إنجاز المهمة في المساحة.');
+    if (hayyizStorage.isCurrentScope && !hayyizStorage.isCurrentScope(scope)) throw new Error('تغير الحساب؛ أعد فتح المهمة.');
+    return hayyizPersistTaskUpdate(id, Object.assign({}, patch, { completed, updated: Date.now() }));
+}
+
+function hayyizPersistTaskUpdate(id, patch) {
+    const todos = hayyizGetTodos();
+    const idx = todos.findIndex(task => task && task.id === id);
     if (idx < 0) return null;
 
     todos[idx] = Object.assign({}, todos[idx], patch);
@@ -756,7 +890,7 @@ function hayyizGetSubjectName(id) {
 }
 
 /** تحديث تقدم المادة من جلسة تركيز */
-function hayyizBumpSubjectProgress(subjectId, minutes) {
+function hayyizBumpSubjectProgress(subjectId, minutes, date) {
     if (!subjectId || !minutes || minutes <= 0) return;
     const list = hayyizGetSubjects();
     const idx = list.findIndex((s) => s.id === subjectId);
@@ -764,16 +898,16 @@ function hayyizBumpSubjectProgress(subjectId, minutes) {
     const nowMs = Date.now();
     list[idx].focusMinutes = (parseInt(list[idx].focusMinutes, 10) || 0) + minutes;
     list[idx].sessions = (parseInt(list[idx].sessions, 10) || 0) + 1;
-    list[idx].lastFocused = getTodayLocal();
+    list[idx].lastFocused = date || getTodayLocal();
     list[idx].updated = nowMs;
     hayyizSaveSubjects(list);
 
     if (typeof hayyizUploadItem === 'function') {
-        hayyizUploadItem('subjects', list[idx].id, list[idx]);
+        hayyizAfterFocusCommit(() => hayyizUploadItem('subjects', list[idx].id, list[idx]));
     }
 
     const progress = hayyizParseJSON('hayyiz-subject-progress', {});
-    const day = getTodayLocal();
+    const day = date || getTodayLocal();
     if (!progress[subjectId]) progress[subjectId] = {};
     progress[subjectId][day] = (parseInt(progress[subjectId][day], 10) || 0) + minutes;
     hayyizSaveJSON('hayyiz-subject-progress', progress);
@@ -837,7 +971,7 @@ function hayyizScoreTask(task, context) {
     const exams = ctx.exams || hayyizGetExams();
     const subjects = ctx.subjects || hayyizGetSubjects();
     const subjectGoals = ctx.subjectGoals || hayyizGetSubjectGoals();
-    const workMin = ctx.workMin || parseInt(localStorage.getItem("hayyiz-pref-work") || "25", 10) || 25;
+    const workMin = ctx.workMin || parseInt(hayyizStorage.getItem("hayyiz-pref-work") || "25", 10) || 25;
 
     let score = 0;
     const reasons = [];
@@ -949,9 +1083,10 @@ function hayyizScoreTask(task, context) {
  * 1. جمع البيانات مرة واحدة فقط (Data Snapshot Builder)
  */
 function hayyizBuildStudentSnapshot() {
+    const focusState = hayyizGetFocusState();
     const today = getTodayLocal();
-    const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
-    const focusMinutesToday = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
+    const workMin = parseInt(hayyizStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
+    const focusMinutesToday = parseInt(hayyizStorage.getItem('hayyiz-focus-minutes-today') || '0', 10);
 
     const todos = hayyizGetTodos();
     const activeTodos = todos.filter((t) => t && !t.completed);
@@ -964,7 +1099,6 @@ function hayyizBuildStudentSnapshot() {
     const exams = hayyizGetExams();
     const subjects = hayyizGetSubjects();
     const subjectGoals = hayyizGetSubjectGoals();
-    const focusState = hayyizGetFocusState();
 
     return {
         today,
@@ -1661,7 +1795,7 @@ function hayyizCalculateFocusSessions(minutes, workMinOverride) {
     if (!minutes || minutes <= 0) return 0;
     const workMin = typeof workMinOverride === 'number' && workMinOverride > 0
         ? workMinOverride
-        : (parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25);
+        : (parseInt(hayyizStorage.getItem('hayyiz-pref-work') || '25', 10) || 25);
     return Math.ceil(minutes / workMin);
 }
 
@@ -1681,46 +1815,121 @@ function hayyizFormatFocusSessions(minutes, workMinOverride) {
  * التأكد من إعادة تهيئة إحصائيات اليوم عند تغير التاريخ
  */
 function hayyizEnsureTodayStats() {
+    if (typeof hayyizRefreshFocusStats === 'function') {
+        hayyizRefreshFocusStats();
+        return;
+    }
     const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
-    const lastDay = localStorage.getItem('hayyiz-sessions-day');
+    const lastDay = hayyizStorage.getItem('hayyiz-sessions-day');
     if (lastDay !== today) {
-        localStorage.setItem('hayyiz-sessions-today', '0');
-        localStorage.setItem('hayyiz-focus-minutes-today', '0');
-        localStorage.setItem('hayyiz-sessions-day', today);
+        hayyizStorage.setItem('hayyiz-sessions-today', '0');
+        hayyizStorage.setItem('hayyiz-focus-minutes-today', '0');
+        hayyizStorage.setItem('hayyiz-sessions-day', today);
     }
 }
 
 /**
  * دالة مركزية لمطابقة وتحديث حالة البومودورو بشكل حتمي وidempotent اعتماداً على timestamps
  */
+function hayyizAfterFocusCommit(effect) {
+    if (hayyizStorage.afterCommit) hayyizStorage.afterCommit(effect); else effect();
+}
+let hayyizFocusCommitPromise = null;
+let hayyizFocusCommitFailed = false;
+function hayyizCommitPomodoroState() {
+    try {
+        if (hayyizStorage.isCurrentScope && !hayyizStorage.isCurrentScope(hayyizStorage.scope)) return null;
+        return hayyizStorage.transaction ? hayyizStorage.transaction(hayyizReconcilePomodoroValues) : hayyizReconcilePomodoroValues();
+    } catch (error) { console.warn('تعذر حفظ الجلسة؛ ستُعاد المحاولة.', error); return null; }
+}
+function hayyizHasFocusCoordinator() {
+    return (typeof navigator !== 'undefined' && navigator.locks && typeof navigator.locks.request === 'function') || typeof indexedDB !== 'undefined';
+}
+function hayyizWithFocusLock(commit) {
+    const locks = typeof navigator !== 'undefined' && navigator.locks;
+    const name = 'hayyiz-focus-completion:' + (hayyizStorage.scope || 'guest');
+    if (locks && typeof locks.request === 'function') return locks.request(name, commit);
+    if (typeof indexedDB === 'undefined') return Promise.resolve().then(commit);
+    // IndexedDB readwrite transactions serialize across documents too. This
+    // dedicated database contains no student data, files or completion records.
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('hayyiz-focus-coordination', 1);
+        request.onupgradeneeded = () => request.result.createObjectStore('gate');
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+            const db = request.result;
+            let transaction, result;
+            try {
+                transaction = db.transaction('gate', 'readwrite');
+                transaction.oncomplete = () => { db.close(); resolve(result); };
+                transaction.onabort = transaction.onerror = () => { db.close(); reject(transaction.error || new Error('Focus coordination failed')); };
+                transaction.objectStore('gate').get(name).onsuccess = () => {
+                    try { result = commit(); } catch (error) { transaction.abort(); }
+                };
+            } catch (error) { db.close(); reject(error); }
+        };
+    });
+}
+function hayyizReconcilePomodoroStateAsync() {
+    if (hayyizFocusCommitPromise) return hayyizFocusCommitPromise;
+    const commit = () => hayyizCommitPomodoroState();
+    // Re-read the timer and log INSIDE the same account lock. A transaction
+    // provides rollback; the Web Lock serializes other documents' completion.
+    const pending = hayyizWithFocusLock(commit);
+    hayyizFocusCommitPromise = pending.catch(error => {
+        console.warn('تعذر قفل حفظ الجلسة.', error);
+        return null;
+    }).then(result => {
+        hayyizFocusCommitFailed = !result;
+        return result;
+    }).finally(() => { hayyizFocusCommitPromise = null; });
+    return hayyizFocusCommitPromise;
+}
 function hayyizReconcilePomodoroState() {
-    hayyizEnsureTodayStats();
-    const raw = localStorage.getItem('hayyiz-pomodoro-state');
+    if (!hayyizHasFocusCoordinator()) return hayyizCommitPomodoroState();
+    // Synchronous dashboard/Todo readers must never write a stale snapshot
+    // outside the lock. They can request completion and render its result later.
+    let snapshot;
+    try { snapshot = hayyizReconcilePomodoroValues(true); } catch (_) { return null; }
+    if (snapshot && snapshot.status === 'running' && snapshot.endTime && snapshot.remainingSeconds === 0) {
+        hayyizReconcilePomodoroStateAsync().then(result => {
+            if (result && result.status === 'completed' && typeof window.dispatchEvent === 'function') {
+                window.dispatchEvent(new Event('hayyiz:planning-changed'));
+            }
+        });
+        if (hayyizFocusCommitFailed) return null;
+    }
+    return snapshot;
+}
+function hayyizReconcilePomodoroValues(readOnly = false) {
+    if (!readOnly) hayyizEnsureTodayStats();
+    const raw = hayyizStorage.getItem('hayyiz-pomodoro-state');
     if (!raw) return null;
 
     try {
         const state = JSON.parse(raw);
         if (!state || typeof state !== 'object') return null;
 
-        const workMin = parseInt(state.workMinutes || localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
-        const breakMin = parseInt(state.breakMinutes || localStorage.getItem('hayyiz-pref-break') || '5', 10) || 5;
-        const longBreakMin = parseInt(state.longBreakMinutes || localStorage.getItem('hayyiz-pref-long') || '15', 10) || 15;
+        const workMin = parseInt(state.workMinutes || hayyizStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
+        const breakMin = parseInt(state.breakMinutes || hayyizStorage.getItem('hayyiz-pref-break') || '5', 10) || 5;
+        const longBreakMin = parseInt(state.longBreakMinutes || hayyizStorage.getItem('hayyiz-pref-long') || '15', 10) || 15;
 
         let mode = state.mode || (state.isWorkMode === false ? 'break' : 'focus');
         let status = state.status || (state.isRunning ? 'running' : 'idle');
         let endTime = typeof state.endTime === 'number' ? state.endTime : null;
         let totalDuration = typeof state.totalDuration === 'number' ? state.totalDuration : (mode === 'focus' ? workMin : breakMin) * 60;
         let remainingSeconds = typeof state.remainingSeconds === 'number' ? state.remainingSeconds : totalDuration;
-        let sessionInCycle = typeof state.sessionInCycle === 'number' ? state.sessionInCycle : parseInt(localStorage.getItem('hayyiz-session-in-cycle') || '0', 10);
+        let sessionInCycle = typeof state.sessionInCycle === 'number' ? state.sessionInCycle : parseInt(hayyizStorage.getItem('hayyiz-session-in-cycle') || '0', 10);
         let sessionId = state.sessionId || null;
         let pendingCompletionModal = state.pendingCompletionModal || null;
         let pendingNextMode = state.pendingNextMode || null;
+        const startedAt = state.startedAt || (endTime ? new Date(endTime - totalDuration * 1000).toISOString() : null);
 
         let context = state.context || null;
         if (!context) {
-            const taskName = localStorage.getItem('hayyiz-current-task');
-            const taskId = localStorage.getItem('hayyiz-current-task-id');
-            const eventRaw = localStorage.getItem('hayyiz-current-event');
+            const taskName = hayyizStorage.getItem('hayyiz-current-task');
+            const taskId = hayyizStorage.getItem('hayyiz-current-task-id');
+            const eventRaw = hayyizStorage.getItem('hayyiz-current-event');
             let eventObj = null;
             try { eventObj = eventRaw ? JSON.parse(eventRaw) : null; } catch(e){}
 
@@ -1738,7 +1947,8 @@ function hayyizReconcilePomodoroState() {
             const now = Date.now();
             const rem = Math.round((endTime - now) / 1000);
 
-            if (rem <= 0) {
+            if (rem <= 0 && !readOnly) {
+                const completedAt = new Date(endTime).toISOString();
                 // انتهى وقت الجلسة
                 remainingSeconds = 0;
                 status = 'completed';
@@ -1755,33 +1965,43 @@ function hayyizReconcilePomodoroState() {
                 if (!alreadyLogged) {
                     if (mode === 'focus') {
                         const workMinJustDone = Math.round(totalDuration / 60) || workMin;
+                        const completionDate = hayyizLocalDateKey(new Date(completedAt));
 
-                        // 1. تحديث الإحصائيات العامة والإحصائيات اليومية مرة واحدة فقط
-                        const completedTotal = parseInt(localStorage.getItem('hayyiz-sessions') || '0', 10) + 1;
-                        localStorage.setItem('hayyiz-sessions', String(completedTotal));
+                        // Legacy counters remain readable; the shared counter module is authoritative.
+                        if (typeof hayyizRecordFocusMinutes === 'function') {
+                            hayyizRecordFocusMinutes(completionDate, workMinJustDone);
+                            if (typeof hayyizSyncTool === 'function') hayyizAfterFocusCommit(() => hayyizSyncTool('focus-history'));
+                        } else {
+                            const completedTotal = parseInt(hayyizStorage.getItem('hayyiz-sessions') || '0', 10) + 1;
+                            hayyizStorage.setItem('hayyiz-sessions', String(completedTotal));
 
-                        hayyizEnsureTodayStats();
-                        const todaySess = parseInt(localStorage.getItem('hayyiz-sessions-today') || '0', 10) + 1;
-                        const todayMin = parseInt(localStorage.getItem('hayyiz-focus-minutes-today') || '0', 10) + workMinJustDone;
-                        localStorage.setItem('hayyiz-sessions-today', String(todaySess));
-                        localStorage.setItem('hayyiz-focus-minutes-today', String(todayMin));
-
-                        // 2. تحديث سجل تاريخ التركيز
-                        try {
-                            const hist = JSON.parse(localStorage.getItem('hayyiz-focus-history') || '{}');
-                            const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().slice(0, 10);
-                            const nowMs = Date.now();
-                            hist[today] = (parseInt(hist[today], 10) || 0) + workMinJustDone;
-                            localStorage.setItem('hayyiz-focus-history', JSON.stringify(hist));
-                            localStorage.setItem('hayyiz-focus-history-updated', String(nowMs));
-                            if (typeof hayyizUploadItem === 'function') {
-                                hayyizUploadItem('focus-history', 'history', hist);
+                            hayyizEnsureTodayStats();
+                            if (completionDate === getTodayLocal()) {
+                                const todaySess = parseInt(hayyizStorage.getItem('hayyiz-sessions-today') || '0', 10) + 1;
+                                const todayMin = parseInt(hayyizStorage.getItem('hayyiz-focus-minutes-today') || '0', 10) + workMinJustDone;
+                                hayyizStorage.setItem('hayyiz-sessions-today', String(todaySess));
+                                hayyizStorage.setItem('hayyiz-focus-minutes-today', String(todayMin));
                             }
-                        } catch (e) {}
+
+                            // 2. تحديث سجل تاريخ التركيز
+                            try {
+                                const hist = JSON.parse(hayyizStorage.getItem('hayyiz-focus-history') || '{}');
+                                const today = completionDate;
+                                const nowMs = Date.now();
+                                hist[today] = (parseInt(hist[today], 10) || 0) + workMinJustDone;
+                                hayyizStorage.setItem('hayyiz-focus-history', JSON.stringify(hist));
+                                hayyizStorage.setItem('hayyiz-focus-history-updated', String(nowMs));
+                                if (typeof hayyizUploadItem === 'function') {
+                                    hayyizAfterFocusCommit(() => hayyizUploadItem('focus-history', 'history', hist));
+                                }
+                            } catch (e) {}
+                        }
 
                         // 3. كتابة السجل غير القابل للتغيير
                         hayyizLogFocusSession({
                             id: sessionId,
+                            completedAt,
+                            date: completionDate,
                             durationMinutes: workMinJustDone,
                             mode: 'focus',
                             contextType: context.type,
@@ -1789,18 +2009,20 @@ function hayyizReconcilePomodoroState() {
                             contextTitle: context.title,
                             subjectId: context.subjectId
                         });
+                        hayyizQueueWorkspaceFocusSession({ id: sessionId, context, startedAt, completedAt, durationMinutes: workMinJustDone });
 
-                        hayyizTrackPlanningEvent('focus_completed');
+                        hayyizAfterFocusCommit(() => hayyizTrackPlanningEvent('focus_completed'));
 
                         // 4. تطبيق نتيجة التركيز على المهمة أو المادة
                         if (context.type === 'task') {
                             hayyizApplyFocusResult({
                                 workMin: workMinJustDone,
                                 taskId: context.id,
-                                taskText: context.title
+                                taskText: context.title,
+                                date: completionDate
                             });
                         } else if (context.subjectId) {
-                            hayyizBumpSubjectProgress(context.subjectId, workMinJustDone);
+                            hayyizBumpSubjectProgress(context.subjectId, workMinJustDone, completionDate);
                         }
 
                         // 5. تحديث دورة الجلسات وتجهيز النمط القادم
@@ -1841,19 +2063,20 @@ function hayyizReconcilePomodoroState() {
             longBreakMinutes: longBreakMin,
             sessionInCycle,
             sessionId,
+            startedAt,
             context,
             pendingCompletionModal,
             pendingNextMode,
             lastUpdated: Date.now()
         };
 
-        localStorage.setItem('hayyiz-pomodoro-state', JSON.stringify(reconciled));
-        localStorage.setItem('hayyiz-session-in-cycle', String(sessionInCycle));
+        if (!readOnly) {
+            hayyizStorage.setItem('hayyiz-pomodoro-state', JSON.stringify(reconciled));
+            hayyizStorage.setItem('hayyiz-session-in-cycle', String(sessionInCycle));
+        }
 
         return reconciled;
-    } catch (e) {
-        return null;
-    }
+    } catch (e) { throw e; }
 }
 
 /**
@@ -1868,11 +2091,14 @@ function hayyizGetFocusState() {
  */
 function hayyizSaveFocusState(state) {
     if (!state || typeof state !== 'object') {
-        localStorage.removeItem('hayyiz-pomodoro-state');
+        hayyizStorage.removeItem('hayyiz-pomodoro-state');
         return;
     }
+    // A suspended tab must not resurrect a session completed in another tab.
+    if (state.sessionId && ['running', 'paused'].includes(state.status) && hayyizGetFocusSessions().some(entry => entry && entry.id === state.sessionId)) return false;
     state.lastUpdated = Date.now();
     hayyizSaveJSON('hayyiz-pomodoro-state', state);
+    return true;
 }
 
 /**
@@ -1888,10 +2114,10 @@ function hayyizGetFocusSessions() {
 function hayyizLogFocusSession(sessionObj) {
     if (!sessionObj) return;
     const log = hayyizGetFocusSessions();
-    const today = getTodayLocal();
+    const today = sessionObj.date || getTodayLocal();
     const entry = {
         id: sessionObj.id || hayyizGenerateId(),
-        timestamp: new Date().toISOString(),
+        timestamp: sessionObj.completedAt || new Date().toISOString(),
         date: today,
         durationMinutes: parseInt(sessionObj.durationMinutes, 10) || 25,
         mode: sessionObj.mode || 'focus',
@@ -1907,9 +2133,26 @@ function hayyizLogFocusSession(sessionObj) {
     if (log.length > 200) log.length = 200;
     hayyizSaveJSON('hayyiz-focus-sessions-log', log);
     if (typeof hayyizUploadItem === 'function') {
-        hayyizUploadItem('focus-log', entry.id, entry);
+        hayyizAfterFocusCommit(() => hayyizUploadItem('focus-log', entry.id, entry));
     }
     return entry;
+}
+
+function hayyizLocalDateKey(date) {
+    return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+}
+
+function hayyizQueueWorkspaceFocusSession(entry) {
+    const context = entry.context || {};
+    if (!context.workspaceTaskId || !entry.id) return;
+    const queue = hayyizParseJSON('hayyiz-workspace-focus-outbox', {});
+    queue[entry.id] = {
+        id: entry.id, taskId: context.workspaceTaskId, workspaceId: context.workspaceId || null,
+        startedAt: entry.startedAt || new Date(Date.parse(entry.completedAt) - entry.durationMinutes * 60000).toISOString(),
+        endedAt: entry.completedAt, durationSeconds: entry.durationMinutes * 60
+    };
+    hayyizSaveJSON('hayyiz-workspace-focus-outbox', queue);
+    if (typeof hayyizFlushWorkspaceFocusSessions === 'function') hayyizAfterFocusCommit(() => hayyizFlushWorkspaceFocusSessions());
 }
 
 /**
@@ -1974,11 +2217,11 @@ function hayyizLaunchPlannedTask(taskId) {
  */
 function hayyizLaunchPomodoro(target, indexHint, plannedMinutes) {
     if (!target) {
-        localStorage.removeItem('hayyiz-current-task');
-        localStorage.removeItem('hayyiz-current-task-index');
-        localStorage.removeItem('hayyiz-current-task-id');
-        localStorage.removeItem('hayyiz-task-session');
-        localStorage.removeItem('hayyiz-current-event');
+        hayyizStorage.removeItem('hayyiz-current-task');
+        hayyizStorage.removeItem('hayyiz-current-task-index');
+        hayyizStorage.removeItem('hayyiz-current-task-id');
+        hayyizStorage.removeItem('hayyiz-task-session');
+        hayyizStorage.removeItem('hayyiz-current-event');
         window.location.href = 'pomodoro.html';
         return;
     }
@@ -1992,11 +2235,11 @@ function hayyizLaunchPomodoro(target, indexHint, plannedMinutes) {
             type: target.type || 'exam',
             subjectId: target.subjectId || null
         };
-        localStorage.setItem('hayyiz-current-event', JSON.stringify(eventSnapshot));
-        localStorage.removeItem('hayyiz-current-task');
-        localStorage.removeItem('hayyiz-current-task-index');
-        localStorage.removeItem('hayyiz-current-task-id');
-        localStorage.removeItem('hayyiz-task-session');
+        hayyizStorage.setItem('hayyiz-current-event', JSON.stringify(eventSnapshot));
+        hayyizStorage.removeItem('hayyiz-current-task');
+        hayyizStorage.removeItem('hayyiz-current-task-index');
+        hayyizStorage.removeItem('hayyiz-current-task-id');
+        hayyizStorage.removeItem('hayyiz-task-session');
         let eventUrl = 'pomodoro.html?event=' + encodeURIComponent(eventSnapshot.name);
         if (Number.isFinite(plannedMinutes) && plannedMinutes > 0) eventUrl += '&sessionMinutes=' + Math.max(1, Math.min(180, Math.floor(plannedMinutes)));
         window.location.href = eventUrl;
@@ -2020,7 +2263,7 @@ function hayyizLaunchPomodoro(target, indexHint, plannedMinutes) {
         index = todos.findIndex((t) => t && t.id === taskObj.id);
     }
 
-    const workMin = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
+    const workMin = parseInt(hayyizStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
     const totalMinutes = taskObj.minutes ? parseInt(taskObj.minutes, 10) : null;
 
     const wsTaskId = taskObj.workspaceTaskId || taskObj.workspace_task_id || null;
@@ -2042,12 +2285,12 @@ function hayyizLaunchPomodoro(target, indexHint, plannedMinutes) {
                 : null
     };
 
-    localStorage.setItem('hayyiz-current-task', taskText);
-    if (taskObj.id) localStorage.setItem('hayyiz-current-task-id', taskObj.id);
-    else localStorage.removeItem('hayyiz-current-task-id');
-    localStorage.setItem('hayyiz-current-task-index', String(index >= 0 ? index : -1));
-    localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
-    localStorage.removeItem('hayyiz-current-event');
+    hayyizStorage.setItem('hayyiz-current-task', taskText);
+    if (taskObj.id) hayyizStorage.setItem('hayyiz-current-task-id', taskObj.id);
+    else hayyizStorage.removeItem('hayyiz-current-task-id');
+    hayyizStorage.setItem('hayyiz-current-task-index', String(index >= 0 ? index : -1));
+    hayyizStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
+    hayyizStorage.removeItem('hayyiz-current-event');
 
     let pomoUrl = 'pomodoro.html?task=' + encodeURIComponent(taskText);
     if (taskObj.id) {
@@ -2070,11 +2313,11 @@ function hayyizLaunchPomodoro(target, indexHint, plannedMinutes) {
 function hayyizApplyFocusResult(opts) {
     const options = opts || {};
     const workMin = parseInt(options.workMin, 10) || 25;
-    const taskId = options.taskId || localStorage.getItem('hayyiz-current-task-id');
-    const taskText = options.taskText || localStorage.getItem('hayyiz-current-task');
+    const taskId = options.taskId || hayyizStorage.getItem('hayyiz-current-task-id');
+    const taskText = options.taskText || hayyizStorage.getItem('hayyiz-current-task');
     let plan = null;
     try {
-        plan = JSON.parse(localStorage.getItem('hayyiz-task-session') || 'null');
+        plan = JSON.parse(hayyizStorage.getItem('hayyiz-task-session') || 'null');
     } catch (e) {
         plan = null;
     }
@@ -2096,12 +2339,12 @@ function hayyizApplyFocusResult(opts) {
         const sessionsDone = (parseInt(todos[idx].sessionsDone, 10) || 0) + 1;
         todos[idx].focusDone = focusDone;
         todos[idx].sessionsDone = sessionsDone;
-        todos[idx].lastFocused = getTodayLocal();
+        todos[idx].lastFocused = options.date || getTodayLocal();
         todos[idx].updated = nowMs;
         hayyizSaveTodos(todos);
 
         if (typeof hayyizUploadItem === 'function') {
-            hayyizUploadItem('todos', todos[idx].id, todos[idx]);
+            hayyizAfterFocusCommit(() => hayyizUploadItem('todos', todos[idx].id, todos[idx]));
         }
 
         if (plan) {
@@ -2112,12 +2355,12 @@ function hayyizApplyFocusResult(opts) {
             if (plan.totalMinutes) {
                 plan.sessionsNeeded = Math.ceil(plan.totalMinutes / workMin);
             }
-            localStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
+            hayyizStorage.setItem('hayyiz-task-session', JSON.stringify(plan));
         }
 
         const subjectId = todos[idx].subjectId || (plan && plan.subjectId);
         if (subjectId) {
-            hayyizBumpSubjectProgress(subjectId, workMin);
+            hayyizBumpSubjectProgress(subjectId, workMin, options.date);
         }
 
         return { task: todos[idx], index: idx, plan };
@@ -2125,7 +2368,7 @@ function hayyizApplyFocusResult(opts) {
 
     // لا مهمة مرتبطة — نحدّث المادة فقط إن وُجدت في الخطة
     if (plan && plan.subjectId) {
-        hayyizBumpSubjectProgress(plan.subjectId, workMin);
+        hayyizBumpSubjectProgress(plan.subjectId, workMin, options.date);
     }
     return null;
 }
@@ -2145,27 +2388,22 @@ function hayyizCompleteTask(taskId, taskText, indexHint) {
     }
     if (idx < 0) return false;
 
-    const nowMs = Date.now();
-    todos[idx].completed = true;
-    todos[idx].completedAt = getTodayLocal();
-    todos[idx].updated = nowMs;
-    hayyizSaveTodos(todos);
-
-    if (typeof hayyizUploadItem === 'function') {
-        hayyizUploadItem('todos', todos[idx].id, todos[idx]);
-    }
-
+    const result = hayyizUpdateTask(todos[idx].id, { completed: true, updated: Date.now() });
+    const finish = updated => {
+    if (!updated) return false;
     // تنظيف تخزين المهمة الحالية إذا كانت هي المهمة التي اكتملت
-    const currentTaskId = localStorage.getItem('hayyiz-current-task-id');
-    const currentTaskText = localStorage.getItem('hayyiz-current-task');
+    const currentTaskId = hayyizStorage.getItem('hayyiz-current-task-id');
+    const currentTaskText = hayyizStorage.getItem('hayyiz-current-task');
     if ((currentTaskId && currentTaskId === todos[idx].id) || (currentTaskText && currentTaskText === todos[idx].text)) {
-        localStorage.removeItem('hayyiz-current-task');
-        localStorage.removeItem('hayyiz-current-task-id');
-        localStorage.removeItem('hayyiz-current-task-index');
-        localStorage.removeItem('hayyiz-task-session');
+        hayyizStorage.removeItem('hayyiz-current-task');
+        hayyizStorage.removeItem('hayyiz-current-task-id');
+        hayyizStorage.removeItem('hayyiz-current-task-index');
+        hayyizStorage.removeItem('hayyiz-task-session');
     }
 
     return true;
+    };
+    return result && typeof result.then === 'function' ? result.then(finish) : finish(result);
 }
 
 /**
@@ -2239,7 +2477,7 @@ function hayyizGetAcademicGoal() {
 function hayyizSaveAcademicGoal(goal) {
     if (!goal) {
         const oldGoal = hayyizGetAcademicGoal();
-        localStorage.removeItem('hayyiz-academic-goal');
+        hayyizStorage.removeItem('hayyiz-academic-goal');
         if (typeof hayyizDeleteRemoteItem === 'function') {
             hayyizDeleteRemoteItem('academic-goal', 'goal', oldGoal);
         }
@@ -2296,7 +2534,7 @@ function hayyizGetDailyGoal() {
 function hayyizSaveDailyGoal(goal) {
     if (!goal) {
         const oldGoal = hayyizGetDailyGoal();
-        localStorage.removeItem('hayyiz-daily-goal');
+        hayyizStorage.removeItem('hayyiz-daily-goal');
         if (typeof hayyizDeleteRemoteItem === 'function') {
             hayyizDeleteRemoteItem('daily-goal', 'goal', oldGoal);
         }
@@ -2426,6 +2664,10 @@ function hayyizValidDate(value) {
 // the original deadline (including its time) stays on the canonical task.
 function hayyizTaskDateKey(value) {
     if (typeof value !== 'string') return null;
+    if (/T.*(?:Z|[+-]\d{2}:\d{2})$/.test(value)) {
+        const instant = new Date(value);
+        return isNaN(instant.getTime()) ? null : hayyizLocalDateKey(instant);
+    }
     const day = value.slice(0, 10);
     if (!hayyizValidDate(day)) return null;
     const time = value.slice(10);
@@ -2435,7 +2677,7 @@ function hayyizTaskDateKey(value) {
 
 function hayyizDefaultCapacity() {
     const configured = hayyizParseMinutes(hayyizGetPlanningPreferences().defaultMinutes);
-    const value = configured !== null ? configured : hayyizParseMinutes(localStorage.getItem('hayyiz-pref-daily-capacity'));
+    const value = configured !== null ? configured : hayyizParseMinutes(hayyizStorage.getItem('hayyiz-pref-daily-capacity'));
     return value === null ? 120 : value;
 }
 
@@ -2484,7 +2726,7 @@ function hayyizGetDayCapacity(date) {
     let busy = 0, lastEnd = start;
     ranges.forEach(range => { busy += Math.max(0, range[1] - Math.max(lastEnd, range[0])); lastEnd = Math.max(lastEnd, range[1]); });
     const focused = day === getTodayLocal() ? Math.max(0, parseInt((hayyizParseJSON('hayyiz-focus-history', {}) || {})[day], 10) ||
-        (localStorage.getItem('hayyiz-sessions-day') === day ? parseInt(localStorage.getItem('hayyiz-focus-minutes-today'), 10) || 0 : 0)) : 0;
+        (hayyizStorage.getItem('hayyiz-sessions-day') === day ? parseInt(hayyizStorage.getItem('hayyiz-focus-minutes-today'), 10) || 0 : 0)) : 0;
     return { date: day, totalMinutes: total, commitmentMinutes: busy, focusedMinutes: focused,
         remainingMinutes: Math.max(0, Math.min(total, Math.max(0, end - start)) - busy - focused) };
 }
@@ -2631,7 +2873,7 @@ function hayyizAdoptStudyPlan(config) {
 
 function hayyizTrackPlanningEvent(name) {
     const allowed = ['first_plan', 'plan_adopted', 'focus_started', 'focus_completed', 'task_completed', 'time_updated', 'day_reviewed', 'estimate_extended'];
-    if (!allowed.includes(name) || localStorage.getItem('hayyiz-planning-metrics') !== 'enabled') return;
+    if (!allowed.includes(name) || hayyizStorage.getItem('hayyiz-planning-metrics') !== 'enabled') return;
     if (typeof navigator !== 'undefined' && (navigator.doNotTrack === '1' || navigator.globalPrivacyControl === true)) return;
     // Store action names only. A sensitive route or unavailable SDK must never fall back to raw gtag.
     const stored = hayyizParseJSON('hayyiz-planning-pending-events', []);
@@ -2641,17 +2883,17 @@ function hayyizTrackPlanningEvent(name) {
 }
 
 function hayyizFlushPlanningEvents() {
-    if (localStorage.getItem('hayyiz-planning-metrics') !== 'enabled' || typeof window.hayyizSendPlanningEvent !== 'function') return;
+    if (hayyizStorage.getItem('hayyiz-planning-metrics') !== 'enabled' || typeof window.hayyizSendPlanningEvent !== 'function') return;
     if (typeof navigator !== 'undefined' && (navigator.doNotTrack === '1' || navigator.globalPrivacyControl === true)) return;
     const queue = hayyizParseJSON('hayyiz-planning-pending-events', []);
-    if (!Array.isArray(queue)) { localStorage.removeItem('hayyiz-planning-pending-events'); return; }
+    if (!Array.isArray(queue)) { hayyizStorage.removeItem('hayyiz-planning-pending-events'); return; }
     const allowed = new Set(['first_plan', 'plan_adopted', 'focus_started', 'focus_completed', 'task_completed', 'time_updated', 'day_reviewed', 'estimate_extended']);
     const remaining = queue.slice(-50).filter(event => allowed.has(event)).filter(event => {
         try { return window.hayyizSendPlanningEvent(event) !== true; }
         catch (_) { return true; }
     });
     if (remaining.length) hayyizSaveJSON('hayyiz-planning-pending-events', remaining);
-    else localStorage.removeItem('hayyiz-planning-pending-events');
+    else hayyizStorage.removeItem('hayyiz-planning-pending-events');
 }
 document.addEventListener('DOMContentLoaded', hayyizFlushPlanningEvents);
 
@@ -2699,7 +2941,7 @@ function hayyizComputeMultiDayPlan(config) {
     if (config.dailyCapacityMinutes !== undefined) {
         const minutes = hayyizParseMinutes(config.dailyCapacityMinutes);
         if (minutes === null) return null;
-        localStorage.setItem('hayyiz-pref-daily-capacity', String(minutes));
+        hayyizStorage.setItem('hayyiz-pref-daily-capacity', String(minutes));
         const prefs = hayyizGetPlanningPreferences();
         if (prefs.defaultMinutes !== minutes) {
             prefs.defaultMinutes = minutes;
@@ -2752,7 +2994,7 @@ function hayyizBuildSharedStudyAllocation(plans) {
         (a.task.created || 0) - (b.task.created || 0) || String(a.task.id).localeCompare(String(b.task.id)));
     const reserved = new Map(), capacity = new Map();
     work.forEach(({ task, deadline }) => {
-        let remaining = hayyizTaskRemainingMinutes(task, parseInt(localStorage.getItem('hayyiz-pref-work'), 10) || 25);
+        let remaining = hayyizTaskRemainingMinutes(task, parseInt(hayyizStorage.getItem('hayyiz-pref-work'), 10) || 25);
         for (let offset = 0; offset <= 366 && remaining > 0; offset++) {
             const date = dateAt(offset);
             if (date > deadline) break;
@@ -2841,7 +3083,7 @@ function hayyizAllocateMultiDayPlan(config, shared) {
     const openTasks = linkedTasks.filter((t) => !t.completed);
     const completedTasks = linkedTasks.filter((t) => t.completed);
 
-    const workMinDefault = parseInt(localStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
+    const workMinDefault = parseInt(hayyizStorage.getItem('hayyiz-pref-work') || '25', 10) || 25;
 
     let totalRequiredMinutes = 0;
     let completedMinutes = 0;
@@ -3011,22 +3253,19 @@ function hayyizReevaluateMultiDayPlan(targetId) {
  * حساب تقويمي دقيق للعمر بالأيام والأشهر والسنوات
  */
 function hayyizCalculateExactAge(birthDateObj, nowObj) {
-    let years = nowObj.getFullYear() - birthDateObj.getFullYear();
-    let months = nowObj.getMonth() - birthDateObj.getMonth();
-    let days = nowObj.getDate() - birthDateObj.getDate();
-
-    if (days < 0) {
-        months--;
-        const prevMonthLastDay = new Date(nowObj.getFullYear(), nowObj.getMonth(), 0).getDate();
-        days += prevMonthLastDay;
-    }
-
-    if (months < 0) {
-        years--;
-        months += 12;
-    }
-
-    return { years, months, days };
+    const end = new Date(nowObj.getFullYear(), nowObj.getMonth(), nowObj.getDate());
+    const start = new Date(birthDateObj.getFullYear(), birthDateObj.getMonth(), birthDateObj.getDate());
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) return { years: 0, months: 0, days: 0 };
+    let count = (end.getFullYear() - start.getFullYear()) * 12 + end.getMonth() - start.getMonth();
+    const anniversary = months => {
+        const anchor = new Date(start.getFullYear(), start.getMonth() + months, 1);
+        anchor.setDate(Math.min(start.getDate(), new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate()));
+        return anchor;
+    };
+    if (anniversary(count) > end) count--;
+    const anchor = anniversary(count);
+    const days = Math.round((Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) - Date.UTC(anchor.getFullYear(), anchor.getMonth(), anchor.getDate())) / 86400000);
+    return { years: Math.floor(count / 12), months: count % 12, days };
 }
 
 /**
@@ -3078,7 +3317,7 @@ function hayyizGetAllCalendarEvents() {
 
     // 1. الاختبارات
     try {
-        const rawExams = localStorage.getItem(STORAGE_KEY_EXAMS);
+        const rawExams = hayyizStorage.getItem(STORAGE_KEY_EXAMS);
         const examsList = rawExams ? JSON.parse(rawExams) : [];
         if (Array.isArray(examsList)) {
             examsList.forEach(item => {
@@ -3101,7 +3340,7 @@ function hayyizGetAllCalendarEvents() {
 
     // 2. الأحداث والمواعيد المخصصة
     try {
-        const rawEvents = localStorage.getItem(STORAGE_KEY_EVENTS);
+        const rawEvents = hayyizStorage.getItem(STORAGE_KEY_EVENTS);
         const customList = rawEvents ? JSON.parse(rawEvents) : [];
         if (Array.isArray(customList)) {
             customList.forEach(item => {
@@ -3169,8 +3408,9 @@ function hayyizConvertEventToTodo(eventObj) {
 
     const todoText = (eventObj.type === 'exam' ? 'مراجعة: ' : 'متابعة: ') + eventObj.name;
 
-    // منع التكرار إذا كانت المهمة موجودة بنفس الاسم والتاريخ
-    const exists = todos.find(t => t && t.text === todoText && t.date && String(t.date).slice(0, 10) === eventObj.date);
+    // Event identity survives renaming/rescheduling; unrelated events may share a title.
+    const exists = todos.find(t => t && ((eventObj.id && t.eventId === eventObj.id) ||
+        (!t.eventId && t.text === todoText && t.date && String(t.date).slice(0, 10) === eventObj.date)));
     if (exists) return exists;
 
     let datetimeStr = eventObj.date;
@@ -3181,16 +3421,21 @@ function hayyizConvertEventToTodo(eventObj) {
     const newTodo = {
         id: hayyizGenerateId(),
         text: todoText,
+        subjectId: eventObj.subjectId || null,
+        taskType: eventObj.type === 'exam' ? 'review' : eventObj.type === 'assignment' ? 'assignment' : 'general',
         priority: eventObj.type === 'exam' ? 'high' : 'medium',
         date: datetimeStr,
         minutes: eventObj.type === 'exam' ? 45 : 30,
         completed: false,
+        status: 'todo',
         created: Date.now(),
+        updated: Date.now(),
         eventId: eventObj.id || null
     };
 
     todos.push(newTodo);
     hayyizSaveTodos(todos);
+    if (typeof hayyizUploadItem === 'function') hayyizUploadItem('todos', newTodo.id, newTodo);
     return newTodo;
 }
 
@@ -3212,8 +3457,8 @@ function hayyizGetCalendarSummary() {
         return tEv >= t0 && tEv <= tWeekEnd;
     });
 
-    const birthdate = localStorage.getItem('hayyiz-birthdate') || null;
-    const showAgePref = localStorage.getItem('hayyiz-show-age-in-dashboard');
+    const birthdate = hayyizStorage.getItem('hayyiz-birthdate') || null;
+    const showAgePref = hayyizStorage.getItem('hayyiz-show-age-in-dashboard');
 
     let ageInfo = null;
     if (birthdate) {

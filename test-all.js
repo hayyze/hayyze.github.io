@@ -5,6 +5,7 @@ const commonJs = fs.readFileSync('./common.js', 'utf8');
 const gpaJs = fs.readFileSync('./gpa.js', 'utf8');
 
 global.window = global;
+global.addEventListener = () => {};
 global.document = {
     readyState: 'complete',
     body: { classList: { toggle: () => {} } },
@@ -14,7 +15,8 @@ global.document = {
     getElementById: () => null,
     addEventListener: () => {}
 };
-global.navigator = { serviceWorker: { register: () => Promise.resolve() } };
+// Node 24 exposes a getter-only navigator; install the intended legacy-browser mock explicitly.
+Object.defineProperty(global, 'navigator', { configurable: true, value: { serviceWorker: { register: () => Promise.resolve() } } });
 global.localStorage = {
     _data: {},
     getItem(k) { return this._data[k] || null; },

@@ -33,7 +33,9 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     
-     <script src="analytics.js"></script>
+     <script src="account-storage.js"></script>
+    <script src="focus-history.js" defer></script>
+    <script src="analytics.js"></script>
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>مساحة كتابة حرة | حيز</title>
@@ -284,6 +286,12 @@
         .zoom-display { font-size: 13px; font-weight: 600; min-width: 46px; text-align: center; }
         .save-dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; opacity: 0; transition: opacity 0.3s; }
         .save-dot.show { opacity: 1; }
+        #draw-save-status {
+            position: fixed; bottom: 76px; right: 12px; left: 12px; z-index: 400;
+            max-width: 720px; margin: auto; padding: 12px; border: 1px solid var(--border);
+            border-radius: 12px; background: var(--toolbar-bg); color: var(--text);
+            box-shadow: 0 6px 24px rgba(0,0,0,0.1); font-size: 14px;
+        }
         .space-name-label {
             font-size: 12px; font-weight: 600; max-width: 100px;
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -338,10 +346,12 @@
                 <h1><i class="fa-solid fa-pen-nib" style="color:#7c3aed"></i> مساحات الكتابة الحرة</h1>
                 <div class="hub-actions">
                     <a href="notes.html" class="hub-btn hub-btn-outline"><i class="fa-solid fa-arrow-right"></i> الملاحظات</a>
+                    <button type="button" class="hub-btn hub-btn-outline" id="btnExportDrawing">تنزيل نسخة احتياطية</button>
                     <button type="button" class="hub-btn hub-btn-outline" id="btnImportPdfHub"><i class="fa-solid fa-file-pdf"></i> استيراد PDF</button>
                     <button type="button" class="hub-btn hub-btn-primary" id="btnNewSpace"><i class="fa-solid fa-plus"></i> مساحة جديدة</button>
                 </div>
             </div>
+            <p>مساحات الكتابة وملفات PDF محفوظة على هذا الجهاز فقط، ولا تُزامَن سحابيًا. نزّل نسخة احتياطية قبل مسح بيانات المتصفح أو الانتقال لجهاز آخر.</p>
             <div class="hub-search" id="hubSearchWrap" style="display:none;">
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input type="search" id="hubSearch" placeholder="ابحث بالاسم..." autocomplete="off">
@@ -433,6 +443,12 @@
         </div>
     </div>
 
+    <div id="draw-save-status" role="status" aria-live="polite" hidden>
+        <span id="draw-save-message"></span>
+        <button type="button" class="tool-btn" id="btnRetryDrawingSave">إعادة الحفظ</button>
+        <button type="button" class="tool-btn" id="btnExportUnsaved">تنزيل العمل الحالي</button>
+    </div>
+    <script src="backup.js"></script>
     <script>
     (function () {
         const STORAGE_KEY = 'hayyiz-free-spaces-v1';
@@ -535,7 +551,8 @@
         }
 
         // ——— IndexedDB engine لتخزين ملفات PDF بشكل آمن وبشكل منفصل عن LocalStorage ———
-        const PDF_DB_NAME = 'hayyiz-pdf-db';
+        const storage = window.hayyizStorage || localStorage;
+        const PDF_DB_NAME = storage.databaseName ? storage.databaseName('hayyiz-pdf-db') : 'hayyiz-pdf-db';
         const PDF_STORE_NAME = 'pdf_blobs';
 
         function openPdfDb() {
@@ -551,7 +568,9 @@
                         db.createObjectStore(PDF_STORE_NAME, { keyPath: 'spaceId' });
                     }
                 };
-                req.onsuccess = function (e) { resolve(e.target.result); };
+                let blocked = false;
+                req.onblocked = function () { blocked = true; reject(new Error('أغلق تبويبات الكتابة الأخرى ثم أعد المحاولة.')); };
+                req.onsuccess = function (e) { if (blocked) e.target.result.close(); else resolve(e.target.result); };
                 req.onerror = function (e) { reject(e.target.error); };
             });
         }
@@ -568,9 +587,10 @@
                         updated: Date.now()
                     };
                     const req = store.put(record);
-                    req.onsuccess = function () { resolve(true); };
+                    tx.oncomplete = function () { resolve(true); };
+                    tx.onabort = tx.onerror = function () { reject(tx.error || new Error('تعذر حفظ ملف PDF على هذا الجهاز.')); };
                     req.onerror = function (e) { reject(e.target.error); };
-                });
+                }).finally(function () { db.close(); });
             });
         }
 
@@ -580,9 +600,12 @@
                     const tx = db.transaction(PDF_STORE_NAME, 'readonly');
                     const store = tx.objectStore(PDF_STORE_NAME);
                     const req = store.get(spaceId);
-                    req.onsuccess = function (e) { resolve(e.target.result ? e.target.result.data : null); };
+                    let data = null;
+                    req.onsuccess = function (e) { data = e.target.result ? e.target.result.data : null; };
+                    tx.oncomplete = function () { resolve(data); };
+                    tx.onabort = tx.onerror = function () { reject(tx.error || new Error('تعذر قراءة ملف PDF المحلي.')); };
                     req.onerror = function (e) { reject(e.target.error); };
-                });
+                }).finally(function () { db.close(); });
             });
         }
 
@@ -592,9 +615,10 @@
                     const tx = db.transaction(PDF_STORE_NAME, 'readwrite');
                     const store = tx.objectStore(PDF_STORE_NAME);
                     const req = store.delete(spaceId);
-                    req.onsuccess = function () { resolve(true); };
+                    tx.oncomplete = function () { resolve(true); };
+                    tx.onabort = tx.onerror = function () { reject(tx.error || new Error('تعذر حذف ملف PDF المحلي.')); };
                     req.onerror = function (e) { reject(e.target.error); };
-                });
+                }).finally(function () { db.close(); });
             });
         }
 
@@ -846,7 +870,7 @@
         // ——— تحميل البيانات القديمة وتوافقيها ———
         function loadAll() {
             try {
-                const raw = localStorage.getItem(STORAGE_KEY);
+                const raw = storage.getItem(STORAGE_KEY);
                 if (raw) {
                     const data = JSON.parse(raw);
                     spaces = (data.spaces || []).map(function (s) {
@@ -887,7 +911,7 @@
                 spaces = [];
             }
             try {
-                const prefs = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
+                const prefs = JSON.parse(storage.getItem(PREFS_KEY) || '{}');
                 penColor = prefs.penColor || '#1e293b';
                 penSize = prefs.penSize || 3;
                 inputMode = prefs.inputMode || 'pen-only';
@@ -900,7 +924,7 @@
 
         function migrateOld() {
             try {
-                const old = localStorage.getItem('hayyiz-free-notes-v2');
+                const old = storage.getItem('hayyiz-free-notes-v2');
                 if (!old) return;
                 const data = JSON.parse(old);
                 if (!data.pages || !data.pages.length) return;
@@ -930,13 +954,13 @@
                     bgStyle: data.bgStyle || 'plain',
                     updated: data.updated || Date.now()
                 });
-                localStorage.removeItem('hayyiz-free-notes-v2');
+                storage.removeItem('hayyiz-free-notes-v2');
             } catch (e) {}
         }
 
-        function saveAll() {
-            try {
-                const slim = spaces.map(function (s) {
+        let saveFailed = false;
+        function serializedSpaces() {
+            return spaces.map(function (s) {
                     return {
                         id: s.id,
                         name: s.name,
@@ -962,18 +986,58 @@
                         updated: s.updated
                     };
                 });
-                localStorage.setItem(STORAGE_KEY, JSON.stringify({ spaces: slim }));
+        }
+
+        function showSaveFailure(message) {
+            saveFailed = true;
+            document.getElementById('draw-save-message').textContent = message;
+            document.getElementById('draw-save-status').hidden = false;
+            saveDot.classList.remove('show');
+            saveDot.title = 'لم يُحفظ آخر تعديل';
+        }
+
+        function saveAll() {
+            try {
+                storage.setItem(STORAGE_KEY, JSON.stringify({ spaces: serializedSpaces() }));
+                saveFailed = false;
+                document.getElementById('draw-save-status').hidden = true;
+                saveDot.title = 'تم الحفظ على هذا الجهاز';
                 saveDot.classList.add('show');
                 clearTimeout(saveTimer);
                 saveTimer = setTimeout(function () { saveDot.classList.remove('show'); }, 1000);
+                return true;
             } catch (e) {
-                console.warn('حفظ فشل', e);
+                showSaveFailure('تعذر حفظ آخر تعديل على هذا الجهاز. أبقِ الصفحة مفتوحة ونزّل العمل الحالي قبل مغادرتها.');
+                return false;
             }
         }
 
+        async function exportDrawing() {
+            const button = document.getElementById('btnExportDrawing');
+            button.disabled = true;
+            try {
+                const raw = JSON.stringify({ spaces: serializedSpaces() });
+                const archive = await window.hayyizCreateBackupFromStorage({
+                    getItem: function (key) { return key === STORAGE_KEY ? raw : storage.getItem(key); }
+                }, PDF_DB_NAME);
+                const blob = new Blob([JSON.stringify(archive)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url; link.download = 'hayyiz-drawing-backup-' + Date.now() + '.json';
+                document.body.appendChild(link); link.click(); link.remove();
+                setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+                if (archive.missingPdfIds && archive.missingPdfIds.length) alert('نُزّلت الرسومات، لكن بعض ملفات PDF الأصلية لم تعد موجودة على هذا الجهاز.');
+            } catch (error) {
+                alert(error.message || 'تعذر تنزيل النسخة. أبقِ الصفحة مفتوحة وحاول مجددًا.');
+            } finally { button.disabled = false; }
+        }
+        document.getElementById('btnRetryDrawingSave').addEventListener('click', saveAll);
+        document.getElementById('btnExportDrawing').addEventListener('click', exportDrawing);
+        document.getElementById('btnExportUnsaved').addEventListener('click', exportDrawing);
+
         function savePrefs() {
             try {
-                localStorage.setItem(PREFS_KEY, JSON.stringify({
+                storage.setItem(PREFS_KEY, JSON.stringify({
                     penColor: penColor, penSize: penSize, inputMode: inputMode
                 }));
             } catch (e) {}
@@ -1059,9 +1123,10 @@
                 card.querySelector('.del').addEventListener('click', function (e) {
                     e.stopPropagation();
                     if (!confirm('حذف المساحة «' + (s.name || 'بلا عنوان') + '»؟')) return;
-                    deletePdfFromDb(s.id).catch(function () {});
+                    const previous = spaces;
                     spaces = spaces.filter(function (x) { return x.id !== s.id; });
-                    saveAll();
+                    if (!saveAll()) { spaces = previous; return; }
+                    deletePdfFromDb(s.id).catch(function () {});
                     renderHub(hubSearch.value);
                 });
                 spaceList.appendChild(card);
@@ -1237,7 +1302,7 @@
 
         // ——— طبقة الرسم + ثيم الموقع ———
         function isSiteDark() {
-            return localStorage.getItem('hayyiz-theme') === 'dark';
+            return storage.getItem('hayyiz-theme') === 'dark';
         }
 
         function applySiteTheme() {
@@ -2023,7 +2088,7 @@
                 s.updated = Date.now();
             }
             if (bgPicker.value === 'dark') {
-                localStorage.setItem('hayyiz-theme', 'dark');
+                storage.setItem('hayyiz-theme', 'dark');
             }
             applySiteTheme();
             drawBackground();
@@ -2082,8 +2147,9 @@
         window.addEventListener('resize', function () {
             if (editor.classList.contains('active')) resizeCanvases();
         });
-        window.addEventListener('beforeunload', function () {
-            if (activeSpaceId) saveAll();
+        window.addEventListener('beforeunload', function (event) {
+            if (activeSpaceId || saveFailed) saveAll();
+            if (saveFailed) { event.preventDefault(); event.returnValue = ''; }
         });
 
         // ——— أحداث استيراد PDF ———
@@ -2114,19 +2180,16 @@
                         if (pdfImportTargetMode === 'replace' && activeSpaceId) {
                             const s = getActiveSpace();
                             if (s) {
-                                s.metadata.pdf = { fileName: file.name, pageCount: numPages };
-                                s.updated = Date.now();
-                                while (s.pages.length < numPages) {
-                                    s.pages.push(emptyPage());
-                                }
-                                savePdfToDb(s.id, buffer, file.name).then(function () {
+                                return savePdfToDb(s.id, buffer, file.name).then(function () {
+                                    s.metadata.pdf = { fileName: file.name, pageCount: numPages };
+                                    s.updated = Date.now();
+                                    while (s.pages.length < numPages) s.pages.push(emptyPage());
                                     activePdfDoc = pdfDoc;
                                     pdfPageCache.clear();
                                     pendingRenderPages.clear();
                                     saveAll();
                                     fullRedraw();
                                 });
-                                return;
                             }
                         }
 
@@ -2146,8 +2209,8 @@
                             bgStyle: 'plain',
                             updated: Date.now()
                         };
-                        spaces.unshift(newSpace);
-                        savePdfToDb(newSpaceId, buffer, file.name).then(function () {
+                        return savePdfToDb(newSpaceId, buffer, file.name).then(function () {
+                            spaces.unshift(newSpace);
                             saveAll();
                             openSpace(newSpaceId);
                         });

@@ -1,3 +1,4 @@
+var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (typeof localStorage !== 'undefined' ? localStorage : undefined);
 /**
  * دفتر الملاحظات الدراسية - حيز
  * إدارة الملاحظات وتنظيمها، البحث، التصفية، والربط بالمهام والمواد
@@ -7,6 +8,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 1. تحميل واستعادة وقراءة البيانات بصورة آمنة ---
     let notes = loadAndNormalizeNotes();
     let editingId = null;
+    let editingBase = null;
+    let savingNote = false;
+    let editorDirty = false;
+    let draftSaved = true;
+    let editorRevision = 0;
+    const draftId = generateUniqueId();
+    const draftKey = 'hayyiz-note-draft-' + draftId;
+    const draftLockName = key => 'hayyiz-note-editor:' + (hayyizStorage.scope || 'guest') + ':' + key;
+    const draftLocks = typeof navigator !== 'undefined' && navigator.locks;
+    // A document owns its key for its lifetime. Cloned sessionStorage cannot
+    // give another tab ownership; closed documents automatically release locks.
+    const draftReady = draftLocks ? new Promise(resolve => {
+        draftLocks.request(draftLockName(draftKey), () => {
+            resolve();
+            return new Promise(() => {});
+        }).catch(() => resolve());
+    }) : Promise.resolve();
     let pendingDeleteId = null;
 
     // عناصر النموذج والواجهة
@@ -30,6 +48,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const noteReview = document.getElementById('note-review');
     const submitBtn = document.getElementById('note-submit-btn');
     const clearNoteBtn = document.getElementById('clear-note-btn');
+    const saveStatus = document.getElementById('note-save-status');
+    const saveCopyBtn = document.getElementById('note-save-copy-btn');
 
     // أدوات الشريط والبحث والتصفية
     const notesSearch = document.getElementById('notes-search');
@@ -71,6 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // المعلمات من الرابط (بومودورو / المهام)
     const urlParams = new URLSearchParams(window.location.search);
     const prefillTitle = urlParams.get('title');
+    const urlNoteId = urlParams.get('id');
     let urlTaskName = urlParams.get('task') || prefillTitle || null;
     let urlTaskId = urlParams.get('taskId') || null;
     if (urlTaskName) {
@@ -91,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadAndNormalizeNotes() {
         let rawNotes = [];
         try {
-            const raw = localStorage.getItem('hayyiz-notes');
+            const raw = hayyizStorage.getItem('hayyiz-notes');
             rawNotes = raw ? JSON.parse(raw) : [];
             if (!Array.isArray(rawNotes)) rawNotes = [];
         } catch (e) {
@@ -115,6 +136,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             item.subject = typeof item.subject === 'string' ? item.subject.trim() : '';
+            const canonicalSubject = subjectMatch(item.subjectId, item.subject);
+            if (canonicalSubject && !item.subjectId) { item.subjectId = canonicalSubject.id; hasChanges = true; }
             item.category = typeof item.category === 'string' ? item.category.trim() : '';
 
             // الوسوم
@@ -138,18 +161,92 @@ document.addEventListener('DOMContentLoaded', () => {
         }).filter(Boolean);
 
         if (hasChanges) {
-            try { localStorage.setItem('hayyiz-notes', JSON.stringify(normalized)); } catch (e) {}
+            try { hayyizStorage.setItem('hayyiz-notes', JSON.stringify(normalized)); } catch (e) {}
         }
 
         return normalized;
     }
 
-    function saveNotes() {
+    // Read the latest collection inside a same-origin Web Lock. A stale tab may
+    // change only its selected record, never replace another tab's collection.
+    async function saveNotes(id, update, expected) {
+        const commit = () => {
+            if (hayyizStorage.isCurrentScope && !hayyizStorage.isCurrentScope(hayyizStorage.scope)) return false;
+            const latest = loadAndNormalizeNotes();
+            const index = latest.findIndex(note => note.id === id);
+            if (expected !== undefined && (index < 0 || noteVersion(latest[index]) !== noteVersion(JSON.parse(expected)))) {
+                if (saveCopyBtn) saveCopyBtn.hidden = false;
+                showSaveError('تغيرت هذه الملاحظة أو حُذفت في تبويب أو جهاز آخر. احتفظ بتعديلك كنسخة جديدة.');
+                return false;
+            }
+            const next = update(index >= 0 ? latest[index] : null);
+            if (next === null) {
+                if (index >= 0) latest.splice(index, 1);
+            } else if (index >= 0) latest[index] = next;
+            else latest.unshift(next);
+            hayyizStorage.setItem('hayyiz-notes', JSON.stringify(latest));
+            notes = latest;
+            return next === null ? true : next;
+        };
         try {
-            localStorage.setItem('hayyiz-notes', JSON.stringify(notes));
+            const locks = typeof navigator !== 'undefined' && navigator.locks;
+            return locks && typeof locks.request === 'function'
+                ? await locks.request('hayyiz-notes:' + (hayyizStorage.scope || 'guest'), commit) : commit();
         } catch (e) {
-            showToast('تعذر حفظ الملاحظات على هذا الجهاز');
+            showSaveError('تعذر الحفظ على هذا الجهاز. النص ما زال في المحرر؛ انسخه أو صدّر بياناتك ثم وفّر مساحة وحاول مجددًا.');
+            return false;
         }
+    }
+
+    function noteVersion(note) {
+        const value = { ...note, subjectId: subjectMatch(note.subjectId, note.subject)?.id || note.subjectId || null };
+        return JSON.stringify(Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))));
+    }
+
+    function showSaveError(message) {
+        if (saveStatus) saveStatus.textContent = message;
+        showToast(message);
+    }
+
+    function getSubjects() {
+        return typeof hayyizGetSubjects === 'function' ? hayyizGetSubjects() : [];
+    }
+
+    function subjectMatch(id, name) {
+        const subjects = getSubjects();
+        if (id) return subjects.find(subject => subject && String(subject.id) === String(id)) || null;
+        const normalize = value => String(value || '').normalize('NFKC').replace(/[\u064B-\u065F\u0670\u0640]/g, '').trim().replace(/^ال/, '');
+        const matches = name ? subjects.filter(subject => subject && normalize(subject.name) === normalize(name)) : [];
+        return matches.length === 1 ? matches[0] : null;
+    }
+
+    function noteSubject(note) {
+        const subject = subjectMatch(note.subjectId, note.subject);
+        return subject ? { id: subject.id, name: subject.name } : { id: null, name: note.subject || '' };
+    }
+
+    function fillSubjects(id, name) {
+        if (!noteSubjectSelect) return;
+        const current = subjectMatch(id, name);
+        const options = getSubjects().filter(subject => subject && subject.id).map(subject => ({ value: subject.id, name: subject.name }));
+        const legacy = new Set(['رياضيات', 'فيزياء', 'كيمياء', 'أحياء', 'لغة عربية', 'لغة إنجليزية', 'اجتماعيات']);
+        notes.forEach(note => { if (note.subject && !note.subjectId) legacy.add(note.subject); });
+        if (name && !current) legacy.add(name);
+        legacy.forEach(value => { if (!subjectMatch(null, value)) options.push({ value: 'legacy:' + value, name: value }); });
+        noteSubjectSelect.replaceChildren();
+        [{ value: '', name: 'بدون مادة' }, ...options, { value: 'other', name: 'أخرى...' }].forEach(item => {
+            const option = document.createElement('option');
+            option.value = item.value; option.textContent = item.name; noteSubjectSelect.appendChild(option);
+        });
+        noteSubjectSelect.value = current ? current.id : name ? 'legacy:' + name : '';
+    }
+
+    function selectedSubject() {
+        const value = noteSubjectSelect ? noteSubjectSelect.value : '';
+        const subject = value && value !== 'other' && !value.startsWith('legacy:') ? subjectMatch(value, '') : null;
+        const name = value === 'other' ? (noteSubjectCustom ? noteSubjectCustom.value.trim() : '')
+            : value.startsWith('legacy:') ? value.slice(7) : subject ? subject.name : '';
+        return { subject: name, subjectId: subject ? subject.id : null };
     }
 
     function showToast(message) {
@@ -179,9 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (chooseText) chooseText.addEventListener('click', showTextNotes);
     if (backToModes) backToModes.addEventListener('click', showModePicker);
 
-    if (prefillTitle || urlTaskName) {
-        showTextNotes();
-    }
+    try { if (sessionStorage.getItem('hayyiz-notes-mode') === 'text') showTextNotes(); } catch (_) {}
 
     // --- 4. تهيئة الخيارات القادمة من المزايا الأخرى (المواد والمهام) ---
     function populateTasksDropdown() {
@@ -191,12 +286,12 @@ document.addEventListener('DOMContentLoaded', () => {
             todos = hayyizGetTodos();
         } else {
             try {
-                todos = JSON.parse(localStorage.getItem('hayyiz-todos') || '[]');
+                todos = JSON.parse(hayyizStorage.getItem('hayyiz-todos') || '[]');
             } catch (e) { todos = []; }
         }
 
-        const activeTodos = Array.isArray(todos) ? todos.filter(t => t && !t.completed) : [];
         const currentVal = noteTaskSelect.value;
+        const activeTodos = Array.isArray(todos) ? todos.filter(t => t && (!t.completed || String(t.id) === currentVal)) : [];
 
         noteTaskSelect.innerHTML = '<option value="">بدون مهمة مرتبطة</option>';
         activeTodos.forEach(t => {
@@ -215,7 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // قائمة المواد للمرشح
         if (filterSubject) {
             const currentSub = filterSubject.value;
-            const subjectsSet = new Set(['رياضيات', 'فيزياء', 'كيمياء', 'أحياء', 'لغة عربية', 'لغة إنجليزية', 'اجتماعيات']);
+            const subjectsSet = new Set();
 
             if (typeof hayyizGetSubjects === 'function') {
                 const globalSubs = hayyizGetSubjects();
@@ -225,7 +320,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             notes.forEach(n => {
-                if (n.subject) subjectsSet.add(n.subject);
+                const subject = noteSubject(n);
+                if (subject.name) subjectsSet.add(subject.name);
             });
 
             filterSubject.innerHTML = '<option value="">جميع المواد</option>';
@@ -274,73 +370,113 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 5. الحفظ التلقائي للمسودة ---
     function saveDraft() {
-        if (editingId !== null) return; // لا نكتب مسودة جديدة أثناء تعديل ملاحظة سابقة
-
+        editorDirty = true;
+        editorRevision++;
         const titleVal = noteTitle ? noteTitle.value : '';
         const contentVal = noteContent ? noteContent.value : '';
         const categoryVal = noteCategory ? noteCategory.value : '';
         const tagsVal = noteTags ? noteTags.value : '';
 
-        let subjectVal = noteSubjectSelect ? noteSubjectSelect.value : '';
-        if (subjectVal === 'other' && noteSubjectCustom) {
-            subjectVal = noteSubjectCustom.value.trim();
-        }
+        const selected = selectedSubject();
+        const subjectVal = selected.subject;
 
         const taskVal = noteTaskSelect ? noteTaskSelect.value : '';
         const pinnedVal = notePinned ? notePinned.checked : false;
         const favVal = noteFavorite ? noteFavorite.checked : false;
         const reviewVal = noteReview ? noteReview.checked : false;
 
-        const hasAnyContent = titleVal.trim() || contentVal.trim() || subjectVal || categoryVal || tagsVal.trim();
+        const hasAnyContent = editingId || titleVal.trim() || contentVal.trim() || subjectVal || categoryVal || tagsVal.trim();
 
         if (hasAnyContent) {
             const draftObj = {
+                updatedAt: Date.now(),
+                editingId,
+                editingBase,
+                subjectId: selected.subjectId,
                 title: titleVal,
                 content: contentVal,
                 subject: subjectVal,
                 category: categoryVal,
                 tags: tagsVal,
                 task: taskVal,
+                taskText: noteTaskSelect && noteTaskSelect.selectedOptions[0] ? noteTaskSelect.selectedOptions[0].dataset.taskText || '' : '',
                 isPinned: pinnedVal,
                 isFavorite: favVal,
                 isReview: reviewVal
             };
-            try { localStorage.setItem('hayyiz-note-draft', JSON.stringify(draftObj)); } catch (e) {}
+            try { hayyizStorage.setItem(draftKey, JSON.stringify(draftObj)); draftSaved = true; }
+            catch (e) { draftSaved = false; showSaveError('تعذر حفظ المسودة تلقائيًا. أبقِ الصفحة مفتوحة وانسخ النص قبل مغادرتها.'); }
         } else {
-            try { localStorage.removeItem('hayyiz-note-draft'); } catch (e) {}
+            try { hayyizStorage.removeItem(draftKey); draftSaved = true; } catch (e) { draftSaved = false; }
         }
     }
 
-    function loadDraft() {
-        if (prefillTitle || urlTaskName) return; // تفضيل البيانات القادمة من البومودورو أو المهمة
+    async function loadDraft() {
+        await draftReady;
+        if (editorDirty || prefillTitle || urlTaskName || urlNoteId) return;
         try {
-            const raw = localStorage.getItem('hayyiz-note-draft');
-            if (raw) {
+            let key = draftKey;
+            let raw = hayyizStorage.getItem(key);
+            if (!raw) {
+                const candidates = ['hayyiz-note-draft'];
+                for (let i = 0; i < hayyizStorage.length; i++) {
+                    const candidate = hayyizStorage.key(i);
+                    if (candidate && candidate.startsWith('hayyiz-note-draft-')) candidates.push(candidate);
+                }
+                const drafts = candidates.map(candidate => {
+                    try { const value = hayyizStorage.getItem(candidate); return value ? { key: candidate, raw: value, at: Number(JSON.parse(value).updatedAt) || 0 } : null; }
+                    catch (_) { return null; }
+                }).filter(Boolean).sort((a, b) => b.at - a.at);
+                for (const candidate of drafts) {
+                    const recover = lock => {
+                        if (!lock || editorDirty) return;
+                        const latest = hayyizStorage.getItem(candidate.key);
+                        if (latest !== candidate.raw) return;
+                        // Persist the new owner before removing the orphan. A
+                        // quota error leaves the original recovery copy intact.
+                        hayyizStorage.setItem(draftKey, latest);
+                        hayyizStorage.removeItem(candidate.key);
+                        key = draftKey;
+                        raw = latest;
+                    };
+                    if (draftLocks) await draftLocks.request(draftLockName(candidate.key), { ifAvailable: true }, recover);
+                    else { key = candidate.key; raw = candidate.raw; } // Preserve foreign copies on older browsers.
+                    if (raw) break;
+                }
+            }
+            if (raw && !editorDirty) {
                 const draft = JSON.parse(raw);
                 if (draft && typeof draft === 'object') {
+                    editingId = draft.editingId || null;
+                    editingBase = typeof draft.editingBase === 'string' ? draft.editingBase : undefined;
                     if (noteTitle) noteTitle.value = draft.title || '';
                     if (noteContent) noteContent.value = draft.content || '';
                     if (noteCategory) noteCategory.value = draft.category || '';
                     if (noteTags) noteTags.value = draft.tags || '';
 
-                    if (draft.subject) {
-                        const stdOpts = ['رياضيات', 'فيزياء', 'كيمياء', 'أحياء', 'لغة عربية', 'لغة إنجليزية', 'اجتماعيات'];
-                        if (stdOpts.includes(draft.subject)) {
-                            if (noteSubjectSelect) noteSubjectSelect.value = draft.subject;
-                        } else {
-                            if (noteSubjectSelect) noteSubjectSelect.value = 'other';
-                            if (customSubjectField) customSubjectField.classList.remove('hidden');
-                            if (noteSubjectCustom) noteSubjectCustom.value = draft.subject;
-                        }
-                    }
+                    fillSubjects(draft.subjectId, draft.subject);
 
                     if (noteTaskSelect && draft.task) {
+                        if (!Array.from(noteTaskSelect.options).some(option => option.value === draft.task)) {
+                            const option = document.createElement('option');
+                            option.value = draft.task;
+                            option.dataset.taskId = draft.task;
+                            option.dataset.taskText = draft.taskText || '';
+                            option.textContent = draft.taskText || 'المهمة المرتبطة السابقة';
+                            noteTaskSelect.appendChild(option);
+                        }
                         noteTaskSelect.value = draft.task;
                     }
 
                     if (notePinned) notePinned.checked = Boolean(draft.isPinned);
                     if (noteFavorite) noteFavorite.checked = Boolean(draft.isFavorite);
                     if (noteReview) noteReview.checked = Boolean(draft.isReview);
+                    if (editingId) {
+                        if (submitBtn) submitBtn.textContent = 'تحديث الملاحظة';
+                        if (clearNoteBtn) clearNoteBtn.textContent = 'إلغاء التعديل';
+                    }
+                    editorDirty = true;
+                    showTextNotes();
 
                     // افتح تفاصيل الخيارات الإضافية تلقائياً إذا كانت تحتوي على بيانات في المسودة
                     if (draft.subject || draft.category || draft.tags || draft.task || draft.isPinned || draft.isFavorite || draft.isReview) {
@@ -348,56 +484,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
-        } catch (e) { /* تجاهل */ }
+        } catch (e) { showSaveError('تعذر استرجاع المسودة؛ النسخة الأصلية محفوظة على الجهاز.'); }
     }
 
     // ربط مستمعات المسودة
     [noteTitle, noteContent, noteSubjectCustom, noteCategory, noteTags, noteTaskSelect].forEach(el => {
-        if (el) el.addEventListener('input', saveDraft);
+        if (el) el.addEventListener('input', () => { editorDirty = true; saveDraft(); });
     });
     [notePinned, noteFavorite, noteReview].forEach(el => {
-        if (el) el.addEventListener('change', saveDraft);
+        if (el) el.addEventListener('change', () => { editorDirty = true; saveDraft(); });
     });
-
-    // معالجة معلمات البومودورو/المهام القادمة عبر URL
-    if (prefillTitle && noteTitle) {
-        noteTitle.value = prefillTitle;
-    }
-    if (urlTaskName && noteTaskSelect) {
-        let matchedOpt = null;
-        if (urlTaskId) {
-            matchedOpt = Array.from(noteTaskSelect.options).find(o => o.dataset.taskId === urlTaskId);
-        }
-        if (!matchedOpt && urlTaskName) {
-            matchedOpt = Array.from(noteTaskSelect.options).find(o => o.dataset.taskText === urlTaskName || o.value === urlTaskName);
-        }
-
-        if (matchedOpt) {
-            noteTaskSelect.value = matchedOpt.value;
-        } else if (urlTaskName) {
-            // إضافة الخيار للمنسدلة
-            const opt = document.createElement('option');
-            opt.value = urlTaskId || urlTaskName;
-            opt.textContent = urlTaskName;
-            if (urlTaskId) opt.dataset.taskId = urlTaskId;
-            opt.dataset.taskText = urlTaskName;
-            opt.selected = true;
-            noteTaskSelect.appendChild(opt);
-        }
-        if (notesExtraDetails) notesExtraDetails.open = true;
-    }
-
-    if (!prefillTitle && !urlTaskName) {
-        loadDraft();
-    }
 
     function resetForm() {
         editingId = null;
+        editingBase = null;
+        editorDirty = false;
+        draftSaved = true;
+        if (saveStatus) saveStatus.textContent = '';
+        if (saveCopyBtn) saveCopyBtn.hidden = true;
         if (notesForm) notesForm.reset();
         if (customSubjectField) customSubjectField.classList.add('hidden');
         if (noteSubjectCustom) noteSubjectCustom.value = '';
+        fillSubjects(null, '');
         if (notesExtraDetails) notesExtraDetails.open = false;
-        try { localStorage.removeItem('hayyiz-note-draft'); } catch (e) {}
+        try {
+            hayyizStorage.removeItem(draftKey);
+        } catch (e) {}
 
         if (submitBtn) {
             submitBtn.innerHTML = '<i class="fa-solid fa-plus"></i> حفظ الملاحظة';
@@ -422,7 +534,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentPillFilter === 'review' && !note.isReview) return false;
 
             // تصفية المادة
-            if (selectedSubject && note.subject !== selectedSubject) return false;
+            if (selectedSubject && noteSubject(note).name !== selectedSubject) return false;
 
             // تصفية الوسم
             if (selectedTag && (!Array.isArray(note.tags) || !note.tags.includes(selectedTag))) return false;
@@ -488,7 +600,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof hayyizGetTodos === 'function') {
             currentTodos = hayyizGetTodos();
         } else {
-            try { currentTodos = JSON.parse(localStorage.getItem('hayyiz-todos') || '[]'); } catch (e) {}
+            try { currentTodos = JSON.parse(hayyizStorage.getItem('hayyiz-todos') || '[]'); } catch (e) {}
         }
 
         filtered.forEach(note => {
@@ -548,14 +660,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 badgesRow.appendChild(b);
             }
             if (note.subject || note.subjectId) {
-                const allSubs = typeof hayyizGetSubjects === 'function' ? hayyizGetSubjects() : [];
-                const matchedSub = note.subjectId ? allSubs.find(s => s && String(s.id) === String(note.subjectId)) : allSubs.find(s => s && s.name === note.subject);
+                const matchedSub = subjectMatch(note.subjectId, note.subject);
                 if (matchedSub && matchedSub.id) {
                     const b = document.createElement('a');
                     b.href = `subject.html?id=${encodeURIComponent(matchedSub.id)}`;
                     b.className = 'badge badge-subject';
                     b.style.textDecoration = 'none';
-                    b.textContent = note.subject || matchedSub.name;
+                    b.textContent = matchedSub.name;
                     b.addEventListener('click', (e) => e.stopPropagation());
                     badgesRow.appendChild(b);
                 } else if (note.subject) {
@@ -620,7 +731,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const openTaskBtn = document.createElement('a');
                     openTaskBtn.className = 'btn-open-task';
-                    openTaskBtn.href = 'todo.html';
+                    openTaskBtn.href = 'todo.html?id=' + encodeURIComponent(matchedTask.id);
                     openTaskBtn.textContent = 'فتح المهمة';
                     openTaskBtn.addEventListener('click', (e) => { e.stopPropagation(); });
 
@@ -718,30 +829,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- 7. عمليات الملاحظات (إضافة، تعديل، حذف، تثبيت، تفضيل، نسخ، مشاركة) ---
-    function togglePinNote(id) {
-        const idx = notes.findIndex(n => n.id === id);
-        if (idx < 0) return;
-        notes[idx].isPinned = !notes[idx].isPinned;
-        notes[idx].updated = Date.now();
-        saveNotes();
+    async function togglePinNote(id) {
+        const saved = await saveNotes(id, note => note ? { ...note, isPinned: !note.isPinned, updated: Date.now() } : null);
+        if (!saved || saved === true) return;
         if (typeof hayyizUploadNote === 'function') {
-            hayyizUploadNote(notes[idx]);
+            hayyizUploadNote(saved);
         }
         renderNotes();
-        showToast(notes[idx].isPinned ? 'تم تثبيت الملاحظة في الأعلى' : 'تم إلغاء تثبيت الملاحظة');
+        showToast(saved.isPinned ? 'تم تثبيت الملاحظة في الأعلى' : 'تم إلغاء تثبيت الملاحظة');
     }
 
-    function toggleFavoriteNote(id) {
-        const idx = notes.findIndex(n => n.id === id);
-        if (idx < 0) return;
-        notes[idx].isFavorite = !notes[idx].isFavorite;
-        notes[idx].updated = Date.now();
-        saveNotes();
+    async function toggleFavoriteNote(id) {
+        const saved = await saveNotes(id, note => note ? { ...note, isFavorite: !note.isFavorite, updated: Date.now() } : null);
+        if (!saved || saved === true) return;
         if (typeof hayyizUploadNote === 'function') {
-            hayyizUploadNote(notes[idx]);
+            hayyizUploadNote(saved);
         }
         renderNotes();
-        showToast(notes[idx].isFavorite ? 'تمت إضافة الملاحظة للمفضلة' : 'تمت إزالة الملاحظة من المفضلة');
+        showToast(saved.isFavorite ? 'تمت إضافة الملاحظة للمفضلة' : 'تمت إزالة الملاحظة من المفضلة');
     }
 
     function copyNoteContent(note) {
@@ -774,28 +879,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startEditNote(id) {
+        if (editorDirty && !confirm('توجد مسودة في المحرر. هل تريد استبدالها بهذه الملاحظة؟')) return;
+        notes = loadAndNormalizeNotes();
         const note = notes.find(n => n.id === id);
         if (!note) return;
 
         editingId = id;
+        editingBase = JSON.stringify(note);
+        editorDirty = false;
+        if (saveCopyBtn) saveCopyBtn.hidden = true;
+        showTextNotes();
         noteTitle.value = note.title || '';
         noteContent.value = note.content || '';
         noteCategory.value = note.category || '';
         noteTags.value = Array.isArray(note.tags) ? note.tags.join(', ') : '';
 
-        const stdOpts = ['رياضيات', 'فيزياء', 'كيمياء', 'أحياء', 'لغة عربية', 'لغة إنجليزية', 'اجتماعيات'];
-        if (note.subject) {
-            if (stdOpts.includes(note.subject)) {
-                noteSubjectSelect.value = note.subject;
-                if (customSubjectField) customSubjectField.classList.add('hidden');
-            } else {
-                noteSubjectSelect.value = 'other';
-                if (customSubjectField) customSubjectField.classList.remove('hidden');
-                if (noteSubjectCustom) noteSubjectCustom.value = note.subject;
-            }
-        } else {
-            noteSubjectSelect.value = '';
-            if (customSubjectField) customSubjectField.classList.add('hidden');
+        fillSubjects(note.subjectId, note.subject);
+        if (customSubjectField) customSubjectField.classList.add('hidden');
+        populateTasksDropdown();
+        if (note.relatedTaskId && !Array.from(noteTaskSelect.options).some(option => option.value === note.relatedTaskId)) {
+            const option = document.createElement('option');
+            option.value = note.relatedTaskId;
+            option.dataset.taskId = note.relatedTaskId;
+            option.dataset.taskText = note.relatedTask || '';
+            option.textContent = note.relatedTask || 'المهمة المرتبطة السابقة';
+            noteTaskSelect.appendChild(option);
         }
 
         if (noteTaskSelect) {
@@ -839,12 +947,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function executeDeleteNote(id) {
-        const idx = notes.findIndex(n => n.id === id);
-        if (idx >= 0) {
-            const noteToDelete = notes[idx];
-            notes.splice(idx, 1);
-            saveNotes();
+    async function executeDeleteNote(id) {
+        const noteToDelete = notes.find(n => n.id === id);
+        if (noteToDelete) {
+            if (!await saveNotes(id, () => null)) return;
             if (typeof hayyizDeleteRemoteNote === 'function') {
                 hayyizDeleteRemoteNote(id, noteToDelete);
             }
@@ -907,14 +1013,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 viewBadges.appendChild(b);
             }
             if (note.subject || note.subjectId) {
-                const allSubs = typeof hayyizGetSubjects === 'function' ? hayyizGetSubjects() : [];
-                const matchedSub = note.subjectId ? allSubs.find(s => s && String(s.id) === String(note.subjectId)) : allSubs.find(s => s && s.name === note.subject);
+                const matchedSub = subjectMatch(note.subjectId, note.subject);
                 if (matchedSub && matchedSub.id) {
                     const b = document.createElement('a');
                     b.href = `subject.html?id=${encodeURIComponent(matchedSub.id)}`;
                     b.className = 'badge badge-subject';
                     b.style.textDecoration = 'none';
-                    b.textContent = note.subject || matchedSub.name;
+                    b.textContent = matchedSub.name;
                     b.addEventListener('click', (e) => e.stopPropagation());
                     viewBadges.appendChild(b);
                 } else if (note.subject) {
@@ -962,14 +1067,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (note.relatedTaskId || note.relatedTask) {
                 let currentTodos = [];
                 if (typeof hayyizGetTodos === 'function') currentTodos = hayyizGetTodos();
-                else { try { currentTodos = JSON.parse(localStorage.getItem('hayyiz-todos') || '[]'); } catch(e){} }
+                else { try { currentTodos = JSON.parse(hayyizStorage.getItem('hayyiz-todos') || '[]'); } catch(e){} }
 
                 let matchedTask = null;
                 if (note.relatedTaskId) matchedTask = currentTodos.find(t => t && t.id === note.relatedTaskId) || null;
                 else if (note.relatedTask) matchedTask = currentTodos.find(t => t && t.text === note.relatedTask) || null;
 
                 if (matchedTask) {
-                    viewTask.innerHTML = '<div class="note-task-info task-exists"><i class="fa-solid fa-list-check"></i> مرتبطة بالمهمة: <strong>' + escapeHtml(matchedTask.text) + '</strong> <a href="todo.html" class="btn-open-task">فتح المهمة</a></div>';
+                    viewTask.innerHTML = '<div class="note-task-info task-exists"><i class="fa-solid fa-list-check"></i> مرتبطة بالمهمة: <strong>' + escapeHtml(matchedTask.text) + '</strong> <a href="todo.html?id=' + encodeURIComponent(matchedTask.id) + '" class="btn-open-task">فتح المهمة</a></div>';
                 } else {
                     viewTask.innerHTML = '<div class="note-task-info task-missing"><i class="fa-solid fa-circle-info"></i> المهمة المرتبطة غير موجودة</div>';
                 }
@@ -1038,15 +1143,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- 9. تقديم النموذج (حفظ/تعديل) ---
-    notesForm.addEventListener('submit', (e) => {
+    notesForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (savingNote) return;
         const title = (noteTitle ? noteTitle.value : '').trim();
         const content = (noteContent ? noteContent.value : '').trim();
         if (!content) return;
 
-        let subject = (noteSubjectSelect ? noteSubjectSelect.value : '').trim();
-        if (subject === 'other' && noteSubjectCustom) {
-            subject = noteSubjectCustom.value.trim();
+        const selected = selectedSubject();
+        let subject = selected.subject;
+        let subjectId = selected.subjectId;
+        if (subject && !subjectId && typeof hayyizAddSubject === 'function') {
+            try {
+                const canonical = subjectMatch(null, subject) || hayyizAddSubject(subject);
+                if (canonical) { subjectId = canonical.id; subject = canonical.name; }
+            } catch (_) { showSaveError('تعذر حفظ المادة على هذا الجهاز. بقي نص الملاحظة في المحرر.'); return; }
         }
 
         const category = (noteCategory ? noteCategory.value : '').trim();
@@ -1068,59 +1179,58 @@ document.addEventListener('DOMContentLoaded', () => {
         const isFavorite = noteFavorite ? noteFavorite.checked : false;
         const isReview = noteReview ? noteReview.checked : false;
 
-        let savedOrUpdatedNote = null;
-        if (editingId !== null) {
-            const idx = notes.findIndex(n => n.id === editingId);
-            if (idx >= 0) {
-                notes[idx].title = title;
-                notes[idx].content = content;
-                notes[idx].subject = subject;
-                notes[idx].category = category;
-                notes[idx].tags = tags;
-                notes[idx].relatedTaskId = relatedTaskId;
-                notes[idx].relatedTask = relatedTask;
-                notes[idx].isPinned = isPinned;
-                notes[idx].isFavorite = isFavorite;
-                notes[idx].isReview = isReview;
-                notes[idx].updated = Date.now();
-                savedOrUpdatedNote = notes[idx];
-                showToast('تم تحديث الملاحظة بنجاح');
+        const wasEditing = editingId !== null;
+        const id = editingId || generateUniqueId();
+        const submittedRevision = editorRevision;
+        savingNote = true;
+        if (submitBtn) submitBtn.disabled = true;
+        if (clearNoteBtn) clearNoteBtn.disabled = true;
+        try {
+            const saved = await saveNotes(id, current => ({
+                ...(current || {}), id, title, content, subject, subjectId,
+                category, tags, relatedTaskId, relatedTask, isPinned, isFavorite, isReview,
+                created: current ? current.created : Date.now(), updated: Date.now()
+            }), wasEditing ? editingBase : undefined);
+            if (!saved) return;
+            if (typeof hayyizUploadNote === 'function') hayyizUploadNote(saved);
+            if (editorRevision === submittedRevision) resetForm();
+            else {
+                editingId = saved.id;
+                editingBase = JSON.stringify(saved);
+                saveDraft();
+                if (submitBtn) submitBtn.textContent = 'تحديث الملاحظة';
             }
-        } else {
-            const nowMs = Date.now();
-            const newNote = {
-                id: generateUniqueId(),
-                title,
-                content,
-                created: nowMs,
-                updated: nowMs,
-                subject,
-                category,
-                tags,
-                relatedTaskId,
-                relatedTask,
-                isPinned,
-                isFavorite,
-                isReview
-            };
-            notes.unshift(newNote);
-            savedOrUpdatedNote = newNote;
-            showToast('تم حفظ الملاحظة بنجاح');
+            renderNotes();
+            const message = wasEditing ? 'تم تحديث الملاحظة على هذا الجهاز' : 'تم حفظ الملاحظة على هذا الجهاز';
+            if (saveStatus) saveStatus.textContent = message;
+            showToast(message);
+        } finally {
+            savingNote = false;
+            if (submitBtn) submitBtn.disabled = false;
+            if (clearNoteBtn) clearNoteBtn.disabled = false;
         }
-
-        saveNotes();
-        if (savedOrUpdatedNote && typeof hayyizUploadNote === 'function') {
-            hayyizUploadNote(savedOrUpdatedNote);
-        }
-        resetForm();
-        renderNotes();
     });
 
     if (clearNoteBtn) {
         clearNoteBtn.addEventListener('click', () => {
+            if (editorDirty && !confirm('هل تريد مسح التعديلات الموجودة في المحرر؟')) return;
             resetForm();
         });
     }
+    if (saveCopyBtn) saveCopyBtn.addEventListener('click', () => {
+        editingId = null; editingBase = null; saveDraft();
+        notesForm.requestSubmit();
+    });
+    window.addEventListener('beforeunload', event => {
+        if (editorDirty && !draftSaved) { event.preventDefault(); event.returnValue = ''; }
+    });
+    window.addEventListener('storage', event => {
+        const key = hayyizStorage.logicalKey ? hayyizStorage.logicalKey(event.key) : event.key;
+        if (key === null || key === 'hayyiz-notes') {
+            notes = loadAndNormalizeNotes(); renderNotes();
+        }
+        if (key === null || ['hayyiz-subjects', 'hayyiz-todos'].includes(key)) populateTasksDropdown();
+    });
 
     // --- 10. أدوات البحث والتصفية للواجهة ---
     if (notesSearch) {
@@ -1169,29 +1279,68 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // التهيئة البدائية
     populateTasksDropdown();
+    fillSubjects(null, '');
+    loadDraft().catch(() => showSaveError('تعذر استرجاع المسودة؛ النسخة الأصلية محفوظة على الجهاز.'));
+    // معالجة معلمات البومودورو/المهام القادمة عبر URL
+    if (prefillTitle && noteTitle) {
+        noteTitle.value = prefillTitle;
+    }
+    if (urlTaskName && noteTaskSelect) {
+        let matchedOpt = null;
+        if (urlTaskId) {
+            matchedOpt = Array.from(noteTaskSelect.options).find(o => o.dataset.taskId === urlTaskId);
+        }
+        if (!matchedOpt && urlTaskName) {
+            matchedOpt = Array.from(noteTaskSelect.options).find(o => o.dataset.taskText === urlTaskName || o.value === urlTaskName);
+        }
+
+        if (matchedOpt) {
+            noteTaskSelect.value = matchedOpt.value;
+        } else if (urlTaskName) {
+            // إضافة الخيار للمنسدلة
+            const opt = document.createElement('option');
+            opt.value = urlTaskId || urlTaskName;
+            opt.textContent = urlTaskName;
+            if (urlTaskId) opt.dataset.taskId = urlTaskId;
+            opt.dataset.taskText = urlTaskName;
+            opt.selected = true;
+            noteTaskSelect.appendChild(opt);
+        }
+        if (notesExtraDetails) notesExtraDetails.open = true;
+    }
+
+    if (prefillTitle || urlTaskName || urlNoteId) showTextNotes();
     renderNotes();
+    if (urlNoteId) {
+        if (notes.some(note => note.id === urlNoteId)) openNoteViewModal(urlNoteId);
+        else showSaveError('لم تعد هذه الملاحظة موجودة على هذا الجهاز أو في الحساب الحالي.');
+    }
 
     // تهيئة المزامنة السحابية للملاحظات
     if (typeof hayyizRegisterNotesSyncCallback === 'function') {
         hayyizRegisterNotesSyncCallback((mergedNotes) => {
-            notes = mergedNotes;
+            notes = loadAndNormalizeNotes();
             renderNotes();
+            if (urlNoteId && notes.some(note => note.id === urlNoteId) && !currentViewingNoteId) openNoteViewModal(urlNoteId);
         });
     }
 
     const syncStatusBadge = document.getElementById('sync-status-badge');
     const syncStatusText = document.getElementById('sync-status-text');
 
-    async function checkSyncStatus() {
-        if (typeof hayyizGetUser === 'function') {
-            const user = await hayyizGetUser();
-            if (user && syncStatusBadge && syncStatusText) {
-                syncStatusBadge.classList.remove('hidden');
-                syncStatusText.textContent = 'المزامنة السحابية نشطة';
-            }
-        }
+    function checkSyncStatus() {
+        if (!syncStatusBadge || !syncStatusText) return;
+        const status = typeof hayyizGetSyncStatus === 'function' ? hayyizGetSyncStatus('notes') : { state: 'local' };
+        const messages = { local: 'محفوظة على هذا الجهاز', syncing: 'جارٍ التحقق من المزامنة…',
+            synced: 'اكتملت آخر مزامنة سحابية', error: 'تعذرت المزامنة؛ البيانات المحلية محفوظة' };
+        syncStatusBadge.classList.remove('hidden');
+        syncStatusText.textContent = messages[status.state] || messages.local;
+        const retry = document.getElementById('notes-sync-retry');
+        if (retry) retry.hidden = status.state !== 'error';
     }
-
+    window.addEventListener('hayyiz:sync-status', event => { if (event.detail && event.detail.tool === 'notes') checkSyncStatus(); });
+    const retrySync = document.getElementById('notes-sync-retry');
+    if (retrySync) retrySync.addEventListener('click', () => { if (typeof hayyizSyncNotes === 'function') hayyizSyncNotes(); });
     checkSyncStatus();
 
     if (typeof hayyizSyncNotes === 'function') {

@@ -1,3 +1,4 @@
+var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (typeof localStorage !== 'undefined' ? localStorage : undefined);
 /* study-planner.js - Interactive engine for Study Planner */
 
 (function () {
@@ -194,10 +195,19 @@
     });
 
     // Calculate Allocated Hours
-    subjects.forEach(function (subj) {
-      var ratio = totalWeight > 0 ? subj.weight / totalWeight : 1 / subjects.length;
-      subj.allocatedHours = Math.round((ratio * netStudyHours) * 10) / 10;
-      subj.percentage = Math.round((subj.allocatedHours / netStudyHours) * 100);
+    // Allocate whole minutes, then distribute the remainders without creating time.
+    var focusMinutes = Math.round(netStudyHours * 60);
+    var allocations = subjects.map(function (subj, index) {
+      var exact = focusMinutes * (totalWeight > 0 ? subj.weight / totalWeight : 1 / subjects.length);
+      return { index: index, minutes: Math.floor(exact), remainder: exact - Math.floor(exact) };
+    });
+    var extra = focusMinutes - allocations.reduce(function (sum, row) { return sum + row.minutes; }, 0);
+    allocations.slice().sort(function (a, b) { return b.remainder - a.remainder || a.index - b.index; }).forEach(function (row) {
+      if (extra > 0) { row.minutes++; extra--; }
+    });
+    allocations.forEach(function (row) {
+      subjects[row.index].allocatedHours = row.minutes / 60;
+      subjects[row.index].percentage = focusMinutes ? Math.round(row.minutes / focusMinutes * 100) : 0;
     });
 
     hayyizSaveJSON('hayyiz-planner-draft', { subjects: subjects, date: examDateInput.value, hours: dailyHoursInput.value, examId: selectedExamId, targetId: adoptedTargetId });
@@ -205,14 +215,20 @@
     // Update Metrics DOM
     if (metricDays) metricDays.textContent = remainingDays + ' أيام';
     if (metricHours) metricHours.textContent = totalAvailableHours + ' ساعة';
-    if (metricFocus) metricFocus.textContent = Math.round(netStudyHours) + ' ساعة';
-    if (metricReview) metricReview.textContent = Math.round(reviewHours) + ' ساعة';
+    if (metricFocus) metricFocus.textContent = formatHours(netStudyHours);
+    if (metricReview) metricReview.textContent = formatHours(reviewHours);
 
     // Update Allocation Progress List
     renderAllocations();
 
     // Update Timeline Phases
     renderTimeline(remainingDays, studyDays, reviewDaysBuffer, netStudyHours);
+  }
+
+  function formatHours(hours) {
+    var minutes = Math.round(hours * 60);
+    var wholeHours = Math.floor(minutes / 60), remaining = minutes % 60;
+    return remaining ? (wholeHours ? wholeHours + ' ساعة و' : '') + remaining + ' دقيقة' : wholeHours + ' ساعة';
   }
 
   // Render Allocation Bars
@@ -233,7 +249,7 @@
             '<strong>' + escapeHtml(subj.name) + '</strong> ' +
             '<small style="color:var(--sp-text-muted); font-weight:normal;">(' + pTag + ' • ' + dTag + ')</small>' +
           '</span>' +
-          '<span class="sp-alloc-hours">' + subj.allocatedHours + ' ساعة (' + (subj.percentage || 0) + '%)</span>' +
+          '<span class="sp-alloc-hours">' + formatHours(subj.allocatedHours) + ' (' + (subj.percentage || 0) + '%)</span>' +
         '</div>' +
         '<div class="sp-progress-track">' +
           '<div class="sp-progress-fill" style="width: ' + Math.min(100, Math.max(5, subj.percentage || 5)) + '%;"></div>' +
@@ -248,8 +264,8 @@
     if (!timelineContainer) return;
     timelineContainer.innerHTML = '';
 
-    var phase1Days = Math.max(1, Math.round(studyDays * 0.55));
-    var phase2Days = Math.max(0, Math.round(studyDays - phase1Days));
+    var phase1Days = Math.min(studyDays, Math.max(0.5, Math.round(studyDays * 0.55 * 2) / 2));
+    var phase2Days = Math.max(0, studyDays - phase1Days);
 
     var hardSubjects = subjects.filter(function (s) { return s.difficulty === 'hard' || s.priority === 'high'; });
     var hardNames = hardSubjects.map(function (s) { return escapeHtml(s.name); }).join('، ') || 'المواد الأساسية';
@@ -290,7 +306,7 @@
   function toggleTheme() {
     var isDark = document.documentElement.classList.toggle('theme-dark');
     try {
-      localStorage.setItem('hayyiz-theme', isDark ? 'dark' : 'light');
+      hayyizStorage.setItem('hayyiz-theme', isDark ? 'dark' : 'light');
     } catch (e) {}
   }
 
