@@ -125,3 +125,40 @@ job runs real Chromium workflows for task planning, timer recovery, keyboard
 completion, account caches, PDF backup restoration, mobile layout and offline
 query/extensionless routes including Pages-style redirects. It blocks external
 requests and does not use real student credentials or data.
+
+
+## PR 100 review follow-up
+
+Focus completion stages local counters, history, log, task progress, workspace
+outbox and timer state through the account storage transaction. A synchronous
+storage failure rolls back the writes and does not send their cloud effects.
+The timer retains its running state and visibly retries after five seconds.
+This is exception recovery, not a browser-provided multi-key disk transaction:
+an abrupt process/device shutdown during native localStorage writes remains a
+platform limitation. Users should retain exported backups.
+
+Restoring focus history allocates an account-local `hayyiz-focus-writer-id` that
+is never imported/exported. New offline sessions then remain separate from the
+old device counter's cloud maximum. Guest imports namespace their device counters
+independently from account counters; repeated imports keep the same namespace.
+Long IDs use a bounded deterministic fingerprint. Legacy flat, unowned counters
+still use the existing shared-baseline maximum because their ownership cannot be
+reconstructed reliably.
+
+A rejected workspace session stays in the local retry queue, but the flush
+continues with other sessions and reports failure if any entry failed. It never
+discards rejected history silently. Storage events are translated back to logical
+keys only for the document's account before refreshing Todo and dashboard data.
+
+Each notes document owns a distinct draft key. With Web Locks, active editors
+hold a lease; recovery can claim only an orphan, saving its replacement before
+removing the source. Saving a recovered draft therefore cannot resurrect its old
+copy or erase another live editor. Browsers without Web Locks retain foreign
+recovery copies conservatively. They also retain the existing best-effort,
+non-serialized note-write fallback. Subject-link normalization is applied equally
+to the saved note and edit snapshot so creating a canonical subject does not
+produce a false content conflict. The Chromium suite covers actual cloned
+sessionStorage via window.open, draft isolation/recovery, and legacy subject edits.
+
+PDF bytes and annotations remain local; these changes add no PDF cloud adapter,
+bucket, upload or synchronization path.

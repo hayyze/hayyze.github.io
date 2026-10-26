@@ -76,7 +76,7 @@ module.exports = async function verifyUx(browser, base) {
         await card(b, 'ملاحظة ب').getByRole('button', { name: 'تعديل', exact: true }).click();
         await b.locator('#note-content').fill('مسودة تعديل قابلة للاسترجاع');
         await b.reload();
-        assert.equal(await b.locator('#note-content').inputValue(), 'مسودة تعديل قابلة للاسترجاع');
+        await b.waitForFunction(() => document.getElementById('note-content').value === 'مسودة تعديل قابلة للاسترجاع');
         assert.equal(await b.locator('#note-submit-btn').textContent(), 'تحديث الملاحظة');
         await b.locator('#note-submit-btn').click();
         await b.waitForFunction(() => document.getElementById('note-content').value === '');
@@ -97,6 +97,41 @@ module.exports = async function verifyUx(browser, base) {
         await a.evaluate(() => { Storage.prototype.setItem = window.__notesSetItem; });
         await a.locator('#note-submit-btn').click();
         await a.waitForFunction(() => document.getElementById('note-content').value === '');
+
+        // window.open copies sessionStorage, just like a duplicated tab.
+        await a.locator('#note-title').fill('مسودة التبويب الأصلي');
+        await a.locator('#note-content').fill('مسودة أ مستقلة');
+        await a.evaluate(() => sessionStorage.setItem('clone-proof', 'copied'));
+        const clonedPage = context.waitForEvent('page');
+        await a.evaluate(() => window.open('/notes.html', '_blank'));
+        const clone = await clonedPage;
+        await clone.waitForLoadState('load');
+        assert.equal(await clone.evaluate(() => sessionStorage.getItem('clone-proof')), 'copied');
+        await textMode(clone);
+        assert.equal(await clone.locator('#note-content').inputValue(), '', 'A cloned tab cannot recover an active editor draft');
+        await clone.locator('#note-title').fill('مسودة التبويب المنسوخ');
+        await clone.locator('#note-content').fill('مسودة ب مستقلة');
+        await a.locator('#note-submit-btn').click();
+        await a.waitForFunction(() => document.getElementById('note-content').value === '');
+        await clone.reload();
+        await clone.waitForFunction(() => document.getElementById('note-content').value === 'مسودة ب مستقلة');
+        await clone.locator('#note-submit-btn').click();
+        await clone.waitForFunction(() => document.getElementById('note-content').value === '');
+        await clone.reload(); await textMode(clone);
+        assert.equal(await clone.locator('#note-content').inputValue(), '', 'Saved recovery drafts do not resurrect');
+        await clone.close();
+
+        await a.evaluate(() => {
+            const notes = JSON.parse(hayyizStorage.getItem('hayyiz-notes'));
+            notes.push({ id: 'legacy-no-subject-id', title: 'ملاحظة قديمة', content: 'النص القديم', subject: 'مادة قديمة مستقلة', tags: [], created: Date.now() });
+            hayyizStorage.setItem('hayyiz-notes', JSON.stringify(notes));
+        });
+        await a.reload(); await textMode(a);
+        await card(a, 'ملاحظة قديمة').getByRole('button', { name: 'تعديل', exact: true }).click();
+        await a.locator('#note-content').fill('النص الجديد دون تعارض وهمي');
+        await a.locator('#note-submit-btn').click();
+        await a.waitForFunction(() => document.getElementById('note-content').value === '');
+        assert.equal(await a.evaluate(() => JSON.parse(hayyizStorage.getItem('hayyiz-notes')).find(n => n.id === 'legacy-no-subject-id').content), 'النص الجديد دون تعارض وهمي');
 
         const linked = await page('/subject.html?id=' + encodeURIComponent(subject.id));
         await linked.locator('#subject-notes-container a').filter({ hasText: 'عرض' }).first().click();

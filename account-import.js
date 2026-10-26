@@ -87,7 +87,18 @@
         });
         const incomingFocus = focusPayload(incoming.keys);
         const devices = incomingFocus.__hayyiz_focus_v2.devices || {};
-        incomingFocus.__hayyiz_focus_v2.devices = Object.fromEntries(Object.entries(devices).map(([id, days]) => ['guest_' + id, days]));
+        incomingFocus.__hayyiz_focus_v2.devices = Object.fromEntries(Object.entries(devices).map(([id, days]) => {
+            // Keep names within the metadata protocol's 128-character limit.
+            let name = 'guest_' + id;
+            if (name.length > 128) {
+                const hashes = [2166136261, 2246822519, 3266489917, 668265263].map(seed => {
+                    for (let i = 0; i < id.length; i++) seed = Math.imul(seed ^ id.charCodeAt(i), 16777619);
+                    return (seed >>> 0).toString(16).padStart(8, '0');
+                }).join('');
+                name = 'guest_' + id.slice(0, 80) + '_' + hashes;
+            }
+            return [name, days];
+        }));
         const focus = global.hayyizMergeFocusHistoryPayload(focusPayload(current.keys), incomingFocus);
         keys['hayyiz-focus-history-state'] = JSON.stringify(focus.__hayyiz_focus_v2);
         keys['hayyiz-focus-history'] = JSON.stringify(Object.fromEntries(Object.entries(focus).filter(([key]) => /^\d{4}-\d{2}-\d{2}$/.test(key))));

@@ -922,7 +922,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof window.addEventListener === 'function') {
         window.addEventListener('hayyiz:planning-changed', renderHeroCard);
         window.addEventListener('storage', event => {
-    const key = hayyizStorage.logicalKey ? hayyizStorage.logicalKey(event.key) : event.key;
+            const key = hayyizStorage.logicalKey ? hayyizStorage.logicalKey(event.key) : event.key;
+            if (key === null || key === 'hayyiz-todos') { renderTodos(); return; }
             if (['hayyiz-planning-preferences', 'hayyiz-pref-daily-capacity', 'hayyiz-focus-history'].includes(key)) renderHeroCard();
         });
     }

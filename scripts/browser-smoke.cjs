@@ -454,6 +454,25 @@ const server = http.createServer((req, res) => {
         await integrityPage.reload();
         assert.equal(await integrityPage.evaluate(()=>JSON.parse(hayyizStorage.getItem('hayyiz-notes'))[0].id),'account-a');
         assert(!await integrityPage.evaluate(()=>Object.keys(hayyizStorage.guestSnapshot()).some(key=>key.startsWith('hayyiz-account:'))));
+        const scopedTodo = await integrityPage.context().newPage();
+        const scopedSummary = await integrityPage.context().newPage();
+        for (const p of [scopedTodo, scopedSummary]) p.on('pageerror', error => integrityErrors.push(error.message));
+        await scopedTodo.goto(base + '/todo.html');
+        await scopedSummary.goto(base + '/index.html');
+        await scopedSummary.evaluate(() => {
+            window.__scopedSummaryRenders = 0;
+            window.addEventListener('hayyiz:summary-rendered', () => window.__scopedSummaryRenders++);
+        });
+        await integrityPage.evaluate(() => hayyizStorage.setItem('hayyiz-todos', JSON.stringify([
+            { id: 'scoped-cross-tab', text: 'مهمة من تبويب الحساب الآخر', minutes: 25, priority: 'high', completed: false }
+        ])));
+        await scopedTodo.waitForFunction(() => document.getElementById('todo-hero-card').textContent.includes('مهمة من تبويب الحساب الآخر'));
+        await scopedSummary.waitForFunction(() => window.__scopedSummaryRenders > 0);
+        const renderCount = await scopedSummary.evaluate(() => window.__scopedSummaryRenders);
+        await integrityPage.evaluate(() => localStorage.setItem('hayyiz-account:unrelated:hayyiz-todos', '[]'));
+        await scopedSummary.waitForTimeout(100);
+        assert.equal(await scopedSummary.evaluate(() => window.__scopedSummaryRenders), renderCount, 'Foreign account events do not refresh this account');
+        await scopedTodo.close(); await scopedSummary.close();
         await integrityPage.evaluate(authKey=>localStorage.removeItem(authKey),authKey);await integrityPage.reload();
         assert.equal(await integrityPage.evaluate(()=>hayyizStorage.scope),'guest');
         assert.equal(await integrityPage.evaluate(()=>hayyizStorage.getItem('hayyiz-notes')),guestNotes,'Signing out recovers guest data unchanged');

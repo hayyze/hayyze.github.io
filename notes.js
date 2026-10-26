@@ -13,15 +13,18 @@ document.addEventListener('DOMContentLoaded', () => {
     let editorDirty = false;
     let draftSaved = true;
     let editorRevision = 0;
-    let draftId = generateUniqueId();
-    try {
-        const tabKey = 'hayyiz-notes-editor:' + (hayyizStorage.scope || 'guest');
-        // Each document owns a distinct draft, including duplicated tabs.
-        sessionStorage.setItem(tabKey, draftId);
-    } catch (_) {}
+    const draftId = generateUniqueId();
     const draftKey = 'hayyiz-note-draft-' + draftId;
-    let restoredDraftKey = null;
-    let restoredDraftRaw = null;
+    const draftLockName = key => 'hayyiz-note-editor:' + (hayyizStorage.scope || 'guest') + ':' + key;
+    const draftLocks = typeof navigator !== 'undefined' && navigator.locks;
+    // A document owns its key for its lifetime. Cloned sessionStorage cannot
+    // give another tab ownership; closed documents automatically release locks.
+    const draftReady = draftLocks ? new Promise(resolve => {
+        draftLocks.request(draftLockName(draftKey), () => {
+            resolve();
+            return new Promise(() => {});
+        }).catch(() => resolve());
+    }) : Promise.resolve();
     let pendingDeleteId = null;
 
     // عناصر النموذج والواجهة
@@ -408,8 +411,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function loadDraft() {
-        if (prefillTitle || urlTaskName || urlNoteId) return;
+    async function loadDraft() {
+        await draftReady;
+        if (editorDirty || prefillTitle || urlTaskName || urlNoteId) return;
         try {
             let key = draftKey;
             let raw = hayyizStorage.getItem(key);
@@ -423,13 +427,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     try { const value = hayyizStorage.getItem(candidate); return value ? { key: candidate, raw: value, at: Number(JSON.parse(value).updatedAt) || 0 } : null; }
                     catch (_) { return null; }
                 }).filter(Boolean).sort((a, b) => b.at - a.at);
-                if (drafts[0]) { key = drafts[0].key; raw = drafts[0].raw; }
+                for (const candidate of drafts) {
+                    const recover = lock => {
+                        if (!lock || editorDirty) return;
+                        const latest = hayyizStorage.getItem(candidate.key);
+                        if (latest !== candidate.raw) return;
+                        // Persist the new owner before removing the orphan. A
+                        // quota error leaves the original recovery copy intact.
+                        hayyizStorage.setItem(draftKey, latest);
+                        hayyizStorage.removeItem(candidate.key);
+                        key = draftKey;
+                        raw = latest;
+                    };
+                    if (draftLocks) await draftLocks.request(draftLockName(candidate.key), { ifAvailable: true }, recover);
+                    else { key = candidate.key; raw = candidate.raw; } // Preserve foreign copies on older browsers.
+                    if (raw) break;
+                }
             }
-            if (raw) {
+            if (raw && !editorDirty) {
                 const draft = JSON.parse(raw);
                 if (draft && typeof draft === 'object') {
-                    restoredDraftKey = key;
-                    restoredDraftRaw = raw;
                     editingId = draft.editingId || null;
                     editingBase = typeof draft.editingBase === 'string' ? draft.editingBase : undefined;
                     if (noteTitle) noteTitle.value = draft.title || '';
@@ -467,7 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
-        } catch (e) { /* تجاهل */ }
+        } catch (e) { showSaveError('تعذر استرجاع المسودة؛ النسخة الأصلية محفوظة على الجهاز.'); }
     }
 
     // ربط مستمعات المسودة
@@ -492,9 +509,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (notesExtraDetails) notesExtraDetails.open = false;
         try {
             hayyizStorage.removeItem(draftKey);
-            // Recovered drafts may still belong to another open document.
         } catch (e) {}
-        restoredDraftKey = restoredDraftRaw = null;
 
         if (submitBtn) {
             submitBtn.innerHTML = '<i class="fa-solid fa-plus"></i> حفظ الملاحظة';
@@ -1210,10 +1225,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (editorDirty && !draftSaved) { event.preventDefault(); event.returnValue = ''; }
     });
     window.addEventListener('storage', event => {
-        if (event.key === null || event.key === 'hayyiz-notes' || (event.key && event.key.endsWith(':hayyiz-notes'))) {
+        const key = hayyizStorage.logicalKey ? hayyizStorage.logicalKey(event.key) : event.key;
+        if (key === null || key === 'hayyiz-notes') {
             notes = loadAndNormalizeNotes(); renderNotes();
         }
-        if (event.key && (event.key.endsWith('hayyiz-subjects') || event.key.endsWith('hayyiz-todos'))) populateTasksDropdown();
+        if (key === null || ['hayyiz-subjects', 'hayyiz-todos'].includes(key)) populateTasksDropdown();
     });
 
     // --- 10. أدوات البحث والتصفية للواجهة ---
@@ -1264,7 +1280,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // التهيئة البدائية
     populateTasksDropdown();
     fillSubjects(null, '');
-    loadDraft();
+    loadDraft().catch(() => showSaveError('تعذر استرجاع المسودة؛ النسخة الأصلية محفوظة على الجهاز.'));
     // معالجة معلمات البومودورو/المهام القادمة عبر URL
     if (prefillTitle && noteTitle) {
         noteTitle.value = prefillTitle;

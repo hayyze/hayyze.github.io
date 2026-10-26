@@ -191,6 +191,18 @@ async function check(name, run) {
         assert.equal(storage.getItem('hayyiz-sessions-today'), '6');
         assert.equal(storage.getItem('hayyiz-sessions'), '11');
     });
+    await check('Maximum-length device IDs retain independent guest contributions on repeated import', () => {
+        const { context } = harness(), day = today(), id = 'x'.repeat(128);
+        const values = { 'hayyiz-focus-history': { [day]: 25 }, 'hayyiz-focus-history-state': {
+            baseline: {}, devices: { [id]: { [day]: { minutes: 25, sessions: 1 } } }, totalBaseline: 0
+        } };
+        const current = backup(context, values), guest = backup(context, values);
+        const once = merge(context, current, guest), twice = merge(context, once, guest);
+        assert.equal(read(twice, 'hayyiz-focus-history')[day], 50);
+        const devices = read(twice, 'hayyiz-focus-history-state').devices;
+        assert.equal(Object.keys(devices).length, 2);
+        assert(Object.keys(devices).every(key => key.length <= 128));
+    });
     await check('Legacy focus counters and logs become a baseline rather than being reset by explicit import', () => {
         const { context, storage } = harness(), day = today();
         const current = backup(context, { 'hayyiz-notes': [] });

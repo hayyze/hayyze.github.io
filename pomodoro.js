@@ -587,11 +587,24 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUI();
     }
 
+    let retryFocusSaveAt = 0;
     function tick() {
-        if (state.status !== 'running' || !state.endTime) return;
+        if (state.status !== 'running' || !state.endTime || Date.now() < retryFocusSaveAt) return;
 
         // إجراء مطابقة الحالة من مصدر الحقيقة
         const reconciled = typeof hayyizReconcilePomodoroState === 'function' ? hayyizReconcilePomodoroState() : null;
+        if (!reconciled && typeof hayyizReconcilePomodoroState === 'function') {
+            const message = 'تعذر حفظ جلسة التركيز. ستتم إعادة المحاولة تلقائيًا؛ أبقِ الصفحة مفتوحة ووفّر مساحة على الجهاز.';
+            const error = document.getElementById('timer-save-error');
+            if (error) { error.textContent = message; error.hidden = false; }
+            announceSR(message);
+            retryFocusSaveAt = Date.now() + 5000;
+            return;
+        }
+
+        retryFocusSaveAt = 0;
+        const saveError = document.getElementById('timer-save-error');
+        if (saveError) saveError.hidden = true;
 
         if (reconciled && (reconciled.status === 'completed' || reconciled.status === 'idle')) {
             clearInterval(timerInterval);
