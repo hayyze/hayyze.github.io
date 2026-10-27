@@ -3181,6 +3181,39 @@ html.theme-dark .notes-dropdowns select {
     text-align: right;
 }
 
+.auth-password-field {
+    position: relative;
+}
+
+.auth-password-field .auth-input {
+    padding-left: 76px;
+}
+
+.auth-password-toggle {
+    position: absolute;
+    left: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    min-height: 44px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-primary);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.auth-password-toggle:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.auth-input[aria-invalid="true"] {
+    border-color: var(--color-danger);
+}
+
 .auth-email-display {
     padding: 10px 14px;
     border: 1px solid var(--color-border);

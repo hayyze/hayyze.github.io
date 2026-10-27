@@ -44,13 +44,16 @@ class Element {
     }
     getAttribute(name) { return this.attributes[name] ?? null; }
     addEventListener(type, callback) { if (!this.listeners.has(type)) this.listeners.set(type, []); this.listeners.get(type).push(callback); }
-    dispatch(type) {
-        const event = { type, target: this, preventDefault() {}, stopPropagation() {} };
+    focus() { if (this.ownerDocument) this.ownerDocument.activeElement = this; }
+    dispatch(type, details = {}) {
+        const event = { type, target: this, preventDefault() {}, stopPropagation() {}, ...details };
         return Promise.all((this.listeners.get(type) || []).map(callback => callback(event)));
     }
     click() { return this.disabled ? Promise.resolve() : this.dispatch('click'); }
     reset() { this.querySelectorAll('input').forEach(input => { input.value = ''; }); }
     matches(selector) {
+        if (selector.includes(',')) return selector.split(',').some(part => this.matches(part.trim()));
+        if (selector === 'a[href]') return this.tagName === 'a' && !!this.getAttribute('href');
         if (selector.startsWith('#')) return this.id === selector.slice(1);
         if (selector.startsWith('.')) return selector.slice(1).split('.').every(name => this.classList.contains(name));
         return this.tagName === selector;
@@ -67,7 +70,7 @@ class Element {
             if (!token.startsWith('<')) { stack[stack.length - 1]._text += token; continue; }
             if (/^<\//.test(token)) { if (stack.length > 1) stack.pop(); continue; }
             const match = /^<([\w-]+)\s*([^>]*)>/.exec(token); if (!match) continue;
-            const node = new Element(match[1]);
+            const node = new Element(match[1]); node.ownerDocument = this.ownerDocument;
             for (const attr of match[2].matchAll(/([\w:-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g)) {
                 node.setAttribute(attr[1], attr[2] ?? attr[3] ?? attr[4] ?? '');
             }
@@ -119,7 +122,7 @@ function sdk(native, initialUser = null) {
 }
 
 function browser({ facade = false, user = null, savedUser = user, preloadSDK = false, withUI = false, withSync = false, workspaceUI = false } = {}) {
-    const native = new NativeStorage(), scripts = [], events = [], ready = [], timers = new Map(), errors = [];
+    const native = new NativeStorage(), scripts = [], events = [], ready = [], timers = new Map(), intervals = new Map(), errors = [];
     if (savedUser) native.setItem(authKey, JSON.stringify({ access_token: 'test-only', user: savedUser }));
     let nextTimer = 1, reloads = 0, creations = 0;
     const listeners = new Map(), html = new Element('html'), head = new Element('head'), body = new Element('body');
@@ -135,7 +138,7 @@ function browser({ facade = false, user = null, savedUser = user, preloadSDK = f
     head.appendChild = node => { if (node.tagName === 'script') scripts.push(node); return appendHead(node); };
     const document = {
         readyState: 'complete', head, body, documentElement: html,
-        createElement: tag => new Element(tag),
+        createElement: tag => { const node = new Element(tag); node.ownerDocument = document; return node; },
         getElementById: id => html.querySelector('#' + id),
         querySelector: selector => html.querySelector(selector), querySelectorAll: selector => html.querySelectorAll(selector),
         addEventListener(type, callback) { if (type === 'DOMContentLoaded') ready.push(callback); }
@@ -148,7 +151,7 @@ function browser({ facade = false, user = null, savedUser = user, preloadSDK = f
         Event: class { constructor(type) { this.type = type; } },
         CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
         setTimeout(callback) { const id = nextTimer++; timers.set(id, callback); return id; }, clearTimeout(id) { timers.delete(id); },
-        setInterval(callback) { const id = nextTimer++; timers.set(id, callback); return id; }, clearInterval(id) { timers.delete(id); },
+        setInterval(callback) { const id = nextTimer++; intervals.set(id, callback); return id; }, clearInterval(id) { intervals.delete(id); },
         addEventListener(type, callback) { if (!listeners.has(type)) listeners.set(type, []); listeners.get(type).push(callback); },
         dispatchEvent(event) { events.push(event); for (const callback of listeners.get(event.type) || []) callback(event); return true; }
     });
@@ -168,7 +171,7 @@ function browser({ facade = false, user = null, savedUser = user, preloadSDK = f
             document.readyState = 'complete'; assert.equal(ready.length, before + 1);
             return ready[before]();
         },
-        flushTimers() { const current = Array.from(timers); timers.clear(); current.forEach(([, callback]) => callback()); }
+        flushTimers() { const current = Array.from(timers); timers.clear(); current.forEach(([, callback]) => callback()); Array.from(intervals.values()).forEach(callback => callback()); }
     };
 }
 
@@ -327,6 +330,71 @@ async function check(name, run) {
         gate.resolve({ data: { user: null }, error: null });
         for (let round = 0; round < 20; round++) await Promise.resolve();
         assert(b.context.document.getElementById('nav-auth-btn').classList.contains('logged-in'));
+    });
+
+    await check('login UX validates email locally and preserves only email across view switches', async () => {
+        const b = browser({ preloadSDK: true, withUI: true });
+        b.context.hayyizOpenAuthModal();
+        let form = b.context.document.getElementById('auth-form');
+        const email = form.querySelector('#auth-email');
+        assert.equal(b.context.document.activeElement, email);
+        email.value = 'not-an-email'; form.querySelector('#auth-password').value = 'test-password';
+        await form.dispatch('submit');
+        assert.equal(b.client.signIns.length, 0);
+        assert.equal(email.getAttribute('aria-invalid'), 'true');
+        assert.equal(b.context.document.activeElement, email);
+        email.value = 'student@example.test';
+        await email.dispatch('input'); assert.equal(email.getAttribute('aria-invalid'), 'false');
+        const toggle = form.querySelector('.auth-password-toggle'), password = form.querySelector('#auth-password');
+        await toggle.click(); assert.equal(password.type, 'text'); assert.equal(toggle.getAttribute('aria-pressed'), 'true');
+        await toggle.click(); assert.equal(password.type, 'password'); assert.equal(password.value, 'test-password');
+        await b.context.document.getElementById('switch-to-signup').click();
+        form = b.context.document.getElementById('auth-form');
+        assert.equal(form.querySelector('#auth-email').value, 'student@example.test');
+        assert.equal(form.querySelector('#auth-password').value, '');
+        assert.equal(form.querySelectorAll('.auth-password-toggle').length, 2);
+        await b.context.document.getElementById('switch-to-login').click();
+        assert.equal(b.context.document.getElementById('auth-email').value, 'student@example.test');
+        assert.equal(b.context.document.getElementById('auth-password').value, '');
+    });
+
+    await check('login retries immediately after invalid credentials and blocks overlapping submissions', async () => {
+        const b = browser({ preloadSDK: true, withUI: true }), gate = deferred();
+        let calls = 0;
+        b.client.auth.signInWithPassword = () => { calls++; return gate.promise; };
+        b.context.hayyizOpenAuthModal();
+        const form = b.context.document.getElementById('auth-form');
+        form.querySelector('#auth-email').value = 'student@example.test';
+        form.querySelector('#auth-password').value = 'wrong-password';
+        const first = form.dispatch('submit');
+        await until(() => calls === 1);
+        await form.dispatch('submit'); assert.equal(calls, 1);
+        assert.equal(form.getAttribute('aria-busy'), 'true');
+        gate.resolve({ error: { code: 'invalid_credentials', message: 'Invalid login credentials' } });
+        await first;
+        const button = form.querySelector('#auth-submit-btn');
+        assert.equal(button.disabled, false); assert.equal(form.getAttribute('aria-busy'), 'false');
+        assert(b.context.document.getElementById('auth-alert').textContent.includes('غير صحيحة'));
+        b.client.auth.signInWithPassword = async () => ({ error: { status: 429, message: 'too many requests' } });
+        await form.dispatch('submit'); assert.equal(button.disabled, true);
+        for (let tick = 0; tick < 10; tick++) b.flushTimers();
+        assert.equal(button.disabled, false);
+    });
+
+    await check('auth dialog traps keyboard focus and Escape returns to its opener', async () => {
+        const b = browser({ preloadSDK: true, withUI: true });
+        const nav = b.context.document.getElementById('nav-auth-btn'); nav.focus();
+        await nav.click();
+        const modal = b.context.document.getElementById('hayyiz-auth-modal');
+        assert.equal(modal.getAttribute('aria-labelledby'), 'auth-modal-title');
+        const first = modal.querySelector('.close-modal'), last = modal.querySelector('#switch-to-signup');
+        last.focus(); await modal.dispatch('keydown', { key: 'Tab' });
+        assert.equal(b.context.document.activeElement, first);
+        await modal.dispatch('keydown', { key: 'Tab', shiftKey: true });
+        assert.equal(b.context.document.activeElement, last);
+        await modal.dispatch('keydown', { key: 'Escape' });
+        assert.equal(b.context.document.getElementById('hayyiz-auth-modal'), null);
+        assert.equal(b.context.document.activeElement, nav);
     });
 
     finished = true;

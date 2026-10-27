@@ -9,6 +9,7 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
 
     let currentAuthUser = null;
     let submitCooldownTimer = null;
+    let authReturnFocus = null;
     const AUTH_COOLDOWN_SECONDS = 10; // مهلة التبريد لمنع السبام بالنقر المتكرر
 
     /**
@@ -116,6 +117,8 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
         const modal = document.getElementById('hayyiz-auth-modal');
         if (modal) {
             modal.remove();
+            if (authReturnFocus && typeof authReturnFocus.focus === 'function') authReturnFocus.focus();
+            authReturnFocus = null;
         }
     }
 
@@ -124,6 +127,7 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
      */
     function openAuthModal(mode = null) {
         closeAuthModal();
+        authReturnFocus = document.activeElement;
 
         if (typeof ensureSupabaseLoaded === 'function') {
             ensureSupabaseLoaded().catch(() => {});
@@ -137,6 +141,18 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
         modalOverlay.className = 'modal auth-modal-overlay';
         modalOverlay.setAttribute('role', 'dialog');
         modalOverlay.setAttribute('aria-modal', 'true');
+        modalOverlay.setAttribute('aria-labelledby', 'auth-modal-title');
+        modalOverlay.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeAuthModal();
+            } else if (event.key === 'Tab') {
+                const controls = Array.from(modalOverlay.querySelectorAll('button, input, a[href]')).filter(el => !el.disabled);
+                const first = controls[0], last = controls[controls.length - 1];
+                if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+                else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+            }
+        });
 
         modalOverlay.addEventListener('click', (e) => {
             if (e.target === modalOverlay) {
@@ -153,7 +169,11 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
         renderModalBody(currentMode);
 
         function renderModalBody(viewMode) {
+            const previousEmail = modalContent.querySelector('#auth-email');
+            const emailValue = previousEmail ? previousEmail.value : '';
+            if (submitCooldownTimer) { clearInterval(submitCooldownTimer); submitCooldownTimer = null; }
             currentMode = viewMode;
+            let submitting = false;
 
             if (currentMode === 'profile' && currentAuthUser) {
                 const userEmail = currentAuthUser.email || '';
@@ -161,14 +181,14 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
                     <button type="button" class="close-modal" aria-label="إغلاق">&times;</button>
                     <div class="auth-modal-header">
                         <div class="auth-icon"><i class="fa-solid fa-user-check" aria-hidden="true"></i></div>
-                        <h3>حسابي</h3>
+                        <h3 id="auth-modal-title">حسابي</h3>
                     </div>
                     <div class="auth-modal-body">
                         <div class="auth-field-group">
                             <label>البريد الإلكتروني</label>
                             <div class="auth-email-display">${escapeHtml(userEmail)}</div>
                         </div>
-                        <div id="auth-alert" class="auth-alert hidden"></div>
+                        <div id="auth-alert" class="auth-alert hidden" role="status" aria-live="polite" aria-atomic="true"></div>
                         <div class="auth-actions">
                             <button type="button" id="auth-logout-btn" class="btn btn-primary width-full">
                                 <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> تسجيل الخروج
@@ -218,21 +238,27 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
                     <button type="button" class="close-modal" aria-label="إغلاق">&times;</button>
                     <div class="auth-modal-header">
                         <div class="auth-icon"><i class="fa-solid fa-user-plus" aria-hidden="true"></i></div>
-                        <h3>إنشاء حساب</h3>
+                        <h3 id="auth-modal-title">إنشاء حساب</h3>
                     </div>
                     <form id="auth-form" class="auth-form" novalidate>
-                        <div id="auth-alert" class="auth-alert hidden"></div>
+                        <div id="auth-alert" class="auth-alert hidden" role="status" aria-live="polite" aria-atomic="true"></div>
                         <div class="auth-field-group">
                             <label for="auth-email">البريد الإلكتروني</label>
-                            <input type="email" id="auth-email" class="auth-input" placeholder="name@example.com" required autocomplete="email">
+                            <input type="email" id="auth-email" class="auth-input" placeholder="name@example.com" required autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false">
                         </div>
                         <div class="auth-field-group">
                             <label for="auth-password">كلمة المرور</label>
-                            <input type="password" id="auth-password" class="auth-input" placeholder="••••••••" required autocomplete="new-password">
+                            <div class="auth-password-field">
+                                <input type="password" id="auth-password" class="auth-input" placeholder="••••••••" required autocomplete="new-password">
+                                <button type="button" class="auth-password-toggle" aria-controls="auth-password" aria-label="إظهار كلمة المرور" aria-pressed="false">إظهار</button>
+                            </div>
                         </div>
                         <div class="auth-field-group">
                             <label for="auth-confirm-password">تأكيد كلمة المرور</label>
-                            <input type="password" id="auth-confirm-password" class="auth-input" placeholder="••••••••" required autocomplete="new-password">
+                            <div class="auth-password-field">
+                                <input type="password" id="auth-confirm-password" class="auth-input" placeholder="••••••••" required autocomplete="new-password">
+                                <button type="button" class="auth-password-toggle" aria-controls="auth-confirm-password" aria-label="إظهار تأكيد كلمة المرور" aria-pressed="false">إظهار</button>
+                            </div>
                         </div>
                         <button type="submit" id="auth-submit-btn" class="btn btn-primary width-full">
                             <i class="fa-solid fa-user-plus" aria-hidden="true"></i> إنشاء الحساب
@@ -250,31 +276,31 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
                 const form = modalContent.querySelector('#auth-form');
                 form.addEventListener('submit', async (e) => {
                     e.preventDefault();
+                    if (submitting) return;
                     hideAuthAlert();
 
                     const email = form.querySelector('#auth-email').value.trim();
                     const password = form.querySelector('#auth-password').value;
                     const confirmPassword = form.querySelector('#auth-confirm-password').value;
 
-                    if (!email) {
-                        showAuthAlert('يرجى إدخال البريد الإلكتروني.', 'danger');
-                        return;
-                    }
+                    if (!validateEmail(form, email)) return;
                     if (!password) {
-                        showAuthAlert('يرجى إدخال كلمة المرور.', 'danger');
+                        showFieldError(form.querySelector('#auth-password'), 'يرجى إدخال كلمة المرور.');
                         return;
                     }
                     if (password.length < 6) {
-                        showAuthAlert('كلمة المرور يجب أن تكون 6 أحرف على الأقل.', 'danger');
+                        showFieldError(form.querySelector('#auth-password'), 'كلمة المرور يجب أن تكون 6 أحرف على الأقل.');
                         return;
                     }
                     if (password !== confirmPassword) {
-                        showAuthAlert('كلمات المرور غير متطابقة.', 'danger');
+                        showFieldError(form.querySelector('#auth-confirm-password'), 'كلمات المرور غير متطابقة.');
                         return;
                     }
 
                     const submitBtn = form.querySelector('#auth-submit-btn');
                     const originalBtnHtml = submitBtn.innerHTML;
+                    submitting = true;
+                    form.setAttribute('aria-busy', 'true');
                     submitBtn.disabled = true;
                     submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري إنشاء الحساب...';
 
@@ -292,9 +318,10 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
                             });
                         }
 
-                        if (res && res.error) {
+                        if (!res) throw new Error('تعذر تجهيز تسجيل الدخول. أعد المحاولة.');
+                        if (res.error) {
                             showAuthAlert(formatAuthError(res.error), 'danger');
-                            applyButtonCooldown(submitBtn, originalBtnHtml);
+                            restoreSubmitButton(submitBtn, originalBtnHtml, res.error);
                         } else {
                             if (res && res.data && res.data.session) {
                                 closeAuthModal();
@@ -309,7 +336,10 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
                         }
                     } catch (err) {
                         showAuthAlert(formatAuthError(err), 'danger');
-                        applyButtonCooldown(submitBtn, originalBtnHtml);
+                        restoreSubmitButton(submitBtn, originalBtnHtml, err);
+                    } finally {
+                        submitting = false;
+                        form.setAttribute('aria-busy', 'false');
                     }
                 });
 
@@ -319,17 +349,20 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
                     <button type="button" class="close-modal" aria-label="إغلاق">&times;</button>
                     <div class="auth-modal-header">
                         <div class="auth-icon"><i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i></div>
-                        <h3>تسجيل الدخول</h3>
+                        <h3 id="auth-modal-title">تسجيل الدخول</h3>
                     </div>
                     <form id="auth-form" class="auth-form" novalidate>
-                        <div id="auth-alert" class="auth-alert hidden"></div>
+                        <div id="auth-alert" class="auth-alert hidden" role="status" aria-live="polite" aria-atomic="true"></div>
                         <div class="auth-field-group">
                             <label for="auth-email">البريد الإلكتروني</label>
-                            <input type="email" id="auth-email" class="auth-input" placeholder="name@example.com" required autocomplete="email">
+                            <input type="email" id="auth-email" class="auth-input" placeholder="name@example.com" required autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false">
                         </div>
                         <div class="auth-field-group">
                             <label for="auth-password">كلمة المرور</label>
-                            <input type="password" id="auth-password" class="auth-input" placeholder="••••••••" required autocomplete="current-password">
+                            <div class="auth-password-field">
+                                <input type="password" id="auth-password" class="auth-input" placeholder="••••••••" required autocomplete="current-password">
+                                <button type="button" class="auth-password-toggle" aria-controls="auth-password" aria-label="إظهار كلمة المرور" aria-pressed="false">إظهار</button>
+                            </div>
                         </div>
                         <button type="submit" id="auth-submit-btn" class="btn btn-primary width-full">
                             <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> تسجيل الدخول
@@ -347,22 +380,22 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
                 const form = modalContent.querySelector('#auth-form');
                 form.addEventListener('submit', async (e) => {
                     e.preventDefault();
+                    if (submitting) return;
                     hideAuthAlert();
 
                     const email = form.querySelector('#auth-email').value.trim();
                     const password = form.querySelector('#auth-password').value;
 
-                    if (!email) {
-                        showAuthAlert('يرجى إدخال البريد الإلكتروني.', 'danger');
-                        return;
-                    }
+                    if (!validateEmail(form, email)) return;
                     if (!password) {
-                        showAuthAlert('يرجى إدخال كلمة المرور.', 'danger');
+                        showFieldError(form.querySelector('#auth-password'), 'يرجى إدخال كلمة المرور.');
                         return;
                     }
 
                     const submitBtn = form.querySelector('#auth-submit-btn');
                     const originalBtnHtml = submitBtn.innerHTML;
+                    submitting = true;
+                    form.setAttribute('aria-busy', 'true');
                     submitBtn.disabled = true;
                     submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري تسجيل الدخول...';
 
@@ -374,9 +407,10 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
                             res = await supabaseClient.auth.signInWithPassword({ email, password });
                         }
 
-                        if (res && res.error) {
+                        if (!res) throw new Error('تعذر تجهيز تسجيل الدخول. أعد المحاولة.');
+                        if (res.error) {
                             showAuthAlert(formatAuthError(res.error), 'danger');
-                            applyButtonCooldown(submitBtn, originalBtnHtml);
+                            restoreSubmitButton(submitBtn, originalBtnHtml, res.error);
                         } else {
                             closeAuthModal();
                             if (typeof hayyizSyncAllUserData === 'function') {
@@ -385,9 +419,56 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
                         }
                     } catch (err) {
                         showAuthAlert(formatAuthError(err), 'danger');
-                        applyButtonCooldown(submitBtn, originalBtnHtml);
+                        restoreSubmitButton(submitBtn, originalBtnHtml, err);
+                    } finally {
+                        submitting = false;
+                        form.setAttribute('aria-busy', 'false');
                     }
                 });
+            }
+
+            const emailInput = modalContent.querySelector('#auth-email');
+            if (emailInput) emailInput.value = emailValue;
+            modalContent.querySelectorAll('.auth-password-toggle').forEach(button => {
+                button.addEventListener('click', () => {
+                    const input = modalContent.querySelector('#' + button.getAttribute('aria-controls'));
+                    const reveal = input.type === 'password';
+                    input.type = reveal ? 'text' : 'password';
+                    button.textContent = reveal ? 'إخفاء' : 'إظهار';
+                    button.setAttribute('aria-pressed', String(reveal));
+                    button.setAttribute('aria-label', (reveal ? 'إخفاء ' : 'إظهار ') + (input.id === 'auth-confirm-password' ? 'تأكيد كلمة المرور' : 'كلمة المرور'));
+                });
+            });
+            modalContent.querySelectorAll('input').forEach(input => {
+                input.addEventListener('input', () => input.setAttribute('aria-invalid', 'false'));
+            });
+            const focusTarget = emailInput || modalContent.querySelector('.close-modal');
+            if (focusTarget && typeof focusTarget.focus === 'function') focusTarget.focus();
+        }
+
+        function showFieldError(input, message) {
+            showAuthAlert(message, 'danger');
+            input.setAttribute('aria-invalid', 'true');
+            input.setAttribute('aria-describedby', 'auth-alert');
+            if (typeof input.focus === 'function') input.focus();
+        }
+
+        function validateEmail(form, email) {
+            const input = form.querySelector('#auth-email');
+            if (!email) { showFieldError(input, 'يرجى إدخال البريد الإلكتروني.'); return false; }
+            if (input.validity ? input.validity.typeMismatch : !/^[^\s@]+@[^\s@]+$/.test(email)) {
+                showFieldError(input, 'يرجى إدخال بريد إلكتروني صحيح، مثل name@example.com.');
+                return false;
+            }
+            return true;
+        }
+
+        function restoreSubmitButton(button, html, error) {
+            if (formatAuthError(error).includes('تم تجاوز حد الطلبات')) {
+                applyButtonCooldown(button, html);
+            } else {
+                button.disabled = false;
+                button.innerHTML = html;
             }
         }
 
