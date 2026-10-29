@@ -208,6 +208,14 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="manifest" href="/manifest.webmanifest">
+
+    <!-- Redirect legacy GitHub Pages URLs to the canonical Cloudflare Pages host. This is a client-side fallback, not an HTTP 301. -->
+    <script>
+      (function () {
+        if (window.location.hostname.toLowerCase() !== 'hayyze.github.io') return;
+        window.location.replace('https://hayyze.pages.dev' + window.location.pathname + window.location.search + window.location.hash);
+      })();
+    </script>
 </head>
 <body class="theme-light">
 <header class="navbar">
