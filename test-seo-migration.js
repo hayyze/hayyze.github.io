@@ -81,20 +81,20 @@ const sitemapURL = new URL(sitemapDirective[1]);
 assert.strictEqual(sitemapURL.origin, DOMAIN, 'Sitemap must use the current site origin');
 assert(!sitemapURL.search && !sitemapURL.hash, 'Sitemap must be a static file URL');
 const sitemapFile = sitemapURL.pathname.slice(1);
-assert(/^sitemap[\w-]*\.xml$/i.test(sitemapFile), 'Sitemap must reference an XML file in the site root');
+assert.strictEqual(sitemapFile, 'sitemap.xml', 'Sitemap must use the canonical filename sitemap.xml');
 assert(fs.existsSync(sitemapFile), 'Sitemap filename must match its exact case on disk: ' + sitemapFile);
 const sitemapContent = fs.readFileSync(sitemapFile, 'utf8');
 
 // Ensure no old domain references in sitemap or robots
 OLD_DOMAINS.forEach(oldDomain => {
-    assert(!sitemapContent.includes(oldDomain), `sitemap-hayyiz.xml contains legacy domain reference: ${oldDomain}`);
+    assert(!sitemapContent.includes(oldDomain), `Sitemap contains legacy domain reference: ${oldDomain}`);
     assert(!robotsContent.includes(oldDomain), `robots.txt contains legacy domain reference: ${oldDomain}`);
 });
 
 // Verify sitemap directive in robots.txt
 assert.strictEqual(sitemapURL.href, `${DOMAIN}/${sitemapFile}`, 'Sitemap must use the exact deployed path');
 
-// Verify all <loc> entries in sitemap-hayyiz.xml
+// Verify all <loc> entries in the declared sitemap.
 const locMatches = sitemapContent.match(/<loc>(.*?)<\/loc>/g) || [];
 assert(locMatches.length > 0, 'sitemap-hayyiz.xml must contain at least one <loc> entry');
 
@@ -110,7 +110,7 @@ locMatches.forEach(locTag => {
     assert(fs.existsSync(relativePath), `Sitemap <loc> points to non-existent file: ${relativePath}`);
 });
 
-console.log(`✅ PASS: sitemap-hayyiz.xml contains ${locMatches.length} valid URLs pointing to existing files, and robots.txt correctly references sitemap.`);
+console.log(`✅ PASS: ${sitemapFile} contains ${locMatches.length} valid URLs pointing to existing files, and robots.txt correctly references it.`);
 
 console.log('\n===================================');
 console.log('SEO DOMAIN MIGRATION AUDIT RESULTS: ALL PASSED');
