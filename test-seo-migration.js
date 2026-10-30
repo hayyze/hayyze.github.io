@@ -96,7 +96,7 @@ assert.strictEqual(sitemapURL.href, `${DOMAIN}/${sitemapFile}`, 'Sitemap must us
 
 // Verify all <loc> entries in the declared sitemap.
 const locMatches = sitemapContent.match(/<loc>(.*?)<\/loc>/g) || [];
-assert(locMatches.length > 0, 'sitemap-hayyiz.xml must contain at least one <loc> entry');
+assert(locMatches.length > 0, 'Sitemap must contain at least one <loc> entry');
 
 locMatches.forEach(locTag => {
     const url = locTag.replace('<loc>', '').replace('</loc>', '');
