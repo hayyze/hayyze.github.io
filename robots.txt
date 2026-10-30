@@ -2,4 +2,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://hayyze.pages.dev/sitemap-hayyiz.XML
+Sitemap: https://hayyze.pages.dev/sitemap.xml
