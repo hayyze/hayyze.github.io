@@ -126,6 +126,8 @@ runTest('SQL Security: all authenticated workspace RPC writes are rate-limited',
     const actions = ['workspace_create', 'workspace_invite', 'task_create', 'task_progress', 'focus_session_write'];
     actions.forEach(action => assert.ok(sql.includes(`private.consume_rpc_rate_limit('${action}')`),
         `Missing server-side rate limit for ${action}`));
+    assert.ok(sql.includes('REVOKE ALL ON FUNCTION private.check_rate_limit(TEXT, INT, INT) FROM PUBLIC, anon, authenticated;'),
+        'The internal rate-limit primitive must not be callable by API roles');
 });
 
 runTest('SQL Security: direct writes cannot bypass validated workspace RPCs', () => {
