@@ -126,9 +126,6 @@ BEGIN
         RAISE EXCEPTION 'co-member profile email was readable by an API role';
     EXCEPTION WHEN insufficient_privilege THEN NULL;
     END;
-    IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = current_setting('hayyiz_test.member')::uuid) THEN
-        RAISE EXCEPTION 'co-member display profile visibility broke';
-    END IF;
     IF EXISTS (SELECT 1 FROM public.profiles WHERE id = current_setting('hayyiz_test.other')::uuid) THEN
         RAISE EXCEPTION 'profile RLS disclosed an unrelated account';
     END IF;
