@@ -36,7 +36,9 @@ SELECT set_config('request.jwt.claims', jsonb_build_object('sub', current_settin
 SELECT set_config('hayyiz_test.workspace', public.create_workspace('transactional workspace', NULL)->'workspace'->>'id', true);
 
 DO $$
-DECLARE result jsonb;
+DECLARE
+    result jsonb;
+    generic_invite_result jsonb;
 BEGIN
     IF NOT private.is_workspace_owner(current_setting('hayyiz_test.workspace')::uuid, auth.uid()) THEN
         RAISE EXCEPTION 'create_workspace failed to create the owner membership';
@@ -49,28 +51,44 @@ BEGIN
     END;
     result := public.add_workspace_member_by_email(current_setting('hayyiz_test.workspace')::uuid,
         '  ' || upper(current_setting('hayyiz_test.member') || '@example.invalid') || '  ');
-    IF result->>'success' <> 'true' OR result->>'user_id' <> current_setting('hayyiz_test.member') THEN
-        RAISE EXCEPTION 'invitation trusted an editable profile instead of the verified auth account';
+    IF result->>'success' <> 'true' OR result ? 'user_id' THEN
+        RAISE EXCEPTION 'invite response disclosed target identity or failed to process a verified account';
+    END IF;
+    generic_invite_result := result;
+    IF NOT EXISTS (SELECT 1 FROM public.workspace_members
+                   WHERE workspace_id = current_setting('hayyiz_test.workspace')::uuid
+                     AND user_id = current_setting('hayyiz_test.member')::uuid) THEN
+        RAISE EXCEPTION 'verified account was not added to workspace';
     END IF;
     result := public.add_workspace_member_by_email(current_setting('hayyiz_test.workspace')::uuid,
         current_setting('hayyiz_test.unverified') || '@example.invalid');
-    IF result->>'success' <> 'false' THEN
-        RAISE EXCEPTION 'unverified email was accepted';
+    IF result IS DISTINCT FROM generic_invite_result THEN
+        RAISE EXCEPTION 'unknown/unverified address response disclosed account existence';
     END IF;
-    IF has_column_privilege('authenticated', 'public.profiles', 'email', 'UPDATE')
+    IF has_column_privilege('authenticated', 'public.profiles', 'email', 'SELECT')
+       OR has_column_privilege('authenticated', 'public.profiles', 'email', 'UPDATE')
        OR has_column_privilege('authenticated', 'public.profiles', 'email', 'INSERT')
        OR has_column_privilege('anon', 'public.profiles', 'email', 'SELECT') THEN
-        RAISE EXCEPTION 'client may forge a profile email or an anonymous role may read it';
+        RAISE EXCEPTION 'client can read or forge a profile email';
     END IF;
     BEGIN
         UPDATE public.profiles SET email = 'forged@example.invalid' WHERE id = auth.uid();
         RAISE EXCEPTION 'profile email update unexpectedly succeeded';
     EXCEPTION WHEN insufficient_privilege THEN NULL;
     END;
-    PERFORM email FROM public.profiles WHERE id = auth.uid();
-    IF NOT FOUND THEN RAISE EXCEPTION 'legacy own-profile email read broke'; END IF;
-    PERFORM email FROM public.profiles WHERE id = current_setting('hayyiz_test.member')::uuid;
-    IF NOT FOUND THEN RAISE EXCEPTION 'legacy co-member profile read broke'; END IF;
+    BEGIN
+        PERFORM email FROM public.profiles WHERE id = auth.uid();
+        RAISE EXCEPTION 'own profile email was readable by an API role';
+    EXCEPTION WHEN insufficient_privilege THEN NULL;
+    END;
+    BEGIN
+        PERFORM email FROM public.profiles WHERE id = current_setting('hayyiz_test.member')::uuid;
+        RAISE EXCEPTION 'co-member profile email was readable by an API role';
+    EXCEPTION WHEN insufficient_privilege THEN NULL;
+    END;
+    IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = current_setting('hayyiz_test.member')::uuid) THEN
+        RAISE EXCEPTION 'co-member display profile visibility broke';
+    END IF;
     IF EXISTS (SELECT 1 FROM public.profiles WHERE id = current_setting('hayyiz_test.other')::uuid) THEN
         RAISE EXCEPTION 'profile RLS disclosed an unrelated account';
     END IF;
