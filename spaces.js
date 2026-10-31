@@ -294,13 +294,18 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
             const client = await getSupabase();
             if (!client || !currentUser) return;
 
-            const { data: invitations = [], error: invitationsError } = await client.rpc('get_my_workspace_invitations');
-            if (!stillCurrent()) return;
-            if (invitationsError) {
-                console.warn('Could not load workspace invitations:', invitationsError);
-                pendingWorkspaceInvitationsCache = [];
+            if (typeof client.rpc === 'function') {
+                const { data: invitations = [], error: invitationsError } = await client.rpc('get_my_workspace_invitations');
+                if (!stillCurrent()) return;
+                if (invitationsError) {
+                    console.warn('Could not load workspace invitations:', invitationsError);
+                    pendingWorkspaceInvitationsCache = [];
+                } else {
+                    pendingWorkspaceInvitationsCache = Array.isArray(invitations) ? invitations : [];
+                }
             } else {
-                pendingWorkspaceInvitationsCache = Array.isArray(invitations) ? invitations : [];
+                // Keep legacy/test Supabase facades usable while the full client exposes RPC.
+                pendingWorkspaceInvitationsCache = [];
             }
             renderPendingWorkspaceInvitations();
 
