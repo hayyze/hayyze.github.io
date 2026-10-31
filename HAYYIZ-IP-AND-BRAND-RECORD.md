@@ -112,7 +112,7 @@ The Hayyiz platform incorporates third-party software libraries and external ser
 ### Software Libraries
 * **Font Awesome Free (v6.4.0):** User interface icons loaded via Cloudflare CDN (`cdnjs.cloudflare.com`). Licensed under CC BY 4.0 (Icons), SIL OFL 1.1 (Fonts), and MIT License (Code).
 * **Google Fonts — Cairo Font Family:** Primary typography loaded via Google Fonts API (`fonts.googleapis.com`). Licensed under SIL Open Font License, Version 1.1.
-* **PDF.js (v3.11.174 / Mozilla):** Client-side PDF parsing and canvas rendering in `draw.html` (`pdf.min.js` and `pdf.worker.min.js`). Licensed under Apache License, Version 2.0.
+* **PDF.js (Mozilla):** The online PDF parser is pinned to `pdfjs-dist` v6.4.299 (`pdf.mjs` / `pdf.worker.mjs`) from jsDelivr. The repository retains a v3.11.174 local fallback for offline operation; `draw.html` explicitly disables eval and PDF scripting when invoking either runtime. Licensed under Apache License, Version 2.0.
 
 ### External Third-Party Services
 * **Google Analytics & Google Tag Manager (`gtag.js`):** External website analytics tracking (`G-F94Z3H2D3S`). Operating as a third-party service subject to applicable Google Terms of Service and Privacy Policy, rather than an open-source software library.
