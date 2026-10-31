@@ -196,7 +196,16 @@ runTest('Secret Audit: No service_role key present in client JavaScript files', 
     });
 });
 
-runTest('Supply-chain Security: browser SDK and PDF.js CDN URLs are version-pinned', () => {\n    const supabase = fs.readFileSync(path.join(__dirname, 'supabase.js'), 'utf8');\n    const draw = fs.readFileSync(path.join(__dirname, 'draw.html'), 'utf8');\n    assert.ok(supabase.includes('@supabase/supabase-js@2.118.0/dist/umd/supabase.js'),\n        'Supabase SDK must be pinned to a tested release');\n    assert.ok(draw.includes("const PDFJS_CDN_VERSION = '6.4.299';"),\n        'PDF.js ESM must be pinned to a patched upstream release');\n});\n\nrunTest('Client IP Audit: No reliance on client-supplied IP headers (x-forwarded-for / cf-connecting-ip)', () => {
+runTest('Supply-chain Security: browser SDK and PDF.js CDN URLs are version-pinned', () => {
+    const supabase = fs.readFileSync(path.join(__dirname, 'supabase.js'), 'utf8');
+    const draw = fs.readFileSync(path.join(__dirname, 'draw.html'), 'utf8');
+    assert.ok(supabase.includes('@supabase/supabase-js@2.118.0/dist/umd/supabase.js'),
+        'Supabase SDK must be pinned to a tested release');
+    assert.ok(draw.includes("const PDFJS_CDN_VERSION = '6.4.299';"),
+        'PDF.js ESM must be pinned to a patched upstream release');
+});
+
+runTest('Client IP Audit: No reliance on client-supplied IP headers (x-forwarded-for / cf-connecting-ip)', () => {
     const jsFiles = ['supabase.js', 'sync.js', 'auth-ui.js'];
     jsFiles.forEach(file => {
         const content = fs.readFileSync(path.join(__dirname, file), 'utf8');
