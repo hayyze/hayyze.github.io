@@ -101,8 +101,10 @@ BEGIN
     IF NOT has_function_privilege('authenticated', 'private.can_view_task(uuid,uuid)', 'EXECUTE') THEN
         RAISE EXCEPTION 'RLS helper cannot be called by the policy role';
     END IF;
-    IF has_function_privilege('authenticated', 'private.consume_rpc_rate_limit(text)', 'EXECUTE') THEN
-        RAISE EXCEPTION 'API clients must not be able to call or control the internal rate-limit helper';
+    IF has_function_privilege('authenticated', 'private.consume_rpc_rate_limit(text)', 'EXECUTE')
+       OR has_function_privilege('authenticated', 'private.check_rate_limit(text,integer,integer)', 'EXECUTE')
+       OR has_function_privilege('anon', 'private.check_rate_limit(text,integer,integer)', 'EXECUTE') THEN
+        RAISE EXCEPTION 'API clients must not be able to call or control internal rate-limit helpers';
     END IF;
     IF has_table_privilege('authenticated', 'public.workspaces', 'INSERT')
        OR has_table_privilege('authenticated', 'public.tasks', 'INSERT')
