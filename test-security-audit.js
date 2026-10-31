@@ -128,6 +128,18 @@ runTest('SQL Security: all authenticated workspace RPC writes are rate-limited',
         `Missing server-side rate limit for ${action}`));
 });
 
+runTest('SQL Security: direct writes cannot bypass validated workspace RPCs', () => {
+    const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema-and-security.sql'), 'utf8');
+    assert.ok(sql.includes('REVOKE INSERT ON public.workspaces, public.tasks, public.workspace_members, public.task_members'),
+        'Workspace/task/member inserts must be RPC-only');
+    assert.ok(sql.includes('REVOKE INSERT, UPDATE ON public.task_progress'),
+        'Task progress must be written through the permission-checking RPC');
+    assert.ok(sql.includes('IF TG_OP = \'INSERT\' AND NOT private.consume_rpc_rate_limit(\'focus_session_write\') THEN'),
+        'Legacy focus-session inserts must be rate-limited at the table trigger');
+    assert.ok(sql.includes('RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = \'\' AS $'),
+        'The idempotent focus RPC must execute with its validated server privileges');
+  });
+
 runTest('SQL Security: profile emails are not granted to authenticated users', () => {
     const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema-and-security.sql'), 'utf8');
     assert.ok(sql.includes('REVOKE SELECT (email) ON public.profiles FROM PUBLIC, anon, authenticated;'),
