@@ -9,6 +9,17 @@
     const MAX_TOTAL_PDF_BYTES = 100 * 1024 * 1024;
     const MAX_KEY_CHARACTERS = 8 * 1024 * 1024;
     const MAX_FILE_BYTES = 192 * 1024 * 1024;
+    // Strict import-only limits protect the browser from malicious geometry
+    // without blocking export of a user's existing local drawing.
+    const MAX_DRAW_PAGES_TOTAL = 5000;
+    const MAX_DRAW_STROKES_TOTAL = 50000;
+    const MAX_DRAW_POINTS_TOTAL = 200000;
+    const MAX_DRAW_POINTS_PER_STROKE = 20000;
+    const MAX_DRAW_TEXTS_TOTAL = 20000;
+    const MAX_DRAW_TEXT_LENGTH = 10000;
+    const MAX_DRAW_TEXT_CHARACTERS = 500000;
+    const MAX_DRAW_COORDINATE = 10000000;
+    const MAX_DRAW_OBJECT_SIZE = 1000;
     const unsafe = new Set(['__proto__', 'constructor', 'prototype', 'user_id', 'owner_id', 'user', 'account', 'auth_id',
         'role', 'roles', 'permissions', 'permission', 'admin', 'is_admin', 'points', 'score_points', 'premium',
         'is_premium', 'subscription', 'subscription_status', 'granted_focus_sessions', 'granted_sessions',
@@ -59,34 +70,68 @@
         try { return cleanTree(JSON.parse(raw), 0, geometry); }
         catch (error) { fail('تحتوي النسخة على بيانات محفوظة غير صالحة: ' + error.message); }
     }
-    function validateDrawing(value) {
+    function validateDrawing(value, strictImport = false) {
         if (!object(value) || !Array.isArray(value.spaces) || value.spaces.length > 1000) fail('بيانات مساحات الكتابة غير صالحة.');
         const ids = new Set();
+        let totalPages = 0, totalStrokes = 0, totalPoints = 0, totalTexts = 0, totalTextCharacters = 0;
+        const validCoordinate = number => Number.isFinite(number) &&
+            (!strictImport || Math.abs(number) <= MAX_DRAW_COORDINATE);
+
         value.spaces.forEach(space => {
             if (!object(space) || typeof space.id !== 'string' || !space.id || space.id.length > 200 || ids.has(space.id) ||
                 typeof space.name !== 'string' || !Array.isArray(space.pages) || !space.pages.length || space.pages.length > 10000) {
                 fail('تحتوي النسخة على مساحة كتابة غير صالحة.');
             }
+            if (strictImport && space.name.length > 200) fail('اسم مساحة الكتابة أطول من الحد المسموح.');
             ids.add(space.id);
+            totalPages += space.pages.length;
+            if (strictImport && totalPages > MAX_DRAW_PAGES_TOTAL) fail('عدد صفحات الرسم في النسخة يتجاوز الحد الآمن.');
+
             space.pages.forEach(page => {
                 if (!object(page) || !Array.isArray(page.strokes) || !Array.isArray(page.texts)) fail('صفحات مساحة الكتابة غير صالحة.');
+                totalStrokes += page.strokes.length;
+                totalTexts += page.texts.length;
+                if (strictImport && totalStrokes > MAX_DRAW_STROKES_TOTAL) fail('عدد مسارات الرسم في النسخة يتجاوز الحد الآمن.');
+                if (strictImport && totalTexts > MAX_DRAW_TEXTS_TOTAL) fail('عدد مربعات النص في النسخة يتجاوز الحد الآمن.');
+
                 page.strokes.forEach(stroke => {
                     if (!object(stroke) || !Array.isArray(stroke.points) || !Number.isFinite(stroke.size) || stroke.size < 0 ||
-                        !stroke.points.every(point => object(point) && Number.isFinite(point.x) && Number.isFinite(point.y) &&
-                            (point.pressure === undefined || point.pressure === null || Number.isFinite(point.pressure)))) {
+                        (strictImport && stroke.size > MAX_DRAW_OBJECT_SIZE)) {
                         fail('تحتوي النسخة على رسم غير صالح.');
                     }
+                    if (strictImport && stroke.points.length > MAX_DRAW_POINTS_PER_STROKE) {
+                        fail('يحتوي أحد مسارات الرسم على عدد نقاط يتجاوز الحد الآمن.');
+                    }
+                    totalPoints += stroke.points.length;
+                    if (strictImport && totalPoints > MAX_DRAW_POINTS_TOTAL) fail('عدد نقاط الرسم في النسخة يتجاوز الحد الآمن.');
+                    if (!stroke.points.every(point => object(point) && validCoordinate(point.x) && validCoordinate(point.y) &&
+                        (point.pressure === undefined || point.pressure === null ||
+                            (Number.isFinite(point.pressure) && (!strictImport || (point.pressure >= 0 && point.pressure <= 1)))))) {
+                        fail('تحتوي النسخة على إحداثيات أو ضغط قلم غير صالح.');
+                    }
                 });
+
                 page.texts.forEach(text => {
-                    if (!object(text) || typeof text.text !== 'string' || !Number.isFinite(text.x) || !Number.isFinite(text.y) ||
-                        !Number.isFinite(text.size) || text.size <= 0) fail('تحتوي النسخة على نص رسم غير صالح.');
+                    if (!object(text) || typeof text.text !== 'string' || !validCoordinate(text.x) || !validCoordinate(text.y) ||
+                        !Number.isFinite(text.size) || text.size <= 0 ||
+                        (strictImport && (text.size > MAX_DRAW_OBJECT_SIZE || text.text.length > MAX_DRAW_TEXT_LENGTH))) {
+                        fail('تحتوي النسخة على نص رسم غير صالح.');
+                    }
+                    totalTextCharacters += text.text.length;
+                    if (strictImport && totalTextCharacters > MAX_DRAW_TEXT_CHARACTERS) {
+                        fail('إجمالي نصوص مساحة الكتابة في النسخة يتجاوز الحد الآمن.');
+                    }
                 });
             });
             if (space.pageIndex !== undefined && (!Number.isInteger(space.pageIndex) || space.pageIndex < 0 || space.pageIndex >= space.pages.length)) {
                 fail('رقم صفحة مساحة الكتابة غير صالح.');
             }
-            if (space.metadata && space.metadata.pdf && (!object(space.metadata.pdf) || typeof space.metadata.pdf.fileName !== 'string' ||
-                !Number.isInteger(space.metadata.pdf.pageCount) || space.metadata.pdf.pageCount < 1)) fail('بيانات ملف PDF غير صالحة.');
+            if (space.metadata && space.metadata.pdf && (!object(space.metadata.pdf) ||
+                typeof space.metadata.pdf.fileName !== 'string' ||
+                !Number.isInteger(space.metadata.pdf.pageCount) || space.metadata.pdf.pageCount < 1 ||
+                (strictImport && (space.metadata.pdf.fileName.length > 255 || space.metadata.pdf.pageCount > 10000)))) {
+                fail('بيانات ملف PDF غير صالحة.');
+            }
         });
         return value;
     }
@@ -94,10 +139,10 @@
         return new Set([...(Array.isArray(global.HAYYIZ_ALLOWED_BACKUP_KEYS) ? global.HAYYIZ_ALLOWED_BACKUP_KEYS : []), DRAW_KEY, DRAW_PREFS_KEY]
             .filter(key => key !== 'hayyiz-workspace-focus-outbox'));
     }
-    function sanitizeKey(key, raw) {
+    function sanitizeKey(key, raw, strictDrawingImport = false) {
         if (typeof raw !== 'string') raw = JSON.stringify(raw);
         if (typeof raw !== 'string' || raw.length > MAX_KEY_CHARACTERS) fail('حجم البيانات المحلية في النسخة أكبر من الحد المسموح.');
-        if (key === DRAW_KEY) return JSON.stringify(validateDrawing(parseStructured(raw, true)));
+        if (key === DRAW_KEY) return JSON.stringify(validateDrawing(parseStructured(raw, true), strictDrawingImport));
         if (key === DRAW_PREFS_KEY) {
             const prefs = parseStructured(raw);
             if (!object(prefs)) fail('تفضيلات الرسم غير صالحة.');
@@ -247,7 +292,7 @@
         let characters = 0;
         Object.keys(data.keys).forEach(key => {
             if (!allowed.has(key)) return;
-            const value = sanitizeKey(key, data.keys[key]);
+            const value = sanitizeKey(key, data.keys[key], true);
             characters += value.length;
             if (characters > MAX_KEY_CHARACTERS) fail('حجم البيانات المحلية في النسخة أكبر من الحد المسموح.');
             keys[key] = value;
