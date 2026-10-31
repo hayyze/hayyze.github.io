@@ -42,6 +42,8 @@ jobs:
           node scripts/build-verified-migration.cjs supabase/account-security-integrity.sql > "$RUNNER_TEMP/hayyiz-verified-migration.sql"
           psql -v ON_ERROR_STOP=1 --single-transaction -f "$RUNNER_TEMP/hayyiz-verified-migration.sql"
           psql -v ON_ERROR_STOP=1 -f scripts/test-database-security.sql
+          # Simulate production databases where the private schema exists but this table is missing.
+          psql -v ON_ERROR_STOP=1 -c "DROP TABLE IF EXISTS private.rate_limits"
           psql -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/20261031064000_rpc_and_profile_privacy_hardening.sql
           psql -v ON_ERROR_STOP=1 -f scripts/test-database-security.sql
       - name: Verify schema can be reapplied without breaking permissions
