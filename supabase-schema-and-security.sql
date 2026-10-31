@@ -1635,7 +1635,7 @@ REVOKE INSERT, UPDATE ON public.task_progress
     FROM PUBLIC, anon, authenticated;
 GRANT SELECT, DELETE ON public.workspaces, public.tasks, public.workspace_members, public.task_members TO authenticated;
 GRANT SELECT ON public.task_progress TO authenticated;
-GRANT INSERT, UPDATE ON public.focus_sessions TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.focus_sessions TO authenticated;
 REVOKE UPDATE ON public.workspaces, public.tasks FROM PUBLIC, anon, authenticated;
 REVOKE UPDATE (id, created_by, created_at) ON public.workspaces FROM PUBLIC, anon, authenticated;
 REVOKE UPDATE (id, creator_id, workspace_id, scope, completion_mode, completed, completed_at, created_at)
