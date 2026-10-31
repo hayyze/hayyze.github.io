@@ -4,6 +4,72 @@
 -- private must remain outside the PostgREST exposed schemas.
 CREATE SCHEMA IF NOT EXISTS private;
 
+-- Atomic account-scoped rate limits shared by write RPCs.
+CREATE OR REPLACE FUNCTION private.check_rate_limit(
+    p_key TEXT,
+    p_max_attempts INT,
+    p_window_seconds INT
+) RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    now_ts TIMESTAMPTZ := NOW();
+    current_attempts INT;
+BEGIN
+    IF p_key IS NULL OR length(p_key) > 200
+       OR p_max_attempts < 1 OR p_window_seconds < 1 OR p_window_seconds > 86400 THEN
+        RETURN FALSE;
+    END IF;
+
+    DELETE FROM private.rate_limits WHERE expires_at < now_ts;
+    INSERT INTO private.rate_limits AS rate_limit
+        (key, attempts, window_start, expires_at)
+    VALUES
+        (p_key, 1, now_ts, now_ts + make_interval(secs => p_window_seconds))
+    ON CONFLICT (key) DO UPDATE
+    SET attempts = CASE WHEN rate_limit.expires_at <= now_ts THEN 1 ELSE rate_limit.attempts + 1 END,
+        window_start = CASE WHEN rate_limit.expires_at <= now_ts THEN now_ts ELSE rate_limit.window_start END,
+        expires_at = CASE WHEN rate_limit.expires_at <= now_ts
+            THEN now_ts + make_interval(secs => p_window_seconds) ELSE rate_limit.expires_at END
+    RETURNING attempts INTO current_attempts;
+
+    RETURN current_attempts <= p_max_attempts;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION private.consume_rpc_rate_limit(p_action TEXT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_user_id UUID := auth.uid();
+    v_max_attempts INT;
+    v_window_seconds INT;
+BEGIN
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION 'Unauthorized: Authentication required.' USING ERRCODE = '42501';
+    END IF;
+
+    CASE p_action
+        WHEN 'workspace_create' THEN v_max_attempts := 10; v_window_seconds := 3600;
+        WHEN 'workspace_invite' THEN v_max_attempts := 20; v_window_seconds := 3600;
+        WHEN 'task_create' THEN v_max_attempts := 120; v_window_seconds := 3600;
+        WHEN 'task_progress' THEN v_max_attempts := 120; v_window_seconds := 60;
+        WHEN 'focus_session_write' THEN v_max_attempts := 300; v_window_seconds := 86400;
+        ELSE RAISE EXCEPTION 'Invalid rate-limit action.' USING ERRCODE = '22023';
+    END CASE;
+
+    RETURN private.check_rate_limit('rpc:' || p_action || ':' || v_user_id::TEXT,
+                                    v_max_attempts, v_window_seconds);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION private.consume_rpc_rate_limit(TEXT) FROM PUBLIC, anon, authenticated;
+
 ALTER TABLE public.focus_sessions ADD COLUMN IF NOT EXISTS client_session_id TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_focus_sessions_user_client_session
 ON public.focus_sessions (user_id, client_session_id);
@@ -281,6 +347,14 @@ BEGIN
     IF NEW.user_id IS NULL OR NEW.user_id <> auth.uid() THEN
         RAISE EXCEPTION 'Unauthorized: user_id must match authenticated user identity.' USING ERRCODE = '42501';
     END IF;
+    -- Legacy clients may still insert own focus rows directly. Enforce the same
+    -- server-side per-account limit at the table boundary, not just in the RPC.
+    IF TG_OP = 'INSERT' AND NOT private.consume_rpc_rate_limit('focus_session_write') THEN
+        RAISE EXCEPTION 'Rate limit exceeded. Please retry later.'
+            USING ERRCODE = 'PGRST',
+                  DETAIL = '{"status": 429, "status_text": "Too Many Requests"}',
+                  HINT = 'HTTP 429 Too Many Requests';
+    END IF;
     IF NEW.duration_seconds < 0 OR NEW.duration_seconds > 86400 THEN
         RAISE EXCEPTION 'Invalid duration_seconds.' USING ERRCODE = '22023';
     END IF;
@@ -336,6 +410,18 @@ BEGIN
 
     IF v_clean_title IS NULL OR v_clean_title = '' THEN
         RAISE EXCEPTION 'Invalid argument: Task title is required.' USING ERRCODE = '22023';
+    END IF;
+    IF char_length(v_clean_title) > 160 OR COALESCE(char_length(p_description), 0) > 2000 THEN
+        RAISE EXCEPTION 'Task title or description exceeds the allowed length.' USING ERRCODE = '22023';
+    END IF;
+    IF COALESCE(cardinality(p_recipient_user_ids), 0) > 50 THEN
+        RAISE EXCEPTION 'A task cannot have more than 50 recipients.' USING ERRCODE = '22023';
+    END IF;
+    IF NOT private.consume_rpc_rate_limit('task_create') THEN
+        RAISE EXCEPTION 'Rate limit exceeded. Please retry later.'
+            USING ERRCODE = 'PGRST',
+                  DETAIL = '{"status": 429, "status_text": "Too Many Requests"}',
+                  HINT = 'HTTP 429 Too Many Requests';
     END IF;
 
     IF p_scope NOT IN ('me', 'specific_users', 'workspace') THEN
@@ -421,33 +507,43 @@ SET search_path = ''
 AS $$
 DECLARE
     v_target_user_id UUID;
+    v_caller_id UUID := auth.uid();
     v_clean_email TEXT := lower(trim(p_email));
+    v_generic_result JSONB := jsonb_build_object(
+        'success', true,
+        'message', 'تمت معالجة الطلب. إذا كان البريد مرتبطًا بحساب موثق وغير عضو بالفعل، فستتم إضافته إلى المساحة.'
+    );
 BEGIN
-    IF NOT private.is_workspace_owner(p_workspace_id, auth.uid()) THEN
+    IF NOT private.is_workspace_owner(p_workspace_id, v_caller_id) THEN
         RAISE EXCEPTION 'Unauthorized: Only workspace owners can invite members.'
             USING ERRCODE = '42501';
+    END IF;
+    IF v_clean_email IS NULL OR v_clean_email = '' OR length(v_clean_email) > 254
+       OR position('@' IN v_clean_email) < 2 THEN
+        RETURN jsonb_build_object('success', false, 'message', 'أدخل عنوان بريد إلكتروني صالحًا.');
+    END IF;
+    IF NOT private.consume_rpc_rate_limit('workspace_invite') THEN
+        RAISE EXCEPTION 'Rate limit exceeded. Please retry later.'
+            USING ERRCODE = 'PGRST',
+                  DETAIL = '{"status": 429, "status_text": "Too Many Requests"}',
+                  HINT = 'HTTP 429 Too Many Requests';
     END IF;
 
     SELECT id INTO v_target_user_id FROM auth.users
     WHERE lower(email) = v_clean_email AND email_confirmed_at IS NOT NULL
     ORDER BY id LIMIT 1;
 
-    IF v_target_user_id IS NULL THEN
-        RETURN jsonb_build_object('success', false, 'message', 'لا يوجد حساب موثق بهذا البريد الإلكتروني');
-    END IF;
-
-    IF v_target_user_id = (select auth.uid()) THEN
-        RETURN jsonb_build_object('success', false, 'message', 'لا يمكنك دعوة نفسك');
-    END IF;
-
-    IF private.is_workspace_member(p_workspace_id, v_target_user_id) THEN
-        RETURN jsonb_build_object('success', false, 'message', 'المستخدم عضو بالفعل في هذه المساحة');
+    -- The API response is identical for unknown, unverified, self, duplicate and
+    -- successfully added addresses. Never disclose the matching user ID.
+    IF v_target_user_id IS NULL OR v_target_user_id = v_caller_id
+       OR private.is_workspace_member(p_workspace_id, v_target_user_id) THEN
+        RETURN v_generic_result;
     END IF;
 
     INSERT INTO public.workspace_members (workspace_id, user_id, role)
     VALUES (p_workspace_id, v_target_user_id, 'member');
 
-    RETURN jsonb_build_object('success', true, 'user_id', v_target_user_id, 'message', 'تمت إضافة العضو بنجاح');
+    RETURN v_generic_result;
 END;
 $$;
 
@@ -473,6 +569,12 @@ BEGIN
 
     IF NOT private.can_view_task(p_task_id, v_caller_id) THEN
         RAISE EXCEPTION 'Unauthorized: Task permission denied.' USING ERRCODE = '42501';
+    END IF;
+    IF NOT private.consume_rpc_rate_limit('task_progress') THEN
+        RAISE EXCEPTION 'Rate limit exceeded. Please retry later.'
+            USING ERRCODE = 'PGRST',
+                  DETAIL = '{"status": 429, "status_text": "Too Many Requests"}',
+                  HINT = 'HTTP 429 Too Many Requests';
     END IF;
 
     SELECT * INTO v_task FROM public.tasks WHERE id = p_task_id FOR UPDATE;
@@ -511,7 +613,7 @@ CREATE OR REPLACE FUNCTION public.record_focus_session(
     p_ended_at TIMESTAMPTZ,
     p_duration_seconds INT
 )
-RETURNS JSONB LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
     v_user_id UUID := auth.uid();
     v_workspace_id UUID := p_workspace_id;
@@ -529,6 +631,12 @@ BEGIN
        OR p_duration_seconds > ceil(extract(epoch FROM p_ended_at - p_started_at)) + 1 THEN
         RAISE EXCEPTION 'Invalid focus session timestamps or duration.' USING ERRCODE = '22023';
     END IF;
+    SELECT id INTO v_id FROM public.focus_sessions
+    WHERE user_id = v_user_id AND client_session_id = p_client_session_id;
+    IF v_id IS NOT NULL THEN
+        RETURN jsonb_build_object('success', true, 'id', v_id);
+    END IF;
+    -- The BEFORE INSERT trigger applies the shared rate limit, including legacy direct writes.
     IF p_task_id IS NOT NULL THEN
         IF NOT private.can_view_task(p_task_id, v_user_id) THEN
             RAISE EXCEPTION 'Unauthorized: Task permission denied.' USING ERRCODE = '42501';
@@ -957,8 +1065,15 @@ FOR EACH ROW EXECUTE FUNCTION private.preserve_newer_sync_item();
 
 -- Exposed table grants and immutable sharing identities.
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.sync_items TO authenticated;
-GRANT SELECT, INSERT, DELETE ON public.workspaces, public.tasks, public.workspace_members, public.task_members TO authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.task_progress, public.focus_sessions TO authenticated;
+-- All privileged inserts and progress/focus writes must pass through the validated,
+-- rate-limited SECURITY DEFINER RPCs. Direct REST writes would bypass those limits.
+REVOKE INSERT ON public.workspaces, public.tasks, public.workspace_members, public.task_members
+    FROM PUBLIC, anon, authenticated;
+REVOKE INSERT, UPDATE ON public.task_progress
+    FROM PUBLIC, anon, authenticated;
+GRANT SELECT, DELETE ON public.workspaces, public.tasks, public.workspace_members, public.task_members TO authenticated;
+GRANT SELECT ON public.task_progress TO authenticated;
+GRANT INSERT, UPDATE ON public.focus_sessions TO authenticated;
 REVOKE UPDATE ON public.workspaces, public.tasks FROM PUBLIC, anon, authenticated;
 REVOKE UPDATE (id, created_by, created_at) ON public.workspaces FROM PUBLIC, anon, authenticated;
 REVOKE UPDATE (id, creator_id, workspace_id, scope, completion_mode, completed, completed_at, created_at)
@@ -968,8 +1083,9 @@ GRANT UPDATE (title, description, due_date, updated_at) ON public.tasks TO authe
 REVOKE ALL ON public.profiles FROM PUBLIC, anon, authenticated;
 REVOKE INSERT (email), UPDATE (email), REFERENCES (email)
     ON public.profiles FROM PUBLIC, anon, authenticated;
--- Cached clients still read a co-member email; it is display data, never an identity authority.
-GRANT SELECT (id, email, display_name, updated_at) ON public.profiles TO authenticated;
+-- Only non-sensitive profile fields are visible to co-members. Email remains private.
+REVOKE SELECT (email) ON public.profiles FROM PUBLIC, anon, authenticated;
+GRANT SELECT (id, display_name, updated_at) ON public.profiles TO authenticated;
 GRANT UPDATE (display_name, updated_at) ON public.profiles TO authenticated;
 GRANT ALL ON public.profiles, public.workspaces, public.workspace_members, public.tasks,
     public.task_members, public.task_progress, public.focus_sessions, public.sync_items TO service_role;
