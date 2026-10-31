@@ -5,6 +5,19 @@
 -- BEFORE INSERT trigger applies the same account-level rate limit to them.
 CREATE SCHEMA IF NOT EXISTS private;
 
+-- Some deployed projects have the private schema and its helper functions but
+-- never received the rate-limit table from the original full-schema bootstrap.
+-- Create it here so this additive migration is safe on those deployments too.
+CREATE TABLE IF NOT EXISTS private.rate_limits (
+    key TEXT PRIMARY KEY,
+    attempts INT NOT NULL DEFAULT 1,
+    window_start TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL
+);
+ALTER TABLE private.rate_limits ENABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS idx_rate_limits_expires ON private.rate_limits (expires_at);
+REVOKE ALL ON TABLE private.rate_limits FROM PUBLIC, anon, authenticated;
+
 CREATE OR REPLACE FUNCTION private.check_rate_limit(
     p_key TEXT,
     p_max_attempts INT,
