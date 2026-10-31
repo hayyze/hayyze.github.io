@@ -388,6 +388,8 @@ $$;
 
 -- Rate limits for authenticated RPCs. Clients cannot choose the limits or the
 -- action names; this helper derives the bucket from the JWT subject.
+REVOKE ALL ON FUNCTION private.check_rate_limit(TEXT, INT, INT) FROM PUBLIC, anon, authenticated;
+
 CREATE OR REPLACE FUNCTION private.consume_rpc_rate_limit(p_action TEXT)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
