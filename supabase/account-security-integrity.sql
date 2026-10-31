@@ -13,7 +13,7 @@ CREATE OR REPLACE FUNCTION private.check_rate_limit(
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $$
 DECLARE
     now_ts TIMESTAMPTZ := NOW();
     current_attempts INT;
@@ -37,14 +37,14 @@ BEGIN
 
     RETURN current_attempts <= p_max_attempts;
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION private.consume_rpc_rate_limit(p_action TEXT)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $$
 DECLARE
     v_user_id UUID := auth.uid();
     v_max_attempts INT;
@@ -66,7 +66,7 @@ BEGIN
     RETURN private.check_rate_limit('rpc:' || p_action || ':' || v_user_id::TEXT,
                                     v_max_attempts, v_window_seconds);
 END;
-$;
+$$;
 
 REVOKE ALL ON FUNCTION private.consume_rpc_rate_limit(TEXT) FROM PUBLIC, anon, authenticated;
 
@@ -496,7 +496,7 @@ RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $$
 DECLARE
     v_target_user_id UUID;
     v_caller_id UUID := auth.uid();
@@ -537,7 +537,7 @@ BEGIN
 
     RETURN v_generic_result;
 END;
-$;
+$$;
 
 
 CREATE OR REPLACE FUNCTION public.set_task_progress_and_recalculate(
