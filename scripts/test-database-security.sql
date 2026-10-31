@@ -185,6 +185,9 @@ BEGIN
                      AND user_id = auth.uid()) THEN
         RAISE EXCEPTION 'acceptance did not create workspace membership';
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = current_setting('hayyiz_test.member')::uuid) THEN
+        RAISE EXCEPTION 'co-member display profile visibility broke after accepting an invitation';
+    END IF;
 END;
 $$;
 
