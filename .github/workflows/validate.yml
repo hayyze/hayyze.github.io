@@ -45,6 +45,7 @@ jobs:
           # Simulate production databases where the private schema exists but this table is missing.
           psql -v ON_ERROR_STOP=1 -c "DROP TABLE IF EXISTS private.rate_limits"
           psql -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/20261031041237_rpc_and_profile_privacy_hardening.sql
+          psql -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/20261031100500_workspace_invitation_acceptance.sql
           psql -v ON_ERROR_STOP=1 -f scripts/test-database-security.sql
       - name: Verify schema can be reapplied without breaking permissions
         run: |
