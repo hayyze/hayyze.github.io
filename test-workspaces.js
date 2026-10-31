@@ -747,8 +747,11 @@ let ws = null;
 // Scenario 23: User-facing RPC endpoints (add_workspace_member_by_email, set_task_progress_and_recalculate) are callable
 {
     const rpcRes1 = db.addWorkspaceMemberByEmail(user1, ws.id, user4.email);
+    const pending = db.getMyWorkspaceInvitations(user4);
+    const accepted = pending.find(invitation => invitation.workspace_id === ws.id) &&
+        db.respondToWorkspaceInvitation(user4, pending.find(invitation => invitation.workspace_id === ws.id).id, true);
     db.updateTaskProgress(user1, user1.id, collabTask.id, true);
-    assert(rpcRes1.success === true, '23. Public RPC endpoints (add_workspace_member_by_email, set_task_progress_and_recalculate) remain callable by authenticated users');
+    assert(rpcRes1.success === true && accepted, '23. Authenticated invitation and task-progress RPC flows remain callable; the recipient accepts before joining');
 }
 
 // Scenario 24: Direct client execution of internal SECURITY DEFINER helpers is denied
