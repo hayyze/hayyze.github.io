@@ -169,6 +169,29 @@ async function check(name, run) { await run(); checks++; console.log('PASS ' + n
         assert.equal(target.indexedDB.databases.get('hayyiz-pdf-db').get('space-a').fileName, 'unrelated.pdf');
         assert.deepEqual(Array.from(result.missingPdfIds), ['space-a']);
     });
+    await check('Import rejects oversized drawing strokes before restoring a hostile backup', async () => {
+        const d = device();
+        const value = JSON.parse(drawing());
+        value.spaces[0].pages[0].strokes[0].points =
+            Array.from({ length: 20001 }, (_, i) => ({ x: i, y: i, pressure: 0.5 }));
+        const archive = { version: 3, keys: { 'hayyiz-free-spaces-v1': JSON.stringify(value) }, pdfFiles: [] };
+        assert.throws(() => d.context.hayyizValidateBackup(archive), /عدد نقاط يتجاوز الحد الآمن/);
+    });
+    await check('Import rejects out-of-range coordinates and invalid stylus pressure', async () => {
+        const d = device();
+        const value = JSON.parse(drawing());
+        value.spaces[0].pages[0].strokes[0].points[0] = { x: 1e20, y: 0, pressure: 2 };
+        const archive = { version: 3, keys: { 'hayyiz-free-spaces-v1': JSON.stringify(value) }, pdfFiles: [] };
+        assert.throws(() => d.context.hayyizValidateBackup(archive), /إحداثيات أو ضغط قلم غير صالح/);
+    });
+    await check('Strict import geometry limits do not block export of existing local drawings', async () => {
+        const value = JSON.parse(drawing());
+        value.spaces[0].pages[0].strokes[0].points =
+            Array.from({ length: 20001 }, (_, i) => ({ x: i, y: i, pressure: 0.5 }));
+        const d = device({ 'hayyiz-free-spaces-v1': JSON.stringify(value) });
+        const archive = await d.context.hayyizCreateBackup();
+        assert.equal(JSON.parse(archive.keys['hayyiz-free-spaces-v1']).spaces[0].pages[0].strokes[0].points.length, 20001);
+    });
     await check('An export cannot exceed the local-data limit accepted by its importer', async () => {
         const large = 'x'.repeat(4 * 1024 * 1024 + 1);
         const d = device({ 'hayyiz-current-task': large, 'hayyiz-birthdate': large });

@@ -1104,7 +1104,7 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
                 try {
                     const res = await addWorkspaceMemberByEmail(activeWorkspaceId, email);
                     if (res && res.success) {
-                        alert('تمت إضافة العضو بنجاح!');
+                        alert(res.message || 'تمت معالجة طلب الإضافة.');
                         formAddMember.reset();
                         $('modal-add-member').classList.add('hidden');
                         await loadAllWorkspaceData();
