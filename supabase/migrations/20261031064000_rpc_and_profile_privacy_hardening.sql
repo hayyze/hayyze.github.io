@@ -465,8 +465,9 @@ BEGIN
 END;
 $$;
 
--- Keep the rate-limit helper internal to trusted SECURITY DEFINER RPCs/triggers.
+-- Keep both rate-limit helpers internal to trusted SECURITY DEFINER RPCs/triggers.
 GRANT USAGE ON SCHEMA private TO authenticated;
+REVOKE ALL ON FUNCTION private.check_rate_limit(TEXT, INT, INT) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION private.consume_rpc_rate_limit(TEXT) FROM PUBLIC, anon, authenticated;
 
 -- Prevent direct REST writes from bypassing RPC validation and rate limits.
