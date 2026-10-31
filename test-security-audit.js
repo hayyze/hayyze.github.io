@@ -111,10 +111,37 @@ runTest('SQL Security: Trigger returns OLD on DELETE operations', () => {
     assert.ok(sql.includes("RETURN OLD;"), 'Trigger must return OLD on DELETE');
 });
 
-runTest('SQL Security: private.check_rate_limit uses row locking FOR UPDATE', () => {
+runTest('SQL Security: private.check_rate_limit uses an atomic upsert', () => {
     const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema-and-security.sql'), 'utf8');
-    assert.ok(sql.includes('SELECT * INTO rec FROM private.rate_limits WHERE key = p_key FOR UPDATE;'),
-        'Rate limit check must lock row with FOR UPDATE to prevent race conditions');
+    assert.ok(sql.includes('INSERT INTO private.rate_limits AS rate_limit'),
+        'Rate limits must use an atomic INSERT');
+    assert.ok(sql.includes('ON CONFLICT (key) DO UPDATE'),
+        'Rate limits must atomically increment concurrent requests');
+    assert.ok(!sql.includes('SELECT * INTO rec FROM private.rate_limits WHERE key = p_key FOR UPDATE;'),
+        'Do not rely on FOR UPDATE to lock a missing rate-limit row');
+});
+
+runTest('SQL Security: all authenticated workspace RPC writes are rate-limited', () => {
+    const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema-and-security.sql'), 'utf8');
+    const actions = ['workspace_create', 'workspace_invite', 'task_create', 'task_progress', 'focus_session_write'];
+    actions.forEach(action => assert.ok(sql.includes(`private.consume_rpc_rate_limit('${action}')`),
+        `Missing server-side rate limit for ${action}`));
+});
+
+runTest('SQL Security: profile emails are not granted to authenticated users', () => {
+    const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema-and-security.sql'), 'utf8');
+    assert.ok(sql.includes('REVOKE SELECT (email) ON public.profiles FROM PUBLIC, anon, authenticated;'),
+        'Email SELECT must be explicitly revoked');
+    assert.ok(sql.includes('GRANT SELECT (id, display_name, updated_at) ON public.profiles TO authenticated;'),
+        'Only non-sensitive profile columns should be granted');
+    assert.ok(!/GRANT SELECT\\s*\\([^)]*\\bemail\\b/i.test(sql),
+        'Do not grant email visibility through another column-level grant');
+});
+
+runTest('PDF Security: malicious PDF script execution mitigations remain enabled', () => {
+    const draw = fs.readFileSync(path.join(__dirname, 'draw.html'), 'utf8');
+    assert.ok(draw.includes('isEvalSupported: false'), 'PDF.js eval support must remain disabled');
+    assert.ok(draw.includes('enableScripting: false'), 'PDF document scripting must remain disabled');
 });
 
 runTest('SQL Security: All SECURITY DEFINER functions set search_path = \'\'', () => {
