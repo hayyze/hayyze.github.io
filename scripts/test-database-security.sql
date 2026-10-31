@@ -151,6 +151,9 @@ BEGIN
        OR has_table_privilege('authenticated', 'public.task_progress', 'UPDATE') THEN
         RAISE EXCEPTION 'direct REST inserts/progress updates can bypass validated RPCs';
     END IF;
+    IF NOT has_table_privilege('authenticated', 'public.focus_sessions', 'SELECT') THEN
+        RAISE EXCEPTION 'authenticated users must be able to read RLS-filtered focus sessions';
+    END IF;
     IF NOT has_table_privilege('authenticated', 'public.focus_sessions', 'INSERT') THEN
         RAISE EXCEPTION 'legacy own focus-session inserts must remain compatible';
     END IF;
