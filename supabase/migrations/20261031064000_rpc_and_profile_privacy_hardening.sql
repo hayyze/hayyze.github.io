@@ -568,7 +568,7 @@ CREATE OR REPLACE FUNCTION public.record_focus_session(
     p_ended_at TIMESTAMPTZ,
     p_duration_seconds INT
 )
-RETURNS JSONB LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $
 DECLARE
     v_user_id UUID := auth.uid();
     v_workspace_id UUID := p_workspace_id;
@@ -632,7 +632,14 @@ $$;
 -- in this non-exposed schema, never as a PostgREST public RPC.
 GRANT USAGE ON SCHEMA private TO authenticated;
 REVOKE ALL ON FUNCTION private.consume_rpc_rate_limit(TEXT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION private.consume_rpc_rate_limit(TEXT) TO authenticated;
+
+-- Revoke direct table writes that would bypass the RPC rate limits.
+REVOKE INSERT ON public.workspaces, public.tasks, public.workspace_members, public.task_members
+    FROM PUBLIC, anon, authenticated;
+REVOKE INSERT, UPDATE ON public.task_progress, public.focus_sessions
+    FROM PUBLIC, anon, authenticated;
+GRANT SELECT, DELETE ON public.workspaces, public.tasks, public.workspace_members, public.task_members TO authenticated;
+GRANT SELECT ON public.task_progress, public.focus_sessions TO authenticated;
 
 -- Co-members may see display names, but never need another member's email address.
 REVOKE SELECT (email) ON public.profiles FROM PUBLIC, anon, authenticated;
