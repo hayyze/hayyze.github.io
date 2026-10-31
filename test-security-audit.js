@@ -134,11 +134,11 @@ runTest('SQL Security: direct writes cannot bypass validated workspace RPCs', ()
         'Workspace/task/member inserts must be RPC-only');
     assert.ok(sql.includes('REVOKE INSERT, UPDATE ON public.task_progress'),
         'Task progress must be written through the permission-checking RPC');
-    assert.ok(sql.includes('IF TG_OP = \'INSERT\' AND NOT private.consume_rpc_rate_limit(\'focus_session_write\') THEN'),
+    assert.ok(sql.includes("IF TG_OP = 'INSERT' AND NOT private.consume_rpc_rate_limit('focus_session_write') THEN"),
         'Legacy focus-session inserts must be rate-limited at the table trigger');
-    assert.ok(sql.includes('RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = \'\' AS $'),
+    assert.ok(sql.includes("RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$"),
         'The idempotent focus RPC must execute with its validated server privileges');
-  });
+});
 
 runTest('SQL Security: profile emails are not granted to authenticated users', () => {
     const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema-and-security.sql'), 'utf8');
@@ -146,7 +146,7 @@ runTest('SQL Security: profile emails are not granted to authenticated users', (
         'Email SELECT must be explicitly revoked');
     assert.ok(sql.includes('GRANT SELECT (id, display_name, updated_at) ON public.profiles TO authenticated;'),
         'Only non-sensitive profile columns should be granted');
-    assert.ok(!/GRANT SELECT\\s*\\([^)]*\\bemail\\b/i.test(sql),
+    assert.ok(!/GRANT SELECT\s*\([^)]*\bemail\b/i.test(sql),
         'Do not grant email visibility through another column-level grant');
 });
 
