@@ -204,4 +204,7 @@ GRANT EXECUTE ON FUNCTION public.get_my_workspace_invitations() TO authenticated
 GRANT EXECUTE ON FUNCTION public.respond_to_workspace_invitation(UUID, BOOLEAN) TO authenticated;
 
 
+-- Reads remain constrained by the existing "Users can view permitted focus sessions" RLS policy.
+GRANT SELECT ON public.focus_sessions TO authenticated;
+
 NOTIFY pgrst, 'reload schema';
