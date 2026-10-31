@@ -8,6 +8,18 @@ BEGIN
     IF v_rate_limits_oid IS NULL THEN
         RAISE EXCEPTION 'private.rate_limits table was not created';
     END IF;
+    IF to_regclass('private.workspace_invitations') IS NULL THEN
+        RAISE EXCEPTION 'private.workspace_invitations table was not created';
+    END IF;
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = to_regclass('private.workspace_invitations')) THEN
+        RAISE EXCEPTION 'private.workspace_invitations must have row level security enabled';
+    END IF;
+    IF has_table_privilege('anon', 'private.workspace_invitations', 'SELECT')
+       OR has_table_privilege('authenticated', 'private.workspace_invitations', 'SELECT')
+       OR has_table_privilege('authenticated', 'private.workspace_invitations', 'INSERT')
+       OR has_table_privilege('authenticated', 'private.workspace_invitations', 'DELETE') THEN
+        RAISE EXCEPTION 'API roles must not access private workspace invitation records directly';
+    END IF;
     IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = v_rate_limits_oid) THEN
         RAISE EXCEPTION 'private.rate_limits must have row level security enabled';
     END IF;
@@ -83,10 +95,10 @@ BEGIN
         RAISE EXCEPTION 'invite response disclosed target identity or failed to process a verified account';
     END IF;
     generic_invite_result := result;
-    IF NOT EXISTS (SELECT 1 FROM public.workspace_members
-                   WHERE workspace_id = current_setting('hayyiz_test.workspace')::uuid
-                     AND user_id = current_setting('hayyiz_test.member')::uuid) THEN
-        RAISE EXCEPTION 'verified account was not added to workspace';
+    IF EXISTS (SELECT 1 FROM public.workspace_members
+                WHERE workspace_id = current_setting('hayyiz_test.workspace')::uuid
+                  AND user_id = current_setting('hayyiz_test.member')::uuid) THEN
+        RAISE EXCEPTION 'invitation granted membership before recipient acceptance';
     END IF;
     result := public.add_workspace_member_by_email(current_setting('hayyiz_test.workspace')::uuid,
         current_setting('hayyiz_test.unverified') || '@example.invalid');
@@ -152,6 +164,35 @@ BEGIN
     END;
 END;
 $$;
+
+-- The intended recipient alone can list and accept the invitation.
+SELECT set_config('request.jwt.claim.sub', current_setting('hayyiz_test.member'), true);
+SELECT set_config('request.jwt.claims', jsonb_build_object('sub', current_setting('hayyiz_test.member'), 'role', 'authenticated')::text, true);
+DO $$
+DECLARE
+    v_invitation RECORD;
+    result JSONB;
+BEGIN
+    SELECT * INTO v_invitation
+    FROM public.get_my_workspace_invitations()
+    WHERE workspace_id = current_setting('hayyiz_test.workspace')::uuid;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'invitation recipient could not see their own pending invitation';
+    END IF;
+    result := public.respond_to_workspace_invitation(v_invitation.invitation_id, TRUE);
+    IF result->>'success' <> 'true' OR result->>'accepted' <> 'true' THEN
+        RAISE EXCEPTION 'recipient could not accept their workspace invitation';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM public.workspace_members
+                   WHERE workspace_id = current_setting('hayyiz_test.workspace')::uuid
+                     AND user_id = auth.uid()) THEN
+        RAISE EXCEPTION 'acceptance did not create workspace membership';
+    END IF;
+END;
+$$;
+
+SELECT set_config('request.jwt.claim.sub', current_setting('hayyiz_test.owner'), true);
+SELECT set_config('request.jwt.claims', jsonb_build_object('sub', current_setting('hayyiz_test.owner'), 'role', 'authenticated')::text, true);
 
 SELECT set_config('hayyiz_test.directed_task', public.create_synchronized_task(
     'directed task', NULL, 'specific_users', 'independent', current_setting('hayyiz_test.workspace')::uuid,
@@ -421,8 +462,38 @@ BEGIN
     END IF;
     PERFORM public.add_workspace_member_by_email(current_setting('hayyiz_test.workspace')::uuid,
         current_setting('hayyiz_test.other') || '@example.invalid');
+    IF NOT (SELECT completed FROM public.tasks WHERE id = current_setting('hayyiz_test.group_task')::uuid) THEN
+        RAISE EXCEPTION 'pending invitation changed task completion before acceptance';
+    END IF;
+    DELETE FROM public.workspace_members WHERE workspace_id = current_setting('hayyiz_test.workspace')::uuid
+        AND user_id = current_setting('hayyiz_test.member')::uuid;
+    IF NOT FOUND THEN RAISE EXCEPTION 'owner membership removal broke'; END IF;
+END;
+$$;
+
+-- Adding a workspace member now requires explicit acceptance by that account.
+SELECT set_config('request.jwt.claim.sub', current_setting('hayyiz_test.other'), true);
+SELECT set_config('request.jwt.claims', jsonb_build_object('sub', current_setting('hayyiz_test.other'), 'role', 'authenticated')::text, true);
+DO $$
+DECLARE
+    v_invitation RECORD;
+    result JSONB;
+BEGIN
+    SELECT * INTO v_invitation
+    FROM public.get_my_workspace_invitations()
+    WHERE workspace_id = current_setting('hayyiz_test.workspace')::uuid;
+    IF NOT FOUND THEN RAISE EXCEPTION 'second recipient could not see pending invitation'; END IF;
+    result := public.respond_to_workspace_invitation(v_invitation.invitation_id, TRUE);
+    IF result->>'accepted' <> 'true' THEN RAISE EXCEPTION 'second recipient could not accept invite'; END IF;
+END;
+$$;
+
+SELECT set_config('request.jwt.claim.sub', current_setting('hayyiz_test.owner'), true);
+SELECT set_config('request.jwt.claims', jsonb_build_object('sub', current_setting('hayyiz_test.owner'), 'role', 'authenticated')::text, true);
+DO $$
+BEGIN
     IF (SELECT completed FROM public.tasks WHERE id = current_setting('hayyiz_test.group_task')::uuid) THEN
-        RAISE EXCEPTION 'adding a required member did not recalculate collaborative completion';
+        RAISE EXCEPTION 'accepting a new required member did not recalculate collaborative completion';
     END IF;
     DELETE FROM public.workspace_members WHERE workspace_id = current_setting('hayyiz_test.workspace')::uuid
         AND user_id = current_setting('hayyiz_test.other')::uuid;
