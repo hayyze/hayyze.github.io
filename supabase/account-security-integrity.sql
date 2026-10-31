@@ -69,7 +69,6 @@ END;
 $;
 
 REVOKE ALL ON FUNCTION private.consume_rpc_rate_limit(TEXT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION private.consume_rpc_rate_limit(TEXT) TO authenticated;
 
 ALTER TABLE public.focus_sessions ADD COLUMN IF NOT EXISTS client_session_id TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_focus_sessions_user_client_session
@@ -606,7 +605,7 @@ CREATE OR REPLACE FUNCTION public.record_focus_session(
     p_ended_at TIMESTAMPTZ,
     p_duration_seconds INT
 )
-RETURNS JSONB LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $
 DECLARE
     v_user_id UUID := auth.uid();
     v_workspace_id UUID := p_workspace_id;
@@ -1063,8 +1062,14 @@ FOR EACH ROW EXECUTE FUNCTION private.preserve_newer_sync_item();
 
 -- Exposed table grants and immutable sharing identities.
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.sync_items TO authenticated;
-GRANT SELECT, INSERT, DELETE ON public.workspaces, public.tasks, public.workspace_members, public.task_members TO authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.task_progress, public.focus_sessions TO authenticated;
+-- All privileged inserts and progress/focus writes must pass through the validated,
+-- rate-limited SECURITY DEFINER RPCs. Direct REST writes would bypass those limits.
+REVOKE INSERT ON public.workspaces, public.tasks, public.workspace_members, public.task_members
+    FROM PUBLIC, anon, authenticated;
+REVOKE INSERT, UPDATE ON public.task_progress, public.focus_sessions
+    FROM PUBLIC, anon, authenticated;
+GRANT SELECT, DELETE ON public.workspaces, public.tasks, public.workspace_members, public.task_members TO authenticated;
+GRANT SELECT ON public.task_progress, public.focus_sessions TO authenticated;
 REVOKE UPDATE ON public.workspaces, public.tasks FROM PUBLIC, anon, authenticated;
 REVOKE UPDATE (id, created_by, created_at) ON public.workspaces FROM PUBLIC, anon, authenticated;
 REVOKE UPDATE (id, creator_id, workspace_id, scope, completion_mode, completed, completed_at, created_at)
