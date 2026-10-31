@@ -480,8 +480,11 @@ GRANT SELECT ON public.task_progress TO authenticated;
 -- trigger enforces identity, task membership and the rate limit on every INSERT.
 GRANT INSERT, UPDATE ON public.focus_sessions TO authenticated;
 
--- Co-members can see names and IDs, never another user's email address.
-REVOKE SELECT (email) ON public.profiles FROM PUBLIC, anon, authenticated;
+-- Remove any legacy table-level privileges, then grant only non-sensitive profile fields.
+REVOKE ALL ON public.profiles FROM PUBLIC, anon, authenticated;
+REVOKE SELECT (email), INSERT (email), UPDATE (email), REFERENCES (email)
+    ON public.profiles FROM PUBLIC, anon, authenticated;
 GRANT SELECT (id, display_name, updated_at) ON public.profiles TO authenticated;
+GRANT UPDATE (display_name, updated_at) ON public.profiles TO authenticated;
 
 NOTIFY pgrst, 'reload schema';
