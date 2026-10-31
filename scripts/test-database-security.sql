@@ -1,4 +1,33 @@
+-- Run as the database owner on a disposable database, or in the same transaction as
+-- the proposed migration. Every fixture and schema change must be rolled back.
+-- This tests actual PostgreSQL roles, grants, RLS, triggers, and RPCs, not a mock.
 BEGIN;
+DO $$
+DECLARE v_rate_limits_oid OID := to_regclass('private.rate_limits');
+BEGIN
+    IF v_rate_limits_oid IS NULL THEN
+        RAISE EXCEPTION 'private.rate_limits table was not created';
+    END IF;
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = v_rate_limits_oid) THEN
+        RAISE EXCEPTION 'private.rate_limits must have row level security enabled';
+    END IF;
+    IF has_table_privilege('anon', 'private.rate_limits', 'SELECT')
+       OR has_table_privilege('authenticated', 'private.rate_limits', 'SELECT')
+       OR has_table_privilege('anon', 'private.rate_limits', 'INSERT')
+       OR has_table_privilege('authenticated', 'private.rate_limits', 'INSERT') THEN
+        RAISE EXCEPTION 'API roles must not access internal rate-limit counters';
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = v_rate_limits_oid
+          AND contype = 'p'
+          AND pg_get_constraintdef(oid) = 'PRIMARY KEY (key)'
+    ) THEN
+        RAISE EXCEPTION 'private.rate_limits.key must be unique for atomic upserts';
+    END IF;
+END;
+$$;
+
 
 DO $$
 DECLARE v_rate_limits_oid OID := to_regclass('private.rate_limits');
