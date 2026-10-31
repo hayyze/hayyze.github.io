@@ -605,7 +605,7 @@ CREATE OR REPLACE FUNCTION public.record_focus_session(
     p_ended_at TIMESTAMPTZ,
     p_duration_seconds INT
 )
-RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
     v_user_id UUID := auth.uid();
     v_workspace_id UUID := p_workspace_id;
