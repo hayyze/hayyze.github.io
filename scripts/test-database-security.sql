@@ -101,6 +101,20 @@ BEGIN
     IF NOT has_function_privilege('authenticated', 'private.can_view_task(uuid,uuid)', 'EXECUTE') THEN
         RAISE EXCEPTION 'RLS helper cannot be called by the policy role';
     END IF;
+    IF has_function_privilege('authenticated', 'private.consume_rpc_rate_limit(text)', 'EXECUTE') THEN
+        RAISE EXCEPTION 'API clients must not be able to call or control the internal rate-limit helper';
+    END IF;
+    IF has_table_privilege('authenticated', 'public.workspaces', 'INSERT')
+       OR has_table_privilege('authenticated', 'public.tasks', 'INSERT')
+       OR has_table_privilege('authenticated', 'public.workspace_members', 'INSERT')
+       OR has_table_privilege('authenticated', 'public.task_members', 'INSERT')
+       OR has_table_privilege('authenticated', 'public.task_progress', 'INSERT')
+       OR has_table_privilege('authenticated', 'public.task_progress', 'UPDATE') THEN
+        RAISE EXCEPTION 'direct REST inserts/progress updates can bypass validated RPCs';
+    END IF;
+    IF NOT has_table_privilege('authenticated', 'public.focus_sessions', 'INSERT') THEN
+        RAISE EXCEPTION 'legacy own focus-session inserts must remain compatible';
+    END IF;
     BEGIN
         PERFORM public.is_workspace_member(current_setting('hayyiz_test.workspace')::uuid, auth.uid());
         RAISE EXCEPTION 'legacy public membership helper is executable';
