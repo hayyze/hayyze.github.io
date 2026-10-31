@@ -17,6 +17,7 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
     let taskMembersCache = {}; // task_id -> Array of task_members/profiles
     let taskProgressCache = {}; // task_id -> Array of progress items
     let focusSessionsCache = [];
+    let pendingWorkspaceInvitationsCache = [];
 
     let realtimeSubscription = null;
     let authListenerRegistered = false;
@@ -219,6 +220,8 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
         taskMembersCache = {};
         taskProgressCache = {};
         focusSessionsCache = [];
+        pendingWorkspaceInvitationsCache = [];
+        renderPendingWorkspaceInvitations();
 
         if (realtimeSubscription) {
             const previousChannel = realtimeSubscription;
@@ -290,6 +293,16 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
         try {
             const client = await getSupabase();
             if (!client || !currentUser) return;
+
+            const { data: invitations = [], error: invitationsError } = await client.rpc('get_my_workspace_invitations');
+            if (!stillCurrent()) return;
+            if (invitationsError) {
+                console.warn('Could not load workspace invitations:', invitationsError);
+                pendingWorkspaceInvitationsCache = [];
+            } else {
+                pendingWorkspaceInvitationsCache = Array.isArray(invitations) ? invitations : [];
+            }
+            renderPendingWorkspaceInvitations();
 
             // 1. Fetch User Workspaces (Selected Columns)
             const { data: wsData, error: wsError } = await client
@@ -517,6 +530,81 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
         }
         renderFocusStats();
         renderActiveWorkspaceHeader();
+    }
+
+
+    /**
+     * Render invitations addressed to the signed-in user.
+     * Invitation details are returned only by a recipient-scoped RPC.
+     */
+    function renderPendingWorkspaceInvitations() {
+        const panel = $('workspace-invitations-panel');
+        const list = $('workspace-invitations-list');
+        if (!panel || !list) return;
+
+        list.replaceChildren();
+        if (!currentUser || pendingWorkspaceInvitationsCache.length === 0) {
+            panel.classList.add('hidden');
+            return;
+        }
+
+        panel.classList.remove('hidden');
+        pendingWorkspaceInvitationsCache.forEach(invitation => {
+            const item = document.createElement('div');
+            item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; padding: 0.85rem 0; border-bottom: 1px solid var(--border);';
+
+            const details = document.createElement('div');
+            details.style.cssText = 'min-width: 0; flex: 1;';
+            const title = document.createElement('strong');
+            title.textContent = invitation.workspace_name || 'مساحة دراسية';
+            const description = document.createElement('p');
+            description.style.cssText = 'margin: 0.25rem 0; color: var(--text-muted); font-size: 0.9rem;';
+            description.textContent = invitation.workspace_description || 'تمت دعوتك للانضمام إلى هذه المساحة.';
+            const inviter = document.createElement('p');
+            inviter.style.cssText = 'margin: 0; color: var(--text-muted); font-size: 0.82rem;';
+            inviter.textContent = 'الدعوة من: ' + (invitation.inviter_name || 'عضو');
+            details.append(title, description, inviter);
+
+            const actions = document.createElement('div');
+            actions.style.cssText = 'display: flex; gap: 0.5rem; flex-wrap: wrap;';
+            const accept = document.createElement('button');
+            accept.type = 'button';
+            accept.className = 'btn btn-primary btn-sm';
+            accept.textContent = 'قبول الدعوة';
+            const decline = document.createElement('button');
+            decline.type = 'button';
+            decline.className = 'btn btn-outline btn-sm';
+            decline.textContent = 'رفض';
+
+            const respond = async accepted => {
+                accept.disabled = true;
+                decline.disabled = true;
+                try {
+                    const client = await getSupabase();
+                    const { data, error } = await client.rpc('respond_to_workspace_invitation', {
+                        p_invitation_id: invitation.invitation_id,
+                        p_accept: accepted
+                    });
+                    if (error) throw error;
+                    if (!data || !data.success) {
+                        throw new Error((data && data.message) || 'تعذر معالجة الدعوة.');
+                    }
+                    if (accepted) activeWorkspaceId = invitation.workspace_id;
+                    alert(data.message || (accepted ? 'تم قبول الدعوة.' : 'تم رفض الدعوة.'));
+                    await loadAllWorkspaceData();
+                } catch (error) {
+                    accept.disabled = false;
+                    decline.disabled = false;
+                    alert('تعذر معالجة الدعوة: ' + (error.message || ''));
+                }
+            };
+
+            accept.addEventListener('click', () => respond(true));
+            decline.addEventListener('click', () => respond(false));
+            actions.append(accept, decline);
+            item.append(details, actions);
+            list.appendChild(item);
+        });
     }
 
     /**
@@ -1104,12 +1192,12 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
                 try {
                     const res = await addWorkspaceMemberByEmail(activeWorkspaceId, email);
                     if (res && res.success) {
-                        alert(res.message || 'تمت معالجة طلب الإضافة.');
+                        alert(res.message || 'تمت معالجة طلب الدعوة.');
                         formAddMember.reset();
                         $('modal-add-member').classList.add('hidden');
                         await loadAllWorkspaceData();
                     } else {
-                        alert(res.message || 'عذراً، لم نتمكن من إضافة العضو.');
+                        alert(res.message || 'تعذر إرسال الدعوة.');
                     }
                 } catch (err) {
                     alert('حدث خطأ أثناء دعوة العضو: ' + (err.message || ''));
