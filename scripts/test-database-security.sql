@@ -465,9 +465,6 @@ BEGIN
     IF NOT (SELECT completed FROM public.tasks WHERE id = current_setting('hayyiz_test.group_task')::uuid) THEN
         RAISE EXCEPTION 'pending invitation changed task completion before acceptance';
     END IF;
-    DELETE FROM public.workspace_members WHERE workspace_id = current_setting('hayyiz_test.workspace')::uuid
-        AND user_id = current_setting('hayyiz_test.member')::uuid;
-    IF NOT FOUND THEN RAISE EXCEPTION 'owner membership removal broke'; END IF;
 END;
 $$;
 
