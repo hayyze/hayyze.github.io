@@ -123,6 +123,7 @@ class SupabaseDbMock {
         this.task_members = [];
         this.task_progress = [];
         this.focus_sessions = [];
+        this.workspace_invitations = [];
         this.subscriptions = new Set();
     }
 
@@ -150,9 +151,8 @@ class SupabaseDbMock {
         return res.workspace;
     }
 
-    // RPC: add_workspace_member_by_email
+    // RPC: add_workspace_member_by_email; membership starts only after recipient acceptance.
     addWorkspaceMemberByEmail(currentUser, workspaceId, email) {
-        // RLS & Security Check: Only owners can add members
         const isOwner = this.workspace_members.some(wm => wm.workspace_id === workspaceId && wm.user_id === currentUser.id && wm.role === 'owner');
         if (!isOwner) throw new Error('42501: Only workspace owners can invite members');
 
@@ -160,17 +160,46 @@ class SupabaseDbMock {
         const targetProfile = Object.values(this.profiles).find(p => p.email.toLowerCase() === cleanEmail);
         const genericResult = {
             success: true,
-            message: 'تمت معالجة الطلب. إذا كان البريد مرتبطًا بحساب موثق وغير عضو بالفعل، فستتم إضافته إلى المساحة.'
+            message: 'تمت معالجة طلب الدعوة. إذا كان البريد مرتبطًا بحساب موثق، فستظهر الدعوة لصاحب الحساب ليقبلها.'
         };
-        const isDuplicate = targetProfile && this.workspace_members.some(
+        const isMember = targetProfile && this.workspace_members.some(
             wm => wm.workspace_id === workspaceId && wm.user_id === targetProfile.id
         );
-        if (!targetProfile || targetProfile.id === currentUser.id || isDuplicate) return genericResult;
+        if (!targetProfile || targetProfile.id === currentUser.id || isMember) return genericResult;
 
-        const newMember = { workspace_id: workspaceId, user_id: targetProfile.id, role: 'member' };
-        this.workspace_members.push(newMember);
-        this.notifyRealtime('workspace_members', 'INSERT', newMember);
+        const existing = this.workspace_invitations.find(inv => inv.workspace_id === workspaceId && inv.invited_user_id === targetProfile.id);
+        if (existing) {
+            existing.invited_by = currentUser.id;
+            existing.created_at = new Date().toISOString();
+        } else {
+            this.workspace_invitations.push({
+                id: 'invite_' + Math.random().toString(36).slice(2, 9),
+                workspace_id: workspaceId,
+                invited_user_id: targetProfile.id,
+                invited_by: currentUser.id,
+                created_at: new Date().toISOString()
+            });
+        }
         return genericResult;
+    }
+
+    getMyWorkspaceInvitations(currentUser) {
+        if (!currentUser) throw new Error('42501: Authentication required');
+        return this.workspace_invitations.filter(inv => inv.invited_user_id === currentUser.id);
+    }
+
+    respondToWorkspaceInvitation(currentUser, invitationId, accept) {
+        if (!currentUser) throw new Error('42501: Authentication required');
+        const index = this.workspace_invitations.findIndex(inv => inv.id === invitationId && inv.invited_user_id === currentUser.id);
+        if (index < 0) throw new Error('42501: Invitation not found');
+        const invitation = this.workspace_invitations[index];
+        this.workspace_invitations.splice(index, 1);
+        if (accept && !this.workspace_members.some(m => m.workspace_id === invitation.workspace_id && m.user_id === currentUser.id)) {
+            const newMember = { workspace_id: invitation.workspace_id, user_id: currentUser.id, role: 'member' };
+            this.workspace_members.push(newMember);
+            this.notifyRealtime('workspace_members', 'INSERT', newMember);
+        }
+        return { success: true, accepted: Boolean(accept) };
     }
 
     // Profile Privacy Policy Lookup Simulation
@@ -633,13 +662,17 @@ let ws = null;
         '15. Profile privacy blocks unrelated accounts and returns no email column');
 }
 
-// Scenario 16: Invite existing user by email works
+// Scenario 16: A verified target receives a private invitation and joins only after accepting.
 {
     const before = db.workspace_members.filter(m => m.workspace_id === ws.id).length;
     const res = db.addWorkspaceMemberByEmail(user1, ws.id, user2.email);
-    const after = db.workspace_members.filter(m => m.workspace_id === ws.id).length;
-    assert(res.success === true && !Object.hasOwn(res, 'user_id') && after === before + 1,
-        '16. Existing member is added, but the RPC response does not disclose the target user ID');
+    const pending = db.getMyWorkspaceInvitations(user2);
+    const afterInvite = db.workspace_members.filter(m => m.workspace_id === ws.id).length;
+    const accepted = pending.length === 1 && db.respondToWorkspaceInvitation(user2, pending[0].id, true);
+    const afterAccept = db.workspace_members.filter(m => m.workspace_id === ws.id).length;
+    assert(res.success === true && !Object.hasOwn(res, 'user_id') &&
+        afterInvite === before && accepted && afterAccept === before + 1,
+        '16. Invitee sees a private invitation; membership is created only after recipient acceptance');
 }
 
 // Scenario 17: Duplicate email invite does not create duplicate member
