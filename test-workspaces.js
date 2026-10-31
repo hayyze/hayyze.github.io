@@ -158,26 +158,25 @@ class SupabaseDbMock {
 
         const cleanEmail = String(email).trim().toLowerCase();
         const targetProfile = Object.values(this.profiles).find(p => p.email.toLowerCase() === cleanEmail);
-
-        if (!targetProfile) {
-            return { success: false, message: 'المستخدم غير موجود بهذا البريد الإلكتروني' };
-        }
-
-        const isDuplicate = this.workspace_members.some(wm => wm.workspace_id === workspaceId && wm.user_id === targetProfile.id);
-        if (isDuplicate) {
-            return { success: false, message: 'المستخدم عضو بالفعل في هذه المساحة' };
-        }
+        const genericResult = {
+            success: true,
+            message: 'تمت معالجة الطلب. إذا كان البريد مرتبطًا بحساب موثق وغير عضو بالفعل، فستتم إضافته إلى المساحة.'
+        };
+        const isDuplicate = targetProfile && this.workspace_members.some(
+            wm => wm.workspace_id === workspaceId && wm.user_id === targetProfile.id
+        );
+        if (!targetProfile || targetProfile.id === currentUser.id || isDuplicate) return genericResult;
 
         const newMember = { workspace_id: workspaceId, user_id: targetProfile.id, role: 'member' };
         this.workspace_members.push(newMember);
         this.notifyRealtime('workspace_members', 'INSERT', newMember);
-        return { success: true, user_id: targetProfile.id, message: 'تمت إضافة العضو بنجاح' };
+        return genericResult;
     }
 
     // Profile Privacy Policy Lookup Simulation
     getProfilesVisibleTo(currentUser) {
         if (!currentUser) return [];
-        return Object.values(this.profiles).filter(p => {
+        const visible = Object.values(this.profiles).filter(p => {
             if (p.id === currentUser.id) return true;
             // Visible if co-member in workspace
             const isCoWsMember = this.workspace_members.some(wm1 =>
@@ -195,6 +194,7 @@ class SupabaseDbMock {
 
             return false;
         });
+        return visible.map(({ id, display_name }) => ({ id, display_name }));
     }
 
     // Atomic RPC Simulation: create_synchronized_task
@@ -628,19 +628,30 @@ let ws = null;
 // Scenario 15: Profile list not exposed globally (privacy enforced)
 {
     const visibleProfilesUser4 = db.getProfilesVisibleTo(user4);
-    assert(visibleProfilesUser4.length === 1 && visibleProfilesUser4[0].id === user4.id, '15. Profile privacy strictly prevents global email exposure to non-co-members');
+    assert(visibleProfilesUser4.length === 1 && visibleProfilesUser4[0].id === user4.id &&
+        !Object.hasOwn(visibleProfilesUser4[0], 'email'),
+        '15. Profile privacy blocks unrelated accounts and returns no email column');
 }
 
 // Scenario 16: Invite existing user by email works
 {
+    const before = db.workspace_members.filter(m => m.workspace_id === ws.id).length;
     const res = db.addWorkspaceMemberByEmail(user1, ws.id, user2.email);
-    assert(res.success === true, '16. Inviting existing user by email successfully adds member to workspace');
+    const after = db.workspace_members.filter(m => m.workspace_id === ws.id).length;
+    assert(res.success === true && !Object.hasOwn(res, 'user_id') && after === before + 1,
+        '16. Existing member is added, but the RPC response does not disclose the target user ID');
 }
 
 // Scenario 17: Duplicate email invite does not create duplicate member
 {
-    const res = db.addWorkspaceMemberByEmail(user1, ws.id, user2.email);
-    assert(res.success === false && res.message.includes('عضو بالفعل'), '17. Duplicate email invite is rejected with friendly Arabic alert without duplicate');
+    const before = db.workspace_members.filter(m => m.workspace_id === ws.id).length;
+    const duplicate = db.addWorkspaceMemberByEmail(user1, ws.id, user2.email);
+    const unknown = db.addWorkspaceMemberByEmail(user1, ws.id, 'not-registered@example.invalid');
+    const after = db.workspace_members.filter(m => m.workspace_id === ws.id).length;
+    assert(duplicate.success === true && unknown.success === true &&
+        duplicate.message === unknown.message && !Object.hasOwn(duplicate, 'user_id') &&
+        !Object.hasOwn(unknown, 'user_id') && after === before,
+        '17. Duplicate and unknown addresses receive the same response without creating duplicate memberships');
 }
 
 // Scenario 18: Focus session links to permitted task
