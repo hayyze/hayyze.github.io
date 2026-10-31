@@ -1,6 +1,8 @@
 -- Hayyiz security hardening: server-enforced RPC limits and private profile emails.
 -- Additive migration. Existing rows and identifiers are preserved.
--- All inserts/progress/focus writes are moved behind validated, rate-limited RPCs.
+-- All privileged inserts/progress changes use validated, rate-limited RPCs.
+-- Direct own focus-session inserts remain supported for legacy clients; the
+-- BEFORE INSERT trigger applies the same account-level rate limit to them.
 CREATE SCHEMA IF NOT EXISTS private;
 
 CREATE OR REPLACE FUNCTION private.check_rate_limit(
@@ -382,12 +384,7 @@ BEGIN
     IF v_id IS NOT NULL THEN
         RETURN jsonb_build_object('success', true, 'id', v_id);
     END IF;
-    IF NOT private.consume_rpc_rate_limit('focus_session_write') THEN
-        RAISE EXCEPTION 'Rate limit exceeded. Please retry later.'
-            USING ERRCODE = 'PGRST',
-                  DETAIL = '{"status": 429, "status_text": "Too Many Requests"}',
-                  HINT = 'HTTP 429 Too Many Requests';
-    END IF;
+    -- The BEFORE INSERT trigger applies the shared rate limit, including legacy direct writes.
     IF p_task_id IS NOT NULL THEN
         IF NOT private.can_view_task(p_task_id, v_user_id) THEN
             RAISE EXCEPTION 'Unauthorized: Task permission denied.' USING ERRCODE = '42501';
@@ -418,17 +415,70 @@ BEGIN
 END;
 $$;
 
--- Keep the rate-limit helper internal to trusted SECURITY DEFINER RPCs.
+CREATE OR REPLACE FUNCTION public.validate_focus_session()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE v_task_ws_id UUID;
+BEGIN
+    -- FK SET NULL actions preserve another member's history when a task/workspace is deleted.
+    -- Only the internal referential action may clear a vanished reference; all other fields stay fixed.
+    IF TG_OP = 'UPDATE' AND pg_trigger_depth() > 1
+       AND ROW(NEW.id, NEW.user_id, NEW.client_session_id, NEW.started_at, NEW.ended_at, NEW.duration_seconds, NEW.created_at)
+           IS NOT DISTINCT FROM ROW(OLD.id, OLD.user_id, OLD.client_session_id, OLD.started_at, OLD.ended_at, OLD.duration_seconds, OLD.created_at)
+       AND (NEW.task_id IS NOT DISTINCT FROM OLD.task_id OR
+            (NEW.task_id IS NULL AND NOT EXISTS (SELECT 1 FROM public.tasks WHERE id = OLD.task_id)))
+       AND (NEW.workspace_id IS NOT DISTINCT FROM OLD.workspace_id OR
+            (NEW.workspace_id IS NULL AND NOT EXISTS (SELECT 1 FROM public.workspaces WHERE id = OLD.workspace_id))) THEN
+        -- A removed task must not turn its private session into a workspace-wide session.
+        IF NEW.task_id IS NULL AND OLD.task_id IS NOT NULL THEN
+            NEW.workspace_id := NULL;
+        END IF;
+        RETURN NEW;
+    END IF;
+    IF NEW.user_id IS NULL OR NEW.user_id <> auth.uid() THEN
+        RAISE EXCEPTION 'Unauthorized: user_id must match authenticated user identity.' USING ERRCODE = '42501';
+    END IF;
+    -- Legacy clients may still insert own focus rows directly. Enforce the same
+    -- server-side per-account limit at the table boundary, not just in the RPC.
+    IF TG_OP = 'INSERT' AND NOT private.consume_rpc_rate_limit('focus_session_write') THEN
+        RAISE EXCEPTION 'Rate limit exceeded. Please retry later.'
+            USING ERRCODE = 'PGRST',
+                  DETAIL = '{"status": 429, "status_text": "Too Many Requests"}',
+                  HINT = 'HTTP 429 Too Many Requests';
+    END IF;
+    IF NEW.duration_seconds < 0 OR NEW.duration_seconds > 86400 THEN
+        RAISE EXCEPTION 'Invalid duration_seconds.' USING ERRCODE = '22023';
+    END IF;
+    IF NEW.task_id IS NOT NULL THEN
+        IF NOT private.can_view_task(NEW.task_id, NEW.user_id) THEN
+            RAISE EXCEPTION 'Unauthorized: User does not have access to specified task.' USING ERRCODE = '42501';
+        END IF;
+        SELECT workspace_id INTO v_task_ws_id FROM public.tasks WHERE id = NEW.task_id;
+        IF NEW.workspace_id IS NOT NULL AND NEW.workspace_id IS DISTINCT FROM v_task_ws_id THEN
+            RAISE EXCEPTION 'Mismatch: task_id does not belong to specified workspace_id.' USING ERRCODE = '22000';
+        END IF;
+        NEW.workspace_id := v_task_ws_id;
+    END IF;
+    IF NEW.workspace_id IS NOT NULL AND NOT private.is_workspace_member(NEW.workspace_id, NEW.user_id) THEN
+        RAISE EXCEPTION 'Unauthorized: User is not a member of specified workspace.' USING ERRCODE = '42501';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+-- Keep the rate-limit helper internal to trusted SECURITY DEFINER RPCs/triggers.
 GRANT USAGE ON SCHEMA private TO authenticated;
 REVOKE ALL ON FUNCTION private.consume_rpc_rate_limit(TEXT) FROM PUBLIC, anon, authenticated;
 
 -- Prevent direct REST writes from bypassing RPC validation and rate limits.
 REVOKE INSERT ON public.workspaces, public.tasks, public.workspace_members, public.task_members
     FROM PUBLIC, anon, authenticated;
-REVOKE INSERT, UPDATE ON public.task_progress, public.focus_sessions
+REVOKE INSERT, UPDATE ON public.task_progress
     FROM PUBLIC, anon, authenticated;
 GRANT SELECT, DELETE ON public.workspaces, public.tasks, public.workspace_members, public.task_members TO authenticated;
-GRANT SELECT ON public.task_progress, public.focus_sessions TO authenticated;
+GRANT SELECT ON public.task_progress TO authenticated;
+-- Focus session writes remain compatible with legacy clients; their validation
+-- trigger enforces identity, task membership and the rate limit on every INSERT.
+GRANT INSERT, UPDATE ON public.focus_sessions TO authenticated;
 
 -- Co-members can see names and IDs, never another user's email address.
 REVOKE SELECT (email) ON public.profiles FROM PUBLIC, anon, authenticated;
