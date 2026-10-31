@@ -930,6 +930,14 @@ BEGIN
     IF NEW.user_id IS NULL OR NEW.user_id <> auth.uid() THEN
         RAISE EXCEPTION 'Unauthorized: user_id must match authenticated user identity.' USING ERRCODE = '42501';
     END IF;
+    -- Legacy clients may still insert own focus rows directly. Enforce the same
+    -- server-side per-account limit at the table boundary, not just in the RPC.
+    IF TG_OP = 'INSERT' AND NOT private.consume_rpc_rate_limit('focus_session_write') THEN
+        RAISE EXCEPTION 'Rate limit exceeded. Please retry later.'
+            USING ERRCODE = 'PGRST',
+                  DETAIL = '{"status": 429, "status_text": "Too Many Requests"}',
+                  HINT = 'HTTP 429 Too Many Requests';
+    END IF;
     IF NEW.duration_seconds < 0 OR NEW.duration_seconds > 86400 THEN
         RAISE EXCEPTION 'Invalid duration_seconds.' USING ERRCODE = '22023';
     END IF;
@@ -1272,12 +1280,7 @@ BEGIN
     IF v_id IS NOT NULL THEN
         RETURN jsonb_build_object('success', true, 'id', v_id);
     END IF;
-    IF NOT private.consume_rpc_rate_limit('focus_session_write') THEN
-        RAISE EXCEPTION 'Rate limit exceeded. Please retry later.'
-            USING ERRCODE = 'PGRST',
-                  DETAIL = '{"status": 429, "status_text": "Too Many Requests"}',
-                  HINT = 'HTTP 429 Too Many Requests';
-    END IF;
+    -- The BEFORE INSERT trigger applies the shared rate limit, including legacy direct writes.
     IF p_task_id IS NOT NULL THEN
         IF NOT private.can_view_task(p_task_id, v_user_id) THEN
             RAISE EXCEPTION 'Unauthorized: Task permission denied.' USING ERRCODE = '42501';
@@ -1506,10 +1509,11 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.sync_items TO authenticated;
 -- rate-limited SECURITY DEFINER RPCs. Direct REST writes would bypass those limits.
 REVOKE INSERT ON public.workspaces, public.tasks, public.workspace_members, public.task_members
     FROM PUBLIC, anon, authenticated;
-REVOKE INSERT, UPDATE ON public.task_progress, public.focus_sessions
+REVOKE INSERT, UPDATE ON public.task_progress
     FROM PUBLIC, anon, authenticated;
 GRANT SELECT, DELETE ON public.workspaces, public.tasks, public.workspace_members, public.task_members TO authenticated;
-GRANT SELECT ON public.task_progress, public.focus_sessions TO authenticated;
+GRANT SELECT ON public.task_progress TO authenticated;
+GRANT INSERT, UPDATE ON public.focus_sessions TO authenticated;
 REVOKE UPDATE ON public.workspaces, public.tasks FROM PUBLIC, anon, authenticated;
 REVOKE UPDATE (id, created_by, created_at) ON public.workspaces FROM PUBLIC, anon, authenticated;
 REVOKE UPDATE (id, creator_id, workspace_id, scope, completion_mode, completed, completed_at, created_at)
