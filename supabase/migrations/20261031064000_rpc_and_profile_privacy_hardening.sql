@@ -1,6 +1,7 @@
--- Hayyiz security hardening: atomic per-account RPC limits and profile privacy.
--- Additive migration; no existing rows, workspaces, tasks or sessions are deleted.
--- Review this migration against scripts/test-database-security.sql before deployment.
+-- Hayyiz security hardening: server-enforced RPC limits and private profile emails.
+-- Additive migration. Existing rows and identifiers are preserved.
+-- All inserts/progress/focus writes are moved behind validated, rate-limited RPCs.
+CREATE SCHEMA IF NOT EXISTS private;
 
 CREATE OR REPLACE FUNCTION private.check_rate_limit(
     p_key TEXT,
@@ -10,7 +11,7 @@ CREATE OR REPLACE FUNCTION private.check_rate_limit(
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $$
 DECLARE
     now_ts TIMESTAMPTZ := NOW();
     current_attempts INT;
@@ -45,100 +46,6 @@ BEGIN
 
     RETURN current_attempts <= p_max_attempts;
 END;
-$;
-
--- Rate limits for authenticated RPCs. Clients cannot choose the limits or the
--- action names; this helper derives the bucket from the JWT subject.
-CREATE OR REPLACE FUNCTION private.consume_rpc_rate_limit(p_action TEXT)
-RETURNS BOOLEAN
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $
-DECLARE
-    v_user_id UUID := auth.uid();
-    v_max_attempts INT;
-    v_window_seconds INT;
-BEGIN
-    IF v_user_id IS NULL THEN
-        RAISE EXCEPTION 'Unauthorized: Authentication required.' USING ERRCODE = '42501';
-    END IF;
-
-    CASE p_action
-        WHEN 'workspace_create' THEN v_max_attempts := 10; v_window_seconds := 3600;
-        WHEN 'workspace_invite' THEN v_max_attempts := 20; v_window_seconds := 3600;
-        WHEN 'task_create' THEN v_max_attempts := 120; v_window_seconds := 3600;
-        WHEN 'task_progress' THEN v_max_attempts := 120; v_window_seconds := 60;
-        WHEN 'focus_session_write' THEN v_max_attempts := 300; v_window_seconds := 86400;
-        ELSE
-            RAISE EXCEPTION 'Invalid rate-limit action.' USING ERRCODE = '22023';
-    END CASE;
-
-    RETURN private.check_rate_limit(
-        'rpc:' || p_action || ':' || v_user_id::TEXT,
-        v_max_attempts,
-        v_window_seconds
-    );
-END;
-$;
-
-CREATE OR REPLACE FUNCTION private.pre_request()
-RETURNS VOID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-DECLARE
-    req_method TEXT;
-    req_path TEXT;
-    req_headers_json TEXT;
-    client_ip TEXT := 'unknown';
-    current_uid UUID;
-    user_rate_allowed BOOLEAN := TRUE;
-    ip_rate_allowed BOOLEAN := TRUE;
-    headers_jsonb JSONB;
-BEGIN
-    req_method := NULLIF(current_setting('request.method', TRUE), '');
-    req_path   := NULLIF(current_setting('request.path', TRUE), '');
-    req_headers_json := NULLIF(current_setting('request.headers', TRUE), '');
-    current_uid := auth.uid();
-
-    IF req_headers_json IS NOT NULL THEN
-        BEGIN
-            headers_jsonb := req_headers_json::jsonb;
-            client_ip := COALESCE(
-                NULLIF(trim(split_part(headers_jsonb->>'x-forwarded-for', ',', 1)), ''),
-                'unknown'
-            );
-        EXCEPTION WHEN OTHERS THEN
-            client_ip := 'unknown';
-        END;
-    END IF;
-
-    IF req_method IN ('POST', 'PATCH', 'PUT', 'DELETE') AND (req_path IS NULL OR req_path LIKE '%sync_items%') THEN
-        IF current_uid IS NOT NULL THEN
-            user_rate_allowed := private.check_rate_limit('sync_write_user:' || current_uid::text, 120, 60);
-        END IF;
-
-        IF client_ip <> 'unknown' THEN
-            ip_rate_allowed := private.check_rate_limit('sync_write_ip:' || client_ip, 300, 60);
-        ELSE
-            IF current_uid IS NULL THEN
-                user_rate_allowed := private.check_rate_limit('sync_write_anon_global', 60, 60);
-            END IF;
-        END IF;
-
-        IF NOT user_rate_allowed OR NOT ip_rate_allowed THEN
-            PERFORM set_config('response.status', '429', FALSE);
-            PERFORM set_config('response.headers', '[{"Retry-After": "60"}]', FALSE);
-
-            RAISE EXCEPTION 'Rate limit exceeded: Too many write requests to sync_items. Please wait before retrying.'
-                USING ERRCODE = 'PGRST',
-                      DETAIL = '{"status": 429, "status_text": "Too Many Requests", "headers": [{"Retry-After": "60"}]}',
-                      HINT = 'HTTP 429 Too Many Requests';
-        END IF;
-    END IF;
-END;
 $$;
 
 CREATE OR REPLACE FUNCTION private.consume_rpc_rate_limit(p_action TEXT)
@@ -146,7 +53,7 @@ RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $$
 DECLARE
     v_user_id UUID := auth.uid();
     v_max_attempts INT;
@@ -171,65 +78,6 @@ BEGIN
         v_max_attempts,
         v_window_seconds
     );
-END;
-$;
-
-CREATE OR REPLACE FUNCTION private.pre_request()
-RETURNS VOID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-DECLARE
-    req_method TEXT;
-    req_path TEXT;
-    req_headers_json TEXT;
-    client_ip TEXT := 'unknown';
-    current_uid UUID;
-    user_rate_allowed BOOLEAN := TRUE;
-    ip_rate_allowed BOOLEAN := TRUE;
-    headers_jsonb JSONB;
-BEGIN
-    req_method := NULLIF(current_setting('request.method', TRUE), '');
-    req_path   := NULLIF(current_setting('request.path', TRUE), '');
-    req_headers_json := NULLIF(current_setting('request.headers', TRUE), '');
-    current_uid := auth.uid();
-
-    IF req_headers_json IS NOT NULL THEN
-        BEGIN
-            headers_jsonb := req_headers_json::jsonb;
-            client_ip := COALESCE(
-                NULLIF(trim(split_part(headers_jsonb->>'x-forwarded-for', ',', 1)), ''),
-                'unknown'
-            );
-        EXCEPTION WHEN OTHERS THEN
-            client_ip := 'unknown';
-        END;
-    END IF;
-
-    IF req_method IN ('POST', 'PATCH', 'PUT', 'DELETE') AND (req_path IS NULL OR req_path LIKE '%sync_items%') THEN
-        IF current_uid IS NOT NULL THEN
-            user_rate_allowed := private.check_rate_limit('sync_write_user:' || current_uid::text, 120, 60);
-        END IF;
-
-        IF client_ip <> 'unknown' THEN
-            ip_rate_allowed := private.check_rate_limit('sync_write_ip:' || client_ip, 300, 60);
-        ELSE
-            IF current_uid IS NULL THEN
-                user_rate_allowed := private.check_rate_limit('sync_write_anon_global', 60, 60);
-            END IF;
-        END IF;
-
-        IF NOT user_rate_allowed OR NOT ip_rate_allowed THEN
-            PERFORM set_config('response.status', '429', FALSE);
-            PERFORM set_config('response.headers', '[{"Retry-After": "60"}]', FALSE);
-
-            RAISE EXCEPTION 'Rate limit exceeded: Too many write requests to sync_items. Please wait before retrying.'
-                USING ERRCODE = 'PGRST',
-                      DETAIL = '{"status": 429, "status_text": "Too Many Requests", "headers": [{"Retry-After": "60"}]}',
-                      HINT = 'HTTP 429 Too Many Requests';
-        END IF;
-    END IF;
 END;
 $$;
 
@@ -403,7 +251,7 @@ RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $$
 DECLARE
     v_target_user_id UUID;
     v_caller_id UUID := auth.uid();
@@ -443,64 +291,6 @@ BEGIN
     VALUES (p_workspace_id, v_target_user_id, 'member');
 
     RETURN v_generic_result;
-END;
-$;
-
--- Atomic RPC Function: set_task_progress_and_recalculate
--- Signature: public.set_task_progress_and_recalculate(UUID, BOOLEAN)
-CREATE OR REPLACE FUNCTION public.set_task_progress_and_recalculate(
-    p_task_id UUID,
-    p_completed BOOLEAN
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-DECLARE
-    v_caller_id UUID := auth.uid();
-    v_task RECORD;
-    v_now_iso TIMESTAMPTZ := NOW();
-    v_is_fully_completed BOOLEAN := FALSE;
-BEGIN
-    IF v_caller_id IS NULL THEN
-        RAISE EXCEPTION 'Unauthorized: Authentication required.' USING ERRCODE = '42501';
-    END IF;
-
-    IF NOT private.can_view_task(p_task_id, v_caller_id) THEN
-        RAISE EXCEPTION 'Unauthorized: Task permission denied.' USING ERRCODE = '42501';
-    END IF;
-    IF NOT private.consume_rpc_rate_limit('task_progress') THEN
-        RAISE EXCEPTION 'Rate limit exceeded. Please retry later.'
-            USING ERRCODE = 'PGRST',
-                  DETAIL = '{"status": 429, "status_text": "Too Many Requests"}',
-                  HINT = 'HTTP 429 Too Many Requests';
-    END IF;
-
-    SELECT * INTO v_task FROM public.tasks WHERE id = p_task_id FOR UPDATE;
-
-    -- 1. Upsert caller's task progress
-    INSERT INTO public.task_progress (task_id, user_id, completed, completed_at, updated_at)
-    VALUES (p_task_id, v_caller_id, p_completed, CASE WHEN p_completed THEN v_now_iso ELSE NULL END, v_now_iso)
-    ON CONFLICT (task_id, user_id) DO UPDATE
-    SET completed = EXCLUDED.completed,
-        completed_at = EXCLUDED.completed_at,
-        updated_at = EXCLUDED.updated_at;
-
-    -- 2. If collaborative mode, calculate exact group completion
-    IF v_task.completion_mode = 'collaborative' THEN
-        v_is_fully_completed := public.recalculate_collaborative_task(p_task_id);
-    ELSE
-        v_is_fully_completed := p_completed;
-    END IF;
-
-    RETURN jsonb_build_object(
-        'success', true,
-        'task_id', p_task_id,
-        'user_completed', p_completed,
-        'collaborative', (v_task.completion_mode = 'collaborative'),
-        'is_fully_completed', v_is_fully_completed
-    );
 END;
 $$;
 
@@ -568,7 +358,7 @@ CREATE OR REPLACE FUNCTION public.record_focus_session(
     p_ended_at TIMESTAMPTZ,
     p_duration_seconds INT
 )
-RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
     v_user_id UUID := auth.uid();
     v_workspace_id UUID := p_workspace_id;
@@ -628,12 +418,11 @@ BEGIN
 END;
 $$;
 
--- The private helper is intentionally callable only by authenticated functions
--- in this non-exposed schema, never as a PostgREST public RPC.
+-- Keep the rate-limit helper internal to trusted SECURITY DEFINER RPCs.
 GRANT USAGE ON SCHEMA private TO authenticated;
 REVOKE ALL ON FUNCTION private.consume_rpc_rate_limit(TEXT) FROM PUBLIC, anon, authenticated;
 
--- Revoke direct table writes that would bypass the RPC rate limits.
+-- Prevent direct REST writes from bypassing RPC validation and rate limits.
 REVOKE INSERT ON public.workspaces, public.tasks, public.workspace_members, public.task_members
     FROM PUBLIC, anon, authenticated;
 REVOKE INSERT, UPDATE ON public.task_progress, public.focus_sessions
@@ -641,7 +430,7 @@ REVOKE INSERT, UPDATE ON public.task_progress, public.focus_sessions
 GRANT SELECT, DELETE ON public.workspaces, public.tasks, public.workspace_members, public.task_members TO authenticated;
 GRANT SELECT ON public.task_progress, public.focus_sessions TO authenticated;
 
--- Co-members may see display names, but never need another member's email address.
+-- Co-members can see names and IDs, never another user's email address.
 REVOKE SELECT (email) ON public.profiles FROM PUBLIC, anon, authenticated;
 GRANT SELECT (id, display_name, updated_at) ON public.profiles TO authenticated;
 
