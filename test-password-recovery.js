@@ -138,7 +138,8 @@ function buildEnvironment(page, options) {
 }
 
 async function tick() {
-    // Flush the client initialization and auth bootstrap promise chains.
+    // Let the bootstrap cross a Node event-loop turn, then flush its promise chain.
+    await new Promise(resolve => setImmediate(resolve));
     for (let i = 0; i < 8; i++) await Promise.resolve();
 }
 
@@ -226,6 +227,7 @@ async function tick() {
             expiresAt: Date.now() + 60000
         }));
         await tick();
+        assert.equal(env.calls.getUser, 1);
         assert.equal(env.elements.get('password-recovery-reset-form').hidden, true);
         assert.equal(env.elements.get('password-recovery-invalid').hidden, false);
         console.log('PASS stale recovery marker without a verified server session is rejected');
