@@ -130,9 +130,9 @@ function buildEnvironment(page, options) {
 }
 
 async function tick() {
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    // The page bootstrap awaits client initialization and may then await Auth;
+    // flush enough microtasks for both promise chains to settle deterministically.
+    for (let i = 0; i < 8; i++) await Promise.resolve();
 }
 
 (async () => {
@@ -200,7 +200,7 @@ async function tick() {
         assert.equal(env.calls.signOut[0].scope, 'global');
         assert.equal(env.elements.get('password-recovery-success').hidden, false);
         assert.equal(env.elements.get('password-recovery-reset-form').hidden, true);
-        console.log('PASS recovery event gates password update, validates input, and signs out the local recovery session');
+        console.log('PASS recovery event gates password update, validates input, and revokes refresh-token sessions');
     }
 
     {

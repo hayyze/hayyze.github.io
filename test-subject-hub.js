@@ -394,7 +394,7 @@ const s4a = hayyizAddSubject('الحاسب');
 const s4b = hayyizAddSubject('الإنجليزية');
 const task4a = { id: 't4a', text: 'برمجة مشروع', subjectId: s4a.id, completed: false };
 const task4b = { id: 't4b', text: 'English Homework', subjectId: s4b.id, completed: false };
-const exam4a = { id: 'ex4a', name: 'اختبار عملي حاسب', subjectId: s4a.id, date: '2026-11-01' };
+const exam4a = { id: 'ex4a', name: 'اختبار عملي حاسب', subjectId: s4a.id, date: todayStr };
 
 const dataSc4a = getSubjectHubData(s4a.id, { subjects: [s4a, s4b], todos: [task4a, task4b], exams: [exam4a], focusSessions: [], notes: [], goals: [] });
 const dataSc4b = getSubjectHubData(s4b.id, { subjects: [s4a, s4b], todos: [task4a, task4b], exams: [exam4a], focusSessions: [], notes: [], goals: [] });
