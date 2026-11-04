@@ -364,6 +364,7 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
                                 <button type="button" class="auth-password-toggle" aria-controls="auth-password" aria-label="إظهار كلمة المرور" aria-pressed="false">إظهار</button>
                             </div>
                         </div>
+                        <a href="forgot-password.html" class="auth-switch-link auth-forgot-link">نسيت كلمة المرور؟</a>
                         <button type="submit" id="auth-submit-btn" class="btn btn-primary width-full">
                             <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> تسجيل الدخول
                         </button>
