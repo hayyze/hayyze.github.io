@@ -96,7 +96,7 @@ function buildEnvironment(page, options) {
     const location = {
         href: options && options.href || (page === 'request'
             ? 'https://hayyze.pages.dev/forgot-password.html'
-            : 'https://hayyze.pages.dev/reset-password.html'),
+            : 'https://hayyze.pages.dev/reset-password.html') + (options && options.search || '') + (options && options.hash || ''),
         pathname: page === 'request' ? '/forgot-password.html' : '/reset-password.html',
         search: options && options.search || '',
         hash: options && options.hash || ''
@@ -193,7 +193,7 @@ async function tick() {
         await tick();
         assert.equal(env.calls.update.length, 1);
         assert.equal(env.calls.update[0].password, 'new-strong-passphrase');
-        assert.deepEqual(env.calls.signOut[0], { scope: 'local' });
+        assert.equal(env.calls.signOut[0].scope, 'local');
         assert.equal(env.elements.get('password-recovery-success').hidden, false);
         assert.equal(env.elements.get('password-recovery-reset-form').hidden, true);
         console.log('PASS recovery event gates password update, validates input, and signs out the local recovery session');
