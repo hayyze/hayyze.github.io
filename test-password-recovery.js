@@ -51,6 +51,14 @@ function buildEnvironment(page, options) {
             'password-recovery-reset-status', 'password-recovery-reset-form',
             'password-recovery-new-password', 'password-recovery-confirm-password', 'password-recovery-save-button'];
     const elements = new Map(ids.map(id => [id, new MockElement(id)]));
+    // Mirror the initial hidden attributes from the real HTML pages.
+    if (page === 'request') {
+        elements.get('password-recovery-request-status').hidden = true;
+    } else {
+        ['password-recovery-invalid', 'password-recovery-success',
+            'password-recovery-reset-status', 'password-recovery-reset-form']
+            .forEach(id => { elements.get(id).hidden = true; });
+    }
     const document = {
         title: 'حيز',
         readyState: 'complete',
