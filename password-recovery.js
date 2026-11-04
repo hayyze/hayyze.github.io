@@ -264,7 +264,7 @@
                     const signOutResult = await client.auth.signOut({ scope: 'global' });
                     if (signOutResult && signOutResult.error) throw signOutResult.error;
                 } catch (_) {
-                    const successMessage = success.querySelector('span');
+                    const successMessage = byId('password-recovery-success-message');
                     try {
                         const localSignOutResult = await client.auth.signOut({ scope: 'local' });
                         if (localSignOutResult && localSignOutResult.error) throw localSignOutResult.error;

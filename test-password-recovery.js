@@ -48,7 +48,7 @@ function buildEnvironment(page, options) {
     const ids = page === 'request'
         ? ['password-recovery-request-form', 'password-recovery-email', 'password-recovery-request-status', 'password-recovery-request-button']
         : ['password-recovery-checking', 'password-recovery-invalid', 'password-recovery-success',
-            'password-recovery-reset-status', 'password-recovery-reset-form',
+            'password-recovery-success-message', 'password-recovery-reset-status', 'password-recovery-reset-form',
             'password-recovery-new-password', 'password-recovery-confirm-password', 'password-recovery-save-button'];
     const elements = new Map(ids.map(id => [id, new MockElement(id)]));
     // Mirror the initial hidden attributes from the production HTML.
@@ -262,7 +262,7 @@ async function tick() {
         await env.elements.get('password-recovery-reset-form').dispatch('submit');
         await tick();
         assert.deepEqual(env.calls.signOut.map(item => item.scope), ['global', 'local']);
-        assert.match(env.elements.get('password-recovery-success').textContent, /تعذر إنهاء الجلسات الأخرى/);
+        assert.match(env.elements.get('password-recovery-success-message').textContent, /تعذر إنهاء الجلسات الأخرى/);
         console.log('PASS failed global session revocation falls back to local sign-out and warns the user');
     }
 
