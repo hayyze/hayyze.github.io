@@ -158,6 +158,7 @@ async function tick() {
 
     {
         const env = buildEnvironment('reset');
+        await tick();
         assert.equal(env.elements.get('password-recovery-reset-form').hidden, true);
         assert.equal(env.elements.get('password-recovery-invalid').hidden, false);
         assert.equal(env.elements.get('password-recovery-reset-form').listeners.get('submit').length, 1);
