@@ -86,6 +86,9 @@ function buildEnvironment(page, options) {
             },
             async signOut(opts) {
                 calls.signOut.push(opts);
+                if (options && options.globalSignOutError && opts && opts.scope === 'global') {
+                    return { error: options.globalSignOutError };
+                }
                 if (client.auth.callback) client.auth.callback('SIGNED_OUT', null);
                 return { error: null };
             }
@@ -194,7 +197,7 @@ async function tick() {
         await tick();
         assert.equal(env.calls.update.length, 1);
         assert.equal(env.calls.update[0].password, 'new-strong-passphrase');
-        assert.equal(env.calls.signOut[0].scope, 'local');
+        assert.equal(env.calls.signOut[0].scope, 'global');
         assert.equal(env.elements.get('password-recovery-success').hidden, false);
         assert.equal(env.elements.get('password-recovery-reset-form').hidden, true);
         console.log('PASS recovery event gates password update, validates input, and signs out the local recovery session');
@@ -219,6 +222,57 @@ async function tick() {
         assert.equal(env.elements.get('password-recovery-reset-form').hidden, true);
         assert.equal(env.elements.get('password-recovery-invalid').hidden, false);
         console.log('PASS stale recovery marker without a verified server session is rejected');
+    }
+
+    {
+        const env = buildEnvironment('reset', { hash: '#type=recovery' });
+        env.storage.setItem('hayyiz-password-recovery-session-v1', JSON.stringify({
+            userId: 'student-1',
+            expiresAt: Date.now() + 60000
+        }));
+        await tick();
+        assert.equal(env.calls.getUser, 0);
+        assert.equal(env.elements.get('password-recovery-reset-form').hidden, true);
+        env.client.auth.callback('PASSWORD_RECOVERY', { user: { id: 'student-2' } });
+        assert.equal(env.elements.get('password-recovery-reset-form').hidden, false);
+        assert.equal(JSON.parse(env.storage.getItem('hayyiz-password-recovery-session-v1')).userId, 'student-2');
+        console.log('PASS a fresh recovery link takes precedence over a stale marker from another account');
+    }
+
+    {
+        const env = buildEnvironment('reset', {
+            hash: '#type=recovery',
+            globalSignOutError: new Error('global sign out unavailable')
+        });
+        await tick();
+        env.client.auth.callback('PASSWORD_RECOVERY', { user: { id: 'student-1' } });
+        const password = env.elements.get('password-recovery-new-password');
+        const confirm = env.elements.get('password-recovery-confirm-password');
+        password.value = 'another-strong-passphrase';
+        confirm.value = 'another-strong-passphrase';
+        await env.elements.get('password-recovery-reset-form').dispatch('submit');
+        await tick();
+        assert.deepEqual(env.calls.signOut.map(item => item.scope), ['global', 'local']);
+        assert.match(env.elements.get('password-recovery-success').textContent, /تعذر إنهاء الجلسات الأخرى/);
+        console.log('PASS failed global session revocation falls back to local sign-out and warns the user');
+    }
+
+    {
+        const forgotHtml = fs.readFileSync('./forgot-password.html', 'utf8');
+        const resetHtml = fs.readFileSync('./reset-password.html', 'utf8');
+        const headers = fs.readFileSync('./_headers', 'utf8');
+        const sw = fs.readFileSync('./sw.js', 'utf8');
+        for (const html of [forgotHtml, resetHtml]) {
+            assert.doesNotMatch(html, /unsafe-inline/);
+            assert.match(html, /password-recovery-theme\.js/);
+        }
+        assert.match(headers, /Cache-Control: no-store/);
+        assert.match(headers, /Referrer-Policy: no-referrer/);
+        assert.match(headers, /X-Robots-Tag: noindex, nofollow, noarchive/);
+        assert.doesNotMatch(sw, /\.\/forgot-password\.html/);
+        assert.doesNotMatch(sw, /\.\/reset-password\.html/);
+        assert.match(sw, /\.\/password-recovery-theme\.js/);
+        console.log('PASS recovery pages use strict CSP, no-store response headers, and remain outside the HTML service-worker cache');
     }
 
     console.log('Password recovery tests completed successfully.');

@@ -258,11 +258,21 @@
                 checking.hidden = true;
                 invalid.hidden = true;
 
-                // A recovery token should not leave this browser signed in.
-                // Local scope avoids unexpectedly signing the student out on other devices.
+                // Password recovery is a security event: revoke refresh-token sessions
+                // across devices, then clear this browser even if global revocation fails.
                 try {
-                    await client.auth.signOut({ scope: 'local' });
-                } catch (_) {}
+                    const signOutResult = await client.auth.signOut({ scope: 'global' });
+                    if (signOutResult && signOutResult.error) throw signOutResult.error;
+                } catch (_) {
+                    const successMessage = success.querySelector('span');
+                    try {
+                        const localSignOutResult = await client.auth.signOut({ scope: 'local' });
+                        if (localSignOutResult && localSignOutResult.error) throw localSignOutResult.error;
+                    } catch (__) {}
+                    if (successMessage) {
+                        successMessage.textContent = 'تم تغيير كلمة المرور، لكن تعذر إنهاء الجلسات الأخرى تلقائيًا. ننصح بتسجيل الخروج يدويًا من الأجهزة الأخرى.';
+                    }
+                }
             } catch (error) {
                 const message = String(error && error.message || '').toLowerCase();
                 if (isRateLimitError(error)) {
@@ -333,6 +343,17 @@
                     return;
                 }
 
+                const hashParams = new URLSearchParams(String(global.location.hash || '').replace(/^#/, ''));
+                if (hashParams.get('type') === 'recovery') {
+                    // A new recovery callback must take precedence over any marker
+                    // left by an earlier recovery session in this tab.
+                    if (authorized) return;
+                    clearRecoveryMarker();
+                    // The SDK detects the implicit-flow callback and emits PASSWORD_RECOVERY.
+                    verificationTimer = global.setTimeout(showInvalidLink, 8000);
+                    return;
+                }
+
                 const marker = readRecoveryMarker();
                 if (marker) {
                     const result = await client.auth.getUser();
@@ -341,18 +362,9 @@
                         return;
                     }
                     clearRecoveryMarker();
-                    showInvalidLink();
-                    return;
                 }
 
-                const hashParams = new URLSearchParams(String(global.location.hash || '').replace(/^#/, ''));
-                if (hashParams.get('type') !== 'recovery') {
-                    showInvalidLink();
-                    return;
-                }
-
-                // The SDK detects the implicit-flow callback and emits PASSWORD_RECOVERY.
-                verificationTimer = global.setTimeout(showInvalidLink, 8000);
+                showInvalidLink();
             } catch (_) {
                 showInvalidLink();
             }
