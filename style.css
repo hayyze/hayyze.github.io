@@ -3274,6 +3274,12 @@ html.theme-dark .notes-dropdowns select {
     text-decoration: underline;
 }
 
+.auth-forgot-link {
+    align-self: flex-start;
+    margin-top: -10px;
+    text-decoration: none;
+}
+
 /* ===================== DASHBOARD INTEGRATION: SUGGESTION & DAILY PLAN ===================== */
 .dash-suggestion-card {
     padding: 1.1rem 1.25rem;
