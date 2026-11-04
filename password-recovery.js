@@ -294,17 +294,31 @@
             });
         });
 
+        function attachAuthListener(readyClient) {
+            if (!readyClient || !readyClient.auth || subscription) return;
+            const listener = readyClient.auth.onAuthStateChange(function (event, session) {
+                if (event === 'PASSWORD_RECOVERY' && session && session.user) {
+                    authorizeRecovery(session.user);
+                } else if (event === 'SIGNED_OUT') {
+                    clearRecoveryMarker();
+                }
+            });
+            subscription = listener && listener.data && listener.data.subscription;
+        }
+
+        // Subscribe as soon as the shared client is published, before its URL
+        // callback initialization can emit PASSWORD_RECOVERY.
+        if (global.supabaseClient && global.supabaseClient.auth) {
+            attachAuthListener(global.supabaseClient);
+        }
+        global.addEventListener('hayyiz:supabase-ready', function (event) {
+            attachAuthListener(event && event.detail);
+        });
+
         async function bootstrap() {
             try {
                 client = await getSupabaseClient();
-                const listener = client.auth.onAuthStateChange(function (event, session) {
-                    if (event === 'PASSWORD_RECOVERY' && session && session.user) {
-                        authorizeRecovery(session.user);
-                    } else if (event === 'SIGNED_OUT') {
-                        clearRecoveryMarker();
-                    }
-                });
-                subscription = listener && listener.data && listener.data.subscription;
+                attachAuthListener(client);
 
                 const url = new URL(global.location.href);
                 const code = url.searchParams.get('code');
@@ -327,6 +341,8 @@
                         return;
                     }
                     clearRecoveryMarker();
+                    showInvalidLink();
+                    return;
                 }
 
                 const hashParams = new URLSearchParams(String(global.location.hash || '').replace(/^#/, ''));
