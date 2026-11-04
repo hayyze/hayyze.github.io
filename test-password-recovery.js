@@ -221,7 +221,7 @@ async function tick() {
     }
 
     {
-        const env = buildEnvironment('reset', { hash: '#type=recovery', getUserError: new Error('invalid session') });
+        const env = buildEnvironment('reset', { getUserError: new Error('invalid session') });
         env.storage.setItem('hayyiz-password-recovery-session-v1', JSON.stringify({
             userId: 'student-1',
             expiresAt: Date.now() + 60000
