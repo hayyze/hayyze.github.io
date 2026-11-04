@@ -53,6 +53,7 @@ const ASSETS = [
   './sync.js',
   './auth-ui.js',
   './password-recovery.css',
+  './password-recovery-theme.js',
   './password-recovery.js',
   './pomodoro.js',
   './todo.js',

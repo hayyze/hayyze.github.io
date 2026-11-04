@@ -8,10 +8,12 @@
 
 /forgot-password.html
   Cache-Control: no-store
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://dzfdbjnqtgltuguqqdkz.supabase.co; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; upgrade-insecure-requests
   Referrer-Policy: no-referrer
   X-Robots-Tag: noindex, nofollow, noarchive
 
 /reset-password.html
   Cache-Control: no-store
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://dzfdbjnqtgltuguqqdkz.supabase.co; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; upgrade-insecure-requests
   Referrer-Policy: no-referrer
   X-Robots-Tag: noindex, nofollow, noarchive

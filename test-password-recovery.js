@@ -51,7 +51,7 @@ function buildEnvironment(page, options) {
             'password-recovery-reset-status', 'password-recovery-reset-form',
             'password-recovery-new-password', 'password-recovery-confirm-password', 'password-recovery-save-button'];
     const elements = new Map(ids.map(id => [id, new MockElement(id)]));
-    // Mirror the initial hidden attributes from the real HTML pages.
+    // Mirror the initial hidden attributes from the production HTML.
     if (page === 'request') {
         elements.get('password-recovery-request-status').hidden = true;
     } else {
@@ -138,8 +138,7 @@ function buildEnvironment(page, options) {
 }
 
 async function tick() {
-    // The page bootstrap awaits client initialization and may then await Auth;
-    // flush enough microtasks for both promise chains to settle deterministically.
+    // Flush the client initialization and auth bootstrap promise chains.
     for (let i = 0; i < 8; i++) await Promise.resolve();
 }
 
