@@ -58,6 +58,27 @@ async function enforceRateLimit(env, userId) {
     return true;
 }
 
+function normalizeContext(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const text = (input, max) => typeof input === 'string' ? input.trim().slice(0, max) : '';
+    const tasks = Array.isArray(value.tasks) ? value.tasks.slice(0, 30).map(item => ({
+        title: text(item && item.title, 100),
+        dueDate: text(item && item.dueDate, 20),
+        priority: text(item && item.priority, 20),
+        completed: Boolean(item && item.completed),
+        subject: text(item && item.subject, 50)
+    })).filter(item => item.title) : [];
+    const subjects = Array.isArray(value.subjects) ? value.subjects.slice(0, 20).map(item => ({ name: text(item && item.name, 60) })).filter(item => item.name) : [];
+    const exams = Array.isArray(value.exams) ? value.exams.slice(0, 20).map(item => ({ name: text(item && item.name, 80), date: text(item && item.date, 20) })).filter(item => item.name || item.date) : [];
+    const goals = Array.isArray(value.goals) ? value.goals.slice(0, 10).map(item => ({ title: text(item && item.title, 100), dueDate: text(item && item.dueDate, 20) })).filter(item => item.title) : [];
+    const source = value.academicGoal && typeof value.academicGoal === 'object' && !Array.isArray(value.academicGoal) ? value.academicGoal : null;
+    const academicGoal = source ? {
+        target: typeof source.target === 'number' ? source.target : null,
+        current: typeof source.current === 'number' ? source.current : null
+    } : null;
+    return { tasks, subjects, exams, goals, academicGoal };
+}
+
 function makePrompt(message, history, context) {
     const instructions = [
         'أنت مساعد حيز الدراسي. أجب باللغة العربية الواضحة وبأسلوب عملي ومباشر.',
@@ -75,7 +96,7 @@ function makePrompt(message, history, context) {
 
 async function askGemini(env, prompt) {
     if (!env.GEMINI_API_KEY) return null;
-    const model = (env.GEMINI_MODEL || 'gemini-2.5-flash').replace(/[^a-zA-Z0-9._-]/g, '');
+    const model = (env.GEMINI_MODEL || 'gemini-3.1-flash-lite').replace(/[^a-zA-Z0-9._-]/g, '');
     const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
         method: 'POST',
         headers: {
@@ -99,7 +120,7 @@ async function askGemini(env, prompt) {
 
 async function askCloudflare(env, prompt) {
     if (!env.AI || typeof env.AI.run !== 'function') return null;
-    const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+    const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', {
         prompt,
         max_tokens: 900,
         temperature: 0.55
@@ -134,8 +155,7 @@ export async function onRequestPost({ request, env }) {
     const message = typeof body.message === 'string' ? body.message.trim() : '';
     if (!message || message.length > 2000) return json({ error: 'اكتب رسالة بين حرف واحد و2000 حرف.' }, 400);
     const history = cleanHistory(body.history);
-    const context = body.context && typeof body.context === 'object' && !Array.isArray(body.context)
-        ? JSON.parse(JSON.stringify(body.context).slice(0, 6500)) : null;
+    const context = normalizeContext(body.context);
     const prompt = makePrompt(message, history, context);
 
     let reply = null;
