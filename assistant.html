@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://dzfdbjnqtgltuguqqdkz.supabase.co; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; upgrade-insecure-requests">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="no-referrer">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <title>المساعد الذكي | حيز</title>
+    <meta name="description" content="مساعد حيز الذكي لتنظيم الدراسة وفهم المهام والأهداف الدراسية.">
+    <link rel="canonical" href="https://hayyze.pages.dev/assistant.html">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="assistant.css">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <script src="/legacy-domain-redirect.js"></script>
+</head>
+<body class="theme-light">
+<header class="navbar">
+    <div class="container nav-container">
+        <a href="index.html" class="logo"><div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div><span class="logo-text">حيز</span></a>
+        <button class="menu-toggle" id="menu-toggle" aria-label="فتح القائمة" aria-expanded="false" aria-controls="nav-links"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
+        <nav class="nav-links" id="nav-links">
+            <a href="index.html" class="nav-btn"><i class="fa-solid fa-house" aria-hidden="true"></i> الرئيسية</a>
+            <a href="todo.html" class="nav-btn"><i class="fa-solid fa-list-check" aria-hidden="true"></i> المهام</a>
+            <a href="study-planner.html" class="nav-btn"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> التخطيط</a>
+            <a href="gpa.html" class="nav-btn"><i class="fa-solid fa-calculator" aria-hidden="true"></i> المعدل</a>
+        </nav>
+        <div class="nav-actions"><button id="theme-toggle" class="theme-btn" aria-label="تبديل الوضع الليلي"><i class="fa-solid fa-moon" aria-hidden="true"></i></button></div>
+    </div>
+</header>
+<main class="container main-content assistant-page">
+    <section class="assistant-intro">
+        <span class="assistant-kicker"><i class="fa-solid fa-sparkles" aria-hidden="true"></i> مساعد حيز</span>
+        <h1>مساعدك الدراسي الذكي</h1>
+        <p>اسأل عن تنظيم يومك أو أولوياتك أو أهدافك الدراسية. يستطيع المساعد استخدام ملخص بياناتك في حيز عندما تختار مشاركته.</p>
+    </section>
+    <section class="card assistant-card" aria-label="محادثة المساعد الذكي">
+        <div id="assistant-auth-required" class="assistant-notice" hidden>
+            <h2>سجّل الدخول لاستخدام المساعد</h2>
+            <p>يتطلب المساعد حسابًا في حيز لحماية الاستخدام وربط المحادثة بحسابك على هذا الجهاز.</p>
+            <button type="button" id="assistant-login" class="btn btn-primary">تسجيل الدخول</button>
+        </div>
+        <div id="assistant-app" hidden>
+            <div class="assistant-toolbar">
+                <div><strong>المحادثة</strong><span id="assistant-provider-status" class="assistant-provider-status">جاهز للمساعدة</span></div>
+                <button type="button" id="assistant-clear" class="btn btn-secondary assistant-clear"><i class="fa-regular fa-trash-can" aria-hidden="true"></i> مسح المحادثة</button>
+            </div>
+            <div class="assistant-privacy">
+                <label class="assistant-context-toggle"><input type="checkbox" id="assistant-share-context"> <span>إرفاق ملخص بياناتي الدراسية من حيز لهذه المحادثة</span></label>
+                <p>عند التفعيل، تُرسل أسماء المهام وحالتها ومواعيدها، وأسماء المواد والاختبارات والهدف الدراسي فقط. لا تُرسل الملاحظات أو ملفات PDF أو كلمات المرور. تُرسل رسالتك إلى مزود الذكاء الاصطناعي المستخدم (Gemini أو Cloudflare).</p>
+            </div>
+            <div id="assistant-messages" class="assistant-messages" role="log" aria-live="polite" aria-relevant="additions text">
+                <div class="assistant-welcome"><span class="assistant-welcome-icon"><i class="fa-solid fa-lightbulb" aria-hidden="true"></i></span><h2>ما الذي تريد إنجازه؟</h2><p>يمكنني مساعدتك في تحديد الخطوة الدراسية التالية وبناء خطة قابلة للتنفيذ.</p></div>
+            </div>
+            <div class="assistant-suggestions" aria-label="أسئلة مقترحة">
+                <button type="button" data-prompt="ساعدني في تحديد أهم ثلاث أولويات دراسية اليوم.">ما أولوياتي اليوم؟</button>
+                <button type="button" data-prompt="كيف أوزع وقت المذاكرة على جلسات تركيز واستراحات؟">نظّم وقت مذاكرتي</button>
+                <button type="button" data-prompt="ساعدني في تقسيم هدف دراسي كبير إلى خطوات صغيرة قابلة للتنفيذ.">قسّم هدفي إلى خطوات</button>
+            </div>
+            <form id="assistant-form" class="assistant-form">
+                <label class="sr-only" for="assistant-input">اكتب رسالتك للمساعد</label>
+                <textarea id="assistant-input" rows="2" maxlength="2000" placeholder="اكتب سؤالك هنا..." required></textarea>
+                <div class="assistant-form-footer"><span id="assistant-char-count">0 / 2000</span><button id="assistant-send" type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> إرسال</button></div>
+            </form>
+            <p id="assistant-status" class="assistant-status" role="status" aria-live="polite"></p>
+        </div>
+    </section>
+    <p class="assistant-disclaimer">قد يخطئ الذكاء الاصطناعي؛ راجع التواريخ والحسابات والقرارات المهمة بنفسك. لا تشارك معلومات شديدة الحساسية.</p>
+</main>
+<script src="account-storage.js"></script>
+<script src="common.js" defer></script>
+<script src="supabase.js" defer></script>
+<script src="auth-ui.js" defer></script>
+<script src="assistant.js" defer></script>
+</body>
+</html>
