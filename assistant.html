@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://dzfdbjnqtgltuguqqdkz.supabase.co; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; upgrade-insecure-requests">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://dzfdbjnqtgltuguqqdkz.supabase.co; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; upgrade-insecure-requests">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="no-referrer">
     <meta name="robots" content="noindex, nofollow, noarchive">
@@ -51,7 +51,7 @@
             </div>
             <div class="assistant-privacy">
                 <label class="assistant-context-toggle"><input type="checkbox" id="assistant-share-context"> <span>إرفاق ملخص بياناتي الدراسية من حيز لهذه المحادثة</span></label>
-                <p>عند التفعيل، تُرسل أسماء المهام وحالتها ومواعيدها، وأسماء المواد والاختبارات والهدف الدراسي فقط. لا تُرسل الملاحظات أو ملفات PDF أو كلمات المرور. تُرسل رسالتك إلى مزود الذكاء الاصطناعي المستخدم (Gemini أو Cloudflare).</p>
+                <p>عند التفعيل، تُرسل أسماء المهام وحالتها ومواعيدها، وأسماء المواد والاختبارات والهدف الدراسي فقط. لا تُرسل الملاحظات أو ملفات PDF أو كلمات المرور. تُرسل رسالتك وآخر رسائل المحادثة إلى مزود الذكاء الاصطناعي المستخدم (Gemini أو Cloudflare). في الخطة المجانية من Google قد يُستخدم المحتوى لتحسين منتجاتها؛ لا تشارك معلومات حساسة.</p>
             </div>
             <div id="assistant-messages" class="assistant-messages" role="log" aria-live="polite" aria-relevant="additions text">
                 <div class="assistant-welcome"><span class="assistant-welcome-icon"><i class="fa-solid fa-lightbulb" aria-hidden="true"></i></span><h2>ما الذي تريد إنجازه؟</h2><p>يمكنني مساعدتك في تحديد الخطوة الدراسية التالية وبناء خطة قابلة للتنفيذ.</p></div>
