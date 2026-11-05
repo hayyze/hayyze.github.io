@@ -140,7 +140,7 @@
             const includeContext = $('assistant-share-context').checked;
             const payload = {
                 message,
-                history: history.slice(-MAX_HISTORY).map(item => ({ role: item.role, content: item.content })),
+                history: history.slice(0, -1).slice(-(MAX_HISTORY - 1)).map(item => ({ role: item.role, content: item.content })),
                 context: includeContext ? buildStudyContext() : null
             };
             const response = await fetch('/api/assistant', {
