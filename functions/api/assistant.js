@@ -2,6 +2,7 @@ const SUPABASE_URL = 'https://dzfdbjnqtgltuguqqdkz.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_zXE2LbHMIAiTFjrYTyb7GA_zrHGa1rv';
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_REQUESTS = 8;
+const MAX_DAILY_REQUESTS = 100;
 
 function json(data, status) {
     return new Response(JSON.stringify(data), {
@@ -44,17 +45,29 @@ async function authenticate(request) {
 
 async function enforceRateLimit(env, userId) {
     if (!env.AI_RATE_LIMIT) throw new Error('RATE_LIMIT_NOT_CONFIGURED');
-    const key = 'assistant:' + userId;
     const now = Date.now();
-    const previous = await env.AI_RATE_LIMIT.get(key);
-    let timestamps = [];
-    try {
-        const parsed = JSON.parse(previous || '[]');
-        if (Array.isArray(parsed)) timestamps = parsed.filter(value => Number.isFinite(value) && now - value < WINDOW_MS);
-    } catch (_) {}
-    if (timestamps.length >= MAX_REQUESTS) return false;
-    timestamps.push(now);
-    await env.AI_RATE_LIMIT.put(key, JSON.stringify(timestamps), { expirationTtl: 600 });
+    const day = new Date(now).toISOString().slice(0, 10);
+    const userKey = 'assistant:user:' + userId;
+    const globalKey = 'assistant:global:' + day;
+    const [userValue, globalValue] = await Promise.all([
+        env.AI_RATE_LIMIT.get(userKey),
+        env.AI_RATE_LIMIT.get(globalKey)
+    ]);
+    const parseTimes = (value, age) => {
+        try {
+            const parsed = JSON.parse(value || '[]');
+            return Array.isArray(parsed) ? parsed.filter(item => Number.isFinite(item) && now - item >= 0 && now - item < age) : [];
+        } catch (_) { return []; }
+    };
+    const userTimes = parseTimes(userValue, WINDOW_MS);
+    const globalTimes = parseTimes(globalValue, 24 * 60 * 60 * 1000);
+    if (userTimes.length >= MAX_REQUESTS || globalTimes.length >= MAX_DAILY_REQUESTS) return false;
+    userTimes.push(now);
+    globalTimes.push(now);
+    await Promise.all([
+        env.AI_RATE_LIMIT.put(userKey, JSON.stringify(userTimes), { expirationTtl: 600 }),
+        env.AI_RATE_LIMIT.put(globalKey, JSON.stringify(globalTimes), { expirationTtl: 86400 })
+    ]);
     return true;
 }
 
@@ -146,7 +159,7 @@ export async function onRequestPost({ request, env }) {
     let allowed;
     try { allowed = await enforceRateLimit(env, user.id); }
     catch (_) { return json({ error: 'لم تكتمل تهيئة حماية الاستخدام بعد.' }, 503); }
-    if (!allowed) return json({ error: 'وصلت إلى الحد المؤقت: 8 طلبات خلال 10 دقائق. حاول لاحقًا.' }, 429);
+    if (!allowed) return json({ error: 'وصلت إلى الحد المؤقت: 8 طلبات خلال 10 دقائق لكل حساب، أو 100 طلب يوميًا لجميع المستخدمين. حاول لاحقًا.' }, 429);
 
     const raw = await request.text();
     if (raw.length > 18000) return json({ error: 'حجم الطلب أكبر من المسموح.' }, 413);
@@ -160,7 +173,7 @@ export async function onRequestPost({ request, env }) {
 
     let reply = null;
     let provider = '';
-    if (env.GEMINI_API_KEY) {
+    if (env.GEMINI_ENABLED === 'true' && env.GEMINI_API_KEY) {
         try { reply = await askGemini(env, prompt); if (reply) provider = 'gemini'; } catch (_) {}
     }
     if (!reply && env.AI) {
