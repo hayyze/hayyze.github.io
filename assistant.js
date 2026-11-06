@@ -86,33 +86,99 @@
 
     function buildStudyContext() {
         const todos = safeParse('hayyiz-todos', []);
-        const subjects = safeParse('hayyiz-subjects', []);
-        const exams = safeParse('hayyiz-exams', []);
-        const goals = safeParse('hayyiz-goals', []);
+        const subjects = typeof hayyizGetSubjects === 'function'
+            ? hayyizGetSubjects()
+            : safeParse('hayyiz-subjects', []);
+        const exams = typeof hayyizGetExams === 'function'
+            ? hayyizGetExams()
+            : [].concat(safeParse('hayyiz-student-exams', []), safeParse('hayyiz-exams', []));
+        const goals = typeof hayyizGetGoals === 'function'
+            ? hayyizGetGoals()
+            : safeParse('hayyiz-goals', []);
         const academicGoal = safeParse('hayyiz-academic-goal', null);
-        const tasks = Array.isArray(todos) ? todos.slice(0, 30).map(task => ({
-            title: shortText(task && (task.title || task.text || task.name), 100),
-            dueDate: shortText(task && (task.date || task.dueDate || task.deadline), 20),
-            priority: shortText(task && task.priority, 20),
+        const subjectNames = new Map((Array.isArray(subjects) ? subjects : [])
+            .filter(subject => subject && subject.id && subject.name)
+            .map(subject => [subject.id, shortText(subject.name, 60)]));
+
+        const tasks = Array.isArray(todos) ? todos.slice(0, 60).map(task => ({
+            id: shortText(task && task.id, 100),
+            title: shortText(task && (task.text || task.title || task.name), 120),
+            dueDate: shortText(task && (task.date || task.dueDate || task.deadline), 32),
+            priority: shortText(task && task.priority, 20) || 'medium',
             completed: Boolean(task && (task.completed || task.done)),
-            subject: shortText(task && (task.subjectName || task.subject), 50)
+            subject: shortText(task && (task.subjectName || task.subject || subjectNames.get(task.subjectId)), 60),
+            focusDone: Math.max(0, Number(task && task.focusDone) || 0),
+            minutes: Math.max(0, Number(task && task.minutes) || 0)
         })).filter(task => task.title) : [];
-        const subjectList = Array.isArray(subjects) ? subjects.slice(0, 20).map(subject => ({
+
+        const subjectList = Array.isArray(subjects) ? subjects.slice(0, 30).map(subject => ({
+            id: shortText(subject && subject.id, 100),
             name: shortText(subject && (subject.name || subject.title), 60)
         })).filter(subject => subject.name) : [];
-        const examList = Array.isArray(exams) ? exams.slice(0, 20).map(exam => ({
-            name: shortText(exam && (exam.name || exam.title || exam.subject), 80),
-            date: shortText(exam && (exam.date || exam.examDate), 20)
+
+        const examList = Array.isArray(exams) ? exams.slice(0, 30).map(exam => ({
+            id: shortText(exam && exam.id, 100),
+            name: shortText(exam && (exam.name || exam.title || exam.subject), 100),
+            date: shortText(exam && (exam.date || exam.examDate), 32),
+            done: Boolean(exam && exam.done)
         })).filter(exam => exam.name || exam.date) : [];
-        const goalList = Array.isArray(goals) ? goals.slice(0, 10).map(goal => ({
+
+        const goalList = Array.isArray(goals) ? goals.slice(0, 15).map(goal => ({
             title: shortText(goal && (goal.title || goal.name || goal.text), 100),
-            dueDate: shortText(goal && (goal.date || goal.dueDate), 20)
+            dueDate: shortText(goal && (goal.date || goal.dueDate), 32)
         })).filter(goal => goal.title) : [];
+
+        let ranked = [];
+        let today = typeof getTodayLocal === 'function' ? getTodayLocal() : '';
+        let focusMinutesToday = Number(safeParse('hayyiz-focus-minutes-today', 0)) || 0;
+        let workMin = Number(safeParse('hayyiz-pref-work', 25)) || 25;
+        try {
+            if (typeof hayyizComputeStudentDecisionState === 'function') {
+                const state = hayyizComputeStudentDecisionState();
+                today = state.today || today;
+                focusMinutesToday = Number(state.focusMinutesToday) || 0;
+                workMin = Number(state.workMin) || workMin;
+                ranked = Array.isArray(state.rankedTasks) ? state.rankedTasks : [];
+            }
+        } catch (_) {
+            ranked = [];
+        }
+
+        const toRankedItem = row => {
+            const task = row && row.task;
+            if (!task || !task.id || !task.text || task.completed) return null;
+            return {
+                id: shortText(task.id, 100),
+                title: shortText(task.text, 120),
+                dueDate: shortText(task.date, 32),
+                priority: shortText(task.priority, 20) || 'medium',
+                subject: shortText(task.subjectName || task.subject || subjectNames.get(task.subjectId), 60),
+                inProgress: (Number(task.focusDone) || 0) > 0,
+                reasons: Array.isArray(row.reasons) ? row.reasons.slice(0, 3).map(reason => shortText(reason, 120)) : []
+            };
+        };
+
+        const rankedItems = ranked.map(toRankedItem).filter(Boolean);
+        const rankedIds = new Set(rankedItems.map(item => item.id));
+        const otherTasks = tasks.filter(task => !task.completed && !rankedIds.has(task.id)).slice(0, 20);
+
         const target = academicGoal && typeof academicGoal === 'object' ? {
             target: academicGoal.target ?? academicGoal.targetGpa ?? academicGoal.goal ?? null,
             current: academicGoal.current ?? academicGoal.currentGpa ?? null
         } : null;
-        return { tasks, subjects: subjectList, exams: examList, goals: goalList, academicGoal: target };
+
+        return {
+            today,
+            tasks,
+            subjects: subjectList,
+            exams: examList,
+            goals: goalList,
+            academicGoal: target,
+            priorityTasks: rankedItems.slice(0, 10),
+            otherTasks,
+            focusMinutesToday,
+            workMin
+        };
     }
 
     function normalizeAssistantIntent(value) {
@@ -128,20 +194,29 @@
             .toLowerCase();
     }
 
-    function inferCalendarProposal(message, previousHistory) {
-        const text = normalizeAssistantIntent(message);
-        const createIntent = /(انشئ|انشي|اضف|سجل|احجز|حدد|اعمل|حط)/.test(text) &&
-            /(موعد|حدث|تذكير|اختبار)/.test(text);
-        if (!createIntent) return null;
+    function normalizeAssistantDigits(value) {
+        const arabicDigits = '٠١٢٣٤٥٦٧٨٩';
+        return String(value || '').replace(/[٠-٩]/g, digit => String(arabicDigits.indexOf(digit)));
+    }
+
+    function getRequestedDate(value) {
+        const text = normalizeAssistantIntent(normalizeAssistantDigits(value));
+        let match = text.match(/(?:^|\\D)(20\\d{2})\\s*(?:شهر|[-/])\\s*(\\d{1,2})\\s*(?:يوم|[-/])\\s*(\\d{1,2})(?:\\D|$)/);
+        if (match) {
+            const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
+            const date = new Date(year, month - 1, day, 12);
+            if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+            return [year, String(month).padStart(2, '0'), String(day).padStart(2, '0')].join('-');
+        }
 
         const weekdays = [
-            { names: ['الاحد', 'الاحد القادم', 'sunday'], day: 0 },
-            { names: ['الاثنين', 'الاثنين القادم', 'monday'], day: 1 },
-            { names: ['الثلاثاء', 'الثلاثاء القادم', 'tuesday'], day: 2 },
-            { names: ['الاربعاء', 'الاربعاء القادم', 'wednesday'], day: 3 },
-            { names: ['الخميس', 'الخميس القادم', 'thursday'], day: 4 },
-            { names: ['الجمعه', 'الجمعه القادم', 'friday'], day: 5 },
-            { names: ['السبت', 'السبت القادم', 'saturday'], day: 6 }
+            { names: ['الاحد', 'sunday'], day: 0 },
+            { names: ['الاثنين', 'monday'], day: 1 },
+            { names: ['الثلاثاء', 'tuesday'], day: 2 },
+            { names: ['الاربعاء', 'wednesday'], day: 3 },
+            { names: ['الخميس', 'thursday'], day: 4 },
+            { names: ['الجمعه', 'friday'], day: 5 },
+            { names: ['السبت', 'saturday'], day: 6 }
         ];
         const dayMatch = weekdays.find(item => item.names.some(name => text.includes(name)));
         if (!dayMatch) return null;
@@ -150,47 +225,154 @@
         date.setHours(12, 0, 0, 0);
         const daysAhead = (dayMatch.day - date.getDay() + 7) % 7 || 7;
         date.setDate(date.getDate() + daysAhead);
-        const dateValue = [
+        return [
             date.getFullYear(),
             String(date.getMonth() + 1).padStart(2, '0'),
             String(date.getDate()).padStart(2, '0')
         ].join('-');
+    }
 
-        const priorText = (previousHistory || [])
-            .filter(item => item && item.role === 'user')
-            .map(item => item.content)
-            .join(' ');
-        const combinedText = normalizeAssistantIntent(priorText + ' ' + message);
-        const isExam = /(اختبار|امتحان)/.test(combinedText);
-        const topic = /قوانين نيوتن|قانون نيوتن|نيوتن/.test(combinedText) ? 'قوانين نيوتن' : '';
-        const name = isExam
-            ? (topic ? 'اختبار ' + topic : 'اختبار دراسي')
-            : 'موعد دراسي';
+    function getRequestedTime(value) {
+        const text = normalizeAssistantIntent(normalizeAssistantDigits(value));
+        let match = text.match(/(?:الساعه\\s*)?(\\d{1,2})[:٫.](\\d{2})/);
+        if (!match) match = text.match(/(?:الساعه\\s*)?(\\d{1,2})\\s*و\\s*(\\d{1,2})\\s*دقيقه/);
 
+        let hour = null, minute = 0;
+        if (match) {
+            hour = Number(match[1]);
+            minute = Number(match[2]);
+        } else {
+            const words = {
+                واحد: 1, واحده: 1, احد: 1, احدى: 1,
+                اثنين: 2, اثنتين: 2,
+                ثلاث: 3, ثلاثه: 3,
+                اربع: 4, اربعه: 4,
+                خمس: 5, خمسه: 5,
+                ست: 6, سته: 6,
+                سبع: 7, سبعه: 7,
+                ثمان: 8, ثمانيه: 8,
+                تسع: 9, تسعه: 9,
+                عشر: 10, عشره: 10,
+                احدعشر: 11, احدعشره: 11,
+                اثناعشر: 12, اثناعشره: 12
+            };
+            const wordPattern = Object.keys(words).sort((a, b) => b.length - a.length).join('|');
+            const wordMatch = text.match(new RegExp('الساعه\\s*(' + wordPattern + ')(?:\\s*و\\s*(\\d{1,2})\\s*دقيقه)?'));
+            if (!wordMatch) return null;
+            hour = words[wordMatch[1]];
+            minute = wordMatch[2] ? Number(wordMatch[2]) : 0;
+        }
+
+        if (!Number.isInteger(hour) || hour < 0 || hour > 23 || !Number.isInteger(minute) || minute < 0 || minute > 59) return null;
+        return String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
+    }
+
+    function extractActionTitle(value) {
+        const raw = String(value || '');
+        const quoted = raw.match(/["“«]([^"”»]+)["”»]/);
+        if (quoted && quoted[1].trim()) return quoted[1].trim().slice(0, 120);
+
+        const named = raw.match(/(?:باسم|اسمها|اسمه|بعنوان)\\s*[:：]?\\s*(.+?)(?=\\s*(?:و?موعدها|و?تاريخها|بتاريخ|في\\s+يوم|يوم|الساعة|ساعه|وقتها|وقت(?:ها)?|موعد)\\b|[،,؛;]|$)/i);
+        if (named && named[1].trim()) {
+            return named[1].trim().replace(/[.!؟?،,؛;]+$/g, '').slice(0, 120);
+        }
+        return '';
+    }
+
+    function inferActionProposal(message, previousHistory) {
+        const currentText = normalizeAssistantIntent(message);
+        const actionVerb = /(انشئ|انشي|انشاء|اضف|ضيف|سجل|احجز|حدد|اعمل|حط|تسوي|سوي|create|add|schedule)/.test(currentText);
+        const hasTaskWord = /(مهمه|مهام|task)/.test(currentText);
+        const hasCalendarWord = /(موعد|حدث|تذكير|تقويم الطالب|في التقويم|بالتقويم|appointment|event)/.test(currentText);
+        const hasExamWord = /(اختبار|امتحان)/.test(currentText);
+
+        if (!actionVerb || (!hasTaskWord && !hasCalendarWord && !hasExamWord)) return null;
+
+        const isTaskInCalendar = hasTaskWord && /(تقويم الطالب|في التقويم|بالتقويم)/.test(currentText);
+        const kind = hasTaskWord && !isTaskInCalendar ? 'todo' : 'calendar';
+        const title = extractActionTitle(message);
+        const date = getRequestedDate(message);
+        const time = getRequestedTime(message);
+
+        if (!title) {
+            return {
+                needsClarification: true,
+                reply: kind === 'todo' ? 'ما اسم المهمة التي تريد إضافتها؟' : 'ما اسم الموعد أو الحدث الذي تريد إضافته إلى التقويم؟'
+            };
+        }
+        if (!date) {
+            return {
+                needsClarification: true,
+                reply: 'ما التاريخ الذي تريد تحديده؟ اذكر يومًا واضحًا أو تاريخًا مثل 2026-12-01.'
+            };
+        }
+
+        const now = Date.now();
+        if (kind === 'todo') {
+            return {
+                kind,
+                data: {
+                    id: 'ai_task_' + now.toString(36) + Math.random().toString(36).slice(2, 6),
+                    text: title,
+                    taskType: 'general',
+                    priority: 'medium',
+                    date: time ? date + 'T' + time : date,
+                    minutes: null,
+                    subjectId: null,
+                    goalId: null,
+                    completed: false,
+                    status: 'todo',
+                    created: now,
+                    updated: now,
+                    focusDone: 0,
+                    sessionsDone: 0
+                }
+            };
+        }
+
+        const explicitTaskCalendar = isTaskInCalendar;
+        const isExam = hasExamWord && !explicitTaskCalendar;
         return {
-            id: (isExam ? 'ex_' : 'ev_') + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-            name,
-            type: isExam ? 'exam' : 'personal',
-            date: dateValue,
-            time: '',
-            subjectId: null,
-            updated: Date.now()
+            kind: 'calendar',
+            data: {
+                id: (isExam ? 'ex_' : 'ev_') + now.toString(36) + Math.random().toString(36).slice(2, 6),
+                name: title,
+                type: explicitTaskCalendar ? 'assignment' : (isExam ? 'exam' : 'personal'),
+                date,
+                time: time || '',
+                subjectId: null,
+                updated: now
+            }
         };
     }
 
-    function showCalendarProposal(eventData) {
-        const dateParts = eventData.date.split('-').map(Number);
-        const localDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], 12);
+    function addLocalAssistantReply(reply, providerLabel) {
+        history.push({ role: 'assistant', content: reply });
+        history = history.slice(-30);
+        saveHistory();
+        addMessage('assistant', reply);
+        $('assistant-provider-status').textContent = providerLabel || 'مساعد حيز';
+        setStatus('');
+    }
+
+    function showActionProposal(proposal) {
+        const data = proposal.data;
+        const date = data.date.includes('T') ? data.date.slice(0, 10) : data.date;
+        const time = proposal.kind === 'todo'
+            ? (data.date.includes('T') ? data.date.slice(11, 16) : '')
+            : (data.time || '');
+        const parts = date.split('-').map(Number);
+        const localDate = new Date(parts[0], parts[1] - 1, parts[2], 12);
         const dateLabel = localDate.toLocaleDateString('ar-SA', {
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', calendar: 'gregory'
         });
-        const summary = 'أقترح إضافة الموعد التالي إلى تقويم الطالب:\n' +
-            'الاسم: ' + eventData.name + '\n' +
-            'التاريخ: ' + dateLabel + '\n' +
-            'الوقت: غير محدد.\n' +
-            'لم يُحفظ الموعد بعد؛ أضفه فقط بعد تأكيدك.';
-        // Keep an unconfirmed action proposal ephemeral. It is not persisted
-        // as a completed assistant turn and disappears safely on reload.
+        const isTodo = proposal.kind === 'todo';
+        const label = isTodo ? 'المهمة' : 'موعد التقويم';
+        const summary = 'أقترح إضافة ' + label + ' التالي:' + '\\n' +
+            'الاسم: ' + (isTodo ? data.text : data.name) + '\\n' +
+            'التاريخ: ' + dateLabel + '\\n' +
+            'الوقت: ' + (time || 'غير محدد') + '\\n' +
+            'لم يُحفظ شيء بعد. راجع التفاصيل ثم أكّد الإضافة.';
         const messageNode = addMessage('assistant', summary);
 
         const actions = document.createElement('div');
@@ -198,7 +380,7 @@
         const confirmButton = document.createElement('button');
         confirmButton.type = 'button';
         confirmButton.className = 'btn btn-primary';
-        confirmButton.textContent = 'تأكيد وإضافة الموعد';
+        confirmButton.textContent = isTodo ? 'تأكيد وإضافة المهمة' : 'تأكيد وإضافة الموعد';
         const cancelButton = document.createElement('button');
         cancelButton.type = 'button';
         cancelButton.className = 'btn btn-secondary';
@@ -209,46 +391,64 @@
             cancelButton.disabled = true;
             confirmButton.textContent = 'جارٍ الحفظ...';
             try {
-                const storageKey = eventData.type === 'exam' ? 'hayyiz-student-exams' : 'hayyiz-custom-events';
-                const raw = hayyizStorage.getItem(storageKey);
-                const saved = raw ? JSON.parse(raw) : [];
-                const list = Array.isArray(saved) ? saved : [];
-                const duplicate = list.find(item => item && item.name === eventData.name && item.date === eventData.date);
-                if (!duplicate) {
-                    list.push(eventData);
-                    hayyizStorage.setItem(storageKey, JSON.stringify(list));
-                    if (typeof hayyizUploadItem === 'function') {
-                        const toolName = eventData.type === 'exam' ? 'student-exams' : 'custom-events';
-                        await hayyizUploadItem(toolName, eventData.id, eventData);
+                if (isTodo) {
+                    const saved = hayyizStorage.getItem('hayyiz-todos');
+                    const list = saved ? JSON.parse(saved) : [];
+                    const todos = Array.isArray(list) ? list : [];
+                    const duplicate = todos.find(item => item && item.text === data.text && item.date === data.date && !item.completed);
+                    if (!duplicate) {
+                        const nextTodos = [data].concat(todos);
+                        if (typeof hayyizSaveTodos === 'function') hayyizSaveTodos(nextTodos);
+                        else hayyizStorage.setItem('hayyiz-todos', JSON.stringify(nextTodos));
+                        if (typeof hayyizUploadItem === 'function') await hayyizUploadItem('todos', data.id, data);
+                        if (typeof hayyizReevaluateMultiDayPlan === 'function') {
+                            try { hayyizReevaluateMultiDayPlan(); } catch (_) {}
+                        }
                     }
+                    const confirmation = duplicate
+                        ? 'المهمة موجودة بالفعل في قائمة مهامك: ' + data.text + ' — ' + dateLabel + '.'
+                        : 'تمت إضافة المهمة إلى قائمة مهام حيز على هذا الجهاز: ' + data.text + ' — ' + dateLabel + '.';
+                    addLocalAssistantReply(confirmation, 'قائمة المهام');
+                } else {
+                    const storageKey = data.type === 'exam' ? 'hayyiz-student-exams' : 'hayyiz-custom-events';
+                    const saved = hayyizStorage.getItem(storageKey);
+                    const list = saved ? JSON.parse(saved) : [];
+                    const events = Array.isArray(list) ? list : [];
+                    const duplicate = events.find(item => item && item.name === data.name && item.date === data.date && (item.time || '') === data.time);
+                    if (!duplicate) {
+                        events.push(data);
+                        hayyizStorage.setItem(storageKey, JSON.stringify(events));
+                        if (typeof hayyizUploadItem === 'function') {
+                            await hayyizUploadItem(data.type === 'exam' ? 'student-exams' : 'custom-events', data.id, data);
+                        }
+                    }
+                    const confirmation = duplicate
+                        ? 'الموعد موجود بالفعل في تقويم الطالب: ' + data.name + ' — ' + dateLabel + '.'
+                        : 'تمت إضافة الموعد إلى تقويم الطالب على هذا الجهاز: ' + data.name + ' — ' + dateLabel + '.';
+                    addLocalAssistantReply(confirmation, 'تقويم الطالب');
                 }
-                const confirmation = duplicate
-                    ? 'الموعد موجود بالفعل في تقويم الطالب: ' + eventData.name + ' — ' + dateLabel + '.'
-                    : 'تمت إضافة الموعد إلى تقويم الطالب على هذا الجهاز: ' + eventData.name + ' — ' + dateLabel + '.';
-                history.push({ role: 'assistant', content: confirmation });
-                history = history.slice(-30);
-                saveHistory();
-                addMessage('assistant', confirmation);
                 actions.remove();
-                $('assistant-provider-status').textContent = 'تقويم الطالب';
+                if (typeof window.dispatchEvent === 'function' && typeof Event === 'function') {
+                    window.dispatchEvent(new Event('hayyiz:planning-changed'));
+                }
                 setStatus('');
             } catch (error) {
                 confirmButton.disabled = false;
                 cancelButton.disabled = false;
                 confirmButton.textContent = 'إعادة المحاولة';
-                setStatus('تعذر حفظ الموعد. لم أؤكد إضافته؛ حاول مرة أخرى.', true);
+                setStatus('تعذر حفظ العنصر. لم أؤكد إضافته؛ حاول مرة أخرى.', true);
             }
         });
 
         cancelButton.addEventListener('click', () => {
             actions.remove();
-            setStatus('لم تتم إضافة الموعد.');
+            setStatus('لم تتم الإضافة.');
         });
 
         actions.append(confirmButton, cancelButton);
         messageNode.appendChild(actions);
-        $('assistant-provider-status').textContent = 'موعد بانتظار تأكيدك';
-        setStatus('راجع اسم الموعد وتاريخه قبل إضافته.');
+        $('assistant-provider-status').textContent = isTodo ? 'مهمة بانتظار تأكيدك' : 'موعد بانتظار تأكيدك';
+        setStatus('راجع الاسم والتاريخ والوقت قبل الإضافة.');
     }
 
     async function getSession() {
@@ -271,9 +471,13 @@
         input.value = '';
         countEl.textContent = '0 / 2000';
 
-        const proposal = inferCalendarProposal(message, history.slice(0, -1));
+        const proposal = inferActionProposal(message, history.slice(0, -1));
         if (proposal) {
-            showCalendarProposal(proposal);
+            if (proposal.needsClarification) {
+                addLocalAssistantReply(proposal.reply, 'توضيح مطلوب');
+            } else {
+                showActionProposal(proposal);
+            }
             sending = false;
             sendButton.disabled = false;
             input.focus();
