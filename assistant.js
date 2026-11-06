@@ -235,7 +235,8 @@
     }
 
     function getRequestedTime(value) {
-        const text = normalizeAssistantIntent(normalizeAssistantDigits(value));
+        const marked = normalizeAssistantDigits(value).replace(/[:٫.]/g, 'TIMESEPARATOR');
+        const text = normalizeAssistantIntent(marked).replace(/TIMESEPARATOR/g, ':');
         let match = text.match(/(?:الساعه\s*)?(\d{1,2})[:٫.](\d{2})/);
         if (!match) match = text.match(/(?:الساعه\s*)?(\d{1,2})\s*و\s*(\d{1,2})\s*دقيقه/);
 
@@ -300,8 +301,8 @@
         const priorIsRelated = /(اختبار|امتحان|مهمه|موعد|حدث|تذكير)/.test(normalizeAssistantIntent(priorText));
         const date = dateInMessage || (priorIsRelated ? getRequestedDate(priorText) : null);
         const time = timeInMessage || (priorIsRelated ? getRequestedTime(priorText) : null);
-        const mentionsTime = /(الساعه|دقيقه|[:٫.])/.test(currentText) ||
-            (priorIsRelated && /(الساعه|دقيقه|[:٫.])/.test(normalizeAssistantIntent(priorText)));
+        const mentionsTime = /(الساع|دقيق|[:٫.]|\\d{1,2}\\s*و\\s*\\d{1,2})/i.test(normalizeAssistantDigits(message)) ||
+            (priorIsRelated && /(الساع|دقيق|[:٫.]|\\d{1,2}\\s*و\\s*\\d{1,2})/i.test(normalizeAssistantDigits(priorText)));
 
         if (mentionsTime && !time) {
             return {
