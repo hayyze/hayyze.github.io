@@ -22,53 +22,136 @@ function extractFunction(source, name) {
 }
 
 function loadFunctions(source, names, globals = {}) {
-    const sandbox = Object.assign({ Math, Date, String, Array, RegExp }, globals);
+    const sandbox = Object.assign({ Math, Date, String, Array, RegExp, Set, Map }, globals);
     const declarations = names.map(name => extractFunction(source, name)).join('\n');
     const expose = '\nthis.testApi = {' + names.join(',') + '};';
     vm.runInNewContext(declarations + expose, sandbox);
     return sandbox.testApi;
 }
 
-const api = loadFunctions(apiSource, ['normalizeArabicIntent', 'getDeterministicReply']);
-const client = loadFunctions(clientSource, ['normalizeAssistantIntent', 'inferCalendarProposal']);
-
-const question = api.getDeterministicReply('وش قوانين نيوتن؟', []);
-assert.equal(question.provider, 'knowledge');
-assert.match(question.reply, /القصور الذاتي/);
-assert.match(question.reply, /F = ma/);
-assert.match(question.reply, /الفعل ورد الفعل/);
-assert.match(question.reply, /قانون الجذب العام/);
-assert.equal(question.reply.split('\n').length, 5, 'Newton answer uses readable separate lines');
-
-const history = [
-    { role: 'user', content: 'وش قوانين نيوتن؟' },
-    { role: 'assistant', content: 'شرح قوانين نيوتن الثلاثة.' },
-    { role: 'user', content: 'عندي اختبار الاثنين.' }
-];
-const request = 'انشئ موعد يوم الاثنين القادم.';
-const actionGuard = api.getDeterministicReply(request, history);
-assert.equal(actionGuard.provider, 'capability');
-assert.match(actionGuard.reply, /لم أُنشئ الموعد/);
-
 class FixedDate extends Date {
     constructor(...args) {
         if (args.length) super(...args);
         else super(2026, 10, 6, 12, 0, 0, 0);
     }
+    static now() {
+        return new Date(2026, 10, 6, 12, 0, 0, 0).getTime();
+    }
 }
-const fixedClient = loadFunctions(clientSource, ['normalizeAssistantIntent', 'inferCalendarProposal'], { Date: FixedDate });
-const proposal = fixedClient.inferCalendarProposal(request, history);
-assert.ok(proposal, 'Arabic create command + weekday produces a proposal');
-assert.equal(proposal.date, '2026-11-09', 'Next Monday from Friday 6 Nov 2026 is Monday 9 Nov 2026');
-assert.equal(proposal.name, 'اختبار قوانين نيوتن');
-assert.equal(proposal.type, 'exam');
-assert.equal(proposal.time, '', 'Missing time remains explicitly unset');
 
-const addRequest = fixedClient.inferCalendarProposal('أضف موعد يوم الخميس القادم.', []);
-assert.ok(addRequest);
-assert.equal(addRequest.date, '2026-11-12');
-assert.equal(addRequest.type, 'personal');
-assert.equal(fixedClient.inferCalendarProposal('ما معنى موعد يوم الاثنين؟', history), null,
-    'A question mentioning a weekday is not treated as an action');
+const client = loadFunctions(clientSource, [
+    'normalizeAssistantIntent',
+    'normalizeAssistantDigits',
+    'getRequestedDate',
+    'getRequestedTime',
+    'extractActionTitle',
+    'inferActionProposal'
+], { Date: FixedDate });
 
-console.log('PASS assistant factual grounding, Arabic intent normalization, date inference and confirmed-event proposal');
+const api = loadFunctions(apiSource, [
+    'normalizeArabicIntent',
+    'normalizeContext',
+    'getDeterministicReply'
+]);
+
+// Deterministic Newton answer must separate the three laws from universal gravitation.
+const newton = api.getDeterministicReply('وش قوانين نيوتن؟', [], null);
+assert.equal(newton.provider, 'knowledge');
+assert.match(newton.reply, /القصور الذاتي/);
+assert.match(newton.reply, /F = ma/);
+assert.match(newton.reply, /الفعل ورد الفعل/);
+assert.match(newton.reply, /قانون الجذب العام/);
+assert.equal(newton.reply.split('\n').length, 5, 'Newton answer has readable line breaks');
+
+const application = api.getDeterministicReply('وين استخدموها العلماء؟', [
+    { role: 'user', content: 'اخبرني ماهي قوانين نيوتن الثلاثة؟' }
+], null);
+assert.equal(application.provider, 'knowledge');
+assert.match(application.reply, /السيارات/);
+assert.match(application.reply, /الأقمار الصناعية/);
+
+// Greeting behavior differs between a new chat and an existing conversation.
+assert.match(api.getDeterministicReply('السلام عليكم', [], null).reply, /وعليكم السلام/);
+assert.match(api.getDeterministicReply('السلام عليكم', [{ role: 'user', content: 'سؤال سابق' }], null).reply, /نكمل من حيث توقفنا/);
+
+// A real study schedule is concise and honors the shared focus preference.
+const schedule = api.getDeterministicReply('كيف أوزع وقت المذاكرة على جلسات تركيز واستراحات؟', [], { workMin: 40 });
+assert.equal(schedule.provider, 'study-plan');
+assert.match(schedule.reply, /40 دقيقة/);
+assert.match(schedule.reply, /استراحة 5 دقائق/);
+
+// Priority suggestions must come from the exact supplied ranked tasks.
+const context = api.normalizeContext({
+    tasks: [
+        { id: 'a', title: 'مراجعة الفصل الثالث', priority: 'high', completed: false },
+        { id: 'b', title: 'حل مسائل الحركة', priority: 'medium', completed: false },
+        { id: 'c', title: 'تلخيص الدرس', priority: 'medium', completed: false },
+        { id: 'd', title: 'واجب الفيزياء', priority: 'low', completed: false }
+    ],
+    priorityTasks: [
+        { id: 'a', title: 'مراجعة الفصل الثالث', reasons: ['موعدها قريب'] },
+        { id: 'b', title: 'حل مسائل الحركة', reasons: ['أولوية عالية'] },
+        { id: 'c', title: 'تلخيص الدرس', reasons: ['مجدولة اليوم'] },
+        { id: 'd', title: 'واجب الفيزياء', reasons: ['أولوية منخفضة'] }
+    ],
+    otherTasks: [{ id: 'd', title: 'واجب الفيزياء', completed: false }]
+});
+const priorities = api.getDeterministicReply('ساعدني في تحديد أهم ثلاث أولويات دراسية اليوم.', [], context);
+assert.equal(priorities.provider, 'priorities');
+assert.match(priorities.reply, /مراجعة الفصل الثالث/);
+assert.match(priorities.reply, /حل مسائل الحركة/);
+assert.match(priorities.reply, /تلخيص الدرس/);
+assert.doesNotMatch(priorities.reply, /الرياضيات|الكيمياء/);
+
+const why = api.getDeterministicReply('كيف حددتها؟', [{ role: 'assistant', content: priorities.reply }], context);
+assert.match(why.reply, /موعدها قريب/);
+const alternatives = api.getDeterministicReply('لماذا لم تختر مهام غيرها؟', [], context);
+assert.match(alternatives.reply, /واجب الفيزياء/);
+
+const noContext = api.getDeterministicReply('ما أولوياتي اليوم؟', [], null);
+assert.equal(noContext.provider, 'data-required');
+assert.match(noContext.reply, /لن أخترع/);
+
+const mismatch = api.getDeterministicReply('بس ما فيه مهام بذا الاسم؟', [], context);
+assert.match(mismatch.reply, /هذه أسماء المهام غير المكتملة/);
+assert.match(mismatch.reply, /واجب الفيزياء/);
+
+// Natural Arabic task creation and next-weekday calculation.
+const todoProposal = client.inferActionProposal(
+    'أنشئ مهمة يوم الاثنين القادم باسم اختبار الفيزياء.',
+    []
+);
+assert.equal(todoProposal.kind, 'todo');
+assert.equal(todoProposal.data.text, 'اختبار الفيزياء');
+assert.equal(todoProposal.data.date, '2026-11-09');
+assert.equal(todoProposal.data.completed, false);
+
+// Calendar task with an explicit Gregorian date and an Arabic-word time.
+const calendarProposal = client.inferActionProposal(
+    'أنشئ مهمة في تقويم الطالب باسم "اختبار الذكاء الاصطناعي" وموعدها الساعة تسعة و22 دقيقة 2026 شهر 12 يوم 1',
+    []
+);
+assert.equal(calendarProposal.kind, 'calendar');
+assert.equal(calendarProposal.data.type, 'assignment');
+assert.equal(calendarProposal.data.name, 'اختبار الذكاء الاصطناعي');
+assert.equal(calendarProposal.data.date, '2026-12-01');
+assert.equal(calendarProposal.data.time, '09:22');
+
+// Arabic numerals and numeric time formats are parsed accurately.
+assert.equal(client.getRequestedDate('2026 شهر ١٢ يوم ١'), '2026-12-01');
+assert.equal(client.getRequestedDate('2026-12-01'), '2026-12-01');
+assert.equal(client.getRequestedTime('الساعة 9:22'), '09:22');
+assert.equal(client.getRequestedTime('الساعة تسعة و22 دقيقة'), '09:22');
+
+// Incomplete creation asks for the missing field instead of claiming success.
+const missingDate = client.inferActionProposal('أنشئ مهمة باسم مراجعة الفيزياء', []);
+assert.equal(missingDate.needsClarification, true);
+assert.match(missingDate.reply, /ما التاريخ/);
+const missingTitle = client.inferActionProposal('أنشئ موعد يوم الاثنين القادم', []);
+assert.equal(missingTitle.needsClarification, true);
+assert.match(missingTitle.reply, /ما اسم الموعد/);
+
+// Ordinary questions that merely mention a weekday are not interpreted as commands.
+assert.equal(client.inferActionProposal('ما معنى موعد يوم الاثنين؟', []), null);
+
+console.log('PASS assistant knowledge, no-hallucination priorities, greeting, date/time parsing and confirmed task/calendar proposals');
