@@ -201,7 +201,7 @@
 
     function getRequestedDate(value) {
         const text = normalizeAssistantIntent(normalizeAssistantDigits(value));
-        let match = text.match(/(?:^|\\D)(20\\d{2})\\s*(?:شهر|[-/])\\s*(\\d{1,2})\\s*(?:يوم|[-/])\\s*(\\d{1,2})(?:\\D|$)/);
+        let match = text.match(/(?:^|\D)(20\d{2})\s*(?:شهر|[-/])\s*(\d{1,2})\s*(?:يوم|[-/])\s*(\d{1,2})(?:\D|$)/);
         if (match) {
             const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
             const date = new Date(year, month - 1, day, 12);
@@ -234,8 +234,8 @@
 
     function getRequestedTime(value) {
         const text = normalizeAssistantIntent(normalizeAssistantDigits(value));
-        let match = text.match(/(?:الساعه\\s*)?(\\d{1,2})[:٫.](\\d{2})/);
-        if (!match) match = text.match(/(?:الساعه\\s*)?(\\d{1,2})\\s*و\\s*(\\d{1,2})\\s*دقيقه/);
+        let match = text.match(/(?:الساعه\s*)?(\d{1,2})[:٫.](\d{2})/);
+        if (!match) match = text.match(/(?:الساعه\s*)?(\d{1,2})\s*و\s*(\d{1,2})\s*دقيقه/);
 
         let hour = null, minute = 0;
         if (match) {
@@ -257,7 +257,7 @@
                 اثناعشر: 12, اثناعشره: 12
             };
             const wordPattern = Object.keys(words).sort((a, b) => b.length - a.length).join('|');
-            const wordMatch = text.match(new RegExp('الساعه\\s*(' + wordPattern + ')(?:\\s*و\\s*(\\d{1,2})\\s*دقيقه)?'));
+            const wordMatch = text.match(new RegExp('الساعه\s*(' + wordPattern + ')(?:\s*و\s*(\d{1,2})\s*دقيقه)?'));
             if (!wordMatch) return null;
             hour = words[wordMatch[1]];
             minute = wordMatch[2] ? Number(wordMatch[2]) : 0;
@@ -272,7 +272,7 @@
         const quoted = raw.match(/["“«]([^"”»]+)["”»]/);
         if (quoted && quoted[1].trim()) return quoted[1].trim().slice(0, 120);
 
-        const named = raw.match(/(?:باسم|اسمها|اسمه|بعنوان)\\s*[:：]?\\s*(.+?)(?=\\s*(?:و?موعدها|و?تاريخها|بتاريخ|في\\s+يوم|يوم|الساعة|ساعه|وقتها|وقت(?:ها)?|موعد)\\b|[،,؛;]|$)/i);
+        const named = raw.match(/(?:باسم|اسمها|اسمه|بعنوان)\s*[:：]?\s*(.+?)(?=\s*(?:و?موعدها|و?تاريخها|بتاريخ|في\s+يوم|يوم|الساعة|ساعه|وقتها|وقت(?:ها)?|موعد)\b|[،,؛;]|$)/i);
         if (named && named[1].trim()) {
             return named[1].trim().replace(/[.!؟?،,؛;]+$/g, '').slice(0, 120);
         }
@@ -368,10 +368,10 @@
         });
         const isTodo = proposal.kind === 'todo';
         const label = isTodo ? 'المهمة' : 'موعد التقويم';
-        const summary = 'أقترح إضافة ' + label + ' التالي:' + '\\n' +
-            'الاسم: ' + (isTodo ? data.text : data.name) + '\\n' +
-            'التاريخ: ' + dateLabel + '\\n' +
-            'الوقت: ' + (time || 'غير محدد') + '\\n' +
+        const summary = 'أقترح إضافة ' + label + ' التالي:' + '\n' +
+            'الاسم: ' + (isTodo ? data.text : data.name) + '\n' +
+            'التاريخ: ' + dateLabel + '\n' +
+            'الوقت: ' + (time || 'غير محدد') + '\n' +
             'لم يُحفظ شيء بعد. راجع التفاصيل ثم أكّد الإضافة.';
         const messageNode = addMessage('assistant', summary);
 
