@@ -257,7 +257,7 @@
                 اثناعشر: 12, اثناعشره: 12
             };
             const wordPattern = Object.keys(words).sort((a, b) => b.length - a.length).join('|');
-            const wordMatch = text.match(new RegExp('الساعه\s*(' + wordPattern + ')(?:\s*و\s*(\d{1,2})\s*دقيقه)?'));
+            const wordMatch = text.match(new RegExp('الساعه\\s*(' + wordPattern + ')(?:\\s*و\\s*(\\d{1,2})\\s*دقيقه)?'));
             if (!wordMatch) return null;
             hour = words[wordMatch[1]];
             minute = wordMatch[2] ? Number(wordMatch[2]) : 0;
