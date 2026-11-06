@@ -160,7 +160,9 @@
 
         const rankedItems = ranked.map(toRankedItem).filter(Boolean);
         const rankedIds = new Set(rankedItems.map(item => item.id));
-        const otherTasks = tasks.filter(task => !task.completed && !rankedIds.has(task.id)).slice(0, 20);
+        const otherTasks = rankedItems.slice(3).concat(
+            tasks.filter(task => !task.completed && !rankedIds.has(task.id))
+        ).slice(0, 20);
 
         const target = academicGoal && typeof academicGoal === 'object' ? {
             target: academicGoal.target ?? academicGoal.targetGpa ?? academicGoal.goal ?? null,
@@ -459,7 +461,32 @@
         return { client, session: result.data && result.data.session };
     }
 
-    async function sendMessage(message) {
+        function isAccountNameQuestion(message) {
+        const text = normalizeAssistantIntent(message);
+        return /(هل تعرف اسمي|تعرف اسمي|ما اسمي|وش اسمي|ايش اسمي|تذكر اسمي)/.test(text);
+    }
+
+    async function getAccountNameReply() {
+        const sessionData = await getSession();
+        if (!sessionData.session) return 'لا أستطيع قراءة بيانات الحساب لأن جلسة الدخول غير متاحة.';
+        const result = await sessionData.client.auth.getUser();
+        if (result.error || !result.data || !result.data.user) {
+            return 'تعذر التحقق من بيانات ملفك الشخصي الآن.';
+        }
+
+        const metadata = result.data.user.user_metadata || {};
+        const fullName = [metadata.full_name, metadata.name, metadata.display_name, metadata.preferred_name]
+            .find(value => typeof value === 'string' && value.trim());
+        const firstName = typeof metadata.first_name === 'string' ? metadata.first_name.trim() : '';
+        const lastName = typeof metadata.last_name === 'string' ? metadata.last_name.trim() : '';
+        const name = fullName || [firstName, lastName].filter(Boolean).join(' ');
+
+        return name
+            ? 'الاسم الظاهر في ملف حسابك هو: ' + name + '.'
+            : 'لا يظهر لي اسم محفوظ في ملف حسابك على حيز. أستطيع الوصول إلى حالة تسجيل الدخول وبيانات الدراسة التي تختار مشاركتها، لكن لا أستنتج اسمك من عنوان البريد الإلكتروني.';
+    }
+
+async function sendMessage(message) {
         if (sending) return;
         sending = true;
         sendButton.disabled = true;
@@ -485,6 +512,10 @@
         }
 
         try {
+            if (isAccountNameQuestion(message)) {
+                addLocalAssistantReply(await getAccountNameReply(), 'بيانات الحساب');
+                return;
+            }
             const { session } = await getSession();
             if (!session || !session.access_token) throw new Error('انتهت جلسة الدخول. سجّل الدخول مجددًا.');
             const includeContext = $('assistant-share-context').checked;
@@ -518,7 +549,11 @@
                 gemini: 'Gemini',
                 cloudflare: 'Cloudflare AI',
                 knowledge: 'إجابة معرفية مباشرة',
-                capability: 'توضيح حدود المساعد'
+                capability: 'توضيح حدود المساعد',
+                greeting: 'ترحيب',
+                'study-plan': 'خطة مذاكرة',
+                priorities: 'أولويات من بيانات حيز',
+                'data-required': 'مشاركة البيانات مطلوبة'
             };
             $('assistant-provider-status').textContent = providerLabels[result.provider] || 'مساعد حيز';
             setStatus('');
