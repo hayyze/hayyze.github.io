@@ -130,7 +130,7 @@
 
     function inferCalendarProposal(message, previousHistory) {
         const text = normalizeAssistantIntent(message);
-        const createIntent = /(انشئ|اضف|سجل|احجز|حدد|اعمل|حط)/.test(text) &&
+        const createIntent = /(انشئ|انشي|اضف|سجل|احجز|حدد|اعمل|حط)/.test(text) &&
             /(موعد|حدث|تذكير|اختبار)/.test(text);
         if (!createIntent) return null;
 
