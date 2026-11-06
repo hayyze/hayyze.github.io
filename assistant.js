@@ -182,7 +182,7 @@
         const dateParts = eventData.date.split('-').map(Number);
         const localDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], 12);
         const dateLabel = localDate.toLocaleDateString('ar-SA', {
-            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', calendar: 'gregory'
         });
         const summary = 'أقترح إضافة الموعد التالي إلى تقويم الطالب:\n' +
             'الاسم: ' + eventData.name + '\n' +
