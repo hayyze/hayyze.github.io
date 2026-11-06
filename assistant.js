@@ -301,8 +301,8 @@
         const priorIsRelated = /(اختبار|امتحان|مهمه|موعد|حدث|تذكير)/.test(normalizeAssistantIntent(priorText));
         const date = dateInMessage || (priorIsRelated ? getRequestedDate(priorText) : null);
         const time = timeInMessage || (priorIsRelated ? getRequestedTime(priorText) : null);
-        const mentionsTime = /(الساع|دقيق|[:٫.]|\\d{1,2}\\s*و\\s*\\d{1,2})/i.test(normalizeAssistantDigits(message)) ||
-            (priorIsRelated && /(الساع|دقيق|[:٫.]|\\d{1,2}\\s*و\\s*\\d{1,2})/i.test(normalizeAssistantDigits(priorText)));
+        const mentionsTime = /(الساع|دقيق|[:٫.]|\d{1,2}\s*و\s*\d{1,2})/i.test(normalizeAssistantDigits(message)) ||
+            (priorIsRelated && /(الساع|دقيق|[:٫.]|\d{1,2}\s*و\s*\d{1,2})/i.test(normalizeAssistantDigits(priorText)));
 
         if (mentionsTime && !time) {
             return {
@@ -484,7 +484,7 @@
     function removeUnexpectedGreeting(reply, userMessage) {
         if (isGreetingOnlyMessage(userMessage)) return String(reply || '').trim();
         return String(reply || '').trim().replace(
-            /^(?:مرحبًا|مرحباً|مرحبا|أهلًا|اهلاً|أهلاً|اهلا|وعليكم السلام)(?:[!؟،,.:؛\\s-]+)*/i,
+            /^(?:مرحبًا|مرحباً|مرحبا|أهلًا|اهلاً|أهلاً|اهلا|وعليكم السلام)(?:[!؟،,.:؛\s-]+)*/i,
             ''
         ).trim();
     }
