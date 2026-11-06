@@ -100,7 +100,7 @@
             .filter(subject => subject && subject.id && subject.name)
             .map(subject => [subject.id, shortText(subject.name, 60)]));
 
-        const tasks = Array.isArray(todos) ? todos.slice(0, 60).map(task => ({
+        const tasks = Array.isArray(todos) ? todos.slice(0, 25).map(task => ({
             id: shortText(task && task.id, 100),
             title: shortText(task && (task.text || task.title || task.name), 120),
             dueDate: shortText(task && (task.date || task.dueDate || task.deadline), 32),
@@ -111,19 +111,19 @@
             minutes: Math.max(0, Number(task && task.minutes) || 0)
         })).filter(task => task.title) : [];
 
-        const subjectList = Array.isArray(subjects) ? subjects.slice(0, 30).map(subject => ({
+        const subjectList = Array.isArray(subjects) ? subjects.slice(0, 15).map(subject => ({
             id: shortText(subject && subject.id, 100),
             name: shortText(subject && (subject.name || subject.title), 60)
         })).filter(subject => subject.name) : [];
 
-        const examList = Array.isArray(exams) ? exams.slice(0, 30).map(exam => ({
+        const examList = Array.isArray(exams) ? exams.slice(0, 15).map(exam => ({
             id: shortText(exam && exam.id, 100),
             name: shortText(exam && (exam.name || exam.title || exam.subject), 100),
             date: shortText(exam && (exam.date || exam.examDate), 32),
             done: Boolean(exam && exam.done)
         })).filter(exam => exam.name || exam.date) : [];
 
-        const goalList = Array.isArray(goals) ? goals.slice(0, 15).map(goal => ({
+        const goalList = Array.isArray(goals) ? goals.slice(0, 10).map(goal => ({
             title: shortText(goal && (goal.title || goal.name || goal.text), 100),
             dueDate: shortText(goal && (goal.date || goal.dueDate), 32)
         })).filter(goal => goal.title) : [];
@@ -176,7 +176,7 @@
             exams: examList,
             goals: goalList,
             academicGoal: target,
-            priorityTasks: rankedItems.slice(0, 10),
+            priorityTasks: rankedItems.slice(0, 5),
             otherTasks,
             focusMinutesToday,
             workMin
@@ -283,7 +283,7 @@
 
     function inferActionProposal(message, previousHistory) {
         const currentText = normalizeAssistantIntent(message);
-        const actionVerb = /(انشئ|انشي|انشاء|اضف|ضيف|سجل|احجز|حدد|اعمل|حط|تسوي|سوي|create|add|schedule)/.test(currentText);
+        const actionVerb = /(انشئ|انشي|انشاء|اضف|اضافه|اضيف|تضيف|ضيف|سجل|تسجل|احجز|حدد|اعمل|حط|تسوي|سوي|تنشئ|create|add|schedule)/.test(currentText);
         const hasTaskWord = /(مهمه|مهام|task)/.test(currentText);
         const hasCalendarWord = /(موعد|حدث|تذكير|تقويم الطالب|في التقويم|بالتقويم|appointment|event)/.test(currentText);
         const hasExamWord = /(اختبار|امتحان)/.test(currentText);
