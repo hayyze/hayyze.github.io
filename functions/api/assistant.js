@@ -163,7 +163,7 @@ function getDeterministicReply(message, history) {
     }
 
     const asksToCreateEvent =
-        /(انشئ|اضف|سجل|حدد|احجز|اعمل|انشئ لي|اضف لي)/.test(normalized) &&
+        /(انشئ|انشي|اضف|سجل|حدد|احجز|اعمل|انشئ لي|اضف لي)/.test(normalized) &&
         /(موعد|حدث|تذكير|اختبار)/.test(normalized);
 
     if (asksToCreateEvent) {
