@@ -380,27 +380,86 @@ function getDeterministicReply(message, history, context) {
     return null;
 }
 
+function getGeminiFailureCode(httpStatus, providerStatus, providerMessage) {
+    const providerCode = String(providerStatus || '').toUpperCase();
+    const message = String(providerMessage || '');
+    if (/API_KEY_INVALID|API KEY NOT VALID|API_KEY_EXPIRED/i.test(providerCode + ' ' + message)) return 'invalid_api_key';
+    if (providerCode === 'PERMISSION_DENIED') return 'forbidden';
+    if (providerCode === 'RESOURCE_EXHAUSTED') return 'rate_limited';
+    if (providerCode === 'NOT_FOUND') return 'model_not_found';
+    if (providerCode === 'INVALID_ARGUMENT') return 'invalid_request';
+    if (providerCode === 'UNAUTHENTICATED') return 'unauthorized';
+    if (httpStatus === 400) return 'invalid_request';
+    if (httpStatus === 401) return 'unauthorized';
+    if (httpStatus === 403) return 'forbidden';
+    if (httpStatus === 404) return 'model_not_found';
+    if (httpStatus === 408 || httpStatus === 504) return 'timeout';
+    if (httpStatus === 429) return 'rate_limited';
+    if (httpStatus >= 500) return 'upstream_unavailable';
+    return 'provider_error';
+}
+
+function createGeminiError(code, httpStatus) {
+    const error = new Error(code);
+    error.code = code;
+    if (Number.isInteger(httpStatus)) error.httpStatus = httpStatus;
+    return error;
+}
+
 async function askGemini(env, prompt) {
-    if (!env.GEMINI_API_KEY) return null;
-    const model = (env.GEMINI_MODEL || 'gemini-3.1-flash-lite').replace(/[^a-zA-Z0-9._-]/g, '');
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': env.GEMINI_API_KEY
-        },
-        body: JSON.stringify({
-            systemInstruction: { parts: [{ text: 'أنت مساعد حيز الدراسي. أجب بالعربية وكن دقيقًا. لا تنفذ إجراءات داخل الحساب.' }] },
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.55, maxOutputTokens: 900 }
-        })
-    });
-    if (!response.ok) throw new Error('GEMINI_PROVIDER_ERROR');
-    const data = await response.json();
-    const text = data && data.candidates && data.candidates[0] && data.candidates[0].content &&
-        Array.isArray(data.candidates[0].content.parts)
-        ? data.candidates[0].content.parts.map(part => part.text || '').join('').trim() : '';
-    if (!text) throw new Error('GEMINI_EMPTY_RESPONSE');
+    if (!env.GEMINI_API_KEY) throw createGeminiError('missing_api_key');
+    const configuredModel = typeof env.GEMINI_MODEL === 'string' ? env.GEMINI_MODEL : '';
+    const model = configuredModel.replace(/[^a-zA-Z0-9._-]/g, '') || 'gemini-3.1-flash-lite';
+    let response;
+    try {
+        response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': env.GEMINI_API_KEY
+            },
+            body: JSON.stringify({
+                systemInstruction: { parts: [{ text: 'أنت مساعد حيز الدراسي. أجب بالعربية وكن دقيقًا. لا تنفذ إجراءات داخل الحساب.' }] },
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                generationConfig: { temperature: 0.55, maxOutputTokens: 900 }
+            })
+        });
+    } catch (_) {
+        throw createGeminiError('network_error');
+    }
+
+    if (!response || !response.ok) {
+        const payload = response && typeof response.json === 'function'
+            ? await response.json().catch(() => null)
+            : null;
+        const providerError = payload && payload.error ? payload.error : {};
+        const code = getGeminiFailureCode(
+            response ? response.status : 0,
+            providerError.status,
+            providerError.message
+        );
+        throw createGeminiError(code, response && Number.isInteger(response.status) ? response.status : undefined);
+    }
+
+    let data;
+    try {
+        data = await response.json();
+    } catch (_) {
+        throw createGeminiError('invalid_response', response.status);
+    }
+
+    const candidate = data && Array.isArray(data.candidates) ? data.candidates[0] : null;
+    const parts = candidate && candidate.content && Array.isArray(candidate.content.parts)
+        ? candidate.content.parts : [];
+    const text = parts.map(part => part && !part.thought && typeof part.text === 'string' ? part.text : '')
+        .join('').trim();
+    if (!text) {
+        const blocked = Boolean(
+            (data && data.promptFeedback && data.promptFeedback.blockReason) ||
+            (candidate && candidate.finishReason === 'SAFETY')
+        );
+        throw createGeminiError(blocked ? 'content_blocked' : 'empty_response', response.status);
+    }
     return text;
 }
 
@@ -448,14 +507,43 @@ export async function onRequestPost({ request, env }) {
 
     let reply = null;
     let provider = '';
-    if (env.GEMINI_ENABLED === 'true' && env.GEMINI_API_KEY) {
-        try { reply = await askGemini(env, prompt); if (reply) provider = 'gemini'; } catch (_) {}
+    let geminiFailure = null;
+
+    if (env.GEMINI_ENABLED === 'true') {
+        if (!env.GEMINI_API_KEY) {
+            geminiFailure = 'missing_api_key';
+            console.warn('[assistant] Gemini fallback', JSON.stringify({
+                reason: geminiFailure,
+                modelConfigured: Boolean(env.GEMINI_MODEL)
+            }));
+        } else {
+            try {
+                reply = await askGemini(env, prompt);
+                if (reply) provider = 'gemini';
+            } catch (error) {
+                geminiFailure = error && typeof error.code === 'string' ? error.code : 'provider_error';
+                console.warn('[assistant] Gemini fallback', JSON.stringify({
+                    reason: geminiFailure,
+                    httpStatus: error && Number.isInteger(error.httpStatus) ? error.httpStatus : null,
+                    model: (typeof env.GEMINI_MODEL === 'string' ? env.GEMINI_MODEL : 'gemini-3.1-flash-lite')
+                        .replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 80)
+                }));
+            }
+        }
     }
+
     if (!reply && env.AI) {
         try { reply = await askCloudflare(env, prompt); if (reply) provider = 'cloudflare'; } catch (_) {}
     }
-    if (!reply) return json({ error: 'خدمات الذكاء الاصطناعي غير مهيأة أو وصلت إلى حدود الاستخدام المجانية. حاول لاحقًا.' }, 503);
-    return json({ reply: reply.slice(0, 8000), provider }, 200);
+    if (!reply) return json({
+        error: 'خدمات الذكاء الاصطناعي غير مهيأة أو وصلت إلى حدود الاستخدام المجانية. حاول لاحقًا.',
+        ...(geminiFailure ? { fallbackReason: geminiFailure } : {})
+    }, 503);
+    return json({
+        reply: reply.slice(0, 8000),
+        provider,
+        ...(provider === 'cloudflare' && geminiFailure ? { fallbackReason: geminiFailure } : {})
+    }, 200);
 }
 
 export async function onRequest(context) {
