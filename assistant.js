@@ -48,6 +48,7 @@
         item.append(label, body);
         messagesEl.appendChild(item);
         messagesEl.scrollTop = messagesEl.scrollHeight;
+        return item;
     }
 
     function renderHistory() {
@@ -114,6 +115,143 @@
         return { tasks, subjects: subjectList, exams: examList, goals: goalList, academicGoal: target };
     }
 
+    function normalizeAssistantIntent(value) {
+        return String(value || '')
+            .normalize('NFKD')
+            .replace(/[\\u064B-\\u065F\\u0670]/g, '')
+            .replace(/[أإآ]/g, 'ا')
+            .replace(/ة/g, 'ه')
+            .replace(/ى/g, 'ي')
+            .replace(/[؟?!.,،؛:]/g, ' ')
+            .replace(/\\s+/g, ' ')
+            .trim()
+            .toLowerCase();
+    }
+
+    function inferCalendarProposal(message, previousHistory) {
+        const text = normalizeAssistantIntent(message);
+        const createIntent = /(انشئ|اضف|سجل|احجز|حدد|اعمل|حط)/.test(text) &&
+            /(موعد|حدث|تذكير|اختبار)/.test(text);
+        if (!createIntent) return null;
+
+        const weekdays = [
+            { names: ['الاحد', 'الاحد القادم', 'sunday'], day: 0 },
+            { names: ['الاثنين', 'الاثنين القادم', 'monday'], day: 1 },
+            { names: ['الثلاثاء', 'الثلاثاء القادم', 'tuesday'], day: 2 },
+            { names: ['الاربعاء', 'الاربعاء القادم', 'wednesday'], day: 3 },
+            { names: ['الخميس', 'الخميس القادم', 'thursday'], day: 4 },
+            { names: ['الجمعه', 'الجمعه القادم', 'friday'], day: 5 },
+            { names: ['السبت', 'السبت القادم', 'saturday'], day: 6 }
+        ];
+        const dayMatch = weekdays.find(item => item.names.some(name => text.includes(name)));
+        if (!dayMatch) return null;
+
+        const date = new Date();
+        date.setHours(12, 0, 0, 0);
+        const daysAhead = (dayMatch.day - date.getDay() + 7) % 7 || 7;
+        date.setDate(date.getDate() + daysAhead);
+        const dateValue = [
+            date.getFullYear(),
+            String(date.getMonth() + 1).padStart(2, '0'),
+            String(date.getDate()).padStart(2, '0')
+        ].join('-');
+
+        const priorText = (previousHistory || [])
+            .filter(item => item && item.role === 'user')
+            .map(item => item.content)
+            .join(' ');
+        const combinedText = normalizeAssistantIntent(priorText + ' ' + message);
+        const isExam = /(اختبار|امتحان)/.test(combinedText);
+        const topic = /قوانين نيوتن|قانون نيوتن|نيوتن/.test(combinedText) ? 'قوانين نيوتن' : '';
+        const name = isExam
+            ? (topic ? 'اختبار ' + topic : 'اختبار دراسي')
+            : 'موعد دراسي';
+
+        return {
+            id: (isExam ? 'ex_' : 'ev_') + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            name,
+            type: isExam ? 'exam' : 'personal',
+            date: dateValue,
+            time: '',
+            subjectId: null,
+            updated: Date.now()
+        };
+    }
+
+    function showCalendarProposal(eventData) {
+        const dateParts = eventData.date.split('-').map(Number);
+        const localDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], 12);
+        const dateLabel = localDate.toLocaleDateString('ar-SA', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+        const summary = 'أقترح إضافة الموعد التالي إلى تقويم الطالب:\n' +
+            'الاسم: ' + eventData.name + '\n' +
+            'التاريخ: ' + dateLabel + '\n' +
+            'الوقت: غير محدد.\n' +
+            'لم يُحفظ الموعد بعد؛ أضفه فقط بعد تأكيدك.';
+        history.push({ role: 'assistant', content: summary });
+        history = history.slice(-30);
+        saveHistory();
+        const messageNode = addMessage('assistant', summary);
+
+        const actions = document.createElement('div');
+        actions.className = 'assistant-proposal-actions';
+        const confirmButton = document.createElement('button');
+        confirmButton.type = 'button';
+        confirmButton.className = 'btn btn-primary';
+        confirmButton.textContent = 'تأكيد وإضافة الموعد';
+        const cancelButton = document.createElement('button');
+        cancelButton.type = 'button';
+        cancelButton.className = 'btn btn-secondary';
+        cancelButton.textContent = 'ليس الآن';
+
+        confirmButton.addEventListener('click', async () => {
+            confirmButton.disabled = true;
+            cancelButton.disabled = true;
+            confirmButton.textContent = 'جارٍ الحفظ...';
+            try {
+                const storageKey = eventData.type === 'exam' ? 'hayyiz-student-exams' : 'hayyiz-custom-events';
+                const raw = hayyizStorage.getItem(storageKey);
+                const saved = raw ? JSON.parse(raw) : [];
+                const list = Array.isArray(saved) ? saved : [];
+                const duplicate = list.find(item => item && item.name === eventData.name && item.date === eventData.date);
+                if (!duplicate) {
+                    list.push(eventData);
+                    hayyizStorage.setItem(storageKey, JSON.stringify(list));
+                    if (typeof hayyizUploadItem === 'function') {
+                        const toolName = eventData.type === 'exam' ? 'student-exams' : 'custom-events';
+                        await hayyizUploadItem(toolName, eventData.id, eventData);
+                    }
+                }
+                const confirmation = duplicate
+                    ? 'الموعد موجود بالفعل في تقويم الطالب: ' + eventData.name + ' — ' + dateLabel + '.'
+                    : 'تمت إضافة الموعد إلى تقويم الطالب على هذا الجهاز: ' + eventData.name + ' — ' + dateLabel + '.';
+                history.push({ role: 'assistant', content: confirmation });
+                history = history.slice(-30);
+                saveHistory();
+                addMessage('assistant', confirmation);
+                actions.remove();
+                $('assistant-provider-status').textContent = 'تقويم الطالب';
+                setStatus('');
+            } catch (error) {
+                confirmButton.disabled = false;
+                cancelButton.disabled = false;
+                confirmButton.textContent = 'إعادة المحاولة';
+                setStatus('تعذر حفظ الموعد. لم أؤكد إضافته؛ حاول مرة أخرى.', true);
+            }
+        });
+
+        cancelButton.addEventListener('click', () => {
+            actions.remove();
+            setStatus('لم تتم إضافة الموعد.');
+        });
+
+        actions.append(confirmButton, cancelButton);
+        messageNode.appendChild(actions);
+        $('assistant-provider-status').textContent = 'موعد بانتظار تأكيدك';
+        setStatus('راجع اسم الموعد وتاريخه قبل إضافته.');
+    }
+
     async function getSession() {
         if (typeof ensureSupabaseLoaded !== 'function') throw new Error('تعذر تحميل خدمة تسجيل الدخول.');
         const client = await ensureSupabaseLoaded();
@@ -133,6 +271,15 @@
         saveHistory();
         input.value = '';
         countEl.textContent = '0 / 2000';
+
+        const proposal = inferCalendarProposal(message, history.slice(0, -1));
+        if (proposal) {
+            showCalendarProposal(proposal);
+            sending = false;
+            sendButton.disabled = false;
+            input.focus();
+            return;
+        }
 
         try {
             const { session } = await getSession();
