@@ -293,8 +293,22 @@
         const isTaskInCalendar = hasTaskWord && /(تقويم الطالب|في التقويم|بالتقويم)/.test(currentText);
         const kind = hasTaskWord && !isTaskInCalendar ? 'todo' : 'calendar';
         const title = extractActionTitle(message);
-        const date = getRequestedDate(message);
-        const time = getRequestedTime(message);
+        const dateInMessage = getRequestedDate(message);
+        const timeInMessage = getRequestedTime(message);
+        const lastPriorUser = (previousHistory || []).filter(item => item && item.role === 'user').slice(-1)[0];
+        const priorText = lastPriorUser ? lastPriorUser.content : '';
+        const priorIsRelated = /(اختبار|امتحان|مهمه|موعد|حدث|تذكير)/.test(normalizeAssistantIntent(priorText));
+        const date = dateInMessage || (priorIsRelated ? getRequestedDate(priorText) : null);
+        const time = timeInMessage || (priorIsRelated ? getRequestedTime(priorText) : null);
+        const mentionsTime = /(الساعه|دقيقه|[:٫.])/.test(currentText) ||
+            (priorIsRelated && /(الساعه|دقيقه|[:٫.])/.test(normalizeAssistantIntent(priorText)));
+
+        if (mentionsTime && !time) {
+            return {
+                needsClarification: true,
+                reply: 'لم أتمكن من فهم الوقت بدقة. اكتبه بصيغة 09:22 أو «الساعة تسعة و22 دقيقة».'
+            };
+        }
 
         if (!title) {
             return {
