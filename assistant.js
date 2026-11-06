@@ -189,9 +189,8 @@
             'التاريخ: ' + dateLabel + '\n' +
             'الوقت: غير محدد.\n' +
             'لم يُحفظ الموعد بعد؛ أضفه فقط بعد تأكيدك.';
-        history.push({ role: 'assistant', content: summary });
-        history = history.slice(-30);
-        saveHistory();
+        // Keep an unconfirmed action proposal ephemeral. It is not persisted
+        // as a completed assistant turn and disappears safely on reload.
         const messageNode = addMessage('assistant', summary);
 
         const actions = document.createElement('div');
