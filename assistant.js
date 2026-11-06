@@ -118,12 +118,12 @@
     function normalizeAssistantIntent(value) {
         return String(value || '')
             .normalize('NFKD')
-            .replace(/[\\u064B-\\u065F\\u0670]/g, '')
+            .replace(/[\u064B-\u065F\u0670]/g, '')
             .replace(/[أإآ]/g, 'ا')
             .replace(/ة/g, 'ه')
             .replace(/ى/g, 'ي')
             .replace(/[؟?!.,،؛:]/g, ' ')
-            .replace(/\\s+/g, ' ')
+            .replace(/\s+/g, ' ')
             .trim()
             .toLowerCase();
     }
