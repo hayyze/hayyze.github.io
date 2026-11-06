@@ -235,37 +235,36 @@
     }
 
     function getRequestedTime(value) {
-        const marked = normalizeAssistantDigits(value).replace(/[:٫.]/g, 'TIMESEPARATOR');
-        const text = normalizeAssistantIntent(marked).replace(/TIMESEPARATOR/g, ':');
-        let match = text.match(/(?:الساعه\s*)?(\d{1,2})[:٫.](\d{2})/);
-        if (!match) match = text.match(/(?:الساعه\s*)?(\d{1,2})\s*و\s*(\d{1,2})\s*دقيقه/);
-
-        let hour = null, minute = 0;
-        if (match) {
-            hour = Number(match[1]);
-            minute = Number(match[2]);
-        } else {
-            const words = {
-                واحد: 1, واحده: 1, احد: 1, احدى: 1,
-                اثنين: 2, اثنتين: 2,
-                ثلاث: 3, ثلاثه: 3,
-                اربع: 4, اربعه: 4,
-                خمس: 5, خمسه: 5,
-                ست: 6, سته: 6,
-                سبع: 7, سبعه: 7,
-                ثمان: 8, ثمانيه: 8,
-                تسع: 9, تسعه: 9,
-                عشر: 10, عشره: 10,
-                احدعشر: 11, احدعشره: 11,
-                اثناعشر: 12, اثناعشره: 12
-            };
-            const wordPattern = Object.keys(words).sort((a, b) => b.length - a.length).join('|');
-            const wordMatch = text.match(new RegExp('الساعه\\s*(' + wordPattern + ')(?:\\s*و\\s*(\\d{1,2})\\s*دقيقه)?'));
-            if (!wordMatch) return null;
-            hour = words[wordMatch[1]];
-            minute = wordMatch[2] ? Number(wordMatch[2]) : 0;
+        const raw = normalizeAssistantDigits(value);
+        const numericMatch = raw.match(/(?:الساعة|الساعه)?\\s*(\\d{1,2})[:٫.](\\d{2})/i);
+        if (numericMatch) {
+            const hour = Number(numericMatch[1]);
+            const minute = Number(numericMatch[2]);
+            if (!Number.isInteger(hour) || hour < 0 || hour > 23 || !Number.isInteger(minute) || minute < 0 || minute > 59) return null;
+            return String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
         }
 
+        const text = normalizeAssistantIntent(raw);
+        const words = {
+            واحد: 1, واحده: 1, احد: 1, احدى: 1,
+            اثنين: 2, اثنتين: 2,
+            ثلاث: 3, ثلاثه: 3,
+            اربع: 4, اربعه: 4,
+            خمس: 5, خمسه: 5,
+            ست: 6, سته: 6,
+            سبع: 7, سبعه: 7,
+            ثمان: 8, ثمانيه: 8,
+            تسع: 9, تسعه: 9,
+            عشر: 10, عشره: 10,
+            احدعشر: 11, احدعشره: 11,
+            اثناعشر: 12, اثناعشره: 12
+        };
+        const wordPattern = Object.keys(words).sort((a, b) => b.length - a.length).join('|');
+        const wordMatch = text.match(new RegExp('الساعه\\\\s*(' + wordPattern + ')(?:\\\\s*و\\\\s*(\\\\d{1,2})\\\\s*دقيقه)?'));
+        if (!wordMatch) return null;
+
+        const hour = words[wordMatch[1]];
+        const minute = wordMatch[2] ? Number(wordMatch[2]) : 0;
         if (!Number.isInteger(hour) || hour < 0 || hour > 23 || !Number.isInteger(minute) || minute < 0 || minute > 59) return null;
         return String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
     }
