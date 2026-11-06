@@ -94,18 +94,18 @@ function normalizeContext(value) {
         inProgress: Boolean(item && item.inProgress),
         reasons: Array.isArray(item && item.reasons) ? item.reasons.slice(0, 3).map(reason => text(reason, 120)).filter(Boolean) : []
     })).filter(item => item.id && item.title) : [];
-    const otherTasks = Array.isArray(value.otherTasks) ? value.otherTasks.slice(0, 20).map(task).filter(item => item.id && item.title && !item.completed) : [];
-    const subjects = Array.isArray(value.subjects) ? value.subjects.slice(0, 25).map(item => ({
+    const otherTasks = Array.isArray(value.otherTasks) ? value.otherTasks.slice(0, 12).map(task).filter(item => item.id && item.title && !item.completed) : [];
+    const subjects = Array.isArray(value.subjects) ? value.subjects.slice(0, 15).map(item => ({
         id: text(item && item.id, 100),
         name: text(item && item.name, 60)
     })).filter(item => item.name) : [];
-    const exams = Array.isArray(value.exams) ? value.exams.slice(0, 25).map(item => ({
+    const exams = Array.isArray(value.exams) ? value.exams.slice(0, 15).map(item => ({
         id: text(item && item.id, 100),
         name: text(item && item.name, 100),
         date: text(item && item.date, 32),
         done: Boolean(item && item.done)
     })).filter(item => item.name || item.date) : [];
-    const goals = Array.isArray(value.goals) ? value.goals.slice(0, 15).map(item => ({
+    const goals = Array.isArray(value.goals) ? value.goals.slice(0, 10).map(item => ({
         title: text(item && item.title, 100),
         dueDate: text(item && item.dueDate, 32)
     })).filter(item => item.title) : [];
