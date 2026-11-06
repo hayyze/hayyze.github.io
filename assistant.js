@@ -476,7 +476,20 @@
         return { client, session: result.data && result.data.session };
     }
 
-        function isAccountNameQuestion(message) {
+        function isGreetingOnlyMessage(message) {
+        const text = normalizeAssistantIntent(message);
+        return /^(السلام عليكم|السلام عليكم ورحمه الله وبركاته|سلام عليكم|مرحبا|اهلا|اهلا وسهلا)$/.test(text);
+    }
+
+    function removeUnexpectedGreeting(reply, userMessage) {
+        if (isGreetingOnlyMessage(userMessage)) return String(reply || '').trim();
+        return String(reply || '').trim().replace(
+            /^(?:مرحبًا|مرحباً|مرحبا|أهلًا|اهلاً|أهلاً|اهلا|وعليكم السلام)(?:[!؟،,.:؛\\s-]+)*/i,
+            ''
+        ).trim();
+    }
+
+    function isAccountNameQuestion(message) {
         const text = normalizeAssistantIntent(message);
         return /(هل تعرف اسمي|تعرف اسمي|ما اسمي|وش اسمي|ايش اسمي|تذكر اسمي)/.test(text);
     }
@@ -556,10 +569,12 @@ async function sendMessage(message) {
                 throw new Error(result.error || 'تعذر الحصول على إجابة الآن. حاول لاحقًا.');
             }
             if (typeof result.reply !== 'string' || !result.reply.trim()) throw new Error('وصل رد غير صالح من المساعد.');
-            history.push({ role: 'assistant', content: result.reply.trim().slice(0, 8000) });
+            const assistantReply = removeUnexpectedGreeting(result.reply, message);
+            if (!assistantReply) throw new Error('وصل رد غير صالح من المساعد.');
+            history.push({ role: 'assistant', content: assistantReply.slice(0, 8000) });
             history = history.slice(-30);
             saveHistory();
-            addMessage('assistant', result.reply.trim());
+            addMessage('assistant', assistantReply);
             const providerLabels = {
                 gemini: 'Gemini',
                 cloudflare: 'Cloudflare AI',
@@ -568,7 +583,8 @@ async function sendMessage(message) {
                 greeting: 'ترحيب',
                 'study-plan': 'خطة مذاكرة',
                 priorities: 'أولويات من بيانات حيز',
-                'data-required': 'مشاركة البيانات مطلوبة'
+                'data-required': 'مشاركة البيانات مطلوبة',
+                'name': 'بيانات الحساب'
             };
             $('assistant-provider-status').textContent = providerLabels[result.provider] || 'مساعد حيز';
             setStatus('');
