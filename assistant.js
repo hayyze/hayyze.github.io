@@ -586,7 +586,28 @@ async function sendMessage(message) {
                 'data-required': 'مشاركة البيانات مطلوبة',
                 'name': 'بيانات الحساب'
             };
-            $('assistant-provider-status').textContent = providerLabels[result.provider] || 'مساعد حيز';
+            const geminiFailureLabels = {
+                missing_api_key: 'مفتاح Gemini غير مضبوط في هذه البيئة',
+                invalid_api_key: 'مفتاح Gemini غير صالح',
+                unauthorized: 'تعذر مصادقة مفتاح Gemini',
+                forbidden: 'صلاحيات Gemini غير كافية',
+                rate_limited: 'تجاوزت حصة Gemini المؤقتة',
+                model_not_found: 'نموذج Gemini غير متاح لهذا المفتاح',
+                invalid_request: 'رفضت Gemini صيغة الطلب',
+                timeout: 'انتهت مهلة الاتصال بـ Gemini',
+                network_error: 'تعذر الاتصال بخدمة Gemini',
+                invalid_response: 'وصل رد غير صالح من Gemini',
+                empty_response: 'لم تُرجع Gemini إجابة نصية',
+                content_blocked: 'حجبت Gemini الطلب وفق سياسات المحتوى',
+                upstream_unavailable: 'خدمة Gemini غير متاحة مؤقتًا',
+                provider_error: 'تعذر استدعاء Gemini'
+            };
+            let providerStatus = providerLabels[result.provider] || 'مساعد حيز';
+            if (result.provider === 'cloudflare' && result.fallbackReason) {
+                const reason = geminiFailureLabels[result.fallbackReason] || 'سبب غير معروف';
+                providerStatus += ' — تعذر Gemini: ' + reason;
+            }
+            $('assistant-provider-status').textContent = providerStatus;
             setStatus('');
         } catch (error) {
             setStatus(error && error.message ? error.message : 'حدث خطأ غير متوقع.', true);
