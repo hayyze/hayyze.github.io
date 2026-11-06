@@ -2,7 +2,7 @@
     'use strict';
 
     const CHAT_KEY = 'hayyiz-ai-chat-v1';
-    const MAX_HISTORY = 8;
+    const MAX_HISTORY = 10;
     const $ = (id) => document.getElementById(id);
     const app = $('assistant-app');
     const authRequired = $('assistant-auth-required');
@@ -140,7 +140,7 @@
             const includeContext = $('assistant-share-context').checked;
             const payload = {
                 message,
-                history: history.slice(0, -1).slice(-(MAX_HISTORY - 1)).map(item => ({ role: item.role, content: item.content })),
+                history: history.slice(0, -1).slice(-(MAX_HISTORY - 1)).map(item => ({ role: item.role, content: item.content.slice(0, 1000) })),
                 context: includeContext ? buildStudyContext() : null
             };
             const response = await fetch('/api/assistant', {
