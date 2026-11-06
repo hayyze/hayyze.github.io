@@ -51,8 +51,19 @@ const client = loadFunctions(clientSource, [
 const api = loadFunctions(apiSource, [
     'normalizeArabicIntent',
     'normalizeContext',
-    'getDeterministicReply'
+    'getDeterministicReply',
+    'getGeminiFailureCode'
 ]);
+
+// Gemini failure statuses are reduced to safe, actionable diagnostic codes.
+assert.equal(api.getGeminiFailureCode(400, 'INVALID_ARGUMENT', ''), 'invalid_request');
+assert.equal(api.getGeminiFailureCode(400, '', 'API key not valid. Please pass a valid API key.'), 'invalid_api_key');
+assert.equal(api.getGeminiFailureCode(401, '', ''), 'unauthorized');
+assert.equal(api.getGeminiFailureCode(403, 'PERMISSION_DENIED', ''), 'forbidden');
+assert.equal(api.getGeminiFailureCode(404, 'NOT_FOUND', ''), 'model_not_found');
+assert.equal(api.getGeminiFailureCode(429, 'RESOURCE_EXHAUSTED', ''), 'rate_limited');
+assert.equal(api.getGeminiFailureCode(503, '', ''), 'upstream_unavailable');
+assert.equal(api.getGeminiFailureCode(0, '', ''), 'provider_error');
 
 // Deterministic Newton answer must separate the three laws from universal gravitation.
 const newton = api.getDeterministicReply('وش قوانين نيوتن؟', [], null);
