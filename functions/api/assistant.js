@@ -308,8 +308,12 @@ function getDeterministicReply(message, history, context) {
 
     const asksWhyNotOthers = /(ليش ما اختر|لماذا لم اختر|ليه ما اختر|مهام غيرها|مهام اخرى|غيرها)/.test(normalized);
     if (asksWhyNotOthers && context) {
-        const selected = new Set((context.priorityTasks || []).map(item => item && item.id).filter(Boolean));
-        const alternatives = (context.otherTasks || []).filter(item => item && item.title && !selected.has(item.id)).slice(0, 8);
+        const priorities = Array.isArray(context.priorityTasks) ? context.priorityTasks : [];
+        const selected = new Set(priorities.slice(0, 3).map(item => item && item.id).filter(Boolean));
+        const alternatives = priorities.slice(3).concat(context.otherTasks || [])
+            .filter(item => item && item.title && !selected.has(item.id))
+            .filter((item, index, list) => list.findIndex(other => other.id === item.id) === index)
+            .slice(0, 8);
         return {
             provider: 'priorities',
             reply: alternatives.length
