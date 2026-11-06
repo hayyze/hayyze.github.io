@@ -164,7 +164,13 @@
             history = history.slice(-30);
             saveHistory();
             addMessage('assistant', result.reply.trim());
-            $('assistant-provider-status').textContent = result.provider === 'gemini' ? 'Gemini' : 'Cloudflare AI';
+            const providerLabels = {
+                gemini: 'Gemini',
+                cloudflare: 'Cloudflare AI',
+                knowledge: 'إجابة معرفية مباشرة',
+                capability: 'توضيح حدود المساعد'
+            };
+            $('assistant-provider-status').textContent = providerLabels[result.provider] || 'مساعد حيز';
             setStatus('');
         } catch (error) {
             setStatus(error && error.message ? error.message : 'حدث خطأ غير متوقع.', true);
