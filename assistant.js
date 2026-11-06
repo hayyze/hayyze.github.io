@@ -236,7 +236,7 @@
 
     function getRequestedTime(value) {
         const raw = normalizeAssistantDigits(value);
-        const numericMatch = raw.match(/(?:الساعة|الساعه)?\\s*(\\d{1,2})[:٫.](\\d{2})/i);
+        const numericMatch = raw.match(/(?:الساعة|الساعه)? *([0-9]{1,2})[:٫.]([0-9]{2})/i);
         if (numericMatch) {
             const hour = Number(numericMatch[1]);
             const minute = Number(numericMatch[2]);
@@ -251,7 +251,7 @@
             ثلاث: 3, ثلاثه: 3,
             اربع: 4, اربعه: 4,
             خمس: 5, خمسه: 5,
-            ست: 6, سته: 6,
+            ست: 6, سته,
             سبع: 7, سبعه: 7,
             ثمان: 8, ثمانيه: 8,
             تسع: 9, تسعه: 9,
@@ -260,7 +260,7 @@
             اثناعشر: 12, اثناعشره: 12
         };
         const wordPattern = Object.keys(words).sort((a, b) => b.length - a.length).join('|');
-        const wordMatch = text.match(new RegExp('الساعه\\\\s*(' + wordPattern + ')(?:\\\\s*و\\\\s*(\\\\d{1,2})\\\\s*دقيقه)?'));
+        const wordMatch = text.match(new RegExp('الساعه *(' + wordPattern + ')(?: *و *([0-9]{1,2}) *دقيقه)?'));
         if (!wordMatch) return null;
 
         const hour = words[wordMatch[1]];
