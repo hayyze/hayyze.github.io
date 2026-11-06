@@ -145,8 +145,20 @@ function makePrompt(message, history, context) {
         'اكتب نصًا عاديًا واضحًا. تجنب رموز Markdown غير الضرورية أو علامات النجمة والشرطة المائلة.'
     ].join('\n');
 
-    const contextText = context
-        ? '\nبيانات حيز التي وافق الطالب على مشاركتها:\n' + JSON.stringify(context).slice(0, 10000)
+    const promptContext = context ? {
+        today: context.today,
+        priorityTasks: context.priorityTasks,
+        otherTasks: context.otherTasks,
+        tasks: context.tasks.slice(0, 20),
+        subjects: context.subjects,
+        exams: context.exams,
+        goals: context.goals,
+        academicGoal: context.academicGoal,
+        focusMinutesToday: context.focusMinutesToday,
+        workMin: context.workMin
+    } : null;
+    const contextText = promptContext
+        ? '\nبيانات حيز التي وافق الطالب على مشاركتها:\n' + JSON.stringify(promptContext).slice(0, 10000)
         : '\nلم يوافق الطالب على مشاركة بياناته الدراسية؛ أجب اعتمادًا على المحادثة فقط.';
 
     const transcript = history.map((item, index) =>
@@ -344,7 +356,7 @@ function getDeterministicReply(message, history, context) {
     }
 
     const asksToCreateAction =
-        /(انشئ|انشي|انشاء|اضف|ضيف|سجل|احجز|حدد|اعمل|حط|تسوي|سوي|create|add|schedule)/.test(normalized) &&
+        /(انشئ|انشي|انشاء|اضف|اضافه|اضيف|تضيف|ضيف|سجل|تسجل|احجز|حدد|اعمل|حط|تسوي|سوي|تنشئ|create|add|schedule)/.test(normalized) &&
         /(مهمه|مهام|موعد|حدث|تذكير|تقويم)/.test(normalized);
     if (asksToCreateAction) {
         return {
