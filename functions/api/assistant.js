@@ -303,6 +303,12 @@ function getDeterministicReply(message, history, context) {
     }
 
     const asksWhyPriorities = /(كيف حدد|كيف اختر|ليش اختر|لماذا اختر|على اي اساس|سبب اختيار)/.test(normalized);
+    if (asksWhyPriorities && !context) {
+        return {
+            provider: 'data-required',
+            reply: 'لا أستطيع تفسير ترتيب مهامك دون الاطلاع على ملخص المهام الذي تختار مشاركته. فعّل خيار إرفاق ملخص بياناتك الدراسية، وسأوضح أسباب كل أولوية.'
+        };
+    }
     if (asksWhyPriorities && context) {
         const priorities = Array.isArray(context.priorityTasks) ? context.priorityTasks.slice(0, 3) : [];
         if (!priorities.length) {
@@ -319,6 +325,12 @@ function getDeterministicReply(message, history, context) {
     }
 
     const asksWhyNotOthers = /(ليش ما اختر|لماذا لم اختر|ليه ما اختر|مهام غيرها|مهام اخرى|غيرها)/.test(normalized);
+    if (asksWhyNotOthers && !context) {
+        return {
+            provider: 'data-required',
+            reply: 'حتى أقارن المهام التي اخترتها ببقية قائمتك، فعّل إرفاق ملخص بياناتك الدراسية من حيز. لن أفترض وجود مهام لم تصلني بياناتها.'
+        };
+    }
     if (asksWhyNotOthers && context) {
         const priorities = Array.isArray(context.priorityTasks) ? context.priorityTasks : [];
         const selected = new Set(priorities.slice(0, 3).map(item => item && item.id).filter(Boolean));
