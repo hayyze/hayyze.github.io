@@ -61,6 +61,8 @@ assert.ok(apiSource.includes("'Authorization': 'Bearer ' + user.token"));
 assert.ok(!apiSource.includes('AI_RATE_LIMIT'));
 assert.ok(apiSource.includes('@cf/google/gemma-4-26b-a4b-it'));
 assert.ok(!apiSource.includes('@cf/meta/llama-3.1-8b-instruct-fp8'));
+assert.ok(apiSource.includes("env.GEMINI_ALLOW_EXTERNAL_PROVIDER === 'true'"));
+assert.ok(apiSource.includes("chat_template_kwargs: { enable_thinking: false }"));
 
 // Gemini failure statuses are reduced to safe, actionable diagnostic codes.
 assert.equal(api.getGeminiFailureCode(400, 'INVALID_ARGUMENT', ''), 'invalid_request');
