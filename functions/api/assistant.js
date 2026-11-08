@@ -1,8 +1,5 @@
 const SUPABASE_URL = 'https://dzfdbjnqtgltuguqqdkz.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_zXE2LbHMIAiTFjrYTyb7GA_zrHGa1rv';
-const WINDOW_MS = 10 * 60 * 1000;
-const MAX_REQUESTS = 8;
-const MAX_DAILY_REQUESTS = 100;
 
 function json(data, status) {
     return new Response(JSON.stringify(data), {
@@ -43,32 +40,21 @@ async function authenticate(request) {
     return user && typeof user.id === 'string' ? { id: user.id, token: match[1] } : null;
 }
 
-async function enforceRateLimit(env, userId) {
-    if (!env.AI_RATE_LIMIT) throw new Error('RATE_LIMIT_NOT_CONFIGURED');
-    const now = Date.now();
-    const day = new Date(now).toISOString().slice(0, 10);
-    const userKey = 'assistant:user:' + userId;
-    const globalKey = 'assistant:global:' + day;
-    const [userValue, globalValue] = await Promise.all([
-        env.AI_RATE_LIMIT.get(userKey),
-        env.AI_RATE_LIMIT.get(globalKey)
-    ]);
-    const parseTimes = (value, age) => {
-        try {
-            const parsed = JSON.parse(value || '[]');
-            return Array.isArray(parsed) ? parsed.filter(item => Number.isFinite(item) && now - item >= 0 && now - item < age) : [];
-        } catch (_) { return []; }
-    };
-    const userTimes = parseTimes(userValue, WINDOW_MS);
-    const globalTimes = parseTimes(globalValue, 24 * 60 * 60 * 1000);
-    if (userTimes.length >= MAX_REQUESTS || globalTimes.length >= MAX_DAILY_REQUESTS) return false;
-    userTimes.push(now);
-    globalTimes.push(now);
-    await Promise.all([
-        env.AI_RATE_LIMIT.put(userKey, JSON.stringify(userTimes), { expirationTtl: 600 }),
-        env.AI_RATE_LIMIT.put(globalKey, JSON.stringify(globalTimes), { expirationTtl: 86400 })
-    ]);
-    return true;
+async function enforceRateLimit(user) {
+    if (!user || typeof user.token !== 'string') throw new Error('RATE_LIMIT_AUTH_REQUIRED');
+    const response = await fetch(SUPABASE_URL + '/rest/v1/rpc/consume_ai_quota', {
+        method: 'POST',
+        headers: {
+            'apikey': SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': 'Bearer ' + user.token,
+            'Content-Type': 'application/json'
+        },
+        body: '{}'
+    });
+    if (!response.ok) throw new Error('RATE_LIMIT_CHECK_FAILED');
+    const allowed = await response.json().catch(() => null);
+    if (typeof allowed !== 'boolean') throw new Error('RATE_LIMIT_INVALID_RESPONSE');
+    return allowed;
 }
 
 function normalizeContext(value) {
@@ -465,7 +451,7 @@ async function askGemini(env, prompt) {
 
 async function askCloudflare(env, prompt) {
     if (!env.AI || typeof env.AI.run !== 'function') return null;
-    const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', {
+    const result = await env.AI.run('@cf/google/gemma-4-26b-a4b-it', {
         prompt,
         max_tokens: 900,
         temperature: 0.55
@@ -488,11 +474,6 @@ export async function onRequestPost({ request, env }) {
     const user = await authenticate(request).catch(() => null);
     if (!user) return json({ error: 'يلزم تسجيل الدخول لاستخدام المساعد.' }, 401);
 
-    let allowed;
-    try { allowed = await enforceRateLimit(env, user.id); }
-    catch (_) { return json({ error: 'لم تكتمل تهيئة حماية الاستخدام بعد.' }, 503); }
-    if (!allowed) return json({ error: 'وصلت إلى الحد المؤقت: 8 طلبات خلال 10 دقائق لكل حساب، أو 100 طلب يوميًا لجميع المستخدمين. حاول لاحقًا.' }, 429);
-
     const raw = await request.text();
     if (raw.length > 24000) return json({ error: 'حجم الطلب أكبر من المسموح.' }, 413);
     let body;
@@ -501,6 +482,12 @@ export async function onRequestPost({ request, env }) {
     if (!message || message.length > 2000) return json({ error: 'اكتب رسالة بين حرف واحد و2000 حرف.' }, 400);
     const history = cleanHistory(body.history);
     const context = normalizeContext(body.context);
+
+    let allowed;
+    try { allowed = await enforceRateLimit(user); }
+    catch (_) { return json({ error: 'تعذر التحقق من حصة الاستخدام الآمنة. حاول لاحقًا.' }, 503); }
+    if (!allowed) return json({ error: 'وصلت إلى الحد المؤقت: 8 طلبات خلال 10 دقائق لكل حساب، أو 100 طلب يوميًا لجميع المستخدمين. حاول لاحقًا.' }, 429);
+
     const deterministic = getDeterministicReply(message, history, context);
     if (deterministic) return json(deterministic, 200);
     const prompt = makePrompt(message, history, context);
