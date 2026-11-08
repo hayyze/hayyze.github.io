@@ -452,7 +452,14 @@ async function askGemini(env, prompt) {
 async function askCloudflare(env, prompt) {
     if (!env.AI || typeof env.AI.run !== 'function') return null;
     const result = await env.AI.run('@cf/google/gemma-4-26b-a4b-it', {
-        prompt,
+        messages: [
+            {
+                role: 'system',
+                content: 'أنت مساعد حيز الدراسي. أجب بالعربية الواضحة والدقيقة. لا تدّع تنفيذ إجراءات داخل الحساب.'
+            },
+            { role: 'user', content: prompt }
+        ],
+        chat_template_kwargs: { enable_thinking: false },
         max_tokens: 900,
         temperature: 0.55
     });
@@ -496,7 +503,8 @@ export async function onRequestPost({ request, env }) {
     let provider = '';
     let geminiFailure = null;
 
-    if (env.GEMINI_ENABLED === 'true') {
+    // External Gemini is opt-in separately; Workers AI remains the zero-cost default.
+    if (env.GEMINI_ENABLED === 'true' && env.GEMINI_ALLOW_EXTERNAL_PROVIDER === 'true') {
         if (!env.GEMINI_API_KEY) {
             geminiFailure = 'missing_api_key';
             console.warn('[assistant] Gemini fallback', JSON.stringify({
