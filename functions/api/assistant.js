@@ -449,8 +449,43 @@ async function askGemini(env, prompt) {
     return text;
 }
 
+function extractCloudflareText(result) {
+    if (!result || typeof result !== 'object') return '';
+
+    const direct = [result.response, result.output, result.result, result.output_text]
+        .find(value => typeof value === 'string' && value.trim());
+    if (direct) return direct.trim();
+
+    // Newer Workers AI chat models can return an OpenAI-compatible shape.
+    const choice = Array.isArray(result.choices) ? result.choices[0] : null;
+    const message = choice && choice.message;
+    const content = message && message.content;
+    if (typeof content === 'string' && content.trim()) return content.trim();
+    if (Array.isArray(content)) {
+        const combined = content.map(part =>
+            part && typeof part.text === 'string' ? part.text : ''
+        ).join('').trim();
+        if (combined) return combined;
+    }
+    if (choice && typeof choice.text === 'string' && choice.text.trim()) return choice.text.trim();
+    return '';
+}
+
+function getCloudflareFailureCode(error) {
+    const message = String(error && error.message || error || '').toLowerCase();
+    const status = Number(error && (error.status || error.statusCode));
+    if (/not configured|binding.*missing/.test(message)) return 'ai_not_configured';
+    if (/quota|daily limit|neurons|resource.exhausted|rate.limit/.test(message) || status === 429) return 'free_quota_exceeded';
+    if (/model.*not found|unknown model/.test(message) || status === 404) return 'model_unavailable';
+    if (/forbidden|workers paid|plan required/.test(message) || status === 403) return 'plan_restriction';
+    if (/capacity|overloaded|temporarily unavailable/.test(message) || status === 503) return 'provider_busy';
+    if (/timeout|timed out|deadline/.test(message) || status === 504) return 'provider_timeout';
+    if (/CLOUDFLARE_EMPTY_RESPONSE/.test(String(error && error.message || ''))) return 'empty_response';
+    return 'provider_error';
+}
+
 async function askCloudflare(env, prompt) {
-    if (!env.AI || typeof env.AI.run !== 'function') return null;
+    if (!env.AI || typeof env.AI.run !== 'function') throw new Error('CLOUDFLARE_AI_NOT_CONFIGURED');
     const result = await env.AI.run('@cf/google/gemma-4-26b-a4b-it', {
         messages: [
             {
@@ -463,9 +498,9 @@ async function askCloudflare(env, prompt) {
         max_tokens: 900,
         temperature: 0.55
     });
-    const text = result && (result.response || result.output || result.result);
-    if (typeof text !== 'string' || !text.trim()) throw new Error('CLOUDFLARE_EMPTY_RESPONSE');
-    return text.trim();
+    const text = extractCloudflareText(result);
+    if (!text) throw new Error('CLOUDFLARE_EMPTY_RESPONSE');
+    return text;
 }
 
 export async function onRequestPost({ request, env }) {
@@ -527,13 +562,28 @@ export async function onRequestPost({ request, env }) {
         }
     }
 
-    if (!reply && env.AI) {
-        try { reply = await askCloudflare(env, prompt); if (reply) provider = 'cloudflare'; } catch (_) {}
+    let cloudflareFailure = null;
+    if (!reply) {
+        try {
+            reply = await askCloudflare(env, prompt);
+            if (reply) provider = 'cloudflare';
+        } catch (error) {
+            cloudflareFailure = getCloudflareFailureCode(error);
+            console.warn('[assistant] Workers AI fallback', JSON.stringify({ reason: cloudflareFailure }));
+        }
     }
-    if (!reply) return json({
-        error: 'خدمات الذكاء الاصطناعي غير مهيأة أو وصلت إلى حدود الاستخدام المجانية. حاول لاحقًا.',
-        ...(geminiFailure ? { fallbackReason: geminiFailure } : {})
-    }, 503);
+    if (!reply) {
+        const errorMessage = cloudflareFailure === 'free_quota_exceeded'
+            ? 'وصل المساعد إلى حصة الاستخدام المجانية اليومية. حاول بعد إعادة ضبط الحصة.'
+            : cloudflareFailure === 'ai_not_configured'
+                ? 'لم يكتمل إعداد خدمة الذكاء الاصطناعي في Cloudflare.'
+                : 'تعذر الحصول على إجابة من مزود الذكاء الاصطناعي. حاول مجددًا بعد قليل.';
+        return json({
+            error: errorMessage,
+            ...(cloudflareFailure ? { fallbackReason: cloudflareFailure } : {}),
+            ...(geminiFailure ? { geminiFallbackReason: geminiFailure } : {})
+        }, 503);
+    }
     return json({
         reply: reply.slice(0, 8000),
         provider,
