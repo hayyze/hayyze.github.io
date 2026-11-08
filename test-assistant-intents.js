@@ -56,11 +56,11 @@ const api = loadFunctions(apiSource, [
 ]);
 
 // The production limiter must use the atomic, authenticated Supabase RPC.
-assert.match(apiSource, /\\/rest\\/v1\\/rpc\\/consume_ai_quota/);
-assert.match(apiSource, /'Authorization': 'Bearer ' \\+ user\\.token/);
-assert.doesNotMatch(apiSource, /AI_RATE_LIMIT/);
-assert.match(apiSource, /@cf\\/google\\/gemma-4-26b-a4b-it/);
-assert.doesNotMatch(apiSource, /@cf\\/meta\\/llama-3\\.1-8b-instruct-fp8/);
+assert.ok(apiSource.includes('/rest/v1/rpc/consume_ai_quota'));
+assert.ok(apiSource.includes("'Authorization': 'Bearer ' + user.token"));
+assert.ok(!apiSource.includes('AI_RATE_LIMIT'));
+assert.ok(apiSource.includes('@cf/google/gemma-4-26b-a4b-it'));
+assert.ok(!apiSource.includes('@cf/meta/llama-3.1-8b-instruct-fp8'));
 
 // Gemini failure statuses are reduced to safe, actionable diagnostic codes.
 assert.equal(api.getGeminiFailureCode(400, 'INVALID_ARGUMENT', ''), 'invalid_request');
