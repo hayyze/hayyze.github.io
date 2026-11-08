@@ -474,7 +474,7 @@ function extractCloudflareText(result) {
 function getCloudflareFailureCode(error) {
     const message = String(error && error.message || error || '').toLowerCase();
     const status = Number(error && (error.status || error.statusCode));
-    if (/not configured|binding.*missing/.test(message)) return 'ai_not_configured';
+    if (/not[ _-]?configured|binding.*missing/.test(message)) return 'ai_not_configured';
     if (/quota|daily limit|neurons|resource.exhausted|rate.limit/.test(message) || status === 429) return 'free_quota_exceeded';
     if (/model.*not found|unknown model/.test(message) || status === 404) return 'model_unavailable';
     if (/forbidden|workers paid|plan required/.test(message) || status === 403) return 'plan_restriction';
