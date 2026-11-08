@@ -52,7 +52,9 @@ const api = loadFunctions(apiSource, [
     'normalizeArabicIntent',
     'normalizeContext',
     'getDeterministicReply',
-    'getGeminiFailureCode'
+    'getGeminiFailureCode',
+    'extractCloudflareText',
+    'getCloudflareFailureCode'
 ]);
 
 // The production limiter must use the atomic, authenticated Supabase RPC.
@@ -60,6 +62,20 @@ assert.ok(apiSource.includes('/rest/v1/rpc/consume_ai_quota'));
 assert.ok(apiSource.includes("'Authorization': 'Bearer ' + user.token"));
 assert.ok(!apiSource.includes('AI_RATE_LIMIT'));
 assert.ok(apiSource.includes('@cf/google/gemma-4-26b-a4b-it'));
+assert.ok(apiSource.includes('result.choices'));
+// Workers AI Gemma may return OpenAI-compatible choices, not only response/output.
+assert.equal(api.extractCloudflareText({
+    choices: [{ message: { role: 'assistant', content: 'الإجابة من Gemma' } }]
+}), 'الإجابة من Gemma');
+assert.equal(api.extractCloudflareText({
+    choices: [{ message: { role: 'assistant', content: [{ type: 'text', text: 'نص ' }, { type: 'text', text: 'مركب' }] } }]
+}), 'نص مركب');
+assert.equal(api.extractCloudflareText({ response: ' استجابة مباشرة ' }), 'استجابة مباشرة');
+assert.equal(api.extractCloudflareText({ choices: [] }), '');
+assert.equal(api.getCloudflareFailureCode(new Error('CLOUDFLARE_AI_NOT_CONFIGURED')), 'ai_not_configured');
+assert.equal(api.getCloudflareFailureCode({ status: 429, message: 'Too many requests' }), 'free_quota_exceeded');
+assert.equal(api.getCloudflareFailureCode({ status: 403, message: 'Workers Paid required' }), 'plan_restriction');
+assert.equal(api.getCloudflareFailureCode(new Error('CLOUDFLARE_EMPTY_RESPONSE')), 'empty_response');
 assert.ok(!apiSource.includes('@cf/meta/llama-3.1-8b-instruct-fp8'));
 assert.ok(apiSource.includes("env.GEMINI_ALLOW_EXTERNAL_PROVIDER === 'true'"));
 assert.ok(apiSource.includes("chat_template_kwargs: { enable_thinking: false }"));
