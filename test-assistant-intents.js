@@ -244,20 +244,35 @@ console.log('PASS assistant knowledge, no-hallucination priorities, greeting, da
     );
     assert.equal(declaredOversized.tooLarge, true);
 
-    // Preserve the old 24,000 UTF-16-character request ceiling for Arabic:
-    // Arabic code points commonly occupy three UTF-8 bytes each.
+    // Preserve the previous 24,000 UTF-16-code-unit limit for Arabic content.
+    const arabicAtBoundaryBytes = new TextEncoder().encode('ا'.repeat(24000));
     const arabicBoundary = await api.readRequestBodyBounded(
-        streamRequest([new TextEncoder().encode('ا'.repeat(24000))], '72000'),
+        streamRequest([arabicAtBoundaryBytes], String(arabicAtBoundaryBytes.byteLength)),
         72000
     );
     assert.equal(arabicBoundary.tooLarge, false);
     assert.equal(arabicBoundary.text.length, 24000);
 
+    const arabicOverLimitBytes = new TextEncoder().encode('ا'.repeat(24001));
     const arabicOverLimit = await api.readRequestBodyBounded(
-        streamRequest([new TextEncoder().encode('ا'.repeat(24001))], '72003'),
+        streamRequest([arabicOverLimitBytes], String(arabicOverLimitBytes.byteLength)),
         72000
     );
     assert.equal(arabicOverLimit.tooLarge, true);
+
+    // Three-byte UTF-8 code points must also stop at the streaming byte ceiling.
+    const byteOverLimit = await api.readRequestBodyBounded(
+        streamRequest([new TextEncoder().encode('\u0800'.repeat(24001))], '72003'),
+        72000
+    );
+    assert.equal(byteOverLimit.tooLarge, true);
+
+    // ASCII input keeps the former character ceiling; it is not widened to 72 KB.
+    const asciiOverLimit = await api.readRequestBodyBounded(
+        streamRequest([new TextEncoder().encode('a'.repeat(24001))], '24001'),
+        72000
+    );
+    assert.equal(asciiOverLimit.tooLarge, true);
 
     const invalidUtf8 = await api.readRequestBodyBounded(
         streamRequest([new Uint8Array([0xC3, 0x28])]),
