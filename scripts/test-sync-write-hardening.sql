@@ -19,6 +19,7 @@ SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000042
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT set_config('request.jwt.claims',
     '{"sub":"00000000-0000-4000-8000-000000000042","role":"authenticated"}', true);
+SET LOCAL ROLE authenticated;
 
 DO $hayyiz_sync_hardening$
 DECLARE
@@ -73,6 +74,22 @@ BEGIN
        OR has_function_privilege('anon', 'public.check_sync_item_limits()', 'EXECUTE') THEN
         RAISE EXCEPTION 'Sync quota trigger function is directly executable by API roles.';
     END IF;
+
+    BEGIN
+        INSERT INTO public.sync_items (user_id, tool, item_id, data)
+        VALUES ('00000000-0000-4000-8000-000000000043', 'transactional-test', 'foreign-user', '{}'::jsonb);
+        RAISE EXCEPTION 'sync_items accepted another account identity.';
+    EXCEPTION WHEN insufficient_privilege THEN
+        NULL;
+    END;
+
+    BEGIN
+        INSERT INTO public.sync_items (user_id, tool, item_id, data)
+        VALUES (v_uid, 'Invalid Tool', 'invalid-tool', '{}'::jsonb);
+        RAISE EXCEPTION 'sync_items accepted an invalid tool identifier.';
+    EXCEPTION WHEN invalid_parameter_value THEN
+        NULL;
+    END;
 
     BEGIN
         INSERT INTO public.sync_items (user_id, tool, item_id, data)
