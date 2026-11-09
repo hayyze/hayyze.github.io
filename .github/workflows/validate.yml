@@ -46,6 +46,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/20261031041237_rpc_and_profile_privacy_hardening.sql
           psql -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/20261031043834_workspace_invitation_acceptance.sql
           psql -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/20261109164710_harden_sync_items_and_public_table_privileges.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/test-sync-write-hardening.sql
           psql -v ON_ERROR_STOP=1 -f scripts/test-database-security.sql
       - name: Verify schema can be reapplied without breaking permissions
         run: |
