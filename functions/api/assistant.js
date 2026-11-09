@@ -60,11 +60,12 @@ async function readRequestBodyBounded(request, maxBytes) {
     }
 
     try {
-        return {
-            text: new TextDecoder('utf-8', { fatal: true }).decode(bytes),
-            tooLarge: false,
-            invalidText: false
-        };
+        const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+        // Preserve the former request.text().length ceiling as well as the byte cap.
+        if (text.length > 24000) {
+            return { text: '', tooLarge: true, invalidText: false };
+        }
+        return { text, tooLarge: false, invalidText: false };
     } catch (_) {
         return { text: '', tooLarge: false, invalidText: true };
     }
