@@ -80,7 +80,7 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-    max_payload_bytes CONSTANT INT := 102400; -- 100 KB limit per JSON item
+    max_payload_bytes CONSTANT INT := 262144; -- 256 KiB limit per JSON item
     max_collection_items CONSTANT INT := 500;   -- Max 500 active items per tool collection
     current_count INT;
     is_existing_item BOOLEAN := FALSE;
@@ -104,7 +104,7 @@ BEGIN
     IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
         data_val := NEW.data;
         IF octet_length(data_val::text) > max_payload_bytes THEN
-            RAISE EXCEPTION 'Payload size exceeds the limit of 100KB for item % in tool %.', item_id_val, tool_val
+            RAISE EXCEPTION 'Payload size exceeds the limit of 256 KiB for item % in tool %.', item_id_val, tool_val
                 USING ERRCODE = '22026';
         END IF;
     END IF;
