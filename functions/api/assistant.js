@@ -15,7 +15,7 @@ function json(data, status) {
 }
 
 async function readRequestBodyBounded(request, maxBytes) {
-    const limit = Number.isSafeInteger(maxBytes) && maxBytes > 0 ? maxBytes : 24000;
+    const limit = Number.isSafeInteger(maxBytes) && maxBytes > 0 ? maxBytes : 72000;
     const declaredLength = request.headers.get('Content-Length');
     if (declaredLength !== null) {
         const declared = Number(declaredLength);
@@ -571,7 +571,7 @@ export async function onRequestPost({ request, env }) {
 
     let bodyRead;
     try {
-        bodyRead = await readRequestBodyBounded(request, 24000);
+        bodyRead = await readRequestBodyBounded(request, 72000);
     } catch (_) {
         return json({ error: 'تعذر قراءة الطلب.' }, 400);
     }
