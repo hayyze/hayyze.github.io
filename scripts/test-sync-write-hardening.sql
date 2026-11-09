@@ -100,6 +100,23 @@ BEGIN
             NULL;
     END;
 
+    -- A single bulk INSERT must not bypass the per-tool limit.
+    BEGIN
+        INSERT INTO public.sync_items (user_id, tool, item_id, data)
+        SELECT v_uid, 'bulk-quota-test', 'item-' || n::text, '{}'::jsonb
+        FROM generate_series(1, 501) AS n;
+        RAISE EXCEPTION 'sync_items accepted 501 items in one bulk statement.';
+    EXCEPTION
+        WHEN SQLSTATE '54000' THEN
+            NULL;
+    END;
+    IF EXISTS (
+        SELECT 1 FROM public.sync_items
+        WHERE user_id = v_uid AND tool = 'bulk-quota-test' AND deleted_at IS NULL
+    ) THEN
+        RAISE EXCEPTION 'Bulk quota rejection left partially inserted sync rows.';
+    END IF;
+
     -- Fill one collection, verify an existing-item upsert remains valid, then
     -- reject a 501st active item. Soft deletion frees a slot; resurrection does not
     -- bypass the same quota.
