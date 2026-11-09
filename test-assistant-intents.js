@@ -49,13 +49,14 @@ const client = loadFunctions(clientSource, [
 ], { Date: FixedDate });
 
 const api = loadFunctions(apiSource, [
+    'readRequestBodyBounded',
     'normalizeArabicIntent',
     'normalizeContext',
     'getDeterministicReply',
     'getGeminiFailureCode',
     'extractCloudflareText',
     'getCloudflareFailureCode'
-]);
+], { TextDecoder, Uint8Array });
 
 // The production limiter must use the atomic, authenticated Supabase RPC.
 assert.ok(apiSource.includes('/rest/v1/rpc/consume_ai_quota'));
@@ -191,3 +192,62 @@ assert.match(missingTitle.reply, /ما اسم الموعد/);
 assert.equal(client.inferActionProposal('ما معنى موعد يوم الاثنين؟', []), null);
 
 console.log('PASS assistant knowledge, no-hallucination priorities, greeting, date/time parsing and confirmed task/calendar proposals');
+
+
+(async () => {
+    const streamRequest = (chunks, contentLength = null) => {
+        let index = 0;
+        let cancelled = false;
+        return {
+            cancelled: () => cancelled,
+            headers: {
+                get(name) {
+                    return name.toLowerCase() === 'content-length' ? contentLength : null;
+                }
+            },
+            body: {
+                getReader() {
+                    return {
+                        async read() {
+                            return index < chunks.length
+                                ? { done: false, value: chunks[index++] }
+                                : { done: true, value: undefined };
+                        },
+                        async cancel() { cancelled = true; },
+                        releaseLock() {}
+                    };
+                }
+            }
+        };
+    };
+
+    const encoded = new TextEncoder().encode('طلب عربي آمن');
+    const acceptedRequest = streamRequest([encoded.slice(0, 5), encoded.slice(5)]);
+    const accepted = await api.readRequestBodyBounded(acceptedRequest, 24000);
+    assert.equal(accepted.text, 'طلب عربي آمن');
+    assert.equal(accepted.tooLarge, false);
+
+    const oversizedRequest = streamRequest([
+        new Uint8Array(15000),
+        new Uint8Array(10000)
+    ]);
+    const oversized = await api.readRequestBodyBounded(oversizedRequest, 24000);
+    assert.equal(oversized.tooLarge, true);
+    assert.equal(oversizedRequest.cancelled(), true);
+
+    const declaredOversized = await api.readRequestBodyBounded(
+        streamRequest([], '25000'),
+        24000
+    );
+    assert.equal(declaredOversized.tooLarge, true);
+
+    const invalidUtf8 = await api.readRequestBodyBounded(
+        streamRequest([new Uint8Array([0xC3, 0x28])]),
+        24000
+    );
+    assert.equal(invalidUtf8.invalidText, true);
+    console.log('PASS assistant request body streaming limit, cancellation and UTF-8 validation');
+})().catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+});
