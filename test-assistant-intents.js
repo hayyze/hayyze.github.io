@@ -244,6 +244,21 @@ console.log('PASS assistant knowledge, no-hallucination priorities, greeting, da
     );
     assert.equal(declaredOversized.tooLarge, true);
 
+    // Preserve the old 24,000 UTF-16-character request ceiling for Arabic:
+    // Arabic code points commonly occupy three UTF-8 bytes each.
+    const arabicBoundary = await api.readRequestBodyBounded(
+        streamRequest([new TextEncoder().encode('ا'.repeat(24000))], '72000'),
+        72000
+    );
+    assert.equal(arabicBoundary.tooLarge, false);
+    assert.equal(arabicBoundary.text.length, 24000);
+
+    const arabicOverLimit = await api.readRequestBodyBounded(
+        streamRequest([new TextEncoder().encode('ا'.repeat(24001))], '72003'),
+        72000
+    );
+    assert.equal(arabicOverLimit.tooLarge, true);
+
     const invalidUtf8 = await api.readRequestBodyBounded(
         streamRequest([new Uint8Array([0xC3, 0x28])]),
         24000
