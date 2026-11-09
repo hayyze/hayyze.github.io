@@ -52,6 +52,7 @@ jobs:
       - name: Verify schema can be reapplied without breaking permissions
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase-schema-and-security.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/test-sync-write-hardening.sql
           psql -v ON_ERROR_STOP=1 -f scripts/test-database-security.sql
   regression:
     runs-on: ubuntu-latest
