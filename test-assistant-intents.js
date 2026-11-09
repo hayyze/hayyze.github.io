@@ -6,8 +6,11 @@ const apiSource = fs.readFileSync('functions/api/assistant.js', 'utf8');
 const clientSource = fs.readFileSync('assistant.js', 'utf8');
 
 function extractFunction(source, name) {
-    const signature = 'function ' + name + '(';
-    const start = source.indexOf(signature);
+    const asyncSignature = 'async function ' + name + '(';
+    const regularSignature = 'function ' + name + '(';
+    let start = source.indexOf(asyncSignature);
+    const signature = start !== -1 ? asyncSignature : regularSignature;
+    if (start === -1) start = source.indexOf(regularSignature);
     assert.notEqual(start, -1, 'Missing function: ' + name);
     const open = source.indexOf('{', start);
     let depth = 0;
