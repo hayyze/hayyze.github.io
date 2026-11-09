@@ -51,8 +51,9 @@ BEGIN
         INSERT INTO public.sync_items (user_id, tool, item_id, data)
         VALUES (v_uid, 'transactional-test', 'oversized-payload', v_payload);
         RAISE EXCEPTION 'sync_items accepted an item larger than 256 KiB.';
-    EXCEPTION WHEN invalid_parameter_value THEN
-        NULL;
+    EXCEPTION
+        WHEN SQLSTATE '22023' OR SQLSTATE '22026' THEN
+            NULL;
     END;
 END;
 $hayyiz_sync_hardening$;
