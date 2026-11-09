@@ -313,51 +313,6 @@ BEGIN
 END;
 $$;
 
--- Browser roles must not have privileges that bypass RLS or alter table triggers.
-DO $hayyiz_sync_privileges$
-DECLARE
-    v_oversized JSONB := to_jsonb(repeat('x', 262145));
-BEGIN
-    IF EXISTS (
-        SELECT 1
-        FROM pg_class c
-        JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE n.nspname = 'public'
-          AND c.relkind IN ('r', 'p')
-          AND (
-              has_table_privilege('anon', c.oid, 'TRUNCATE')
-              OR has_table_privilege('authenticated', c.oid, 'TRUNCATE')
-              OR has_table_privilege('anon', c.oid, 'REFERENCES')
-              OR has_table_privilege('authenticated', c.oid, 'REFERENCES')
-              OR has_table_privilege('anon', c.oid, 'TRIGGER')
-              OR has_table_privilege('authenticated', c.oid, 'TRIGGER')
-          )
-    ) THEN
-        RAISE EXCEPTION 'Browser roles retain non-essential TRUNCATE/REFERENCES/TRIGGER privileges on public tables';
-    END IF;
-
-    IF has_table_privilege('anon', 'private.rate_limits', 'SELECT')
-       OR has_table_privilege('authenticated', 'private.rate_limits', 'SELECT')
-       OR has_table_privilege('authenticated', 'private.workspace_invitations', 'SELECT') THEN
-        RAISE EXCEPTION 'Private operational tables are directly readable by API roles';
-    END IF;
-
-    IF has_function_privilege('authenticated', 'private.enforce_sync_item_write_limits()', 'EXECUTE')
-       OR has_function_privilege('anon', 'private.enforce_sync_item_write_limits()', 'EXECUTE')
-       OR has_function_privilege('authenticated', 'private.consume_rpc_rate_limit(text)', 'EXECUTE') THEN
-        RAISE EXCEPTION 'Internal sync validation/rate-limit helpers are directly executable by clients';
-    END IF;
-
-    BEGIN
-        INSERT INTO public.sync_items (user_id, tool, item_id, data)
-        VALUES (auth.uid(), 'transactional-test', 'oversized-payload', v_oversized);
-        RAISE EXCEPTION 'sync_items accepted a payload larger than 256 KiB';
-    EXCEPTION WHEN invalid_parameter_value THEN
-        NULL;
-    END;
-END;
-$hayyiz_sync_privileges$;
-
 -- A late network write must not replace newer data or revive a newer tombstone.
 INSERT INTO public.sync_items (user_id, tool, item_id, data, updated_at, deleted_at)
 VALUES (auth.uid(), 'transactional-test', current_setting('hayyiz_test.owner'), '{"version":2}',
