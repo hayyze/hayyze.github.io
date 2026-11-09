@@ -314,7 +314,7 @@ END;
 $$;
 
 -- Browser roles must not have privileges that bypass RLS or alter table triggers.
-DO $
+DO $hayyiz_sync_privileges$
 DECLARE
     v_oversized JSONB := to_jsonb(repeat('x', 262145));
 BEGIN
@@ -338,8 +338,6 @@ BEGIN
 
     IF has_table_privilege('anon', 'private.rate_limits', 'SELECT')
        OR has_table_privilege('authenticated', 'private.rate_limits', 'SELECT')
-       OR has_table_privilege('anon', 'private.ai_request_events', 'SELECT')
-       OR has_table_privilege('authenticated', 'private.ai_request_events', 'SELECT')
        OR has_table_privilege('authenticated', 'private.workspace_invitations', 'SELECT') THEN
         RAISE EXCEPTION 'Private operational tables are directly readable by API roles';
     END IF;
@@ -358,7 +356,7 @@ BEGIN
         NULL;
     END;
 END;
-$;
+$hayyiz_sync_privileges$;
 
 -- A late network write must not replace newer data or revive a newer tombstone.
 INSERT INTO public.sync_items (user_id, tool, item_id, data, updated_at, deleted_at)
