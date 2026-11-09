@@ -100,7 +100,7 @@ console.log('=== HAYYIZ REGRESSION AUDIT SUITE ===\n');
 
 // --- 4. SERVICE WORKER CACHE VERSION TEST ---
 {
-    assert(swJs.includes("const CACHE_NAME = 'heez-v1.11.6';"), 'Service Worker uses cache version heez-v1.11.5');
+    assert(swJs.includes("const CACHE_NAME = 'heez-v1.11.9';"), 'Service Worker uses cache version heez-v1.11.9');
     assert(swJs.includes('.filter((key) => key !== CACHE_NAME)'), 'Service Worker activates clean deletion of old cache versions');
     assert(swJs.includes('./contact.html') && swJs.includes('./terms.html') && swJs.includes('./privacy.html') && swJs.includes('./founder.html'), 'Service Worker caches newly added static HTML pages for offline support');
     assert(swJs.includes('./legacy-domain-redirect.js'), 'Service Worker caches the legacy redirect asset');
