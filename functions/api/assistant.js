@@ -14,6 +14,63 @@ function json(data, status) {
     });
 }
 
+async function readRequestBodyBounded(request, maxBytes) {
+    const limit = Number.isSafeInteger(maxBytes) && maxBytes > 0 ? maxBytes : 72000;
+    const declaredLength = request.headers.get('Content-Length');
+    if (declaredLength !== null) {
+        const declared = Number(declaredLength);
+        if (Number.isFinite(declared) && declared > limit) {
+            return { text: '', tooLarge: true, invalidText: false };
+        }
+    }
+
+    if (!request.body || typeof request.body.getReader !== 'function') {
+        return { text: '', tooLarge: false, invalidText: false };
+    }
+
+    const reader = request.body.getReader();
+    const chunks = [];
+    let totalBytes = 0;
+    try {
+        while (true) {
+            const result = await reader.read();
+            if (result.done) break;
+            const chunk = result.value instanceof Uint8Array
+                ? result.value
+                : new Uint8Array(result.value);
+            if (chunk.byteLength > limit - totalBytes) {
+                await reader.cancel().catch(() => {});
+                return { text: '', tooLarge: true, invalidText: false };
+            }
+            totalBytes += chunk.byteLength;
+            chunks.push(chunk);
+        }
+    } catch (_) {
+        await reader.cancel().catch(() => {});
+        throw new Error('REQUEST_BODY_READ_FAILED');
+    } finally {
+        try { reader.releaseLock(); } catch (_) {}
+    }
+
+    const bytes = new Uint8Array(totalBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+        bytes.set(chunk, offset);
+        offset += chunk.byteLength;
+    }
+
+    try {
+        const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+        // Preserve the former request.text().length ceiling as well as the byte cap.
+        if (text.length > 24000) {
+            return { text: '', tooLarge: true, invalidText: false };
+        }
+        return { text, tooLarge: false, invalidText: false };
+    } catch (_) {
+        return { text: '', tooLarge: false, invalidText: true };
+    }
+}
+
 function cleanHistory(value) {
     if (!Array.isArray(value)) return [];
     return value.slice(-10).filter(item =>
@@ -510,16 +567,19 @@ export async function onRequestPost({ request, env }) {
     if (request.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase() !== 'application/json') {
         return json({ error: 'صيغة الطلب غير مدعومة.' }, 415);
     }
-    const length = Number(request.headers.get('Content-Length') || 0);
-    if (length > 24000) return json({ error: 'حجم الطلب أكبر من المسموح.' }, 413);
-
     const user = await authenticate(request).catch(() => null);
     if (!user) return json({ error: 'يلزم تسجيل الدخول لاستخدام المساعد.' }, 401);
 
-    const raw = await request.text();
-    if (raw.length > 24000) return json({ error: 'حجم الطلب أكبر من المسموح.' }, 413);
+    let bodyRead;
+    try {
+        bodyRead = await readRequestBodyBounded(request, 72000);
+    } catch (_) {
+        return json({ error: 'تعذر قراءة الطلب.' }, 400);
+    }
+    if (bodyRead.tooLarge) return json({ error: 'حجم الطلب أكبر من المسموح.' }, 413);
+    if (bodyRead.invalidText) return json({ error: 'صيغة النص غير صالحة.' }, 400);
     let body;
-    try { body = JSON.parse(raw); } catch (_) { return json({ error: 'تعذر قراءة الطلب.' }, 400); }
+    try { body = JSON.parse(bodyRead.text); } catch (_) { return json({ error: 'تعذر قراءة الطلب.' }, 400); }
     const message = typeof body.message === 'string' ? body.message.trim() : '';
     if (!message || message.length > 2000) return json({ error: 'اكتب رسالة بين حرف واحد و2000 حرف.' }, 400);
     const history = cleanHistory(body.history);

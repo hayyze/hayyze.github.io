@@ -6,8 +6,11 @@ const apiSource = fs.readFileSync('functions/api/assistant.js', 'utf8');
 const clientSource = fs.readFileSync('assistant.js', 'utf8');
 
 function extractFunction(source, name) {
-    const signature = 'function ' + name + '(';
-    const start = source.indexOf(signature);
+    const asyncSignature = 'async function ' + name + '(';
+    const regularSignature = 'function ' + name + '(';
+    let start = source.indexOf(asyncSignature);
+    const signature = start !== -1 ? asyncSignature : regularSignature;
+    if (start === -1) start = source.indexOf(regularSignature);
     assert.notEqual(start, -1, 'Missing function: ' + name);
     const open = source.indexOf('{', start);
     let depth = 0;
@@ -49,13 +52,14 @@ const client = loadFunctions(clientSource, [
 ], { Date: FixedDate });
 
 const api = loadFunctions(apiSource, [
+    'readRequestBodyBounded',
     'normalizeArabicIntent',
     'normalizeContext',
     'getDeterministicReply',
     'getGeminiFailureCode',
     'extractCloudflareText',
     'getCloudflareFailureCode'
-]);
+], { TextDecoder, Uint8Array });
 
 // The production limiter must use the atomic, authenticated Supabase RPC.
 assert.ok(apiSource.includes('/rest/v1/rpc/consume_ai_quota'));
@@ -191,3 +195,92 @@ assert.match(missingTitle.reply, /ما اسم الموعد/);
 assert.equal(client.inferActionProposal('ما معنى موعد يوم الاثنين؟', []), null);
 
 console.log('PASS assistant knowledge, no-hallucination priorities, greeting, date/time parsing and confirmed task/calendar proposals');
+
+
+(async () => {
+    const streamRequest = (chunks, contentLength = null) => {
+        let index = 0;
+        let cancelled = false;
+        return {
+            cancelled: () => cancelled,
+            headers: {
+                get(name) {
+                    return name.toLowerCase() === 'content-length' ? contentLength : null;
+                }
+            },
+            body: {
+                getReader() {
+                    return {
+                        async read() {
+                            return index < chunks.length
+                                ? { done: false, value: chunks[index++] }
+                                : { done: true, value: undefined };
+                        },
+                        async cancel() { cancelled = true; },
+                        releaseLock() {}
+                    };
+                }
+            }
+        };
+    };
+
+    const encoded = new TextEncoder().encode('طلب عربي آمن');
+    const acceptedRequest = streamRequest([encoded.slice(0, 5), encoded.slice(5)]);
+    const accepted = await api.readRequestBodyBounded(acceptedRequest, 24000);
+    assert.equal(accepted.text, 'طلب عربي آمن');
+    assert.equal(accepted.tooLarge, false);
+
+    const oversizedRequest = streamRequest([
+        new Uint8Array(15000),
+        new Uint8Array(10000)
+    ]);
+    const oversized = await api.readRequestBodyBounded(oversizedRequest, 24000);
+    assert.equal(oversized.tooLarge, true);
+    assert.equal(oversizedRequest.cancelled(), true);
+
+    const declaredOversized = await api.readRequestBodyBounded(
+        streamRequest([], '25000'),
+        24000
+    );
+    assert.equal(declaredOversized.tooLarge, true);
+
+    // Preserve the previous 24,000 UTF-16-code-unit limit for Arabic content.
+    const arabicAtBoundaryBytes = new TextEncoder().encode('ا'.repeat(24000));
+    const arabicBoundary = await api.readRequestBodyBounded(
+        streamRequest([arabicAtBoundaryBytes], String(arabicAtBoundaryBytes.byteLength)),
+        72000
+    );
+    assert.equal(arabicBoundary.tooLarge, false);
+    assert.equal(arabicBoundary.text.length, 24000);
+
+    const arabicOverLimitBytes = new TextEncoder().encode('ا'.repeat(24001));
+    const arabicOverLimit = await api.readRequestBodyBounded(
+        streamRequest([arabicOverLimitBytes], String(arabicOverLimitBytes.byteLength)),
+        72000
+    );
+    assert.equal(arabicOverLimit.tooLarge, true);
+
+    // Three-byte UTF-8 code points must also stop at the streaming byte ceiling.
+    const byteOverLimit = await api.readRequestBodyBounded(
+        streamRequest([new TextEncoder().encode('\u0800'.repeat(24001))], '72003'),
+        72000
+    );
+    assert.equal(byteOverLimit.tooLarge, true);
+
+    // ASCII input keeps the former character ceiling; it is not widened to 72 KB.
+    const asciiOverLimit = await api.readRequestBodyBounded(
+        streamRequest([new TextEncoder().encode('a'.repeat(24001))], '24001'),
+        72000
+    );
+    assert.equal(asciiOverLimit.tooLarge, true);
+
+    const invalidUtf8 = await api.readRequestBodyBounded(
+        streamRequest([new Uint8Array([0xC3, 0x28])]),
+        24000
+    );
+    assert.equal(invalidUtf8.invalidText, true);
+    console.log('PASS assistant request body streaming limit, cancellation and UTF-8 validation');
+})().catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+});

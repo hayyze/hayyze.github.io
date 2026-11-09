@@ -78,50 +78,93 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $$
+AS $function$
 DECLARE
-    max_payload_bytes CONSTANT INT := 102400; -- 100 KB limit per JSON item
-    max_collection_items CONSTANT INT := 500;   -- Max 500 active items per tool collection
-    current_count INT;
+    max_payload_bytes CONSTANT INT := 262144; -- 256 KiB per JSON item
+    max_collection_items CONSTANT INT := 500;  -- active items per tool/user
+    current_count BIGINT := 0;
     is_existing_item BOOLEAN := FALSE;
     user_id_val UUID;
     tool_val TEXT;
     item_id_val TEXT;
     data_val JSONB;
+    request_role TEXT := auth.role();
 BEGIN
-    user_id_val := COALESCE(NEW.user_id, OLD.user_id);
-    tool_val := COALESCE(NEW.tool, OLD.tool);
-    item_id_val := COALESCE(NEW.item_id, OLD.item_id);
+    IF TG_OP = 'DELETE' THEN
+        user_id_val := OLD.user_id;
+        tool_val := OLD.tool;
+        item_id_val := OLD.item_id;
+    ELSE
+        user_id_val := NEW.user_id;
+        tool_val := NEW.tool;
+        item_id_val := NEW.item_id;
+    END IF;
 
-    -- Enforce user_id matching for authenticated users, but allow service_role administrative cleanup
-    IF auth.role() <> 'service_role' THEN
-        IF user_id_val IS NULL OR user_id_val <> auth.uid() THEN
+    -- Browser roles must write only their own rows. Explicit service-role
+    -- requests and trusted direct database sessions retain administrative access.
+    IF request_role IS DISTINCT FROM 'service_role'
+       AND NOT (request_role IS NULL AND session_user IN ('postgres', 'supabase_admin')) THEN
+        IF auth.uid() IS NULL OR user_id_val IS DISTINCT FROM auth.uid() THEN
             RAISE EXCEPTION 'Unauthorized: user_id must match authenticated user identity.'
                 USING ERRCODE = '42501';
         END IF;
     END IF;
 
-    IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
+    IF TG_OP IN ('INSERT', 'UPDATE') THEN
         data_val := NEW.data;
-        IF octet_length(data_val::text) > max_payload_bytes THEN
-            RAISE EXCEPTION 'Payload size exceeds the limit of 100KB for item % in tool %.', item_id_val, tool_val
+        IF data_val IS NULL OR octet_length(data_val::text) > max_payload_bytes THEN
+            RAISE EXCEPTION 'Payload size exceeds the limit of 256 KiB for item % in tool %.',
+                item_id_val, tool_val
                 USING ERRCODE = '22026';
         END IF;
-    END IF;
 
-    IF TG_OP = 'INSERT' THEN
-        SELECT EXISTS (
-            SELECT 1 FROM public.sync_items
-            WHERE user_id = user_id_val AND tool = tool_val AND item_id = item_id_val
-        ) INTO is_existing_item;
+        IF NEW.deleted_at IS NULL
+           AND request_role IS DISTINCT FROM 'service_role'
+           AND NOT (request_role IS NULL AND session_user IN ('postgres', 'supabase_admin')) THEN
+            -- Serialize quota checks by account + tool so two concurrent inserts
+            -- cannot both observe the same final free slot.
+            PERFORM pg_catalog.pg_advisory_xact_lock(
+                pg_catalog.hashtextextended(
+                    'hayyiz-sync-collection:' || user_id_val::TEXT || ':' || tool_val,
+                    0
+                )
+            );
 
-        IF NOT is_existing_item THEN
-            SELECT COUNT(*) INTO current_count
-            FROM public.sync_items
-            WHERE user_id = user_id_val AND tool = tool_val AND deleted_at IS NULL;
+            IF TG_OP = 'INSERT' THEN
+                -- An upsert of an existing item does not consume a new slot.
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM public.sync_items
+                    WHERE user_id = user_id_val
+                      AND tool = tool_val
+                      AND item_id = item_id_val
+                ) INTO is_existing_item;
+
+                IF NOT is_existing_item THEN
+                    SELECT COUNT(*) INTO current_count
+                    FROM public.sync_items
+                    WHERE user_id = user_id_val
+                      AND tool = tool_val
+                      AND deleted_at IS NULL;
+                END IF;
+            ELSE
+                -- Exclude the row being updated; this also blocks resurrection
+                -- of a tombstone when the collection is already full.
+                SELECT COUNT(*) INTO current_count
+                FROM public.sync_items AS existing
+                WHERE existing.user_id = user_id_val
+                  AND existing.tool = tool_val
+                  AND existing.deleted_at IS NULL
+                  AND NOT (
+                      existing.user_id = OLD.user_id
+                      AND existing.tool = OLD.tool
+                      AND existing.item_id = OLD.item_id
+                  );
+            END IF;
 
             IF current_count >= max_collection_items THEN
-                RAISE EXCEPTION 'Quota exceeded: Maximum allowed items (%) reached for tool %.', max_collection_items, tool_val
+                RAISE EXCEPTION 'Quota exceeded: Maximum allowed active items (%) reached for tool %.',
+                    max_collection_items, tool_val
                     USING ERRCODE = '54000';
             END IF;
         END IF;
@@ -130,17 +173,18 @@ BEGIN
     IF TG_OP = 'DELETE' THEN
         RETURN OLD;
     END IF;
-
     RETURN NEW;
 END;
-$$;
+$function$;
+
+REVOKE ALL ON FUNCTION public.check_sync_item_limits()
+FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS trg_check_sync_item_limits ON public.sync_items;
 CREATE TRIGGER trg_check_sync_item_limits
 BEFORE INSERT OR UPDATE OR DELETE ON public.sync_items
 FOR EACH ROW
 EXECUTE FUNCTION public.check_sync_item_limits();
-
 
 -- Pure JSON helpers mirror focus-history.js. Invalid counters normalize to zero.
 CREATE OR REPLACE FUNCTION private.focus_counter(p_value JSONB)
@@ -412,6 +456,8 @@ BEGIN
         WHEN 'task_create' THEN v_max_attempts := 120; v_window_seconds := 3600;
         WHEN 'task_progress' THEN v_max_attempts := 120; v_window_seconds := 60;
         WHEN 'focus_session_write' THEN v_max_attempts := 300; v_window_seconds := 86400;
+        WHEN 'sync_item_write' THEN v_max_attempts := 1000; v_window_seconds := 60;
+        WHEN 'sync_item_daily' THEN v_max_attempts := 10000; v_window_seconds := 86400;
         ELSE
             RAISE EXCEPTION 'Invalid rate-limit action.' USING ERRCODE = '22023';
     END CASE;
@@ -423,6 +469,50 @@ BEGIN
     );
 END;
 $$;
+
+CREATE OR REPLACE FUNCTION private.enforce_sync_item_write_limits()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $hayyiz_sync_guard$
+DECLARE
+    v_user_id UUID := auth.uid();
+    v_role TEXT := auth.role();
+BEGIN
+    IF v_user_id IS NULL THEN
+        IF v_role IS DISTINCT FROM 'service_role' THEN
+            RAISE EXCEPTION 'Unauthorized: Authentication required.' USING ERRCODE = '42501';
+        END IF;
+    ELSIF NEW.user_id IS DISTINCT FROM v_user_id THEN
+        RAISE EXCEPTION 'Unauthorized: sync item must belong to the authenticated user.'
+            USING ERRCODE = '42501';
+    END IF;
+
+    IF NEW.tool IS NULL OR length(NEW.tool) < 1 OR length(NEW.tool) > 64
+       OR left(NEW.tool, 1) !~ '[a-z0-9]' OR NEW.tool ~ '[^a-z0-9_-]' THEN
+        RAISE EXCEPTION 'Invalid sync tool identifier.' USING ERRCODE = '22023';
+    END IF;
+    IF NEW.item_id IS NULL OR length(NEW.item_id) < 1 OR length(NEW.item_id) > 200
+       OR NEW.item_id ~ '[[:cntrl:]]' THEN
+        RAISE EXCEPTION 'Invalid sync item identifier.' USING ERRCODE = '22023';
+    END IF;
+    IF NEW.data IS NULL OR octet_length(NEW.data::text) > 262144 THEN
+        RAISE EXCEPTION 'Sync item payload exceeds the 256 KiB limit.' USING ERRCODE = '22023';
+    END IF;
+
+    IF v_role IS DISTINCT FROM 'service_role' THEN
+        IF NOT private.consume_rpc_rate_limit('sync_item_write')
+           OR NOT private.consume_rpc_rate_limit('sync_item_daily') THEN
+            RAISE EXCEPTION 'Sync write rate limit exceeded. Retry later.'
+                USING ERRCODE = 'PGRST',
+                      DETAIL = '{"status":429,"status_text":"Too Many Requests"}',
+                      HINT = 'HTTP 429 Too Many Requests';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$hayyiz_sync_guard$;
 
 CREATE OR REPLACE FUNCTION private.pre_request()
 RETURNS VOID
@@ -1625,6 +1715,11 @@ WITH CHECK (user_id = (select auth.uid()));
 -- =============================================================================
 
 
+-- RLS does not protect TRUNCATE. Browser roles also do not need REFERENCES
+-- or TRIGGER privileges on application tables.
+REVOKE TRUNCATE, REFERENCES, TRIGGER ON ALL TABLES IN SCHEMA public
+    FROM PUBLIC, anon, authenticated;
+
 -- Exposed table grants and immutable sharing identities.
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.sync_items TO authenticated;
 -- All privileged inserts and progress/focus writes must pass through the validated,
@@ -1651,6 +1746,15 @@ GRANT SELECT (id, display_name, updated_at) ON public.profiles TO authenticated;
 GRANT UPDATE (display_name, updated_at) ON public.profiles TO authenticated;
 GRANT ALL ON public.profiles, public.workspaces, public.workspace_members, public.tasks,
     public.task_members, public.task_progress, public.focus_sessions, public.sync_items TO service_role;
+
+-- Internal private tables are only accessed through narrowly-scoped SECURITY DEFINER
+-- routines, never by direct API table access.
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA private FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION private.enforce_sync_item_write_limits() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS trg_enforce_sync_item_write_limits ON public.sync_items;
+CREATE TRIGGER trg_enforce_sync_item_write_limits
+BEFORE INSERT OR UPDATE ON public.sync_items
+FOR EACH ROW EXECUTE FUNCTION private.enforce_sync_item_write_limits();
 
 -- These policy helpers are intentionally private, outside the exposed public API schema.
 GRANT USAGE ON SCHEMA private TO authenticated;
