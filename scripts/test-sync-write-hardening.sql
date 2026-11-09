@@ -2,6 +2,19 @@
 -- Uses a transaction and a synthetic JWT subject; fixtures are rolled back.
 BEGIN;
 
+-- The canonical schema adds a foreign key from sync_items.user_id to auth.users.
+-- Create a rollback-only fixture so these tests exercise the same constraint as production.
+INSERT INTO auth.users (id, aud, role, email, email_confirmed_at, raw_user_meta_data)
+VALUES (
+    '00000000-0000-4000-8000-000000000042',
+    'authenticated',
+    'authenticated',
+    'sync-hardening-test@example.invalid',
+    now(),
+    '{"display_name":"Sync hardening test"}'::jsonb
+)
+ON CONFLICT (id) DO NOTHING;
+
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000042', true);
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT set_config('request.jwt.claims',
