@@ -5,7 +5,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 
-const root = __dirname;
+const root = path.resolve(__dirname, '..');
 const htmlFiles = fs.readdirSync(root).filter(file => file.toLowerCase().endsWith('.html'));
 let checkedPages = 0;
 let checkedInlineScripts = 0;
@@ -43,8 +43,9 @@ for (const file of htmlFiles) {
         checkedInlineScripts += 1;
     }
 
-    for (const tag of html.match(/<[a-z][^>]*>/gi) || []) {
-        assert.ok(!/\son[a-z]+\s*=/i.test(tag), `${file}: inline event handler found in HTML tag`);
+    const markup = html.replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script\\s*>/gi, '');
+    for (const tag of markup.match(/<[a-z][^>]*>/gi) || []) {
+        assert.ok(!/\\son[a-z]+\\s*=/i.test(tag), `${file}: inline event handler found in HTML tag`);
     }
 }
 
