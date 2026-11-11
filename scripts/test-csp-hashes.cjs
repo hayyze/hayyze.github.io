@@ -126,6 +126,9 @@ for (const file of htmlFiles) {
     if (!meta) continue;
 
     checkedPages += 1;
+    const firstScript = html.search(/<script\b/i);
+    assert.ok(firstScript === -1 || meta.index < firstScript, file + ': CSP meta must precede every script');
+
     const content = /\bcontent\s*=\s*(["'])([\s\S]*?)\1/i.exec(meta[0]);
     assert.ok(content, `${file}: CSP meta tag must have a content attribute`);
 
