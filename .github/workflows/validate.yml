@@ -67,6 +67,8 @@ jobs:
         run: for file in *.js; do node --check "$file"; done
       - name: Run all regression and security tests
         run: node scripts/run-tests.cjs
+      - name: Verify strict CSP hashes and block inline event handlers
+        run: node scripts/test-csp-hashes.cjs
   browser:
     runs-on: ubuntu-latest
     timeout-minutes: 10

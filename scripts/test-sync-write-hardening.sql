@@ -157,4 +157,102 @@ BEGIN
 END;
 $hayyiz_sync_hardening$;
 
+
+-- Account-wide sync caps: 2,000 active items across tools and 2 MiB of retained JSON payloads.
+-- Fixtures use service_role only to seed the boundary without consuming authenticated write-rate quota.
+RESET ROLE;
+INSERT INTO auth.users (id, aud, role, email, email_confirmed_at, raw_user_meta_data)
+VALUES
+    ('00000000-0000-4000-8000-000000000044','authenticated','authenticated','sync-account-items@example.invalid',now(),'{"display_name":"Sync aggregate test"}'),
+    ('00000000-0000-4000-8000-000000000045','authenticated','authenticated','sync-account-bytes@example.invalid',now(),'{"display_name":"Sync byte quota test"}')
+ON CONFLICT (id) DO NOTHING;
+
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000044', true);
+SELECT set_config('request.jwt.claim.role', 'service_role', true);
+SELECT set_config('request.jwt.claims',
+    '{"sub":"00000000-0000-4000-8000-000000000044","role":"service_role"}', true);
+SET LOCAL ROLE service_role;
+
+INSERT INTO public.sync_items (user_id, tool, item_id, data)
+SELECT '00000000-0000-4000-8000-000000000044',
+       'aggregate-' || collection_no::text,
+       'item-' || item_no::text,
+       '{}'::jsonb
+FROM generate_series(1, 4) AS collection_no
+CROSS JOIN generate_series(1, 500) AS item_no;
+
+RESET ROLE;
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000044', true);
+SELECT set_config('request.jwt.claim.role', 'authenticated', true);
+SELECT set_config('request.jwt.claims',
+    '{"sub":"00000000-0000-4000-8000-000000000044","role":"authenticated"}', true);
+SET LOCAL ROLE authenticated;
+
+-- Updating an existing row at the account cap remains valid.
+INSERT INTO public.sync_items (user_id, tool, item_id, data)
+VALUES (auth.uid(), 'aggregate-1', 'item-1', '{"updated":true}'::jsonb)
+ON CONFLICT (user_id, tool, item_id)
+DO UPDATE SET data = EXCLUDED.data, updated_at = now();
+
+DO $hayyiz_account_item_cap$
+BEGIN
+    BEGIN
+        INSERT INTO public.sync_items (user_id, tool, item_id, data)
+        VALUES (auth.uid(), 'another-tool', 'item-2001', '{}'::jsonb);
+        RAISE EXCEPTION 'sync_items accepted more than 2,000 active account items.';
+    EXCEPTION WHEN SQLSTATE '54000' THEN
+        NULL;
+    END;
+    -- A soft-deleted row frees one active-item slot, but remains retained storage.
+    UPDATE public.sync_items
+    SET deleted_at = now()
+    WHERE user_id = auth.uid() AND tool = 'aggregate-1' AND item_id = 'item-1';
+    INSERT INTO public.sync_items (user_id, tool, item_id, data)
+    VALUES (auth.uid(), 'another-tool', 'replacement-item', '{}'::jsonb);
+END;
+$hayyiz_account_item_cap$;
+
+RESET ROLE;
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000045', true);
+SELECT set_config('request.jwt.claim.role', 'service_role', true);
+SELECT set_config('request.jwt.claims',
+    '{"sub":"00000000-0000-4000-8000-000000000045","role":"service_role"}', true);
+SET LOCAL ROLE service_role;
+
+INSERT INTO public.sync_items (user_id, tool, item_id, data)
+SELECT '00000000-0000-4000-8000-000000000045',
+       'payload-quota-test',
+       'payload-' || item_no::text,
+       to_jsonb(repeat('x', 262000))
+FROM generate_series(1, 8) AS item_no;
+
+RESET ROLE;
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000045', true);
+SELECT set_config('request.jwt.claim.role', 'authenticated', true);
+SELECT set_config('request.jwt.claims',
+    '{"sub":"00000000-0000-4000-8000-000000000045","role":"authenticated"}', true);
+SET LOCAL ROLE authenticated;
+
+DO $hayyiz_account_byte_cap$
+BEGIN
+    BEGIN
+        INSERT INTO public.sync_items (user_id, tool, item_id, data)
+        VALUES (auth.uid(), 'payload-quota-test', 'payload-9', to_jsonb(repeat('y', 262000)));
+        RAISE EXCEPTION 'sync_items accepted more than 2 MiB of retained account JSON payloads.';
+    EXCEPTION WHEN SQLSTATE '54000' THEN
+        NULL;
+    END;
+    UPDATE public.sync_items
+    SET deleted_at = now()
+    WHERE user_id = auth.uid() AND tool = 'payload-quota-test' AND item_id = 'payload-1';
+    BEGIN
+        INSERT INTO public.sync_items (user_id, tool, item_id, data)
+        VALUES (auth.uid(), 'payload-quota-test', 'payload-10', to_jsonb(repeat('z', 262000)));
+        RAISE EXCEPTION 'Soft deletion incorrectly freed retained account storage quota.';
+    EXCEPTION WHEN SQLSTATE '54000' THEN
+        NULL;
+    END;
+END;
+$hayyiz_account_byte_cap$;
+
 ROLLBACK;
