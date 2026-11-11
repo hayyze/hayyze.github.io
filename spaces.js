@@ -238,6 +238,16 @@ var hayyizStorage = (typeof window !== 'undefined' && window.hayyizStorage) || (
     async function initWorkspacesModule() {
         if (!uiEventsBound) { setupUIEvents(); uiEventsBound = true; }
 
+        const guestLoginButton = $('workspace-login-button');
+        if (guestLoginButton && !guestLoginButton.dataset.hayyizAuthActionBound) {
+            guestLoginButton.dataset.hayyizAuthActionBound = 'true';
+            guestLoginButton.addEventListener('click', () => {
+                if (typeof global.hayyizOpenAuthModal === 'function') {
+                    global.hayyizOpenAuthModal('login');
+                }
+            });
+        }
+
         if (typeof hayyizGetUser === 'function') {
             currentUser = await hayyizGetUser();
         } else if (typeof window !== 'undefined' && window.supabaseClient && window.supabaseClient.auth) {

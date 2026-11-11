@@ -63,6 +63,8 @@ BEGIN
         WHEN 'task_create' THEN v_max_attempts := 120; v_window_seconds := 3600;
         WHEN 'task_progress' THEN v_max_attempts := 120; v_window_seconds := 60;
         WHEN 'focus_session_write' THEN v_max_attempts := 300; v_window_seconds := 86400;
+        WHEN 'sync_item_write' THEN v_max_attempts := 1000; v_window_seconds := 60;
+        WHEN 'sync_item_daily' THEN v_max_attempts := 10000; v_window_seconds := 86400;
         ELSE RAISE EXCEPTION 'Invalid rate-limit action.' USING ERRCODE = '22023';
     END CASE;
 
