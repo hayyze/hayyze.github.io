@@ -3507,3 +3507,54 @@ html.theme-dark .notes-dropdowns select {
 .planning-metrics { margin-top:1rem; font-size:.85rem; }
 .planning-setup { padding:1rem; margin-bottom:1rem; }
 @media (max-width:480px) { .planning-inline > .btn { width:100%; } .planning-settings form > .btn { margin:.4rem 0; } }
+
+
+/* ===================== SHARED SITE FOOTER ===================== */
+.site-footer {
+    background-color: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    padding: 2.2rem 0;
+    margin-top: 3.5rem;
+    text-align: center;
+}
+
+.site-footer-container {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 0 1.25rem;
+}
+
+.site-footer-copy {
+    margin: 0 0 0.8rem;
+    color: var(--color-text-secondary);
+    font-size: 0.92rem;
+}
+
+.site-footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.4rem;
+    flex-wrap: wrap;
+}
+
+.site-footer-link {
+    color: var(--color-text);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.site-footer-link:hover,
+.site-footer-link:focus-visible {
+    color: var(--color-primary);
+}
+
+@media (max-width: 480px) {
+    .site-footer {
+        padding: 1.8rem 0;
+    }
+
+    .site-footer-links {
+        gap: 0.9rem 1.1rem;
+    }
+}
